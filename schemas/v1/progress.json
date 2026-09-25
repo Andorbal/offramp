@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/progress.json",
+  "title": "Offramp progress event",
+  "description": "One line of the NDJSON progress stream written to stderr with --json. See docs/spec/01-cli-conventions.md#progress-protocol-stderr.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event", "name", "index", "of"],
+      "properties": {
+        "event": { "const": "phase" },
+        "name": { "type": "string", "minLength": 1 },
+        "index": { "type": "integer", "minimum": 1 },
+        "of": { "type": "integer", "minimum": 1 }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event", "phase", "current", "total", "item"],
+      "properties": {
+        "event": { "const": "progress" },
+        "phase": { "type": "string", "minLength": 1 },
+        "current": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "item": { "type": ["string", "null"] }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event", "level", "message"],
+      "properties": {
+        "event": { "const": "log" },
+        "level": { "enum": ["debug", "info", "warning", "error"] },
+        "message": { "type": "string" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event", "phase", "durationMs"],
+      "properties": {
+        "event": { "const": "done" },
+        "phase": { "type": "string", "minLength": 1 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    }
+  ]
+}

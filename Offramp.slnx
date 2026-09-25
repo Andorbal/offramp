@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Offramp.Cli/Offramp.Cli.csproj" />
+    <Project Path="src/Offramp.Core/Offramp.Core.csproj" />
+    <Project Path="src/Offramp.Workspace/Offramp.Workspace.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Offramp.Cli.Tests/Offramp.Cli.Tests.csproj" />
+    <Project Path="tests/Offramp.Core.Tests/Offramp.Core.Tests.csproj" />
+    <Project Path="tests/Offramp.Fixtures/Offramp.Fixtures.csproj" />
+    <Project Path="tests/Offramp.Workspace.Tests/Offramp.Workspace.Tests.csproj" />
+  </Folder>
+  <Folder Name="/solution-items/">
+    <File Path=".editorconfig" />
+    <File Path="CHANGELOG.md" />
+    <File Path="CLAUDE.md" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="README.md" />
+  </Folder>
+</Solution>

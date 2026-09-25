@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Shared test support: temporary repositories, fake process runners, schema
+    validation, snapshot scrubbing, and (from M1) the fixture generator and the
+    checked-in fixture solutions under tests/fixtures/.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Offramp.Fixtures</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Offramp.Core\Offramp.Core.csproj" />
+    <ProjectReference Include="..\..\src\Offramp.Workspace\Offramp.Workspace.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <PackageReference Include="xunit.v3.assert" />
+    <PackageReference Include="Verify.XunitV3" />
+  </ItemGroup>
+</Project>

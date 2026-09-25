@@ -46,6 +46,34 @@ Checks, each with pass/warn/fail and a remedy:
 
 Exit 0 when nothing failed; 1 when any check failed.
 
+Result (`schemas/v1/doctor.json`; decided in `docs/decisions/0006-doctor-contract.md`):
+
+```jsonc
+{
+  "checks": [
+    { "id": "dotnet-sdk", "title": ".NET SDK installed", "status": "pass|warn|fail|skip",
+      "message": "Installed: 8.0.404, 10.0.100.", "remedy": null, "codes": [] }
+  ],
+  "environment": {
+    "sdks": ["8.0.404", "10.0.100"], "selectedSdk": "10.0.100",
+    "globalJson": { "path": "global.json", "version": "10.0.100", "rollForward": "latestFeature" },
+    "git": { "version": "2.45.0", "repository": true }, "os": "linux-x64", "target": "net10.0"
+  },
+  "summary": { "pass": 7, "warn": 1, "fail": 0, "skip": 0 }
+}
+```
+
+Check ids, in output order: `dotnet-sdk`, `global-json`, `target`,
+`reference-assemblies`, `git`, `git-repository`, `config`, `workspace`; later
+milestones append `windows-only-build-steps`, `cpm`, and `llm`. A check's status
+matches its diagnostic's severity (fail = error, warn = warning), so the exit code
+follows `--fail-on`. Diagnostics: `OFR0010` no SDK, `OFR0011` global.json SDK not
+installed, `OFR0012` SDK cannot target `--target`, `OFR0013` reference assemblies
+unresolvable, `OFR0014` git not found, `OFR0015` not a git repository, `OFR0016`
+no `offramp.yml` (info), `OFR0001` workspace model missing (reported as a warning
+by doctor), `OFR1006` feed unreachable, and the configuration codes
+`OFR0050`–`OFR0056`.
+
 ## `init`
 
 See `03-configuration.md#init`.

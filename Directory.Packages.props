@@ -1,0 +1,45 @@
+<Project>
+  <!--
+    Central package management for Offramp itself. Every PackageReference in
+    the repository takes its version from here. Fixture solutions under
+    tests/fixtures/ opt out with their own Directory.Packages.props.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Build">
+    <PackageVersion Include="MinVer" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Runtime">
+    <PackageVersion Include="System.CommandLine" Version="2.0.12" />
+    <PackageVersion Include="Spectre.Console" Version="0.57.2" />
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" />
+    <PackageVersion Include="JsonSchema.Net" Version="9.4.0" />
+    <PackageVersion Include="System.Text.Json" Version="10.0.12" />
+    <PackageVersion Include="NuGet.Configuration" Version="7.9.0" />
+    <PackageVersion Include="NuGet.Frameworks" Version="7.9.0" />
+    <PackageVersion Include="NuGet.Protocol" Version="7.9.0" />
+    <PackageVersion Include="NuGet.Versioning" Version="7.9.0" />
+    <PackageVersion Include="NuGet.ProjectModel" Version="7.9.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Test">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <!--
+      xunit v3 3.2.x runs under VSTest (xunit.runner.visualstudio 3.x), so the dotnet test
+      filter, logger, and collect switches work as documented; 4.x is Microsoft.Testing.Platform
+      only. See docs/decisions/0005-test-stack.md.
+    -->
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
+    <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- 32.0.1: the last release before Verify 33 added a sponsorship build gate (see docs/decisions/0005-test-stack.md). -->
+    <PackageVersion Include="Verify.XunitV3" Version="32.0.1" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <PackageVersion Include="Spectre.Console.Testing" Version="0.57.2" />
+  </ItemGroup>
+</Project>

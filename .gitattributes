@@ -1,0 +1,12 @@
+# Normalize line endings so output, snapshots, and fixtures are byte-identical
+# on every OS. Moves must not change bytes; LF everywhere keeps that simple.
+* text=auto eol=lf
+
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+*.png binary
+*.dll binary
+*.nupkg binary
+*.binlog binary
+*.complog binary
