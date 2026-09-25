@@ -154,6 +154,23 @@ public sealed class GlobalBehaviorTests : IDisposable
         Assert.DoesNotContain("\u001b[", dumb.Out, StringComparison.Ordinal);
     }
 
+    /// <summary>Linux environments often carry both spellings of proxy variables.</summary>
+    [Fact]
+    public async Task Case_variant_environment_variables_do_not_break_rendering()
+    {
+        _cli.Environment["https_proxy"] = "http://127.0.0.1:1";
+        _cli.Environment["HTTPS_PROXY"] = "http://127.0.0.1:1";
+        _cli.Environment["GITHUB_ACTIONS"] = "true";
+
+        foreach (var terminal in new[] { false, true })
+        {
+            _cli.OutputIsTerminal = terminal;
+            var run = await _cli.RunAsync("doctor");
+            Assert.Equal(0, run.ExitCode);
+            Assert.StartsWith(terminal ? "[" : "Doctor passed", run.Out, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public async Task Json_output_never_contains_ansi_escapes_even_on_a_terminal()
     {

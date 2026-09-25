@@ -14,7 +14,6 @@ public static class ConsoleFactory
     public static IAnsiConsole Create(CliHost host, TextWriter writer, bool isTerminal, bool forceNoColor = false)
     {
         var noColor = forceNoColor || ColorsDisabled(host) || !isTerminal;
-        var environment = host.Environment.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
         var console = AnsiConsole.Create(new AnsiConsoleSettings
         {
             Ansi = noColor ? AnsiSupport.No : AnsiSupport.Yes,
@@ -24,8 +23,9 @@ public static class ConsoleFactory
 
             // Spectre's CI enrichers read the real process environment and would turn
             // ANSI back on for redirected output on build agents; the host decides instead.
+            // (No EnvironmentVariables here: Spectre copies them into a case-insensitive
+            // dictionary and throws on https_proxy/HTTPS_PROXY pairs.)
             Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
-            EnvironmentVariables = environment,
         });
         console.Profile.Width = host.Width;
         console.Profile.Capabilities.Ansi = !noColor;
