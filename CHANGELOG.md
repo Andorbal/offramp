@@ -11,6 +11,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-25
+
 ### Added
 - Handoff pack: README, contributor contract (CLAUDE.md), specification
   (`docs/spec/`), roadmap, release process, CI and release workflows.
@@ -47,4 +49,5 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `Directory.Build.props` no longer produces a separate symbols package: PDBs
   are embedded, so `dotnet pack` failed with NU5017 when asked for a `.snupkg`.
 
-[Unreleased]: https://github.com/Andorbal/offramp/compare/main...HEAD
+[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Andorbal/offramp/releases/tag/v0.1.0
