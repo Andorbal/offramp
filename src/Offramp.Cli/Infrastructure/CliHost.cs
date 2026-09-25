@@ -62,6 +62,13 @@ public sealed record CliHost
         }
 
         var outputIsTerminal = !Console.IsOutputRedirected;
+        if (outputIsTerminal || !Console.IsErrorRedirected)
+        {
+            // Spectre's detection switches a Windows console into VT mode as a side effect;
+            // Offramp's own consoles then emit ANSI directly (see ConsoleFactory).
+            _ = AnsiConsole.Profile.Capabilities.Ansi;
+        }
+
         int width;
         try
         {

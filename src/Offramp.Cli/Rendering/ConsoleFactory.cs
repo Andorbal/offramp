@@ -14,18 +14,26 @@ public static class ConsoleFactory
     public static IAnsiConsole Create(CliHost host, TextWriter writer, bool isTerminal, bool forceNoColor = false)
     {
         var noColor = forceNoColor || ColorsDisabled(host) || !isTerminal;
+        var environment = host.Environment.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
         var console = AnsiConsole.Create(new AnsiConsoleSettings
         {
-            Ansi = noColor ? AnsiSupport.No : AnsiSupport.Detect,
+            Ansi = noColor ? AnsiSupport.No : AnsiSupport.Yes,
             ColorSystem = noColor ? ColorSystemSupport.NoColors : ColorSystemSupport.Detect,
             Interactive = isTerminal && host.InputIsTerminal ? InteractionSupport.Yes : InteractionSupport.No,
             Out = new AnsiConsoleOutput(writer),
+
+            // Spectre's CI enrichers read the real process environment and would turn
+            // ANSI back on for redirected output on build agents; the host decides instead.
+            Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
+            EnvironmentVariables = environment,
         });
         console.Profile.Width = host.Width;
-        if (!isTerminal)
+        console.Profile.Capabilities.Ansi = !noColor;
+        console.Profile.Capabilities.Links = !noColor;
+        console.Profile.Capabilities.Interactive = isTerminal && host.InputIsTerminal;
+        if (noColor)
         {
-            // Redirected output is read by tools and diffed in tests: plain, stable, UTF-8.
-            console.Profile.Capabilities.Links = false;
+            console.Profile.Capabilities.ColorSystem = ColorSystem.NoColors;
         }
 
         return console;
