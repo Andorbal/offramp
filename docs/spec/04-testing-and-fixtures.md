@@ -41,6 +41,12 @@ Scrubbers applied to every snapshot:
 - Ordering is not scrubbed. If a snapshot changes because ordering changed, the
   command lost determinism; fix the command.
 
+Snapshots live in each test project's `Snapshots/` directory
+(`*.verified.*`); `eng/accept-snapshots.sh` accepts pending `*.received.*`
+files after review. Tests that trigger a diagnostic carry
+`[ProducesDiagnostic("OFR####")]`, and a meta-test fails when a code in the
+catalog has no such test. Test stack: `docs/decisions/0005-test-stack.md`.
+
 ## Categories
 
 | Trait | Runs |

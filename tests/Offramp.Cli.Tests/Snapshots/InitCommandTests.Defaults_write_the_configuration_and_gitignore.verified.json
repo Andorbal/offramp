@@ -1,0 +1,144 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "init",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": null,
+    "workspaceHash": null,
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "configFile": "offramp.yml",
+    "written": true,
+    "dryRun": false,
+    "replaced": false,
+    "interactive": false,
+    "values": {
+      "target": 10,
+      "solution": "src/Monolith.sln",
+      "verifyMode": "build",
+      "cpmFile": "Directory.Packages.props",
+      "pins": []
+    },
+    "solutionCandidates": [
+      "src/Monolith.sln"
+    ],
+    "gitignore": {
+      "file": ".gitignore",
+      "added": [
+        ".offramp/cache/",
+        ".offramp/journal/",
+        ".offramp/verify/",
+        ".offramp/*.binlog",
+        ".offramp/*.complog"
+      ],
+      "present": []
+    },
+    "content": "# offramp.yml: Offramp configuration.\n# Reference: https://github.com/Andorbal/offramp/blob/main/docs/spec/03-configuration.md\n# Precedence: built-in defaults < this file < OFFRAMP_* environment variables < command-line flags.\nversion: 1\n\n# Integer major version of the modern target (10 = net10.0). --target overrides.\ntarget: 10\n\n# The solution (.sln, .slnx, or .slnf) Offramp works on.\nsolution: src/Monolith.sln\n\npaths:\n  # Repository-relative globs. Excluded projects stay in the model but are never modified.\n  exclude: []\n  state: .offramp\n\nverify:\n  # build: dotnet build the affected projects | command: run verify.command | none\n  mode: build\n  timeoutSeconds: 1800\n  configuration: Debug\n  # Extra -p: values for every verification build and for scan, for example:\n  #   GenerateSerializationAssemblies: \"Off\"\n  properties: {}\n  noWarn: []\n  restore: true\n  # For movers: rollback | keep\n  onFailure: rollback\n\ndeps:\n  # Packages that must share one version, for example:\n  #   - prefix: \"Microsoft.Extensions.\"\n  families: []\n  # Hard version pins. Always give a reason.\n  #   - package: Newtonsoft.Json\n  #     project: src/Customer.Api/Customer.Api.csproj\n  #     version: \"9.0.1\"\n  #     reason: \"Customer integrations depend on 9.x serialization behavior\"\n  pins: []\n  cpm:\n    # Where `deps consolidate` writes PackageVersion items.\n    file: Directory.Packages.props\n    scope: solution\n\nmove:\n  # none | per-project | batch:N | end\n  verify: end\n  namespaceMismatch: allow\n\n# Per-rule severity overrides. Always give a reason, for example:\n#   OFR3105: { severity: none, reason: \"We never run on Linux\" }\nrules: {}\n\nllm:\n  # LLM garnish (naming, ranking) stays off unless enabled here or with --llm.\n  enabled: false\n"
+  },
+  "diagnostics": [],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 0
+  }
+}

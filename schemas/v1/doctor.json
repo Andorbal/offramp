@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/doctor.json",
+  "title": "offramp doctor result",
+  "description": "The result of `offramp doctor`. See docs/spec/commands/workspace.md#doctor.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["checks", "environment", "summary"],
+  "properties": {
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "status", "message", "remedy", "codes"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "title": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["pass", "warn", "fail", "skip"] },
+          "message": { "type": "string", "minLength": 1 },
+          "remedy": { "type": ["string", "null"] },
+          "codes": { "type": "array", "items": { "type": "string", "pattern": "^OFR[0-9]{4}$" } }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sdks", "selectedSdk", "globalJson", "git", "os", "target"],
+      "properties": {
+        "sdks": { "type": "array", "items": { "type": "string" } },
+        "selectedSdk": { "type": ["string", "null"] },
+        "globalJson": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "version", "rollForward"],
+              "properties": {
+                "path": { "type": "string" },
+                "version": { "type": ["string", "null"] },
+                "rollForward": { "type": ["string", "null"] }
+              }
+            }
+          ]
+        },
+        "git": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "repository"],
+          "properties": {
+            "version": { "type": ["string", "null"] },
+            "repository": { "type": "boolean" }
+          }
+        },
+        "os": { "type": "string" },
+        "target": { "type": "string", "pattern": "^net[0-9]+\\.0$" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pass", "warn", "fail", "skip"],
+      "properties": {
+        "pass": { "type": "integer", "minimum": 0 },
+        "warn": { "type": "integer", "minimum": 0 },
+        "fail": { "type": "integer", "minimum": 0 },
+        "skip": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

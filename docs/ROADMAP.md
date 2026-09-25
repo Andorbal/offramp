@@ -8,7 +8,7 @@ separate pull requests. The specification for every command is under
 
 Status legend: ☐ not started · ◐ in progress · ☑ released
 
-## M0 — Foundations ☐
+## M0 — Foundations ◐
 
 Scaffold the solution and everything a release needs, with one working command.
 

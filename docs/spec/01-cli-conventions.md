@@ -23,7 +23,7 @@ Groups: `deps`, `move`, `audit`, `extract`, `csproj`, `config`, `codemod`,
 | `--workspace PATH` | `.offramp/workspace.json` | model to read; commands fail with `OFR0001` if missing and suggest `offramp scan` |
 | `--config PATH` | `offramp.yml` at repo root | config file |
 | `--json` | off | JSON envelope on stdout, NDJSON progress on stderr, no colors |
-| `--out PATH` / `-o` | stdout | write the primary output to a file (JSON, HTML, DOT, plan files) |
+| `--out PATH` / `-o` | stdout | write the primary output to a file (JSON, HTML, DOT, plan files); without `--json` the human view still goes to stdout and the file receives the envelope |
 | `--dry-run` | on for writers | show what would change; writers require `--apply` to change the repo |
 | `--apply` | off | perform changes |
 | `--yes` / `-y` | off | skip interactive confirmations (implied when not a TTY) |
@@ -44,6 +44,11 @@ Groups: `deps`, `move`, `audit`, `extract`, `csproj`, `config`, `codemod`,
 | 3 | environment error (no SDK, no workspace model, binlog unreadable, git unavailable when required) |
 | 4 | partial: some operations applied, some skipped; details in the envelope |
 | 130 | interrupted (Ctrl-C); journaled commands are resumable |
+
+When several apply, the first in this order wins: 2, 3, 4, 1, 0. An invalid
+`offramp.yml` is a usage error (2) for every command except `doctor` and `init`,
+which report it. An unexpected exception is an internal error: diagnostic
+`OFR0099`, exit 3. See `docs/decisions/0002-cli-foundations.md`.
 
 ## Output envelope (`--json`)
 

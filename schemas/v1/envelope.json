@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/envelope.json",
+  "title": "Offramp JSON envelope",
+  "description": "Every command's --json output. The command-specific result is described by schemas/v1/<command>.json. See docs/spec/01-cli-conventions.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "offramp", "result", "diagnostics", "summary"],
+  "properties": {
+    "$schema": { "const": "https://offramp.dev/schemas/v1/envelope.json" },
+    "offramp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "command", "target", "repositoryRoot", "solution", "workspaceHash", "startedAt", "durationMs", "effectiveConfig"],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "pattern": "^[a-z][a-z0-9-]*( [a-z][a-z0-9-]*)*$" },
+        "target": { "type": "string", "pattern": "^net[0-9]+\\.0$" },
+        "repositoryRoot": { "type": "string", "minLength": 1, "description": "The only absolute path in the document." },
+        "solution": { "type": ["string", "null"] },
+        "workspaceHash": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+        "startedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "effectiveConfig": { "type": "object", "description": "The merged configuration; see schemas/v1/config.json." }
+      }
+    },
+    "result": { "description": "Command-specific; null when the command could not run." },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["errors", "warnings", "info"],
+      "properties": {
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "info": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message", "project", "file", "line", "column", "data", "help"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^OFR[0-9]{4}$" },
+        "severity": { "enum": ["info", "warning", "error"] },
+        "message": { "type": "string", "minLength": 1 },
+        "project": { "type": ["string", "null"] },
+        "file": { "type": ["string", "null"] },
+        "line": { "type": ["integer", "null"], "minimum": 1 },
+        "column": { "type": ["integer", "null"], "minimum": 1 },
+        "data": { "type": "object" },
+        "help": { "type": "string", "pattern": "^https://offramp\\.dev/diagnostics/OFR[0-9]{4}$" },
+        "overridden": { "const": true, "description": "Present only when offramp.yml changed the severity." }
+      }
+    }
+  }
+}

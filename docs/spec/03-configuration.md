@@ -115,6 +115,15 @@ reports unknown keys as `OFR0050` (warning) so typos do not silently disable a
 setting. A pin without a `reason` is `OFR0051` (warning). A rule override
 without a `reason` is `OFR0052` (info) so suppression is always attributable.
 
+Every command loads and validates the file the same way. Unknown keys are
+ignored (and never echoed in `effectiveConfig`). A value of the wrong type or
+outside the allowed set is `OFR0053` (error), YAML syntax errors are `OFR0054`,
+a missing `--config`/`OFFRAMP_CONFIG` file is `OFR0055`, and a bad `OFFRAMP_*`
+value is `OFR0056`; with any of these a command stops with exit 2 (`doctor` and
+`init` report instead). Diagnostics about the file carry its line and column.
+`effectiveConfig` lists keys in ordinal order. Details:
+`docs/decisions/0003-configuration-loading.md`.
+
 ## `init`
 
 `offramp init` interviews on a TTY (target, solution, verify mode, pins,
@@ -137,3 +146,9 @@ with comments. `init --defaults` writes without asking. It also:
 | `OFFRAMP_LLM_PROVIDER`, `OFFRAMP_LLM_URL`, `OFFRAMP_LLM_MODEL`, `OFFRAMP_LLM_API_KEY` | LLM |
 | `OFFRAMP_NO_COLOR`, `NO_COLOR` | disable color |
 | `OFFRAMP_VERIFY__*` | any `verify.*` key |
+
+In general `OFFRAMP_A__B_C` sets `a.bC`: `__` separates levels and each
+`UPPER_SNAKE` segment becomes camelCase (`OFFRAMP_MOVE__TESTS__TARGET_SUFFIX` sets
+`move.tests.targetSuffix`). Values are typed by the setting: integers, booleans
+(`true`/`false`/`1`/`0`/`yes`/`no`), and lists separated by `;` or `,`. Names
+that match no setting are ignored.

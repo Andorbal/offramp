@@ -1,0 +1,15 @@
+﻿Doctor passed with 1 warning.
+
+✓ .NET SDK installed                  Installed: 8.0.404, 10.0.100.
+✓ SDK selection (global.json)         No global.json; dotnet uses the newest SDK, 10.0.100.
+✓ SDK can target net10.0              SDK 10.0.100 can build net10.0.
+✓ .NET Framework reference assemblies Microsoft.NETFramework.ReferenceAssemblies.net48 1.0.3 is in the NuGet global
+                                      packages folder.
+✓ git installed                       git 2.45.0.
+✓ git repository                      Repository detected; moves are staged with `git mv`.
+✓ offramp.yml                         No offramp.yml; built-in defaults are in effect.
+! Workspace model                     .offramp/workspace.json does not exist yet.
+                                      → Run `offramp scan`.
+
+1 warning(s), 1 info
+Next: offramp init

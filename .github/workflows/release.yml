@@ -80,4 +80,3 @@ jobs:
           prerelease: ${{ steps.ver.outputs.prerelease }}
           files: |
             artifacts/*.nupkg
-            artifacts/*.snupkg

@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/config.json",
+  "title": "offramp.yml",
+  "description": "Offramp configuration. See docs/spec/03-configuration.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1, "description": "Configuration format version." },
+    "target": { "type": "integer", "minimum": 5, "description": "Integer major version of the modern target (10 = net10.0)." },
+    "solution": { "type": ["string", "null"], "description": "Repository-relative .sln, .slnx, or .slnf." },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exclude": { "$ref": "#/$defs/stringList" },
+        "state": { "type": "string", "minLength": 1 }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["test", "web", "winforms", "wpf", "service", "console", "library", "unknown", null] },
+          "frozen": { "type": "boolean" }
+        }
+      }
+    },
+    "verify": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["build", "command", "none"] },
+        "command": { "type": ["string", "null"] },
+        "timeoutSeconds": { "type": "integer", "minimum": 1 },
+        "configuration": { "type": "string", "minLength": 1 },
+        "properties": {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "noWarn": { "$ref": "#/$defs/stringList" },
+        "warnAsError": { "$ref": "#/$defs/stringList" },
+        "projects": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "include": { "$ref": "#/$defs/stringList" },
+            "exclude": { "$ref": "#/$defs/stringList" }
+          }
+        },
+        "restore": { "type": "boolean" },
+        "onFailure": { "enum": ["rollback", "keep"] }
+      }
+    },
+    "deps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "feeds": { "type": ["array", "null"], "items": { "type": "string" } },
+        "includePrerelease": { "type": "boolean" },
+        "preferNewest": { "type": "boolean" },
+        "families": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["prefix"],
+            "properties": {
+              "prefix": { "type": "string", "minLength": 1 },
+              "family": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["package", "version"],
+            "properties": {
+              "package": { "type": "string", "minLength": 1 },
+              "project": { "type": ["string", "null"] },
+              "version": { "type": ["string", "number"] },
+              "reason": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "ignore": { "$ref": "#/$defs/stringList" },
+        "cpm": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "file": { "type": "string", "minLength": 1 },
+            "scope": { "enum": ["solution", "repo"] }
+          }
+        },
+        "redirects": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "manage": { "$ref": "#/$defs/stringList" }
+          }
+        }
+      }
+    },
+    "move": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "verify": { "type": "string", "pattern": "^(none|per-project|end|batch:[1-9][0-9]*)$" },
+        "namespaceMismatch": { "enum": ["allow", "warn", "block"] },
+        "coMove": { "enum": ["closure", "none"] },
+        "suppressAnalyzers": { "$ref": "#/$defs/stringList" },
+        "tests": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "frameworks": { "type": "array", "items": { "enum": ["xunit", "nunit", "mstest", "tunit"] } },
+            "helperMinConfidence": { "enum": ["high", "medium", "low"] },
+            "stripTestsSegment": { "type": "boolean" },
+            "targetSuffix": { "type": "string" }
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "properties": {
+        "packs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "disable": { "type": "array", "items": { "enum": ["core", "web", "desktop", "data", "serialization", "native"] } }
+          }
+        }
+      },
+      "patternProperties": {
+        "^OFR[0-9]{4}$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["severity"],
+          "properties": {
+            "severity": { "enum": ["none", "info", "warning", "error"] },
+            "reason": { "type": ["string", "null"] }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "seams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unportableSources": { "type": "array", "items": { "enum": ["audit", "list"] } },
+        "unportableSymbols": { "$ref": "#/$defs/stringList" },
+        "hostFramework": { "enum": ["auto", "net10-windows", "net48"] }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": { "enum": ["linux", "windows", "both"] },
+        "dockerfile": { "type": "boolean" },
+        "k8s": { "type": "boolean" },
+        "healthEndpoint": { "type": "boolean" },
+        "logging": { "enum": ["json-console", "simple"] }
+      }
+    },
+    "llm": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "provider": { "enum": ["openai", "anthropic"] },
+        "url": { "type": "string" },
+        "model": { "type": ["string", "null"] },
+        "apiKeyEnv": { "type": "string" },
+        "uses": { "type": "array", "items": { "enum": ["naming", "ranking", "summarizing", "classifying"] } }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": ["string", "null"] },
+        "ledger": { "type": "string", "minLength": 1 }
+      }
+    },
+    "deadCode": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "externalConsumers": { "$ref": "#/$defs/stringList" }
+      }
+    }
+  },
+  "$defs": {
+    "stringList": { "type": "array", "items": { "type": "string" } }
+  }
+}

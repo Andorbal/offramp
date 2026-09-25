@@ -1,0 +1,92 @@
+﻿{
+  "checks": [
+    {
+      "id": "dotnet-sdk",
+      "title": ".NET SDK installed",
+      "status": "pass",
+      "message": "Installed: 8.0.404, 10.0.100.",
+      "remedy": null,
+      "codes": []
+    },
+    {
+      "id": "global-json",
+      "title": "SDK selection (global.json)",
+      "status": "pass",
+      "message": "No global.json; dotnet uses the newest SDK, 10.0.100.",
+      "remedy": null,
+      "codes": []
+    },
+    {
+      "id": "target",
+      "title": "SDK can target net10.0",
+      "status": "pass",
+      "message": "SDK 10.0.100 can build net10.0.",
+      "remedy": null,
+      "codes": []
+    },
+    {
+      "id": "reference-assemblies",
+      "title": ".NET Framework reference assemblies",
+      "status": "pass",
+      "message": "Microsoft.NETFramework.ReferenceAssemblies.net48 1.0.3 is in the NuGet global packages folder.",
+      "remedy": null,
+      "codes": []
+    },
+    {
+      "id": "git",
+      "title": "git installed",
+      "status": "pass",
+      "message": "git 2.45.0.",
+      "remedy": null,
+      "codes": []
+    },
+    {
+      "id": "git-repository",
+      "title": "git repository",
+      "status": "pass",
+      "message": "Repository detected; moves are staged with `git mv`.",
+      "remedy": null,
+      "codes": []
+    },
+    {
+      "id": "config",
+      "title": "offramp.yml",
+      "status": "pass",
+      "message": "No offramp.yml; built-in defaults are in effect.",
+      "remedy": "Run `offramp init` to write one with detected values.",
+      "codes": [
+        "OFR0016"
+      ]
+    },
+    {
+      "id": "workspace",
+      "title": "Workspace model",
+      "status": "warn",
+      "message": ".offramp/workspace.json does not exist yet.",
+      "remedy": "Run `offramp scan`.",
+      "codes": [
+        "OFR0001"
+      ]
+    }
+  ],
+  "environment": {
+    "sdks": [
+      "8.0.404",
+      "10.0.100"
+    ],
+    "selectedSdk": "10.0.100",
+    "globalJson": null,
+    "git": {
+      "version": "2.45.0",
+      "repository": true
+    },
+    "os": "linux-x64",
+    "target": "net10.0"
+  },
+  "summary": {
+    "pass": 7,
+    "warn": 1,
+    "fail": 0,
+    "skip": 0
+  }
+}

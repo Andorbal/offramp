@@ -1,0 +1,56 @@
+﻿# offramp.yml: Offramp configuration.
+# Reference: https://github.com/Andorbal/offramp/blob/main/docs/spec/03-configuration.md
+# Precedence: built-in defaults < this file < OFFRAMP_* environment variables < command-line flags.
+version: 1
+
+# Integer major version of the modern target (10 = net10.0). --target overrides.
+target: 10
+
+# The solution (.sln, .slnx, or .slnf) Offramp works on.
+solution: src/Monolith.sln
+
+paths:
+  # Repository-relative globs. Excluded projects stay in the model but are never modified.
+  exclude: []
+  state: .offramp
+
+verify:
+  # build: dotnet build the affected projects | command: run verify.command | none
+  mode: build
+  timeoutSeconds: 1800
+  configuration: Debug
+  # Extra -p: values for every verification build and for scan, for example:
+  #   GenerateSerializationAssemblies: "Off"
+  properties: {}
+  noWarn: []
+  restore: true
+  # For movers: rollback | keep
+  onFailure: rollback
+
+deps:
+  # Packages that must share one version, for example:
+  #   - prefix: "Microsoft.Extensions."
+  families: []
+  # Hard version pins. Always give a reason.
+  #   - package: Newtonsoft.Json
+  #     project: src/Customer.Api/Customer.Api.csproj
+  #     version: "9.0.1"
+  #     reason: "Customer integrations depend on 9.x serialization behavior"
+  pins: []
+  cpm:
+    # Where `deps consolidate` writes PackageVersion items.
+    file: Directory.Packages.props
+    scope: solution
+
+move:
+  # none | per-project | batch:N | end
+  verify: end
+  namespaceMismatch: allow
+
+# Per-rule severity overrides. Always give a reason, for example:
+#   OFR3105: { severity: none, reason: "We never run on Linux" }
+rules: {}
+
+llm:
+  # LLM garnish (naming, ranking) stays off unless enabled here or with --llm.
+  enabled: false
