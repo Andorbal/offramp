@@ -55,3 +55,11 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Offramp state (see docs/spec/02-workspace-model.md)
+.offramp/cache/
+.offramp/journal/
+.offramp/verify/
+.offramp/*.binlog
+.offramp/*.complog
+tests/.cache/
