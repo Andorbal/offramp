@@ -1,0 +1,57 @@
+<Project>
+  <!--
+    Shared build settings and package metadata for every project in the repo.
+    This is the modern equivalent of a .nuspec: NuGet reads these properties
+    from the project at `dotnet pack` time. The CLI project adds PackAsTool,
+    ToolCommandName, PackageId and the README/icon; library projects are not
+    packed unless they set IsPackable=true.
+  -->
+  <PropertyGroup>
+    <LangVersion>13.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <IsPackable>false</IsPackable>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- Package metadata (applies to any project that sets IsPackable=true) -->
+  <PropertyGroup>
+    <Authors>Andrew Benz and contributors</Authors>
+    <Company>Offramp contributors</Company>
+    <Product>Offramp</Product>
+    <Copyright>Copyright (c) 2026 Andrew Benz</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Andorbal/offramp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Andorbal/offramp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>dotnet;migration;netframework;roslyn;nuget;refactoring;modernization</PackageTags>
+    <PackageReleaseNotes>See https://github.com/Andorbal/offramp/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <!-- Source Link and reproducible builds -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!--
+    Versioning: MinVer derives the version from the nearest `v*` git tag.
+    Untagged commits get a prerelease suffix (e.g. 0.4.0-alpha.0.12).
+    docs/RELEASING.md explains the tagging flow.
+  -->
+  <PropertyGroup>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinVerDefaultPreReleaseIdentifiers>alpha.0</MinVerDefaultPreReleaseIdentifiers>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

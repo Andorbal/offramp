@@ -1,0 +1,35 @@
+name: Corpus
+
+# Opt-in, slow: scans real open-source .NET Framework codebases and asserts
+# Offramp does not crash and records counts. Run manually or nightly.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1" # Mondays 03:17 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  corpus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Build
+        run: dotnet build -c Release
+      - name: Corpus tests
+        run: dotnet test --no-build -c Release --filter "Category=Corpus" --logger "trx;LogFileName=corpus.trx"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: corpus-results
+          path: |
+            **/TestResults/**
+            **/corpus-output/**
