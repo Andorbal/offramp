@@ -2,6 +2,8 @@
 
 As of 2026-09-25 20:11 UTC.
 
+Monolith | migration: 20.3% of 20,200 lines is portable, 16,100 framework-only lines remain in 6 projects, down 4,100 since 2026-06-02, 2 projects are ready to port today, and 1 of 3 applications are done.
+
 - **Portable:** 20.3% of 20,200 lines are in standard, modern, or dual projects.
 - **Framework-only:** 16,100 lines in 6 projects, down 4,100 since 2026-06-02.
 - **Applications done:** 1 of 3.
