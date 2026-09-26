@@ -20,6 +20,7 @@ jobs:
   windows-capture:
     name: Windows capture (dual-target)
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +52,7 @@ jobs:
     name: ${{ matrix.os }}
     needs: windows-capture
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -83,6 +85,8 @@ jobs:
           --filter "Category!=Corpus&Category!=Slow"
           --logger "trx;LogFileName=test-results.trx"
           --collect:"XPlat Code Coverage"
+          --blame-hang-timeout 15m
+          --blame-hang-dump-type none
 
       - name: Upload test results
         if: always()

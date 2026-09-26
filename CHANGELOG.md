@@ -46,6 +46,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ### Changed
 - Unified diffs print removed lines before added ones, as git does.
 
+### Fixed
+- Commands no longer wait indefinitely for the output of a `dotnet` or `git` process that has
+  exited while a process it started (an MSBuild node, the compiler server) still holds its
+  output pipes. Output is drained for at most ten seconds after exit, and MSBuild node reuse
+  is off for the processes Offramp runs.
+
 ## [0.6.0] - 2026-09-26
 
 ### Added
