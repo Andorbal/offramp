@@ -239,35 +239,58 @@ public static class TestMovePlanner
     /// </summary>
     private static List<ReferenceNeed> TrialCompile(Context context, Dictionary<string, SyntaxTree> trees, List<SkippedFile> skipped)
     {
-        while (true)
+        var needs = Needs(context, trees.Values);
+        var failures = Failures(context, trees, needs);
+        while (failures.Count > 0)
         {
-            var needs = Needs(context, trees.Values);
-            var remaining = context.SourceCompilation
-                .AddSyntaxTrees(CSharpSyntaxTree.ParseText(
-                    $"[assembly: System.Runtime.CompilerServices.InternalsVisibleTo(\"{context.DestinationName}\")]",
-                    (CSharpParseOptions)context.SourceCompilation.SyntaxTrees.First().Options))
-                .RemoveSyntaxTrees(trees.Values);
-            var destination = Destination(context, remaining, needs);
-            var options = (CSharpParseOptions?)context.DestinationCompilation?.SyntaxTrees.FirstOrDefault()?.Options
-                ?? (CSharpParseOptions)context.SourceCompilation.SyntaxTrees.First().Options;
-            var moved = trees.ToDictionary(t => t.Key, t => CSharpSyntaxTree.ParseText(t.Value.GetText(), options, t.Value.FilePath), StringComparer.Ordinal);
-            var trial = destination.AddSyntaxTrees(moved.Values);
-            var failing = moved
-                .Select(m => (File: m.Key, Errors: trial.GetSemanticModel(m.Value).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList()))
-                .Where(m => m.Errors.Count > 0)
-                .ToList();
-            if (failing.Count == 0)
+            foreach (var failure in failures)
             {
-                return needs;
+                Skip(context, skipped, failure.File, DiagnosticCatalog.OFR2103, $"Does not compile in {context.Destination}.", failure.Errors);
+                trees.Remove(failure.File);
             }
 
-            foreach (var (file, errors) in failing)
+            needs = Needs(context, trees.Values);
+            failures = Failures(context, trees, needs);
+        }
+
+        return needs;
+    }
+
+    private sealed record TrialFailure(string File, List<string> Errors);
+
+    /// <summary>The moved files that do not compile in the destination with the given references.</summary>
+    private static List<TrialFailure> Failures(Context context, Dictionary<string, SyntaxTree> trees, List<ReferenceNeed> needs)
+    {
+        var remaining = context.SourceCompilation
+            .AddSyntaxTrees(CSharpSyntaxTree.ParseText(
+                $"[assembly: System.Runtime.CompilerServices.InternalsVisibleTo(\"{context.DestinationName}\")]",
+                (CSharpParseOptions)context.SourceCompilation.SyntaxTrees.First().Options))
+            .RemoveSyntaxTrees(trees.Values);
+        var options = DestinationParseOptions(context);
+        var moved = new Dictionary<string, SyntaxTree>(StringComparer.Ordinal);
+        foreach (var (file, tree) in trees)
+        {
+            moved[file] = CSharpSyntaxTree.ParseText(tree.GetText(), options, tree.FilePath);
+        }
+
+        var trial = Destination(context, remaining, needs).AddSyntaxTrees(moved.Values);
+        var failures = new List<TrialFailure>();
+        foreach (var (file, tree) in moved)
+        {
+            var errors = trial.GetSemanticModel(tree).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            if (errors.Count > 0)
             {
-                Skip(context, skipped, file, DiagnosticCatalog.OFR2103, $"Does not compile in {context.Destination}.",
-                    [.. errors.Take(3).Select(e => $"{e.Id}: {e.GetMessage(System.Globalization.CultureInfo.InvariantCulture)}")]);
-                trees.Remove(file);
+                failures.Add(new TrialFailure(file, [.. errors.Take(3).Select(e => $"{e.Id}: {e.GetMessage(System.Globalization.CultureInfo.InvariantCulture)}")]));
             }
         }
+
+        return failures;
+    }
+
+    private static CSharpParseOptions DestinationParseOptions(Context context)
+    {
+        var tree = context.DestinationCompilation?.SyntaxTrees.FirstOrDefault();
+        return tree?.Options as CSharpParseOptions ?? (CSharpParseOptions)context.SourceCompilation.SyntaxTrees.First().Options;
     }
 
     /// <summary>The destination's compilation as it would be: its own references, the trimmed source, and what the move adds.</summary>
