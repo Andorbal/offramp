@@ -11,6 +11,39 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp service --project P`: turns a Windows service into a worker project for the
+  generic host.
+  - Detects `ServiceBase` classes (lifecycle overrides, installer settings: account, start
+    type, dependencies, description) and Topshelf `HostFactory.Run` configurations, with
+    their timers, logging, and `ConfigurationManager` keys.
+  - Writes `NAME.Worker` (`netN.0`) with one `BackgroundService` per service.
+    - `ServiceBase` code is lifted as text into the worker's methods.
+    - A `System.Timers.Timer` that only ticks becomes a `PeriodicTimer` loop that honors
+      the stopping token.
+    - `EventLog.WriteEntry` becomes logging.
+    - Other `ServiceBase` uses stay in `#if OFFRAMP_SERVICEBASE` regions (OFR4102).
+  - Topshelf services are wrapped with their start and stop calls.
+  - The code a service uses from its project is compiled as links, and the worker is
+    compiled in memory first (OFR4106).
+  - `--host linux|windows|both`: `AddWindowsService`, `install.ps1`/`uninstall.ps1`
+    (`sc.exe`), and `AddSystemd` with a systemd unit.
+  - `--health` (`/health` from the workers' heartbeats), `--dockerfile` (multi-stage,
+    non-root), `--k8s` (ConfigMap, Deployment, probes, grace period), and
+    `--logging json-console|simple`.
+  - Removals are reported (installers, `System.ServiceProcess`, Topshelf,
+    `requestedExecutionLevel`).
+  - Diagnostics: OFR4101–4105 (pause and custom commands, compatibility regions,
+    multiple services, service dependencies, session and power events), OFR4107 (no
+    service), OFR4108 (output exists). Schema: `schemas/v1/service.json`.
+- CI job `Container (service image)`: builds the generated Linux image on ubuntu and calls
+  its health endpoint (`Category=Docker`, `OFFRAMP_DOCKER_TESTS=1`).
+- Fixture `windows-service`. ADR 0024.
+
+### Changed
+- `docs/spec/commands/scaffold.md`: `service --in-place` is deferred until `csproj
+  modernize`; the removal list is reported instead.
+
 ## [0.10.0] - 2026-09-26
 
 ### Added
