@@ -5,7 +5,7 @@ using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Core.Progress;
-using Offramp.NuGet.Rules;
+using Offramp.Analysis.Rules;
 
 namespace Offramp.NuGet.Gac;
 

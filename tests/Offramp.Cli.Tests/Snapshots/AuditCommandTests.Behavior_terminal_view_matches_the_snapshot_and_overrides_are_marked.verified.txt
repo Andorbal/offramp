@@ -1,0 +1,80 @@
+﻿audit behavior for net10.0: 22 findings (1 error, 14 warnings, 7 info) in 2 projects.
+
+  Rule      Severity   Title                                              Findings   Projects
+───────────────────────────────────────────────────────────────────────────────────────────────
+  OFR3102   warning    non-Unicode code page                                     1          1
+  OFR3103   warning    path assumes Windows separators or folders                2          1
+  OFR3104   warning    time zone looked up by Windows ID                         1          1
+  OFR3105   warning    registry access                                           1          1
+  OFR3106   warning    ambient ASP.NET context                                   2          1
+  OFR3107   warning    shell execution through Process.Start                     1          1
+  OFR3108   warning    legacy SQL Server client (System.Data.SqlClient)          1          1
+  OFR3109   error      floating-point ToString without a format                  1          1
+  OFR3110   warning    obsolete networking API                                   1          1
+  OFR3111   warning    ambient principal                                         1          1
+  OFR3112   info       settings read through ConfigurationManager                1          1
+  OFR3113   info       regular expression without a timeout                      1          1
+  OFR3114   warning    TLS 1.0/1.1 or SSL pinned                                 1          1
+  OFR3115   warning    assembly loading                                          1          1
+  OFR3116   info       runtime settings in app.config                            2          1
+  OFR3117   info       URL encoding differences                                  1          1
+  OFR3118   warning    machine key or Forms authentication                       1          1
+  OFR3119   info       timers and thread pool tuning                             1          1
+  OFR3120   info       operating system check                                    1          1
+
+OFR3102 (1)
+  OFR3102 src/Behavior.Legacy/Rules/Behavior.cs:45 Encoding.GetEncoding(1252) needs CodePagesEncodingProvider.Instance
+registered on modern .NET.
+OFR3103 (2)
+  OFR3103 src/Behavior.Legacy/Rules/Behavior.cs:58 System.IO.File.ReadAllText(string) receives the Windows path
+"C:\data\input.txt".
+  OFR3103 src/Behavior.Legacy/Rules/Behavior.cs:63 Path assumes Windows separators or folders:
+System.Environment.SpecialFolder.Cookies.
+OFR3104 (1)
+  OFR3104 src/Behavior.Legacy/Rules/Behavior.cs:76 "Eastern Standard Time" is a Windows time zone ID; other platforms
+use IANA IDs.
+OFR3105 (1)
+  OFR3105 src/Behavior.Legacy/Rules/Behavior.cs:89 Registry access: Microsoft.Win32.Registry.
+OFR3106 (2)
+  OFR3106 src/Behavior.Legacy/Rules/Api.cs:14 Ambient ASP.NET context: System.Web.HttpContext.Current.
+  OFR3106 src/Behavior.Legacy/Rules/Behavior.cs:102 Ambient ASP.NET context: System.Web.HttpRuntime.
+OFR3107 (1)
+  OFR3107 src/Behavior.Legacy/Rules/Behavior.cs:115 Shell execution through Process.Start:
+System.Diagnostics.Process.Start(string).
+OFR3108 (1)
+  OFR3108 src/Behavior.Legacy/Rules/Behavior.cs:128 Legacy SQL Server client (System.Data.SqlClient):
+System.Data.SqlClient.SqlConnection.
+OFR3109 (1)
+  OFR3109 src/Behavior.Legacy/Rules/Behavior.cs:141 Double.ToString() without a format gives the shortest
+round-trippable string on .NET Core 3.0 and later.
+OFR3110 (1)
+  OFR3110 src/Behavior.Legacy/Rules/Behavior.cs:154 Obsolete networking API: System.Net.WebClient.
+OFR3111 (1)
+  OFR3111 src/Behavior.Legacy/Rules/Behavior.cs:167 Ambient principal: System.Threading.Thread.CurrentPrincipal.
+OFR3112 (1)
+  OFR3112 src/Behavior.Legacy/Rules/Behavior.cs:180 Settings read through ConfigurationManager:
+System.Configuration.ConfigurationManager.AppSettings.
+OFR3113 (1)
+  OFR3113 src/Behavior.Legacy/Rules/Behavior.cs:193 The regular expression has no match timeout.
+OFR3114 (1)
+  OFR3114 src/Behavior.Legacy/Rules/Behavior.cs:206 TLS 1.0/1.1 or SSL pinned:
+System.Security.Authentication.SslProtocols.Tls.
+OFR3115 (1)
+  OFR3115 src/Behavior.Legacy/Rules/Behavior.cs:219 Assembly loading: System.Reflection.Assembly.LoadFrom(string).
+OFR3116 (2)
+  OFR3116 src/Behavior.Legacy/app.config:4 <gcServer> in app.config is ignored on modern .NET; set System.GC.Server
+(<ServerGarbageCollection>) instead.
+  OFR3116 src/Behavior.Legacy/app.config:5 <gcConcurrent> in app.config is ignored on modern .NET; set
+System.GC.Concurrent (<ConcurrentGarbageCollection>) instead.
+OFR3117 (1)
+  OFR3117 src/Behavior.Legacy/Rules/Behavior.cs:232 URL encoding differences: System.Web.HttpUtility.UrlEncode(string).
+OFR3118 (1)
+  OFR3118 src/Behavior.Legacy/Rules/Behavior.cs:245 Machine key or Forms authentication: System.Web.Security.MachineKey.
+OFR3119 (1)
+  OFR3119 src/Behavior.Legacy/Rules/Behavior.cs:258 Timers and thread pool tuning: System.Timers.Timer.
+OFR3120 (1)
+  OFR3120 src/Behavior.Legacy/Rules/Behavior.cs:271 Operating system check: System.Environment.OSVersion.
+
+· OFR0052 offramp.yml:4:12 Override of OFR3101 has no reason; add `reason:` so the suppression stays attributable.
+
+1 error(s), 12 warning(s), 7 info

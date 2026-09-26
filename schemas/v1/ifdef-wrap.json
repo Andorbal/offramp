@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/ifdef-wrap.json",
+  "title": "offramp ifdef wrap result",
+  "description": "The result of `offramp ifdef wrap`. See docs/spec/commands/audit.md#ifdef.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["condition", "findings", "alreadyGuarded", "wraps", "notWrapped", "files", "applied", "journal", "preview"],
+  "properties": {
+    "condition": { "type": "string", "description": "What follows #if: NETFRAMEWORK, or !NET10_0_OR_GREATER." },
+    "findings": { "type": "integer", "minimum": 0, "description": "C# findings read from the file." },
+    "alreadyGuarded": { "type": "integer", "minimum": 0, "description": "Findings already inside a region with the same condition." },
+    "wraps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "startLine", "endLine", "kind", "target", "rules", "findings"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "startLine": { "type": "integer", "minimum": 1, "description": "First wrapped line, before the edit." },
+          "endLine": { "type": "integer", "minimum": 1, "description": "Last wrapped line, before the edit." },
+          "kind": { "enum": ["statement", "member"] },
+          "target": { "type": "string", "description": "The member, or the member and statement, wrapped." },
+          "rules": { "type": "array", "items": { "type": "string", "pattern": "^OFR3[0-9]{3}$" } },
+          "findings": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "notWrapped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "rule", "symbol", "code", "reason"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "line": { "type": "integer" },
+          "rule": { "type": "string" },
+          "symbol": { "type": "string" },
+          "code": { "enum": ["OFR3601", "OFR3602"] },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "files": { "$ref": "workspace.json#/$defs/pathList" },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"], "description": "Unified diff of the dry run; null once applied or when nothing changes." }
+  }
+}

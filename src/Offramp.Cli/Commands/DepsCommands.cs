@@ -11,7 +11,7 @@ using Offramp.NuGet;
 using Offramp.NuGet.Audit;
 using Offramp.NuGet.Feeds;
 using Offramp.NuGet.Gac;
-using Offramp.NuGet.Rules;
+using Offramp.Analysis.Rules;
 using Offramp.Workspace.Store;
 using Spectre.Console;
 

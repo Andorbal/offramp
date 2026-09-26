@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\..\rules\package-map.yml;..\..\rules\framework-assemblies.yml" LogicalName="Offramp.NuGet.Rules.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\rules\package-map.yml" LogicalName="Offramp.NuGet.Rules.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

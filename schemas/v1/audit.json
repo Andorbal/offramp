@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/audit.json",
+  "title": "offramp audit result",
+  "description": "The result of `offramp audit api|behavior|serialization|native`. See docs/spec/commands/audit.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["audit", "target", "projects", "rules", "summary", "findings", "ledger", "topNamespaces", "skipped", "output"],
+  "properties": {
+    "audit": { "enum": ["api", "behavior", "serialization", "native"] },
+    "target": { "type": "string", "pattern": "^net[0-9]+\\.0$" },
+    "projects": { "$ref": "workspace.json#/$defs/pathList", "description": "The C# projects audited." },
+    "rules": { "type": "array", "items": { "$ref": "#/$defs/ruleId" }, "description": "The rules that ran (disabled packs and rules set to none left out)." },
+    "summary": {
+      "type": "array",
+      "description": "Rules with findings, in rule order.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule", "title", "severity", "findings", "projects"],
+        "properties": {
+          "rule": { "$ref": "#/$defs/ruleId" },
+          "title": { "type": "string" },
+          "severity": { "$ref": "#/$defs/severity" },
+          "findings": { "type": "integer", "minimum": 1 },
+          "projects": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" }, "description": "Sorted by rule, project, file, line, column, symbol." },
+    "ledger": {
+      "type": "array",
+      "description": "audit api only: portability per project (empty for the other audits).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "files", "portableFiles", "portability", "byCategory", "byNamespace"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "files": { "type": "integer", "minimum": 0 },
+          "portableFiles": { "type": "integer", "minimum": 0, "description": "Files with no error-level finding." },
+          "portability": { "type": "number", "minimum": 0, "maximum": 1 },
+          "byCategory": { "$ref": "#/$defs/counts" },
+          "byNamespace": { "$ref": "#/$defs/counts" }
+        }
+      }
+    },
+    "topNamespaces": {
+      "type": "array",
+      "maxItems": 20,
+      "description": "audit api only: the namespaces with the most findings, most first (what `seams` consumes).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["namespace", "findings"],
+        "properties": {
+          "namespace": { "type": "string" },
+          "findings": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "skipped": { "type": "array", "items": { "type": "string" }, "description": "Projects not audited, or not compiled against the target, with why." },
+    "output": { "type": ["string", "null"], "description": "The SARIF, Markdown, or JSON file --out received; null otherwise." }
+  },
+  "$defs": {
+    "ruleId": { "type": "string", "pattern": "^OFR3[0-9]{3}$" },
+    "severity": { "enum": ["info", "warning", "error"] },
+    "counts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "severity", "overridden", "project", "file", "line", "column", "symbol", "category", "message", "recommendation", "details"],
+      "properties": {
+        "rule": { "$ref": "#/$defs/ruleId" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "overridden": { "type": "boolean", "description": "True when offramp.yml changed the rule's severity." },
+        "project": { "$ref": "workspace.json#/$defs/relativePath" },
+        "file": { "$ref": "workspace.json#/$defs/relativePath", "description": "A C# file, or the configuration or project file for OFR3116 and OFR3310." },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "symbol": { "type": "string", "description": "The symbol involved, fully qualified, or the construct (a configuration element, a COM library)." },
+        "namespace": { "type": "string", "description": "The symbol's namespace, when it has one." },
+        "category": { "type": "string" },
+        "message": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "details": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Rule-specific facts: an API's assembly and mapping (OFR3001), a serialization flow's evidence (OFR3202/3203), a P/Invoke's library and marshalling (OFR3301)."
+        }
+      }
+    }
+  }
+}

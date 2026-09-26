@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/ifdef-strip.json",
+  "title": "offramp ifdef strip result",
+  "description": "The result of `offramp ifdef strip`. See docs/spec/commands/audit.md#ifdef.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["symbol", "keep", "stripped", "notStripped", "files", "applied", "journal", "preview"],
+  "properties": {
+    "symbol": { "type": "string" },
+    "keep": { "type": "boolean", "description": "Whether the symbol counted as defined." },
+    "stripped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "condition", "kept", "removedLines"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "line": { "type": "integer", "minimum": 1, "description": "The #if line, before the edit." },
+          "condition": { "type": "string" },
+          "kept": { "enum": ["if", "elif", "else", "none"], "description": "The branch whose lines stayed (without its directive)." },
+          "removedLines": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "notStripped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "condition", "reason"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "line": { "type": "integer", "minimum": 1 },
+          "condition": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "files": { "$ref": "workspace.json#/$defs/pathList" },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  }
+}

@@ -1,0 +1,83 @@
+# `audit api` rules (docs/spec/commands/audit.md). OFR3001 (missing on the target) and
+# OFR3002 (Windows-only on the target) come from compiling each project against the
+# target's reference assemblies; the rules below match by symbol, base type, or attribute.
+rules:
+  OFR3001:
+    pack: core
+    severity: error
+    title: API missing on target
+    category: missing-api
+    recommendation: See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.
+    matcher: target-compilation
+  OFR3002:
+    pack: core
+    severity: warning
+    title: API available only on Windows
+    category: windows-only
+    recommendation: Target netN-windows, guard the call with OperatingSystem.IsWindows(), or isolate it behind a seam.
+    matcher: target-compilation
+  OFR3003:
+    pack: core
+    severity: error
+    title: API throws on modern .NET
+    category: throws
+    recommendation: These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).
+    matcher: delegate-begin-invoke
+    symbols:
+      - M:System.Threading.Thread.Abort
+      - M:System.Threading.Thread.Suspend
+      - M:System.Threading.Thread.Resume
+      - M:System.Threading.Thread.ResetAbort
+      - M:System.AppDomain.CreateDomain
+      - M:System.AppDomain.Unload
+      - M:System.CodeDom.Compiler.CodeDomProvider.CompileAssemblyFromSource
+      - M:System.CodeDom.Compiler.CodeDomProvider.CompileAssemblyFromFile
+      - M:System.CodeDom.Compiler.CodeDomProvider.CompileAssemblyFromDom
+      - M:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize
+      - M:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Deserialize
+  OFR3004:
+    pack: web
+    severity: error
+    title: ASP.NET Web Forms
+    category: removed-technology
+    recommendation: Web Forms has no port; rebuild pages in Razor Pages or Blazor (`offramp web inventory`), incrementally behind a YARP proxy.
+    symbols: [N:System.Web.UI]
+    baseTypes: [T:System.Web.UI.Page, T:System.Web.UI.UserControl, T:System.Web.UI.MasterPage]
+  OFR3005:
+    pack: web
+    severity: error
+    title: ASMX web services
+    category: removed-technology
+    recommendation: Move to ASP.NET Core controllers, or CoreWCF for SOAP clients that cannot change.
+    baseTypes: [T:System.Web.Services.WebService]
+    attributes: [T:System.Web.Services.WebMethodAttribute, T:System.Web.Services.WebServiceAttribute]
+  OFR3006:
+    pack: web
+    severity: error
+    title: WCF service host
+    category: removed-technology
+    recommendation: WCF clients have packages; servers move to CoreWCF, gRPC, or HTTP APIs.
+    symbols: [T:System.ServiceModel.ServiceHost, T:System.ServiceModel.Activation.ServiceHostFactory]
+    attributes: [T:System.ServiceModel.ServiceBehaviorAttribute]
+  OFR3007:
+    pack: core
+    severity: error
+    title: .NET Remoting
+    category: removed-technology
+    recommendation: Remoting has no port; use gRPC, HTTP, or named pipes (`offramp remote`).
+    symbols: [N:System.Runtime.Remoting]
+  OFR3008:
+    pack: core
+    severity: error
+    title: WF (Windows Workflow Foundation)
+    category: removed-technology
+    recommendation: Workflow Foundation has no port (CoreWF is a community option); isolate workflows behind a seam.
+    symbols: [N:System.Activities, N:System.Workflow]
+  OFR3009:
+    pack: core
+    severity: error
+    title: COM+, Code Access Security, or AppDomain sandboxing
+    category: removed-technology
+    recommendation: COM+ services, CAS permissions, and sandboxed AppDomains are gone; isolate the code in a separate process.
+    symbols: [N:System.EnterpriseServices, T:System.Security.PermissionSet, "M:System.AppDomain.CreateDomain(System.String,System.Security.Policy.Evidence,System.AppDomainSetup,System.Security.PermissionSet,System.Security.Policy.StrongName[])"]
+    attributes: [T:System.Security.Permissions.CodeAccessSecurityAttribute, T:System.Security.SecurityCriticalAttribute, T:System.Security.AllowPartiallyTrustedCallersAttribute]

@@ -1,0 +1,24 @@
+﻿{
+  "symbol": null,
+  "projects": [
+    {
+      "project": "src/Shared/Shared.csproj",
+      "symbols": [
+        {
+          "symbol": "NETFRAMEWORK",
+          "regions": 2,
+          "lines": 4,
+          "files": 2
+        }
+      ]
+    }
+  ],
+  "totals": [
+    {
+      "symbol": "NETFRAMEWORK",
+      "regions": 2,
+      "lines": 4,
+      "files": 2
+    }
+  ]
+}

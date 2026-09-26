@@ -7,6 +7,7 @@
 # windowsOnly marks equivalents that only work on Windows. A trailing `*`
 # matches every assembly with that prefix.
 assemblies:
+  mscorlib: { kind: builtin, note: "The core library; what it lost on modern .NET (Remoting, Code Access Security, AppDomain creation) has no port." }
   Microsoft.CSharp: { kind: builtin }
   Microsoft.VisualBasic: { kind: builtin, note: "Most of Microsoft.VisualBasic is available; My.* and some legacy helpers are not." }
   PresentationCore: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWPF>true</UseWPF>." }
@@ -53,6 +54,8 @@ assemblies:
   System.Web: { kind: none, note: "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)." }
   System.Web.*: { kind: none, note: "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)." }
   System.Windows.Forms: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWindowsForms>true</UseWindowsForms>." }
+  System.Activities: { kind: none, note: "Windows Workflow Foundation has no port; CoreWF covers WF4 workflows." }
+  System.Activities.*: { kind: none, note: "Windows Workflow Foundation has no port; CoreWF covers WF4 workflows." }
   System.Workflow.*: { kind: none, note: "Windows Workflow Foundation has no port; CoreWF covers WF4 workflows." }
   System.Xaml: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWPF>true</UseWPF>." }
   System.Xml: { kind: builtin }

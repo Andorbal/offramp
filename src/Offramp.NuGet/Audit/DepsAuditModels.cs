@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Offramp.Core.Json;
 using Offramp.Core.Model;
 using Offramp.NuGet.Feeds;
+using Offramp.Analysis.Rules;
 using Offramp.NuGet.Rules;
 
 namespace Offramp.NuGet.Audit;

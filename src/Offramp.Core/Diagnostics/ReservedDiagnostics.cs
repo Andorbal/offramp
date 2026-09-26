@@ -13,16 +13,8 @@ public static class ReservedDiagnostics
     public static IReadOnlyList<ReservedDiagnostic> All { get; } =
     [
         new("OFR2010", "error", "move crosses a solution slice boundary"),
-        new("OFR3001", "error", "API missing on target"),
-        new("OFR3002", "warning", "Windows-only API"),
-        new("OFR3003", "error", "API throws on modern .NET"),
-        new("OFR3004–3009", "error", "removed technology (WebForms, ASMX, WCF server, Remoting, WF, CAS)"),
-        new("OFR3101–3120", "varies", "behavior rules (see `spec/commands/audit.md`)"),
-        new("OFR3201–3211", "varies", "serialization rules"),
-        new("OFR3301–3320", "varies", "native interop rules"),
         new("OFR3401–3402", "info", "dead code candidates; test-only usage"),
         new("OFR3501–3502", "warning", "public API differs between targets / from baseline"),
-        new("OFR3601", "warning", "member cannot be wrapped in `#if`"),
         new("OFR4001–4003", "varies", "seams"),
         new("OFR4010", "warning", "caller instantiates concrete type directly"),
         new("OFR4020", "warning", "sync member over remote boundary"),

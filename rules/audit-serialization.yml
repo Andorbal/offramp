@@ -1,0 +1,57 @@
+# `audit serialization` rules (docs/spec/commands/audit.md).
+rules:
+  OFR3201:
+    pack: serialization
+    severity: error
+    severityBelowTarget: { target: 9, severity: warning }
+    title: insecure serializer
+    category: serialization
+    recommendation: BinaryFormatter and its relatives are removed (throw) from .NET 9; migrate the data, using the System.Runtime.Serialization.Formatters compatibility package only while a dual-read migration runs.
+    symbols:
+      - T:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+      - T:System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+      - T:System.Runtime.Serialization.NetDataContractSerializer
+      - T:System.Web.UI.ObjectStateFormatter
+      - T:System.Web.UI.LosFormatter
+  OFR3202:
+    pack: serialization
+    severity: info
+    title: transient binary serialization (deep clone)
+    category: serialization
+    recommendation: The data never leaves the process; replace the round trip with a copy constructor, a record `with`, or a System.Text.Json round trip (`offramp codemod`).
+    matcher: serialization-flow
+  OFR3203:
+    pack: serialization
+    severity: error
+    title: persisted or transported binary serialization
+    category: serialization
+    recommendation: Data written with BinaryFormatter outlives the process; plan a dual-read migration to a safe format before the target drops the formatter.
+    matcher: serialization-flow
+  OFR3204:
+    pack: serialization
+    severity: info
+    title: type serialized with a binary formatter
+    category: serialization
+    recommendation: Each listed type needs a new serialized shape; ISerializable, OnDeserialized hooks, and delegate members need attention.
+    matcher: serialization-flow
+  OFR3205:
+    pack: serialization
+    severity: info
+    title: "[Serializable] type never serialized"
+    category: serialization
+    recommendation: No serializer in the solution receives it; the attribute can stay.
+    matcher: serializable-unused
+  OFR3210:
+    pack: serialization
+    severity: warning
+    title: legacy JSON serializer
+    category: serialization
+    recommendation: Move to System.Text.Json (or Newtonsoft.Json where its behaviors are relied on).
+    symbols: [T:System.Web.Script.Serialization.JavaScriptSerializer, T:System.Runtime.Serialization.Json.DataContractJsonSerializer]
+  OFR3211:
+    pack: serialization
+    severity: info
+    title: XML serializer
+    category: serialization
+    recommendation: Works on the target; pre-generated serializers (sgen) need Microsoft.XmlSerializer.Generator or can be dropped.
+    symbols: [T:System.Xml.Serialization.XmlSerializer]
