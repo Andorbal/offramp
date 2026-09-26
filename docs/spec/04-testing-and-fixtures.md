@@ -27,8 +27,8 @@ macos, and windows GitHub runners.
 | `behavior` | code hitting each behavior rule: culture compare, code pages, `Path` separators, `Registry`, `HttpContext.Current`, `Process.Start(url)`, `SqlClient`, `double.ToString`, `BinaryFormatter`, `Thread.Abort`, `AppDomain.CreateDomain`, `DllImport` | audit behavior/serialization/native/api |
 | `seams` | a library where 3 of 7 types are tainted by `System.DirectoryServices` (one uses it, one holds a `DirectoryEntry`, one inherits); the articulation point is `DirectoryLookup`, extracted as `IDirectoryLookup` | seams, extract interface, remote |
 | `dead-code` | public types unused anywhere, types used only via `Type.GetType("...")` string, types used by DI convention (`services.Scan`) | audit dead-code confidence levels |
-| `mvc5` | ASP.NET MVC 5 + Web API 2 app with filters, routes, an `HttpModule`, `Global.asax` | web inventory/scaffold |
-| `legacy-csproj` | old-style csproj with packages.config, `AssemblyInfo.cs`, explicit `Compile` items | csproj modernize (built only on windows runner or via committed binlog) |
+| `mvc5` | ASP.NET MVC 5 + Web API 2 app with filters, routes, an `HttpModule`, an `HttpHandler`, Web Forms pages, `Global.asax`; builds on any OS like `legacy-csproj` | web inventory/scaffold (the scaffolded app is built and run against a stand-in legacy server) |
+| `legacy-csproj` | old-style csproj with packages.config, `AssemblyInfo.cs`, explicit `Compile` items; builds on any OS (reference assemblies as a package, `packages/` filled by the tests; ADR 0026) | csproj modernize, config convert |
 
 The fixture generator (`tests/Offramp.Fixtures`) is a small library that can
 also write parameterized fixtures to a temp directory for property-style tests

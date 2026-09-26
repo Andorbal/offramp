@@ -24,6 +24,9 @@ Offramp's own settings when a fixture is built in place.
 | `behavior` | every audit rule, one class per rule with `Positive` and `Negative` members; `ifdef wrap`; see its README |
 | `seams` | seams (taint, min cut, articulation point, wire-friendliness), extract interface, remote (net10.0-windows host, net48 fallback, round trip); see its README |
 | `windows-service` | service (ServiceBase with timers, installers, pause/continue, session changes; Topshelf), project kind detection; see its README |
+| `codemods` | codemod list/run: one site per codemod, a packed-package format mode; see its README |
+| `legacy-csproj` | csproj modernize (packages.config, Compile lists, AssemblyInfo, build events, links), config convert; see its README |
+| `mvc5` | web inventory, web scaffold (controllers that port and ones that do not, routes, a module, a handler, Web Forms); see its README |
 
 `hollow` is generated, not checked in (`GeneratedFixtures.Hollow` in
 `tests/Offramp.Fixtures`): 500 files in `src/Big` to be moved into `src/Big.Core`

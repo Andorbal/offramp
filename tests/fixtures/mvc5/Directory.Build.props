@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    Standalone fixture repository: nothing is inherited from above.
+    Legacy (non-SDK) projects get the .NET Framework reference assemblies as a package so
+    they build on any OS, the way SDK-style projects get them automatically.
+  -->
+  <PropertyGroup Condition="'$(UsingMicrosoftNETSdk)' != 'true'">
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(UsingMicrosoftNETSdk)' != 'true'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

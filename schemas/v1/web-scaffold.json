@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/web-scaffold.json",
+  "title": "offramp web scaffold result",
+  "description": "The result of `offramp web scaffold`. See docs/spec/commands/scaffold.md#web-scaffold.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "newProject", "targetFramework", "proxy", "adapters", "legacyUrl", "controllers", "routes", "middleware", "endpoints", "webForms", "ingressPaths", "linkedSources", "files", "nextSteps", "applied", "journal", "preview"],
+  "properties": {
+    "project": { "$ref": "workspace.json#/$defs/relativePath" },
+    "newProject": { "$ref": "workspace.json#/$defs/relativePath" },
+    "targetFramework": { "type": "string" },
+    "proxy": { "enum": ["yarp", "none"] },
+    "adapters": { "type": "boolean" },
+    "legacyUrl": { "type": ["string", "null"], "description": "The legacy application's URL the proxy forwards to." },
+    "controllers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "file", "ported", "unported", "notes"],
+        "properties": {
+          "type": { "type": "string" },
+          "file": { "type": ["string", "null"], "description": "The new controller file; null when no action was ported." },
+          "ported": { "type": "array", "items": { "type": "string" } },
+          "unported": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["action", "reason"],
+              "properties": {
+                "action": { "type": "string" },
+                "reason": { "type": "string" }
+              }
+            }
+          },
+          "notes": { "type": "array", "items": { "type": "string" }, "description": "Attributes left out (no ASP.NET Core counterpart)." }
+        }
+      }
+    },
+    "routes": { "type": "array", "items": { "type": "string" }, "description": "Convention routes as ASP.NET Core maps them." },
+    "middleware": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" } },
+    "endpoints": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" }, "description": "Endpoint stubs for HttpHandlers (OFR4202)." },
+    "webForms": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" }, "description": "Left to the legacy application (OFR4201)." },
+    "ingressPaths": { "type": "array", "items": { "type": "string" }, "description": "With --proxy none: the route templates the new application serves." },
+    "linkedSources": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" } },
+    "files": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" } },
+    "nextSteps": { "type": "array", "items": { "type": "string" } },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  }
+}

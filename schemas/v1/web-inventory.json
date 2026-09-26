@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/web-inventory.json",
+  "title": "offramp web inventory result",
+  "description": "The result of `offramp web inventory`. See docs/spec/commands/scaffold.md#web-inventory.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "kind", "url", "controllers", "routes", "attributeRouting", "globalFilters", "areas", "modules", "handlers", "globalAsax", "bundles", "webForms", "session", "outputCache", "settings", "systemWeb"],
+  "properties": {
+    "project": { "$ref": "workspace.json#/$defs/relativePath" },
+    "kind": { "type": "string", "pattern": "^(none|(mvc|webapi|webforms)(\\+(mvc|webapi|webforms))*)$", "description": "mvc, webapi, webforms, a combination joined with +, or none." },
+    "url": { "type": ["string", "null"], "description": "The application's URL from the project's IIS settings." },
+    "controllers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type", "kind", "area", "routePrefix", "filters", "file", "actions"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string", "description": "The class, fully qualified." },
+          "kind": { "enum": ["mvc", "webapi"] },
+          "area": { "type": ["string", "null"] },
+          "routePrefix": { "type": ["string", "null"] },
+          "filters": { "type": "array", "items": { "type": "string" } },
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "httpMethods", "routes", "filters", "file", "line"],
+              "properties": {
+                "name": { "type": "string" },
+                "httpMethods": { "type": "array", "items": { "type": "string" }, "description": "Empty means any method." },
+                "routes": { "type": "array", "items": { "type": "string" }, "description": "Attribute route templates, combined with the controller's prefix." },
+                "filters": { "type": "array", "items": { "type": "string" } },
+                "file": { "$ref": "workspace.json#/$defs/relativePath" },
+                "line": { "type": "integer", "minimum": 1 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "description": "Convention routes: MapRoute, MapHttpRoute, an area's MapRoute, IgnoreRoute.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "template", "kind", "area", "defaults", "file", "line"],
+        "properties": {
+          "name": { "type": "string" },
+          "template": { "type": "string" },
+          "kind": { "enum": ["mvc", "webapi", "ignore"] },
+          "area": { "type": ["string", "null"] },
+          "defaults": { "type": "array", "items": { "type": "string" }, "description": "name = value in source order; ? marks an optional parameter." },
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "line": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "attributeRouting": { "type": "array", "items": { "enum": ["mvc", "webapi"] } },
+    "globalFilters": { "type": "array", "items": { "type": "string" } },
+    "areas": { "type": "array", "items": { "type": "string" } },
+    "modules": { "type": "array", "items": { "$ref": "#/$defs/component" } },
+    "handlers": { "type": "array", "items": { "$ref": "#/$defs/component" } },
+    "globalAsax": { "type": "array", "items": { "type": "string" }, "description": "The Global.asax class's Application_* and Session_* handlers." },
+    "bundles": { "type": "array", "items": { "type": "string" } },
+    "webForms": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" }, "description": "Pages, user controls, master pages, handlers (.ashx), and services (.asmx)." },
+    "session": { "type": "array", "items": { "$ref": "#/$defs/site" } },
+    "outputCache": { "type": "array", "items": { "$ref": "#/$defs/site" } },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authentication", "loginUrl", "sessionState", "machineKey", "customErrors", "sections"],
+      "properties": {
+        "authentication": { "type": ["string", "null"] },
+        "loginUrl": { "type": ["string", "null"] },
+        "sessionState": { "type": ["string", "null"] },
+        "machineKey": { "type": "boolean" },
+        "customErrors": { "type": ["string", "null"] },
+        "sections": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "systemWeb": {
+      "type": "array",
+      "description": "Per source file, the System.Web.* types it uses.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "types"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "types": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "file", "path", "verb", "registeredIn"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "file": { "type": ["string", "null"], "description": "The class's file, or null when it is not in the project." },
+        "path": { "type": ["string", "null"] },
+        "verb": { "type": ["string", "null"] },
+        "registeredIn": { "type": "array", "items": { "enum": ["system.web", "system.webServer"] } }
+      }
+    },
+    "site": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line", "what"],
+      "properties": {
+        "file": { "$ref": "workspace.json#/$defs/relativePath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "what": { "type": "string" }
+      }
+    }
+  }
+}

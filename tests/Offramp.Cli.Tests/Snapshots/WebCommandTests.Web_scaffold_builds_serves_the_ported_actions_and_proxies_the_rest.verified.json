@@ -1,0 +1,273 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "web scaffold",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "Mvc5.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "project": "src/Shop.Web/Shop.Web.csproj",
+    "newProject": "src/Shop.Web.Core/Shop.Web.Core.csproj",
+    "targetFramework": "net10.0",
+    "proxy": "yarp",
+    "adapters": false,
+    "legacyUrl": "http://localhost:51234/",
+    "controllers": [
+      {
+        "type": "Shop.Web.Areas.Admin.Controllers.DashboardController",
+        "file": null,
+        "ported": [],
+        "unported": [
+          {
+            "action": "Index",
+            "reason": "renders a Razor view; views are not ported, so the legacy application serves it."
+          }
+        ],
+        "notes": []
+      },
+      {
+        "type": "Shop.Web.Controllers.Api.ProductsController",
+        "file": "src/Shop.Web.Core/Controllers/ProductsController.cs",
+        "ported": [
+          "Get",
+          "Post"
+        ],
+        "unported": [],
+        "notes": []
+      },
+      {
+        "type": "Shop.Web.Controllers.Api.StockController",
+        "file": null,
+        "ported": [],
+        "unported": [
+          {
+            "action": "Get",
+            "reason": "uses HttpContext.Current (System.Web), which has no one-to-one ASP.NET Core counterpart."
+          }
+        ],
+        "notes": []
+      },
+      {
+        "type": "Shop.Web.Controllers.HomeController",
+        "file": "src/Shop.Web.Core/Controllers/HomeController.cs",
+        "ported": [
+          "Catalog",
+          "Health"
+        ],
+        "unported": [
+          {
+            "action": "About",
+            "reason": "uses ControllerBase.ViewBag (System.Web), which has no one-to-one ASP.NET Core counterpart."
+          },
+          {
+            "action": "Config",
+            "reason": "does not compile for ASP.NET Core: CS1061: 'AppDomainSetup' does not contain a definition for 'ConfigurationFile' and no accessible extension method 'ConfigurationFile' accepting a first argument of type 'AppDomainSetup' could be found (are you missing a using directive or an assembly reference?)"
+          },
+          {
+            "action": "Contact",
+            "reason": "uses Controller.Session (System.Web), which has no one-to-one ASP.NET Core counterpart."
+          },
+          {
+            "action": "Index",
+            "reason": "renders a Razor view; views are not ported, so the legacy application serves it."
+          }
+        ],
+        "notes": []
+      },
+      {
+        "type": "Shop.Web.Controllers.OrdersController",
+        "file": "src/Shop.Web.Core/Controllers/OrdersController.cs",
+        "ported": [
+          "Details"
+        ],
+        "unported": [
+          {
+            "action": "Index",
+            "reason": "renders a Razor view; views are not ported, so the legacy application serves it."
+          }
+        ],
+        "notes": []
+      }
+    ],
+    "routes": [
+      "app.MapControllerRoute(name: \"Catalog\", pattern: \"catalog/{category}\", defaults: new { controller = \"Home\", action = \"Catalog\" });",
+      "app.MapControllerRoute(name: \"Default\", pattern: \"{controller=Home}/{action=Index}/{id?}\");"
+    ],
+    "middleware": [
+      "src/Shop.Web.Core/Middleware/RequestTimingMiddleware.cs"
+    ],
+    "endpoints": [
+      "src/Shop.Web.Core/Endpoints/ThumbnailEndpoint.cs"
+    ],
+    "webForms": [
+      "src/Shop.Web/Controls/Header.ascx",
+      "src/Shop.Web/Legacy/Report.aspx"
+    ],
+    "ingressPaths": [],
+    "linkedSources": [
+      "src/Shop.Web/Models/Product.cs"
+    ],
+    "files": [
+      "src/Shop.Web.Core/Controllers/HomeController.cs",
+      "src/Shop.Web.Core/Controllers/OrdersController.cs",
+      "src/Shop.Web.Core/Controllers/ProductsController.cs",
+      "src/Shop.Web.Core/Endpoints/ThumbnailEndpoint.cs",
+      "src/Shop.Web.Core/Middleware/RequestTimingMiddleware.cs",
+      "src/Shop.Web.Core/Program.cs",
+      "src/Shop.Web.Core/Shop.Web.Core.csproj",
+      "src/Shop.Web.Core/appsettings.json"
+    ],
+    "nextSteps": [
+      "dotnet sln add src/Shop.Web.Core/Shop.Web.Core.csproj",
+      "dotnet run --project src/Shop.Web.Core/Shop.Web.Core.csproj",
+      "Give the new application an authentication scheme for the [Authorize] actions of OrdersController (or scaffold with --adapters to share the legacy application's); until then they answer 500.",
+      "Decide per Web Forms page (OFR4201): keep behind the proxy, rewrite, or convert.",
+      "Port the actions listed as not ported (views need Razor views in the new project), then remove them from the legacy application."
+    ],
+    "applied": false,
+    "journal": null,
+    "preview": "--- /dev/null\n+++ b/src/Shop.Web.Core/Controllers/HomeController.cs\n@@ -0,0 +1,24 @@\n+// Ported by offramp web scaffold from src/Shop.Web/Controllers/HomeController.cs.\n+// Not ported, served by the legacy application: About: uses ControllerBase.ViewBag (System.Web), which has no one-to-one ASP.NET Core counterpart.\n+// Not ported, served by the legacy application: Config: does not compile for ASP.NET Core: CS1061: 'AppDomainSetup' does not contain a definition for 'ConfigurationFile' and no accessible extension method 'ConfigurationFile' accepting a first argument of type 'AppDomainSetup' could be found (are you missing a using directive or an assembly reference?)\n+// Not ported, served by the legacy application: Contact: uses Controller.Session (System.Web), which has no one-to-one ASP.NET Core counterpart.\n+// Not ported, served by the legacy application: Index: renders a Razor view; views are not ported, so the legacy application serves it.\n+\n+using System;\n+using Microsoft.AspNetCore.Mvc;\n+\n+namespace Shop.Web.Controllers\n+{\n+    public class HomeController : Controller\n+    {\n+        public ActionResult Catalog(string category)\n+        {\n+            return Json(new { category, items = 3 });\n+        }\n+\n+        public ActionResult Health()\n+        {\n+            return Content(\"ok\");\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Shop.Web.Core/Controllers/OrdersController.cs\n@@ -0,0 +1,24 @@\n+// Ported by offramp web scaffold from src/Shop.Web/Controllers/OrdersController.cs.\n+// Not ported, served by the legacy application: Index: renders a Razor view; views are not ported, so the legacy application serves it.\n+\n+using Microsoft.AspNetCore.Authorization;\n+using Microsoft.AspNetCore.Mvc;\n+\n+namespace Shop.Web.Controllers\n+{\n+    [Authorize]\n+    [Route(\"orders\")]\n+    public class OrdersController : Controller\n+    {\n+        [Route(\"{id:int}\")]\n+        public ActionResult Details(int id)\n+        {\n+            if (id <= 0)\n+            {\n+                return NotFound();\n+            }\n+\n+            return Json(new { id, status = \"shipped\" });\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Shop.Web.Core/Controllers/ProductsController.cs\n@@ -0,0 +1,48 @@\n+// Ported by offramp web scaffold from src/Shop.Web/Controllers/Api/ProductsController.cs.\n+\n+using System.Collections.Generic;\n+using System.Linq;\n+using Microsoft.AspNetCore.Mvc;\n+using Shop.Web.Models;\n+\n+namespace Shop.Web.Controllers.Api\n+{\n+    [ApiController]\n+    [Route(\"api/products\")]\n+    public class ProductsController : ControllerBase\n+    {\n+        private static readonly List<Product> Products = new List<Product>\n+        {\n+            new Product { Id = 1, Name = \"Kettle\", Price = 25m },\n+            new Product { Id = 2, Name = \"Teapot\", Price = 18m },\n+        };\n+\n+        [HttpGet]\n+        [Route(\"\")]\n+        public IEnumerable<Product> Get()\n+        {\n+            return Products;\n+        }\n+\n+        [HttpGet]\n+        [Route(\"{id:int}\")]\n+        public IActionResult Get(int id)\n+        {\n+            var product = Products.FirstOrDefault(p => p.Id == id);\n+            if (product == null)\n+            {\n+                return NotFound();\n+            }\n+\n+            return Ok(product);\n+        }\n+\n+        [Route(\"\")]\n+        [HttpPost]\n+        public IActionResult Post(Product product)\n+        {\n+            Products.Add(product);\n+            return Created(\"api/products/\" + product.Id, product);\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Shop.Web.Core/Endpoints/ThumbnailEndpoint.cs\n@@ -0,0 +1,33 @@\n+// Generated by offramp web scaffold from src/Shop.Web/Handlers/ThumbnailHandler.cs.\n+using Microsoft.AspNetCore.Http;\n+\n+namespace Shop.Web.Endpoints\n+{\n+    /// <summary>\n+    /// OFR4202: the Shop.Web.Handlers.ThumbnailHandler HttpHandler (thumbnail.axd) as a minimal API\n+    /// endpoint. Port ProcessRequest into Handle, then map it in Program.cs; until then the\n+    /// proxy sends its path to the legacy application.\n+    /// </summary>\n+    public static class ThumbnailEndpoint\n+    {\n+        public static IResult Handle(HttpContext context) => Results.StatusCode(StatusCodes.Status501NotImplemented);\n+    }\n+}\n+\n+#if OFFRAMP_HTTPHANDLER // The original HttpHandler, to port into Handle:\n+using System.Web;\n+\n+namespace Shop.Web.Handlers\n+{\n+    public class ThumbnailHandler : IHttpHandler\n+    {\n+        public bool IsReusable => true;\n+\n+        public void ProcessRequest(HttpContext context)\n+        {\n+            context.Response.ContentType = \"image/png\";\n+            context.Response.BinaryWrite(new byte[0]);\n+        }\n+    }\n+}\n+#endif\n--- /dev/null\n+++ b/src/Shop.Web.Core/Middleware/RequestTimingMiddleware.cs\n@@ -0,0 +1,53 @@\n+// Generated by offramp web scaffold from src/Shop.Web/Modules/RequestTimingModule.cs.\n+using System.Threading.Tasks;\n+using Microsoft.AspNetCore.Http;\n+\n+namespace Shop.Web.Middleware\n+{\n+    /// <summary>\n+    /// The Shop.Web.Modules.RequestTimingModule HttpModule's place in the pipeline. Port its BeginRequest work\n+    /// before the call to the next middleware and its EndRequest work after; the original\n+    /// is below the namespace, not compiled.\n+    /// </summary>\n+    public sealed class RequestTimingMiddleware\n+    {\n+        private readonly RequestDelegate _next;\n+\n+        public RequestTimingMiddleware(RequestDelegate next)\n+        {\n+            _next = next;\n+        }\n+\n+        public async Task InvokeAsync(HttpContext context)\n+        {\n+            await _next(context);\n+        }\n+    }\n+}\n+\n+#if OFFRAMP_HTTPMODULE // The original HttpModule, to port into InvokeAsync:\n+using System;\n+using System.Diagnostics;\n+using System.Web;\n+\n+namespace Shop.Web.Modules\n+{\n+    public class RequestTimingModule : IHttpModule\n+    {\n+        public void Init(HttpApplication context)\n+        {\n+            context.BeginRequest += (sender, e) => ((HttpApplication)sender).Context.Items[\"timer\"] = Stopwatch.StartNew();\n+            context.EndRequest += (sender, e) =>\n+            {\n+                var application = (HttpApplication)sender;\n+                var timer = (Stopwatch)application.Context.Items[\"timer\"];\n+                application.Response.AppendHeader(\"X-Elapsed-Ms\", timer.ElapsedMilliseconds.ToString());\n+            };\n+        }\n+\n+        public void Dispose()\n+        {\n+        }\n+    }\n+}\n+#endif\n--- /dev/null\n+++ b/src/Shop.Web.Core/Program.cs\n@@ -0,0 +1,25 @@\n+// Generated by offramp web scaffold: the ASP.NET Core front of src/Shop.Web/Shop.Web.csproj. What it does not serve goes to the legacy application.\n+using Microsoft.AspNetCore.Builder;\n+using Microsoft.Extensions.DependencyInjection;\n+\n+var builder = WebApplication.CreateBuilder(args);\n+\n+builder.Services.AddControllersWithViews();\n+builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection(\"ReverseProxy\"));\n+\n+var app = builder.Build();\n+\n+app.UseMiddleware<Shop.Web.Middleware.RequestTimingMiddleware>();\n+app.UseRouting();\n+// [Authorize] on ported actions needs an authentication scheme: --adapters shares the legacy application's,\n+// or add one with builder.Services.AddAuthentication(...) and app.UseAuthentication() here.\n+app.UseAuthorization();\n+\n+app.MapControllerRoute(name: \"Catalog\", pattern: \"catalog/{category}\", defaults: new { controller = \"Home\", action = \"Catalog\" });\n+app.MapControllerRoute(name: \"Default\", pattern: \"{controller=Home}/{action=Index}/{id?}\");\n+app.MapControllers();\n+// OFR4202: until Shop.Web.Handlers.ThumbnailHandler is ported, the proxy sends thumbnail.axd to the legacy application. Then:\n+// app.MapMethods(\"/thumbnail.axd\", new[] { \"GET\" }, Shop.Web.Endpoints.ThumbnailEndpoint.Handle);\n+app.MapReverseProxy();\n+\n+app.Run();\n--- /dev/null\n+++ b/src/Shop.Web.Core/Shop.Web.Core.csproj\n@@ -0,0 +1,19 @@\n+<Project Sdk=\"Microsoft.NET.Sdk.Web\">\n+\n+  <PropertyGroup>\n+    <TargetFramework>net10.0</TargetFramework>\n+    <RootNamespace>Shop.Web</RootNamespace>\n+    <Nullable>disable</Nullable>\n+    <ImplicitUsings>disable</ImplicitUsings>\n+  </PropertyGroup>\n+\n+  <ItemGroup>\n+    <PackageReference Include=\"Yarp.ReverseProxy\" Version=\"2.3.0\" />\n+  </ItemGroup>\n+\n+  <!-- Compiled from the legacy project until the code moves (offramp move plan). -->\n+  <ItemGroup>\n+    <Compile Include=\"..\\Shop.Web\\Models\\Product.cs\" Link=\"Linked\\Models\\Product.cs\" />\n+  </ItemGroup>\n+\n+</Project>\n--- /dev/null\n+++ b/src/Shop.Web.Core/appsettings.json\n@@ -0,0 +1,29 @@\n+{\n+  \"Logging\": {\n+    \"LogLevel\": {\n+      \"Default\": \"Information\",\n+      \"Microsoft.AspNetCore\": \"Warning\"\n+    }\n+  },\n+  \"AllowedHosts\": \"*\",\n+  \"ReverseProxy\": {\n+    \"Routes\": {\n+      \"legacy\": {\n+        \"ClusterId\": \"legacy\",\n+        \"Order\": 2147483647,\n+        \"Match\": {\n+          \"Path\": \"{**catch-all}\"\n+        }\n+      }\n+    },\n+    \"Clusters\": {\n+      \"legacy\": {\n+        \"Destinations\": {\n+          \"app\": {\n+            \"Address\": \"http://localhost:51234/\"\n+          }\n+        }\n+      }\n+    }\n+  }\n+}\n"
+  },
+  "diagnostics": [
+    {
+      "code": "OFR4201",
+      "severity": "warning",
+      "message": "src/Shop.Web/Controls/Header.ascx stays with the legacy application: keep it behind the proxy, rewrite it as a Razor Page or Blazor component, or use a third-party converter.",
+      "project": "src/Shop.Web/Shop.Web.csproj",
+      "file": "src/Shop.Web/Controls/Header.ascx",
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4201"
+    },
+    {
+      "code": "OFR4201",
+      "severity": "warning",
+      "message": "src/Shop.Web/Legacy/Report.aspx stays with the legacy application: keep it behind the proxy, rewrite it as a Razor Page or Blazor component, or use a third-party converter.",
+      "project": "src/Shop.Web/Shop.Web.csproj",
+      "file": "src/Shop.Web/Legacy/Report.aspx",
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4201"
+    },
+    {
+      "code": "OFR4202",
+      "severity": "info",
+      "message": "Shop.Web.Handlers.ThumbnailHandler (thumbnail.axd) is an endpoint stub in Endpoints/ThumbnailEndpoint.cs; the proxy serves its path until it is ported and mapped.",
+      "project": "src/Shop.Web/Shop.Web.csproj",
+      "file": "src/Shop.Web/Handlers/ThumbnailHandler.cs",
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4202"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 2,
+    "info": 1
+  }
+}

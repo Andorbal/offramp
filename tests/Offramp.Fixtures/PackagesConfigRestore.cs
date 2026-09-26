@@ -25,7 +25,7 @@ public static class PackagesConfigRestore
 
         using var scratch = new ScratchDirectory("packages-config");
         File.WriteAllText(Path.Combine(scratch.Path, "Restore.csproj"),
-            "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>netstandard2.0</TargetFramework>\n  </PropertyGroup>\n  <ItemGroup>\n"
+            "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net48</TargetFramework>\n  </PropertyGroup>\n  <ItemGroup>\n"
             + string.Concat(packages.Select(p => $"    <PackageReference Include=\"{p.Id}\" Version=\"[{p.Version}]\" />\n"))
             + "  </ItemGroup>\n</Project>\n");
         var restore = await ProcessRunner.Instance.RunAsync(new ProcessSpec("dotnet", ["restore", "Restore.csproj", "-nologo"]) { WorkingDirectory = scratch.Path, Timeout = TimeSpan.FromMinutes(10) }, cancellationToken);
@@ -38,7 +38,14 @@ public static class PackagesConfigRestore
         var global = locals.StandardOutput.Trim().Split(':', 2)[1].Trim();
         foreach (var (id, version) in packages)
         {
-            FixtureRepository.CopyDirectory(Path.Combine(global, id.ToLowerInvariant(), version.ToLowerInvariant()), Path.Combine(repositoryRoot, "packages", $"{id}.{version}"));
+            FixtureRepository.CopyDirectory(Path.Combine(global, id.ToLowerInvariant(), Normalized(version)), Path.Combine(repositoryRoot, "packages", $"{id}.{version}"));
         }
+    }
+
+    /// <summary>The global packages folder's spelling of a version: lower case, without a fourth part of zero (1.0.0.0 is 1.0.0).</summary>
+    private static string Normalized(string version)
+    {
+        var parts = version.ToLowerInvariant().Split('.');
+        return parts.Length == 4 && parts[3] == "0" ? string.Join('.', parts[..3]) : version.ToLowerInvariant();
     }
 }
