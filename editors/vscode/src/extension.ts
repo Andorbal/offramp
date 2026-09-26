@@ -4,7 +4,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-lan
 import { hasStateDirectory, repositoryRoot, resolveEnablement } from './enablement';
 import { MINIMUM_VERSION, ServerCommand, atLeast, resolveServer, versionCommand } from './server';
 import { serverSettings } from './settings';
-import { ServerStatus, statusView } from './status';
+import { ScanNeed, ServerStatus, statusView } from './status';
 
 /** One language server per workspace folder where Offramp is on (docs/spec/commands/ide.md#vs-code-m15). */
 interface Session {
@@ -17,6 +17,8 @@ const sessions = new Map<string, Session>();
 let output: vscode.LogOutputChannel;
 let status: vscode.StatusBarItem;
 const statuses = new Map<string, ServerStatus>();
+/** Per document URI: why its project needs a scan (offramp/fileStatus), when it does. */
+const fileScans = new Map<string, ScanNeed>();
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   output = vscode.window.createOutputChannel('Offramp', { log: true });
@@ -141,6 +143,15 @@ async function start(folder: vscode.WorkspaceFolder, repository: string): Promis
     statuses.set(key, value);
     renderStatus();
   });
+  client.onNotification('offramp/fileStatus', (value: { uri: string; scan: ScanNeed | null }) => {
+    if (value.scan) {
+      fileScans.set(value.uri, value.scan);
+    } else {
+      fileScans.delete(value.uri);
+    }
+
+    renderStatus();
+  });
   try {
     await client.start();
     output.appendLine(`Offramp started for ${folder.name} (${server.source}: ${server.command} ${server.args.join(' ')}).`);
@@ -209,7 +220,8 @@ function renderStatus(): void {
     return;
   }
 
-  const view = statusView(value);
+  const document = vscode.window.activeTextEditor?.document.uri.toString();
+  const view = statusView(value, document ? fileScans.get(document) : undefined);
   status.text = view.text;
   status.tooltip = view.tooltip;
   status.command = view.command;

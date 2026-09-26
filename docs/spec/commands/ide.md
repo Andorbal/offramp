@@ -164,6 +164,26 @@ than a move. Whether the rest of the source project and its dependents still
 compile is not checked here (it needs the whole project); the move itself
 checks it before anything is written.
 
+### Projects that need a scan
+
+The editor never goes quiet without saying why. A C# file's report carries
+`scan` when its project needs a new `offramp scan` before it can be checked as it
+should:
+
+| `reason` | When | What the editor still shows |
+|---|---|---|
+| `new-project` | a project file sits in the file's folder or above, and the workspace model has no such project (added after the scan, or outside the scanned solution) | nothing else |
+| `no-compilation` | the project is .NET Framework-only, but the scan recorded no compilation for it (its build failed or did not run) | nothing else |
+| `project-changed` | the project's file, its `packages.config`, or a `Directory.*.props`/`.targets` above it changed after the scan (not counting the server's own moves) | everything, from the recorded compilation; moves wait for the scan (`OFR0002`) |
+
+The server sends each open file's need with `offramp/fileStatus` (below). Shells
+show it where the developer is looking; VS Code's status bar reads `Offramp: scan
+Billing` while such a file is active, and a click runs the scan. The first time
+someone edits a file of such a project in a session, the server also asks once,
+with `window/showMessageRequest`, whether to scan now (per project, never again
+that session, so a project outside the scanned solution cannot loop). `ide check`
+reports `OFR6006` for a new project and `OFR6009` for the others, once per project.
+
 ## Counterparts and the project map
 
 For each .NET Framework project, its counterparts are, in order:
@@ -275,7 +295,7 @@ offramp ide check [--file PATH ...] [--base REF] [--scope lines|files|all]
 - `--base` and `--scope` override `ide.newCode.base` and `ide.newCode.scope`.
 - Always runs; `enablement` says what an editor would do with `auto`.
 - Diagnostics: every finding on new code with its own code and severity, one
-  `OFR6001` per new movable type, and `OFR6002`, `OFR6004`–`OFR6007`. So
+  `OFR6001` per new movable type, and `OFR6002`, `OFR6004`–`OFR6007`, `OFR6009`. So
   `offramp ide check --base origin/main --fail-on error` fails a pull request that
   adds code using APIs modern .NET does not have, and `--fail-on info` one that
   adds a class to a .NET Framework project that could live elsewhere.
@@ -305,7 +325,8 @@ Result (`schemas/v1/ide-check.json`):
       "moves": [   // one per counterpart; code, message, and details say why a file cannot move, as move plan's exclusions do
         { "to": "src/ModernF/ModernF.csproj", "movable": true, "destination": "src/ModernF/Pricing/PriceCalculator.cs",
           "referenced": true, "code": null, "message": null, "details": [] }
-      ]
+      ],
+      "scan": null   // or { "reason": "new-project|no-compilation|project-changed", "project": "…", "message": "…" }
     }
   ],
   "summary": { "files": 1, "newLines": 42, "findings": 1, "newMovableTypes": 1, "movableFiles": 1 }
@@ -352,6 +373,9 @@ from the file reports above.
   repository-level diagnostics (`OFR6002`, `OFR6004`, `OFR6007`, a target that does
   not resolve). Shells show it in a status bar. When the model
   is missing the server also asks once whether to run `offramp scan`.
+- **`offramp/fileStatus` (notification to the client):** `{ uri, scan }` after
+  each analysis of an open document; `scan` is the file report's scan need or
+  null ([Projects that need a scan](#projects-that-need-a-scan)).
 - **`offramp/fileReport` (request from the client):** `{ uri }` → the file report,
   for shells that draw with their IDE's own APIs (Visual Studio's lenses).
 
@@ -370,10 +394,12 @@ from the file reports above.
   forwards them to the right folder's server (so multi-root workspaces work), plus
   `Offramp: Enable in this workspace`, `Disable in this workspace`, `Restart`, and
   `Show output`.
-- Status bar: on/off and why, the model's state, and a click to scan.
-- The `.vsix` is built and tested in CI and attached to each release; publishing to the
-  Marketplace and Open VSX follows once a publisher account exists
-  (`docs/RELEASING.md`).
+- Status bar: on/off and why, the model's state, the project map's problems, and
+  whether the active file's project needs a scan; a click scans when one is
+  needed.
+- Published as `AndrewBenz.offramp` to the Visual Studio Marketplace (and Open VSX
+  when configured) by each stable release; the `.vsix` is built and tested in CI
+  and attached to every release (`docs/RELEASING.md`).
 
 ### Visual Studio (M16)
 
@@ -424,6 +450,7 @@ entry does not resolve (warning), `OFR6003` more than a move (info, in
 `moves[]` only), `OFR6004` counterpart cannot take the project's code (warning),
 `OFR6005` no counterpart for a .NET Framework project (info), `OFR6006` file not
 in the workspace model (warning), `OFR6007` new-code base unavailable (warning),
-`OFR6008` file has unsaved changes (error, from `offramp.move`). Also, from the
+`OFR6008` file has unsaved changes (error, from `offramp.move`), `OFR6009` project
+needs a new scan (warning). Also, from the
 commands the engine reuses: the `audit api` codes, `OFR2001`, `OFR2003`,
 `OFR2101`–`OFR2103`, `OFR2110`, `OFR2111`, `OFR2120`, `OFR0001`, and `OFR0002`.

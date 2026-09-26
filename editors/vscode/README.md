@@ -27,13 +27,21 @@ In repositories with an `.offramp` folder (a migration is under way) it is on by
 elsewhere it is off. Change that with `offramp.enabled` (`auto`, `on`, `off`), per user or per
 workspace, or with **Offramp: Enable in this workspace** / **Disable in this workspace**.
 
+## Install
+
+Install **Offramp** (`AndrewBenz.offramp`) from the Visual Studio Marketplace, or run
+`code --install-extension AndrewBenz.offramp`.
+
 ## Requirements
 
 - The `offramp` .NET tool, 0.15.0 or newer: the repository's local tool
   (`.config/dotnet-tools.json`) if it has one, else `dotnet tool install -g offramp`, or set
   `offramp.server.path`.
 - A workspace model: Offramp asks to run `offramp scan` (which builds the solution once) when
-  there is none. Source edits never need another scan.
+  there is none. Source edits never need another scan. When a project was added or its project
+  file changed since the last scan, or the scan could not compile it, the status bar says
+  **Offramp: scan** and the project's name while one of its files is open (click it to
+  scan), and the first edit there asks once.
 - The C# extension, for everything else about C#.
 
 ## Where code can move

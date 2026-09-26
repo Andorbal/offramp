@@ -123,7 +123,7 @@ public sealed class IdeEngine : IDisposable
         var text = Workspace.CurrentText(file);
         var projects = Workspace.ProjectsOf(file);
         var project = projects.FirstOrDefault(Ide.Counterparts.Applies) ?? projects.FirstOrDefault();
-        var report = new IdeFileReport { File = file, Project = project?.Id, Applies = false };
+        var report = new IdeFileReport { File = file, Project = project?.Id, Applies = false, Scan = ScanNeedFor(file, project) };
         if (text is null || project is null || !Ide.Counterparts.Applies(project) || !file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) || LiveWorkspace.IsGenerated("/" + file))
         {
             return report;
@@ -263,7 +263,109 @@ public sealed class IdeEngine : IDisposable
                 && ContentHash.Sha256File(RepoPaths.ToAbsolute(RepositoryRoot, c)) == hash))
             .ToList();
         var remaining = staleness with { Changed = changed };
+        _changedProjects = ChangedProjects(remaining);
         return remaining.IsStale ? remaining.Describe() : null;
+    }
+
+    private Dictionary<string, string>? _changedProjects;
+
+    /// <summary>
+    /// Why a file cannot be checked as it should until the next scan (docs/spec/commands/ide.md#projects-that-need-a-scan):
+    /// its project was added after the scan, the scan recorded no compilation for it, or its project
+    /// file (or a Directory.*.props/targets above it) changed since. Null when nothing is missing, and
+    /// for projects the editor does not report on.
+    /// </summary>
+    private IdeScanNeed? ScanNeedFor(string file, ProjectInfo? project)
+    {
+        if (!file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) || LiveWorkspace.IsGenerated("/" + file))
+        {
+            return null;
+        }
+
+        if (project is null)
+        {
+            return NearestProjectFile(file) is { } added && Workspace.Model.Projects.All(p => p.Id != added)
+                ? new IdeScanNeed { Reason = IdeScanNeed.NewProject, Project = added, Message = $"{added} was added after the last scan (or is not in the scanned solution), so Offramp cannot check it yet." }
+                : null;
+        }
+
+        if (!Ide.Counterparts.Applies(project))
+        {
+            return null;
+        }
+
+        if (project.CompilerCalls.Count == 0)
+        {
+            return new IdeScanNeed
+            {
+                Reason = IdeScanNeed.NoCompilation,
+                Project = project.Id,
+                Message = $"The last scan recorded no compilation for {project.Id} (its build failed or did not run), so Offramp cannot check it.",
+            };
+        }
+
+        if (_changedProjects is null)
+        {
+            Staleness();
+        }
+
+        return _changedProjects!.TryGetValue(project.Id, out var input)
+            ? new IdeScanNeed
+            {
+                Reason = IdeScanNeed.ProjectChanged,
+                Project = project.Id,
+                Message = $"{input} changed after the last scan, so what Offramp shows for {project.Id} may be out of date, and moves from it wait for a scan.",
+            }
+            : null;
+    }
+
+    /// <summary>Each project the changed or added inputs affect, with the first such input: its project file, packages.config, or a Directory.*.props/targets above it.</summary>
+    private Dictionary<string, string> ChangedProjects(Staleness staleness)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var input in staleness.Changed.Concat(staleness.Added).Order(StringComparer.Ordinal))
+        {
+            var name = Path.GetFileName(input);
+            var folder = Folder(input);
+            IEnumerable<string> affected = name.EndsWith("proj", StringComparison.OrdinalIgnoreCase)
+                ? [input]
+                : name.Equals("packages.config", StringComparison.OrdinalIgnoreCase)
+                    ? Workspace.Recorded.Projects.Where(p => Folder(p.Id) == folder).Select(p => p.Id)
+                    : name.StartsWith("Directory.", StringComparison.OrdinalIgnoreCase)
+                        ? Workspace.Recorded.Projects.Where(p => folder.Length == 0 || p.Id.StartsWith(folder + "/", StringComparison.Ordinal)).Select(p => p.Id)
+                        : [];
+            foreach (var project in affected)
+            {
+                result.TryAdd(project, input);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>The nearest C# project file in the file's folder or a folder above it, inside the repository.</summary>
+    private string? NearestProjectFile(string file)
+    {
+        for (var folder = Folder(file); ; folder = Folder(folder))
+        {
+            var directory = RepoPaths.ToAbsolute(RepositoryRoot, folder.Length == 0 ? "." : folder);
+            if (Directory.Exists(directory)
+                && Directory.EnumerateFiles(directory, "*.csproj").Select(Path.GetFileName).OfType<string>().Order(StringComparer.Ordinal).FirstOrDefault() is { } project)
+            {
+                return folder.Length == 0 ? project : folder + "/" + project;
+            }
+
+            if (folder.Length == 0)
+            {
+                return null;
+            }
+        }
+    }
+
+    private static string Folder(string path)
+    {
+        var slash = path.LastIndexOf('/');
+        return slash < 0 ? "" : path[..slash];
     }
 
     public void Dispose() => Workspace.Dispose();

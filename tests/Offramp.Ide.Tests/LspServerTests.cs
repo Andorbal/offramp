@@ -128,6 +128,42 @@ public sealed class LspServerTests
         Assert.True(client.Refreshes > 0);
     }
 
+    [Fact]
+    public async Task A_file_in_a_project_added_after_the_scan_says_so_and_editing_it_asks_once_to_scan()
+    {
+        var fixture = await ScannedFixtures.ScanAsync(Engines.Fixture);
+        using var repository = fixture.Repository;
+        repository.Directory.Write("src/Billing/Billing.csproj", repository.Directory.Read("src/Legacy/Legacy.csproj").Replace("Legacy", "Billing", StringComparison.Ordinal));
+        var path = repository.Directory.Write("src/Billing/Invoice.cs", "namespace Billing\n{\n    public sealed class Invoice\n    {\n    }\n}\n");
+        var uri = new Uri(path).AbsoluteUri;
+        await using var client = new TestClient(fixture.Root);
+
+        await client.RequestAsync("initialize", new JsonObject { ["rootUri"] = new Uri(fixture.Root).AbsoluteUri, ["initializationOptions"] = new JsonObject { ["clientCommands"] = true } });
+        await client.NotifyAsync("initialized", new JsonObject());
+        await client.NextAsync("offramp/status");
+        await client.NotifyAsync("textDocument/didOpen", new JsonObject
+        {
+            ["textDocument"] = new JsonObject { ["uri"] = uri, ["languageId"] = "csharp", ["version"] = 1, ["text"] = File.ReadAllText(path) },
+        });
+        var opened = await client.NextAsync("offramp/fileStatus", p => (string?)p["uri"] == uri);
+        var askedAfterOpening = client.Asked.Count;
+        foreach (var version in new[] { 2, 3 })
+        {
+            await client.NotifyAsync("textDocument/didChange", new JsonObject
+            {
+                ["textDocument"] = new JsonObject { ["uri"] = uri, ["version"] = version },
+                ["contentChanges"] = new JsonArray(new JsonObject { ["text"] = File.ReadAllText(path) + new string('\n', version) }),
+            });
+            await client.NextAsync("offramp/fileStatus", p => (string?)p["uri"] == uri);
+        }
+
+        await client.NextAsync("offramp/status"); // "Scan now" was answered: the engine reloaded after the (stubbed) scan
+
+        Assert.Equal(("new-project", "src/Billing/Billing.csproj"), ((string)opened["scan"]!["reason"]!, (string)opened["scan"]!["project"]!));
+        Assert.Equal(0, askedAfterOpening);
+        Assert.Contains("src/Billing/Billing.csproj was added after the last scan", Assert.Single(client.Asked), StringComparison.Ordinal);
+    }
+
     /// <summary>A language client over in-memory pipes; it answers the server's requests (Move, progress, showDocument).</summary>
     private sealed class TestClient : IAsyncDisposable
     {

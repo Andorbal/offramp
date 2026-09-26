@@ -35,3 +35,17 @@ test('repository problems (a map entry that names no project) show in the toolti
   assert.equal(view.text, '$(warning) Offramp');
   assert.match(view.tooltip, /OFR6002: projectMap entry Foo → Nope/);
 });
+
+test('a file whose project needs a scan says so, and a click scans', () => {
+  const status = { enabled: true, reason: 'state-directory', model: 'fresh', counterparts, message: null };
+  const view = statusView(status, {
+    reason: 'new-project',
+    project: 'src/Billing/Billing.csproj',
+    message: 'src/Billing/Billing.csproj was added after the last scan, so Offramp cannot check it yet.',
+  });
+  assert.equal(view.text, '$(sync) Offramp: scan Billing');
+  assert.equal(view.command, 'offramp.scan');
+  assert.equal(view.warning, true);
+  assert.match(view.tooltip, /added after the last scan/);
+  assert.equal(statusView(status).text, '$(check) Offramp');
+});

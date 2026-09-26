@@ -119,11 +119,30 @@ public sealed record IdeFileReport
     /// <summary>One entry per counterpart, in counterpart order.</summary>
     public IReadOnlyList<MoveAssessment> Moves { get; init; } = [];
 
+    /// <summary>Why the file cannot be checked as it should until the next scan, or null.</summary>
+    public IdeScanNeed? Scan { get; init; }
+
     /// <summary>The type a move lens sits on: the one named like the file, else the first; null when no move is possible.</summary>
     public IdeType? LensType() =>
         Moves.Any(m => m.Movable) && Types.Count > 0
             ? Types.FirstOrDefault(t => string.Equals(IdeCheck.ShortName(t.Name), Path.GetFileNameWithoutExtension(File).Split('.')[0], StringComparison.Ordinal)) ?? Types[0]
             : null;
+}
+
+/// <summary>A project that needs a new scan before the editor can check it (docs/spec/commands/ide.md#projects-that-need-a-scan).</summary>
+public sealed record IdeScanNeed
+{
+    public const string NewProject = "new-project";
+    public const string NoCompilation = "no-compilation";
+    public const string ProjectChanged = "project-changed";
+
+    /// <summary><c>new-project</c> (added after the scan), <c>no-compilation</c> (the scan could not compile it), or <c>project-changed</c> (its inputs changed since).</summary>
+    public required string Reason { get; init; }
+
+    /// <summary>The project, repository-relative.</summary>
+    public required string Project { get; init; }
+
+    public required string Message { get; init; }
 }
 
 public sealed record IdeSummary

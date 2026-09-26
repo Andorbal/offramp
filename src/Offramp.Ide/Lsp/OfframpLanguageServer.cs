@@ -62,6 +62,12 @@ public sealed class OfframpLanguageServer : IDisposable
     private readonly ConcurrentDictionary<string, (string Uri, string Text)> _documents = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _closed = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _changed = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _edited = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _askedToScan = new(StringComparer.Ordinal);
+    private int _scanning;
+
+    /// <summary>The server's own lifetime, for work that must outlive the request or keystroke that started it.</summary>
+    private CancellationToken _lifetime;
     private IdeEngine? _engine;
     private string? _root;
     private string? _canonicalRoot;
@@ -100,6 +106,7 @@ public sealed class OfframpLanguageServer : IDisposable
 
     private async Task<int> LoopAsync(CancellationToken cancellationToken)
     {
+        _lifetime = cancellationToken;
         while (true)
         {
             JsonObject? message;
@@ -420,10 +427,23 @@ public sealed class OfframpLanguageServer : IDisposable
 
     private async Task<JsonNode?> ScanAsync(CancellationToken cancellationToken)
     {
-        int exit;
-        await using (var progress = await ProgressAsync("Offramp: scanning the solution", cancellationToken))
+        if (Interlocked.Exchange(ref _scanning, 1) == 1)
         {
-            exit = await _options.ScanAsync(_root!, progress.Sink, cancellationToken);
+            await ShowAsync(3, "Offramp is already scanning the solution.", cancellationToken);
+            return null;
+        }
+
+        int exit;
+        try
+        {
+            await using (var progress = await ProgressAsync("Offramp: scanning the solution", cancellationToken))
+            {
+                exit = await _options.ScanAsync(_root!, progress.Sink, cancellationToken);
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _scanning, 0);
         }
 
         if (exit is not (0 or 1))
@@ -431,6 +451,8 @@ public sealed class OfframpLanguageServer : IDisposable
             await ShowAsync(1, "offramp scan failed; run it in a terminal to see why.", cancellationToken);
         }
 
+        // Projects already asked about are not asked about again this session, even when the scan did not
+        // help (a project outside the scanned solution): the status bar keeps saying so without a prompt loop.
         await LoadEngineAsync(askToScan: false, cancellationToken);
         return exit;
     }
@@ -505,14 +527,17 @@ public sealed class OfframpLanguageServer : IDisposable
         }
     }
 
-    private async Task AskToScanAsync(CancellationToken cancellationToken)
+    private Task AskToScanAsync(CancellationToken cancellationToken) =>
+        AskToScanAsync("Offramp suggests where new code can live once it has a workspace model. `offramp scan` builds the solution once to create it. Scan now?", cancellationToken);
+
+    private async Task AskToScanAsync(string message, CancellationToken cancellationToken)
     {
         try
         {
             var answer = await RequestClientAsync("window/showMessageRequest", new JsonObject
             {
                 ["type"] = 3,
-                ["message"] = "Offramp suggests where new code can live once it has a workspace model. `offramp scan` builds the solution once to create it. Scan now?",
+                ["message"] = message,
                 ["actions"] = new JsonArray(new JsonObject { ["title"] = "Scan now" }, new JsonObject { ["title"] = "Not now" }),
             }, cancellationToken);
             if ((string?)answer?["title"] == "Scan now")
@@ -569,11 +594,12 @@ public sealed class OfframpLanguageServer : IDisposable
 
                 break;
             case "textDocument/didOpen":
-                Open((string?)parameters?["textDocument"]?["uri"], (string?)parameters?["textDocument"]?["text"]);
+                Open((string?)parameters?["textDocument"]?["uri"], (string?)parameters?["textDocument"]?["text"], edited: false);
                 break;
             case "textDocument/didChange":
                 Open((string?)parameters?["textDocument"]?["uri"],
-                    (parameters?["contentChanges"] as JsonArray)?.OfType<JsonObject>().Select(c => (string?)c["text"]).LastOrDefault(t => t is not null));
+                    (parameters?["contentChanges"] as JsonArray)?.OfType<JsonObject>().Select(c => (string?)c["text"]).LastOrDefault(t => t is not null),
+                    edited: true);
                 break;
             case "textDocument/didSave":
                 if (File((string?)parameters?["textDocument"]?["uri"]) is { } saved)
@@ -600,11 +626,16 @@ public sealed class OfframpLanguageServer : IDisposable
         }
     }
 
-    private void Open(string? uri, string? text)
+    private void Open(string? uri, string? text, bool edited)
     {
         if (uri is null || text is null || File(uri) is not { } file || !file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
         {
             return;
+        }
+
+        if (edited)
+        {
+            _edited[file] = 0;
         }
 
         _documents[file] = (uri, text);
@@ -760,21 +791,35 @@ public sealed class OfframpLanguageServer : IDisposable
         }
 
         await RefreshBaseAsync(force: false, cancellationToken);
-        JsonArray diagnostics;
+        IdeFileReport? report;
         await _engineLock.WaitAsync(cancellationToken);
         try
         {
             SyncLocked();
-            diagnostics = _engine is null || !Enablement.Enabled
-                ? []
-                : LspRender.Diagnostics(await _engine.ReportAsync(file, cancellationToken));
+            report = _engine is null || !Enablement.Enabled ? null : await _engine.ReportAsync(file, cancellationToken);
         }
         finally
         {
             _engineLock.Release();
         }
 
-        await NotifyAsync("textDocument/publishDiagnostics", new JsonObject { ["uri"] = document.Uri, ["diagnostics"] = diagnostics }, cancellationToken);
+        await NotifyAsync("textDocument/publishDiagnostics", new JsonObject
+        {
+            ["uri"] = document.Uri,
+            ["diagnostics"] = report is null ? new JsonArray() : LspRender.Diagnostics(report),
+        }, cancellationToken);
+        await NotifyAsync("offramp/fileStatus", new JsonObject
+        {
+            ["uri"] = document.Uri,
+            ["scan"] = report?.Scan is { } need ? JsonSerializer.SerializeToNode(need, IdeJsonContext.Default.IdeScanNeed) : null,
+        }, cancellationToken);
+
+        // Someone is writing code in a project Offramp cannot check yet: say so once per project.
+        if (report?.Scan is { } scan && _edited.ContainsKey(file) && _askedToScan.TryAdd(scan.Project, 0))
+        {
+            // Not the keystroke's token: the next keystroke must not withdraw a question already on screen.
+            Background(() => AskToScanAsync($"{scan.Message} Scan now? (`offramp scan` builds the solution.)", _lifetime));
+        }
     }
 
     /// <summary>Re-resolves the new-code base when asked, or when it was last resolved more than half a minute ago (a commit, a checkout).</summary>

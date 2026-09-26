@@ -18,14 +18,20 @@ public static class IdeCheck
             : [.. (await engine.NewCode.ChangedFilesAsync(cancellationToken)).Where(f => f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && !LiveWorkspace.IsGenerated("/" + f))];
         var reports = new List<IdeFileReport>();
         var withoutCounterpart = new SortedSet<string>(StringComparer.Ordinal);
+        var needScan = new SortedDictionary<string, IdeScanNeed>(StringComparer.Ordinal);
         foreach (var file in selected)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var report = await engine.ReportAsync(file, cancellationToken);
             reports.Add(report);
+            if (report.Scan is { } scan)
+            {
+                needScan.TryAdd(scan.Project, scan);
+            }
+
             if (report.Project is null)
             {
-                if (file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && engine.Workspace.CurrentText(file) is not null)
+                if (report.Scan is null && file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && engine.Workspace.CurrentText(file) is not null)
                 {
                     diagnostics.Report(DiagnosticCatalog.OFR6006, $"{file} is in no project of the workspace model; run `offramp scan` if its project is new.", new DiagnosticLocation(null, file));
                 }
@@ -57,6 +63,13 @@ public static class IdeCheck
                 diagnostics.Report(DiagnosticCatalog.OFR6001, Message(report, type), new DiagnosticLocation(report.Project, report.File, type.Line, type.Column),
                     [KeyValuePair.Create<string, JsonNode?>("counterparts", new JsonArray([.. report.Moves.Where(m => m.Movable).Select(m => (JsonNode?)m.To)]))]);
             }
+        }
+
+        foreach (var (project, scan) in needScan)
+        {
+            diagnostics.Report(scan.Reason == IdeScanNeed.NewProject ? DiagnosticCatalog.OFR6006 : DiagnosticCatalog.OFR6009,
+                scan.Message + " Run `offramp scan`.", new DiagnosticLocation(project),
+                [KeyValuePair.Create<string, JsonNode?>("reason", scan.Reason)]);
         }
 
         foreach (var project in withoutCounterpart)

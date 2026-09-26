@@ -87,6 +87,28 @@ jobs:
             dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
           done
 
+      # After the tool is on NuGet: the extension needs the offramp version it ships with.
+      # Stable tags only (a prerelease tag would take the stable version number on the Marketplace).
+      - name: Publish the VS Code extension
+        if: steps.ver.outputs.prerelease == 'false'
+        working-directory: editors/vscode
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          vsix="../../artifacts/offramp-vscode-${VERSION}.vsix"
+          if [ -n "$VSCE_PAT" ]; then
+            npx vsce publish --packagePath "$vsix"
+          else
+            echo "::warning::VSCE_PAT is not set, so the extension was not published to the Visual Studio Marketplace."
+          fi
+          if [ -n "$OVSX_PAT" ]; then
+            npx --yes ovsx@1.2.0 publish "$vsix" --pat "$OVSX_PAT"
+          else
+            echo "OVSX_PAT is not set; skipping Open VSX."
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

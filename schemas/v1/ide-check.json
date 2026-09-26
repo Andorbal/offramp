@@ -59,7 +59,7 @@
     "fileReport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "project", "applies", "newLines", "findings", "types", "moves"],
+      "required": ["file", "project", "applies", "newLines", "findings", "types", "moves", "scan"],
       "properties": {
         "file": { "type": "string" },
         "project": { "type": ["string", "null"], "description": "The project that compiles the file; null when none does (OFR6006)." },
@@ -123,6 +123,22 @@
               "details": { "type": "array", "items": { "type": "string" } }
             }
           }
+        },
+        "scan": {
+          "description": "Why the file cannot be checked as it should until the next scan; null when nothing is missing.",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["reason", "project", "message"],
+              "properties": {
+                "reason": { "enum": ["new-project", "no-compilation", "project-changed"] },
+                "project": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          ]
         }
       }
     }

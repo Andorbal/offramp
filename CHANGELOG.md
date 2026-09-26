@@ -35,6 +35,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
     `.offramp` folder, and `offramp.enabled` (`auto`, `on`, `off`) sets it per user or per
     workspace. It uses the repository's local tool, else the global tool, else
     `offramp.server.path`. It has a status bar item and commands, and CI builds the `.vsix`.
+    Stable releases publish it to the Visual Studio Marketplace as `AndrewBenz.offramp`
+    (`VSCE_PAT`), and to Open VSX when `OVSX_PAT` is set.
   - `MovePlanner.Assess` (the planner's rules for one file with `--co-move none` and nothing
     but a move) and an `ICompilationSource` for the planner and the `audit api` target build.
   - Configuration: `projectMap`, `ide.newCode.base`, `ide.newCode.scope`,
@@ -42,7 +44,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   - Diagnostics: OFR6001 new type could live in its counterpart, OFR6002 project map entry does
     not resolve, OFR6003 more than a move, OFR6004 counterpart cannot take the project's code,
     OFR6005 no counterpart, OFR6006 file not in the workspace model, OFR6007 new-code base
-    unavailable, OFR6008 file has unsaved changes.
+    unavailable, OFR6008 file has unsaved changes, OFR6009 project needs a new scan.
+  - Projects that need a scan are announced, not skipped: a file report's `scan` says when its
+    project was added after the scan, has no recorded compilation, or changed since. The server
+    pushes it per open file (`offramp/fileStatus`), and VS Code's status bar shows
+    `Offramp: scan <project>` with a click to scan. The first edit in such a project asks once
+    per session whether to scan; `ide check` reports OFR6006 or OFR6009 once per project.
   - Fixture: `ide-counterpart`. Roadmap: M15 (this), M16 Visual Studio, M17 Rider.
 - `offramp guide [--run|--done|--skip|--reset STEP] [--project P] [--apply]`: a walk through the
   migration for people who have not done one before. A fixed checklist of Offramp's commands in

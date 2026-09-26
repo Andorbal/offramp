@@ -47,7 +47,7 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR6006 = new(
         "OFR6006", Severity.Warning,
         "file not in the workspace model",
-        "The file belongs to no project of the workspace model, so nothing is reported for it.",
+        "The file belongs to no project of the workspace model, so nothing is reported for it. When a project file sits in its folder or above, that project was added after the last scan, and the editor says so.",
         "A project added since the last scan, or a file outside every project.",
         "Run `offramp scan` again.",
         IdeArea);
@@ -58,6 +58,14 @@ public static partial class DiagnosticCatalog
         "What counts as new code is decided against a git base, and that base is not available: outside a git repository every line counts as new; when the configured ref does not resolve, the base falls back to HEAD.",
         "No git repository, a clone without the remote default branch (`origin/HEAD`), or a misspelled `ide.newCode.base`.",
         "Set `ide.newCode.base` (or `--base`) to a ref that exists, for example `origin/main`, or run `git remote set-head origin --auto`.",
+        IdeArea);
+
+    public static readonly DiagnosticDescriptor OFR6009 = new(
+        "OFR6009", Severity.Warning,
+        "project needs a new scan",
+        "A .NET Framework project's files cannot be checked as they should until the workspace model is scanned again: the last scan recorded no compilation for the project, or its project file (or a Directory.*.props/targets above it, or its packages.config) changed since. Findings for a changed project may be out of date, and moves from it wait for the scan.",
+        "A build that failed for the project during the scan, or a pull that changed project files (a new package, a new reference).",
+        "Run `offramp scan` (in the editor: click the status bar item or run Offramp: Scan the solution).",
         IdeArea);
 
     public static readonly DiagnosticDescriptor OFR6008 = new(

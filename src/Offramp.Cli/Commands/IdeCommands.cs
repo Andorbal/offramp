@@ -174,6 +174,11 @@ public sealed class IdeCheckCommand : ICommandHandler<IdeCheckOptions, IdeCheckR
             output.Write(table);
         }
 
+        foreach (var scan in result.Files.Select(f => f.Scan).OfType<IdeScanNeed>().DistinctBy(s => s.Project).OrderBy(s => s.Project, StringComparer.Ordinal))
+        {
+            output.MarkupLine($"[{Theme.DecisionStyle}]Needs a scan:[/] {Markup.Escape(scan.Message)} Run `offramp scan`.");
+        }
+
         foreach (var project in result.Counterparts.Where(c => c.Counterparts.Count == 0 && result.Files.Any(f => f.Project == c.Project && f.NewLines.Count > 0)))
         {
             output.MarkupLine($"[{Theme.DimStyle}]{Markup.Escape(project.Project)} has no counterpart; add a projectMap entry to get move suggestions.[/]");

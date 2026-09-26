@@ -3,7 +3,7 @@
   "displayName": "Offramp: modern .NET friendly code",
   "description": "Keeps new code in .NET Framework projects ready for .NET 8/10: flags APIs modern .NET lacks, and moves classes that need nothing from .NET Framework to a portable project.",
   "version": "0.1.0",
-  "publisher": "offramp",
+  "publisher": "AndrewBenz",
   "license": "MIT",
   "icon": "images/icon.png",
   "repository": {

@@ -29,10 +29,11 @@ MinVer; the extension takes the tag's `X.Y.Z` when it is packaged.
    nuget.org with the `NUGET_API_KEY` secret, and creates a GitHub Release
    whose notes are the matching CHANGELOG section (extracted by
    `eng/changelog-section.sh`), with the `.nupkg` files and the VS Code
-   extension's `.vsix` attached. Publishing the extension to the Visual Studio
-   Marketplace and Open VSX (`vsce publish`, `ovsx publish`) is manual until a
-   publisher account and its tokens exist; add them as secrets and a step here
-   then.
+   extension's `.vsix` attached. For a stable tag it also publishes the
+   extension (`AndrewBenz.offramp`) to the Visual Studio Marketplace with the
+   `VSCE_PAT` secret and, when `OVSX_PAT` is set, to Open VSX. Prerelease tags
+   publish neither: the extension's version is the tag's `X.Y.Z`, which the
+   stable release will need.
 6. Verify: `dotnet tool update -g offramp` shows the new version;
    `offramp --version` matches.
 
@@ -40,6 +41,15 @@ MinVer; the extension takes the tag's `X.Y.Z` when it is packaged.
 
 - `NUGET_API_KEY`: scoped to push `offramp` and `Offramp.*` packages. Rotate
   yearly.
+- `VSCE_PAT`: an Azure DevOps personal access token for the `AndrewBenz`
+  Marketplace publisher, scope **Marketplace › Manage**, organization "All
+  accessible organizations". Without it the release warns and skips the
+  Marketplace. Rotate before it expires (at most a year).
+- `OVSX_PAT` (optional): an Open VSX access token for the `AndrewBenz`
+  namespace (create the namespace once with `npx ovsx create-namespace
+  AndrewBenz`).
+- These secrets belong to the `nuget` environment the publish job runs in (or
+  to the repository).
 - The release workflow needs `contents: write` to create the release, granted
   in the workflow file, nothing else.
 

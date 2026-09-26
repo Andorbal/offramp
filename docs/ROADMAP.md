@@ -202,8 +202,9 @@ Acceptance: `ide check` on `ide-counterpart` reports every movability rule's out
 lines' findings (snapshot, schema); a new class in `Foo` gets OFR6001, a lens, and a quick fix
 over the LSP, and the fix moves it with a staged rename (or a plain move when untracked) that
 builds; a second move needs no scan, including after a move that edited a project file; an edit
-by someone else to a project file blocks the next move (OFR0002); the extension's unit tests
-pass and the `.vsix` packages.
+by someone else to a project file blocks the next move (OFR0002); a file in a project added,
+changed, or left uncompiled since the scan says it needs a scan (report, status bar, one prompt
+on edit); the extension's unit tests pass, it works in a real VS Code, and the `.vsix` packages.
 
 ## M16 — Visual Studio ☐
 

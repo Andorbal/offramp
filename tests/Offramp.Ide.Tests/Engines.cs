@@ -17,11 +17,11 @@ internal static class Engines
     public const string ModernF = "src/ModernF/ModernF.csproj";
     public const string Shared = "src/Shared/Shared.csproj";
 
-    public static Task<IdeEngine> CreateAsync(ScannedFixture fixture, IdeSettings? settings = null, OfframpConfig? config = null) =>
+    public static Task<IdeEngine> CreateAsync(ScannedFixture fixture, IdeSettings? settings = null, OfframpConfig? config = null, Func<Offramp.Core.Model.WorkspaceModel, Offramp.Core.Model.WorkspaceModel>? model = null) =>
         IdeEngine.CreateAsync(new IdeEngineOptions
         {
             RepositoryRoot = fixture.Root,
-            Model = WorkspaceStore.Read(fixture.WorkspacePath),
+            Model = (model ?? (m => m))(WorkspaceStore.Read(fixture.WorkspacePath)),
             WorkspacePath = fixture.WorkspacePath,
             Config = config ?? new OfframpConfig(),
             Settings = settings ?? new IdeSettings(),

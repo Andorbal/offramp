@@ -9,6 +9,13 @@ export interface ServerStatus {
   message: string | null;
 }
 
+/** Why a file's project needs a scan (`offramp/fileStatus`, docs/spec/commands/ide.md#projects-that-need-a-scan). */
+export interface ScanNeed {
+  reason: 'new-project' | 'no-compilation' | 'project-changed' | string;
+  project: string;
+  message: string;
+}
+
 /** What the status bar shows, and what clicking it does. */
 export interface StatusView {
   text: string;
@@ -17,7 +24,17 @@ export interface StatusView {
   warning: boolean;
 }
 
-export function statusView(status: ServerStatus): StatusView {
+/** The status bar for the repository, and for the active file when its project needs a scan. */
+export function statusView(status: ServerStatus, fileScan?: ScanNeed): StatusView {
+  if (fileScan && (status.model === 'fresh' || status.model === 'stale')) {
+    return {
+      text: `$(sync) Offramp: scan ${name(fileScan.project)}`,
+      tooltip: `${fileScan.message}\nClick to run offramp scan (it builds the solution).`,
+      command: 'offramp.scan',
+      warning: true,
+    };
+  }
+
   const projects = status.counterparts ?? [];
   const mapped = projects.filter(p => p.counterparts.length > 0);
   const summary = projects.length === 0

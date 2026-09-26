@@ -65,6 +65,13 @@ request left open:
   move, the engine lays the plan over its in-memory model (compile items, references) and
   remembers the hashes of the project files it wrote. Those files do not make the model stale for
   the next move from the editor; the command line still sees the model as stale until `scan`.
+- **A project that needs a scan is announced, not skipped.** Each file report says whether its
+  project was added after the scan, has no recorded compilation, or changed since (inputs mapped
+  to projects: the project file, `packages.config` beside it, `Directory.*` files above it). The
+  server pushes it per open file (`offramp/fileStatus`) for status bars, and asks once per
+  project per session, on the first edit rather than on opening, so browsing is not
+  interrupted. It never asks again that session, even after a scan that did not help (a project
+  outside the scanned solution), so the prompt cannot loop.
 - **Severities one step down in the editor.** Error → Warning, warning and info → Information.
   Nothing the editor reports breaks the build, and a red squiggle on code that compiles would
   teach people to ignore it. `ide check` keeps Offramp's severities, so `--fail-on` gates CI.

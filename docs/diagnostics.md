@@ -231,6 +231,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR6006](#ofr6006) | warning | ide | file not in the workspace model |
 | [OFR6007](#ofr6007) | warning | ide | new-code base unavailable |
 | [OFR6008](#ofr6008) | error | ide | file has unsaved changes |
+| [OFR6009](#ofr6009) | warning | ide | project needs a new scan |
 | [OFR9001](#ofr9001) | warning | llm | model answer not used |
 | [OFR9101](#ofr9101) | error | mcp serve | path outside the MCP server's root |
 
@@ -2038,7 +2039,7 @@ New code in this .NET Framework-only project is checked for APIs modern .NET lac
 
 **file not in the workspace model** · warning · ide
 
-The file belongs to no project of the workspace model, so nothing is reported for it.
+The file belongs to no project of the workspace model, so nothing is reported for it. When a project file sits in its folder or above, that project was added after the last scan, and the editor says so.
 
 - **Typical cause:** A project added since the last scan, or a file outside every project.
 - **Fix:** Run `offramp scan` again.
@@ -2060,6 +2061,15 @@ A move from the editor renames the file on disk with git mv, so the editor's uns
 
 - **Typical cause:** Choosing the move while the file has changes that are not saved.
 - **Fix:** Save the file and choose the move again.
+
+### OFR6009
+
+**project needs a new scan** · warning · ide
+
+A .NET Framework project's files cannot be checked as they should until the workspace model is scanned again: the last scan recorded no compilation for the project, or its project file (or a Directory.*.props/targets above it, or its packages.config) changed since. Findings for a changed project may be out of date, and moves from it wait for the scan.
+
+- **Typical cause:** A build that failed for the project during the scan, or a pull that changed project files (a new package, a new reference).
+- **Fix:** Run `offramp scan` (in the editor: click the status bar item or run Offramp: Scan the solution).
 
 ### OFR9001
 
