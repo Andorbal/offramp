@@ -1,0 +1,8 @@
+﻿100% of 44 lines portable; 0 framework-only lines in 0 projects, down 25 since 2026-08-01.
+
+  Application   Status   Projects left   Lines left   Port next
+─────────────────────────────────────────────────────────────────
+  Tool          done            0 of 3            0
+
+Burn-down over 2 scans since 2026-08-01 10:00.
+Page: offramp report --out report.html

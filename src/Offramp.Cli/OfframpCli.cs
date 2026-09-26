@@ -22,6 +22,7 @@ public static class OfframpCli
         root.Subcommands.Add(SliceCommand.Create(host, globals));
         root.Subcommands.Add(GraphCommand.Create(host, globals));
         root.Subcommands.Add(DepsCommands.Create(host, globals));
+        root.Subcommands.Add(ReportCommand.Create(host, globals));
         globals.AddValidators(root);
 
         var version = root.Options.OfType<VersionOption>().Single();

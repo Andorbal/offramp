@@ -194,17 +194,45 @@ Result (`schemas/v1/slice.json`): `for`, `solution`, `projects` (sorted),
 The stakeholder-facing progress page and its data.
 
 ```
-offramp report [--format html|json|markdown] [--out PATH] [--since DATE] [--title TEXT]
+offramp report [--format html|json|markdown] [--out PATH] [--since DATE] [--title TEXT] [--with-graph]
 ```
 
-- Reads ledger snapshots. Computes per snapshot: projects and lines of code by
-  framework class, by kind, by top-level directory; applications (console,
-  service, web) and their readiness from `plan --for`.
-- HTML: single self-contained file; sections: headline numbers, burn-down of
-  `framework`-class lines of code over time, framework class by area (stacked
-  bars), application readiness table, the frontier list, and the dependency
-  graph from `graph --format html` embedded when `--with-graph`.
+- Reads ledger snapshots (`report.ledger`, default `.offramp/ledger`) for the
+  series, and the current model for everything else. The series is every
+  snapshot at or after `--since` and older than the model, then the model
+  itself; per point: projects and lines of code by framework class and by kind.
+  `asOf` is the model's `createdAt` (`docs/decisions/0016-report.md`).
+- Areas: projects and lines by framework class per directory holding project
+  folders (the `graph --cluster directory` rule).
+- Applications (console, service, web, winforms, wpf): the application and
+  everything it depends on; status `done` when nothing in that closure is
+  framework-only, `ready` when only the application is, `blocked` otherwise;
+  `next` lists the framework-only projects in the closure that can be ported
+  today. `plan --for` must agree with these numbers.
+- Frontier: framework-only projects whose dependencies are all portable
+  (`ready`), most dependents first.
+- HTML: single self-contained file with no scripts; sections: headline numbers,
+  burn-down of lines of code by framework class over time (stacked, framework at
+  the bottom and its edge drawn as the burn-down line), framework class by area
+  (stacked bars), application table, the frontier list, and with `--with-graph`
+  the dependency graph from `graph --format html` (tests excluded, frontier
+  highlighted) in a sandboxed `iframe srcdoc`. Charts are SVG computed by
+  Offramp, so the same data gives the same bytes.
 - Markdown: the same tables for pasting into an issue or wiki.
-- JSON: the series used by the charts.
+- JSON: the data behind every rendering (`schemas/v1/report-data.json`).
 - Styling: restrained, light and dark, print-friendly. Framework class colors
-  as in `01-cli-conventions.md`. No external fonts or scripts.
+  as in `01-cli-conventions.md`. No external fonts, stylesheets, or scripts.
+- The format is inferred from `--out`'s extension (`.html`, `.json`, `.md`)
+  when omitted; an unknown extension is a usage error. With a format and no
+  `--out`, stdout carries exactly the document. Without a format the terminal
+  shows the headline, the applications, and the frontier. `--with-graph` needs
+  the HTML format.
+- `--since DATE`: `yyyy-MM-dd` (the whole day included) or an ISO 8601 time,
+  normalized to UTC. `--title`: default `report.title`, else the repository
+  folder's name.
+- A JSON file in the ledger directory that is not a snapshot is `OFR0202`
+  (warning) and left out.
+
+Result (`schemas/v1/report.json`): `{ format, output, report, content }`: the
+format (null when none was asked for), the file written, the data above, and the
+rendering when it was not written to a file.

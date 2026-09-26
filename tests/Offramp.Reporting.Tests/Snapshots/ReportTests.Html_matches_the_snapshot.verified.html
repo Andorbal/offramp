@@ -1,0 +1,143 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="offramp report">
+<title>Monolith migration</title>
+<style>
+:root {
+  --bg: #ffffff; --panel: #f7fafc; --rule: #e2e8f0; --text: #1a202c; --muted: #4a5568;
+  --ready: #2F855A; --blocked: #C53030; --done: #4a5568;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #171923; --panel: #1f2330; --rule: #2d3748; --text: #e2e8f0; --muted: #a0aec0; --ready: #68D391; --blocked: #FC8181; --done: #a0aec0; }
+}
+* { box-sizing: border-box; }
+body { margin: 0 auto; max-width: 960px; padding: 24px 16px 48px; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 18px; margin: 36px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--rule); }
+p.meta, p.note, figcaption, .muted { color: var(--muted); }
+p.meta { margin: 0 0 20px; font-size: 13px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.tile { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; }
+.tile .value { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .label { font-size: 13px; color: var(--muted); }
+figure { margin: 8px 0 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; list-style: none; padding: 0; margin: 0 0 8px; font-size: 13px; }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+svg.chart { width: 100%; height: auto; display: block; }
+svg.chart text { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+svg.chart text.label { fill: var(--text); }
+svg.chart .grid { stroke: var(--rule); stroke-width: 1; }
+svg.chart .band { fill-opacity: .8; }
+svg.chart .burn { stroke-width: 2.5; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+code { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; word-break: break-all; }
+.status { font-weight: 600; white-space: nowrap; }
+.status.done { color: var(--done); }
+.status.ready { color: var(--ready); }
+.status.blocked { color: var(--blocked); }
+iframe.graph { width: 100%; height: 640px; border: 1px solid var(--rule); border-radius: 8px; }
+footer { margin-top: 40px; font-size: 12px; color: var(--muted); }
+@media print {
+  :root { --bg: #ffffff; --panel: #ffffff; --rule: #cbd5e0; --text: #000000; --muted: #333333; --ready: #22543d; --blocked: #9b2c2c; --done: #333333; }
+  body { max-width: none; padding: 0; font-size: 11pt; }
+  section, figure, tr { break-inside: avoid; }
+  h2 { break-after: avoid; }
+  .graph-section { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+<h1>Monolith migration</h1>
+<p class="meta">As of 2026-09-25 20:11 UTC · since 2026-06-01</p>
+</header>
+<section class="tiles" aria-label="Headline numbers">
+<div class="tile"><div class="value">20.3%</div><div class="label">of 20,200 lines in portable projects (standard, modern, dual)</div></div>
+<div class="tile"><div class="value">16,100</div><div class="label">framework-only lines in 6 projects, down 4,100 since 2026-06-02</div></div>
+<div class="tile"><div class="value">1 of 3</div><div class="label">applications with nothing left to port</div></div>
+<div class="tile"><div class="value">2</div><div class="label">projects ready to port today</div></div>
+</section>
+<section>
+<h2>Burn-down</h2>
+<ul class="legend"><li><span class="swatch" style="background:#E07A1F"></span>framework</li><li><span class="swatch" style="background:#2C7A7B"></span>dual</li><li><span class="swatch" style="background:#2B6CB0"></span>standard</li><li><span class="swatch" style="background:#2F855A"></span>modern</li></ul>
+<figure>
+<svg class="chart" viewBox="0 0 720 280" role="img" aria-label="Lines of code by framework class at each scan">
+<line class="grid" x1="64" x2="704" y1="240" y2="240"/>
+<text class="axis" x="56" y="244" text-anchor="end">0</text>
+<line class="grid" x1="64" x2="704" y1="165.3" y2="165.3"/>
+<text class="axis" x="56" y="169.3" text-anchor="end">10k</text>
+<line class="grid" x1="64" x2="704" y1="90.7" y2="90.7"/>
+<text class="axis" x="56" y="94.7" text-anchor="end">20k</text>
+<line class="grid" x1="64" x2="704" y1="16" y2="16"/>
+<text class="axis" x="56" y="20" text-anchor="end">30k</text>
+<path class="band" d="M64 89.2 L302.3 95.1 L557.3 114.6 L704 119.8 L704 240 L557.3 240 L302.3 240 L64 240 Z" fill="#E07A1F"><title>framework</title></path>
+<path class="band" d="M64 89.2 L302.3 95.1 L557.3 89.9 L704 95.1 L704 119.8 L557.3 114.6 L302.3 95.1 L64 89.2 Z" fill="#2C7A7B"><title>dual</title></path>
+<path class="band" d="M64 89.2 L302.3 89.2 L557.3 83.9 L704 89.2 L704 95.1 L557.3 89.9 L302.3 95.1 L64 89.2 Z" fill="#2B6CB0"><title>standard</title></path>
+<path class="band" d="M64 89.2 L302.3 89.2 L557.3 83.9 L704 89.2 L704 89.2 L557.3 83.9 L302.3 89.2 L64 89.2 Z" fill="#2F855A"><title>modern</title></path>
+<polyline class="burn" points="64,89.2 302.3,95.1 557.3,114.6 704,119.8" fill="none" stroke="#E07A1F"/>
+<circle cx="64" cy="89.2" r="3" fill="#E07A1F"><title>2026-06-02 09:00: 20,200 framework lines of 20,200 lines</title></circle>
+<circle cx="302.3" cy="95.1" r="3" fill="#E07A1F"><title>2026-07-15 09:00: 19,400 framework lines of 20,200 lines</title></circle>
+<circle cx="557.3" cy="114.6" r="3" fill="#E07A1F"><title>2026-08-30 09:00: 16,800 framework lines of 20,900 lines</title></circle>
+<circle cx="704" cy="119.8" r="3" fill="#E07A1F"><title>2026-09-25 20:11: 16,100 framework lines of 20,200 lines</title></circle>
+<text class="axis" x="64" y="258" text-anchor="start">2026-06-02</text>
+<text class="axis" x="302.3" y="258" text-anchor="middle">2026-07-15</text>
+<text class="axis" x="557.3" y="258" text-anchor="middle">2026-08-30</text>
+<text class="axis" x="704" y="258" text-anchor="end">2026-09-25</text>
+</svg>
+<figcaption>Lines of code by framework class at each scan; the line is framework-only code.</figcaption>
+</figure>
+</section>
+<section>
+<h2>By area</h2>
+<ul class="legend"><li><span class="swatch" style="background:#E07A1F"></span>framework</li><li><span class="swatch" style="background:#2C7A7B"></span>dual</li><li><span class="swatch" style="background:#2B6CB0"></span>standard</li><li><span class="swatch" style="background:#2F855A"></span>modern</li></ul>
+<figure>
+<svg class="chart" viewBox="0 0 720 94" role="img" aria-label="Lines of code by framework class in each area">
+<text class="label" x="192" y="20" text-anchor="end"><title>legacy</title>legacy</text>
+<rect x="200" y="8" width="221.4" height="16" fill="#E07A1F"><title>legacy: framework, 2 projects, 6,500 lines</title></rect>
+<text class="value" x="427.4" y="20">6.5k</text>
+<text class="label" x="192" y="46" text-anchor="end"><title>src</title>src</text>
+<rect x="200" y="34" width="296.3" height="16" fill="#E07A1F"><title>src: framework, 3 projects, 8,700 lines</title></rect>
+<rect x="496.3" y="34" width="112.4" height="16" fill="#2C7A7B"><title>src: dual, 1 project, 3,300 lines</title></rect>
+<rect x="608.8" y="34" width="27.3" height="16" fill="#2B6CB0"><title>src: standard, 1 project, 800 lines</title></rect>
+<text class="value" x="642" y="46">12.8k</text>
+<text class="label" x="192" y="72" text-anchor="end"><title>tests</title>tests</text>
+<rect x="200" y="60" width="30.7" height="16" fill="#E07A1F"><title>tests: framework, 1 project, 900 lines</title></rect>
+<text class="value" x="236.7" y="72">900</text>
+</svg>
+<figcaption>Lines of code by framework class in each directory that holds project folders.</figcaption>
+</figure>
+</section>
+<section>
+<h2>Applications</h2>
+<table>
+<thead><tr><th>Application</th><th>Kind</th><th>Status</th><th class="num">Projects left</th><th class="num">Lines left</th><th>Port next</th></tr></thead>
+<tbody>
+<tr><td title="src/App/App.csproj">App</td><td>console</td><td><span class="status blocked">blocked</span></td><td class="num">2 of 3</td><td class="num">6,600</td><td><code>src/Core/Core.csproj</code></td></tr>
+<tr><td title="src/Svc/Svc.csproj">Svc</td><td>service</td><td><span class="status ready">ready</span></td><td class="num">1 of 2</td><td class="num">2,100</td><td><code>src/Svc/Svc.csproj</code></td></tr>
+<tr><td title="src/Web/Web.csproj">Web</td><td>web</td><td><span class="status done">done</span></td><td class="num">0 of 2</td><td class="num">0</td><td></td></tr>
+</tbody>
+</table>
+<p class="note">Projects left: framework-only projects among the application and everything it depends on.</p>
+</section>
+<section>
+<h2>Ready to port today</h2>
+<p class="note">Framework-only projects whose dependencies are all portable, the ones most depended on first.</p>
+<table>
+<thead><tr><th>Project</th><th class="num">Lines</th><th class="num">Dependents</th></tr></thead>
+<tbody>
+<tr><td><code>src/Core/Core.csproj</code></td><td class="num">5,400</td><td class="num">2</td></tr>
+<tr><td><code>src/Svc/Svc.csproj</code></td><td class="num">2,100</td><td class="num">0</td></tr>
+</tbody>
+</table>
+</section>
+<footer>Generated by offramp from 4 scans. Lines of code are all lines in the files each project compiles.</footer>
+</body>
+</html>
