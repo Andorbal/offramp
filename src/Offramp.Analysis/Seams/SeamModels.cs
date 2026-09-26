@@ -42,6 +42,10 @@ public sealed record Seam
 
     /// <summary>Extracting the boundary type disconnects every clean type from the taint.</summary>
     public required bool ArticulationPoint { get; init; }
+
+    /// <summary><c>llm</c> when the model named the interface (<c>--llm</c>, <c>llm.uses: naming</c>); absent otherwise.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Source { get; init; }
 }
 
 public sealed record SeamExtraction(string MoveToProject, IReadOnlyList<string> Types, int EstimatedLoc);

@@ -34,6 +34,10 @@ public sealed record DeadCodeCandidate
 
     /// <summary>Lines the declaration spans (with its attributes and documentation comment).</summary>
     public required int Loc { get; init; }
+
+    /// <summary><c>llm</c> when the model's classification was added to the evidence (<c>llm.uses: classifying</c>); absent otherwise.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Source { get; init; }
 }
 
 /// <summary>A production symbol only test projects reference (OFR3402, with <c>--include-tests</c>).</summary>

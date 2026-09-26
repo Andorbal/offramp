@@ -66,7 +66,8 @@ Offramp.Cli ──► Offramp.Reporting ──┐
             ──► Offramp.Refactoring ─┼──► Offramp.Analysis ──► Offramp.Workspace ──► Offramp.Core
             ──► Offramp.NuGet ───────┘                                  ▲
             ──► Offramp.Llm  (leaf, optional)                            │
-Offramp.Mcp ──► Offramp.Cli's handlers (same code path as the terminal) ──┘
+            ──► Offramp.Mcp  (leaf: the MCP server; Cli hands it tools built from its own
+                              command tree, so calls run the terminal's handlers) ─┘
 Offramp.Refactoring ──► Offramp.Analyzers.CodeFixes ──► Offramp.Analyzers
                         (netstandard2.0, Roslyn 4.8, no Offramp dependencies; packed as the Offramp.Analyzers NuGet package)
 ```
@@ -92,7 +93,8 @@ Offramp.Refactoring ──► Offramp.Analyzers.CodeFixes ──► Offramp.Anal
   `OFFRAMP_LLM_URL`, `OFFRAMP_LLM_MODEL`, `OFFRAMP_LLM_API_KEY`,
   `OFFRAMP_LLM_PROVIDER=openai|anthropic`.
 - `Mcp`: exposes each command as an MCP tool whose input schema is generated
-  from the command's options and whose output is the command's JSON result.
+  from the command's options and whose output is the command's JSON result. It
+  references no Offramp project; `Cli` builds the catalog (ADR 0027).
 
 ## Cross-cutting services
 

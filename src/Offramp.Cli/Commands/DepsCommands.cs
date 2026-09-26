@@ -118,7 +118,51 @@ public sealed class DepsAuditCommand(string format = "table") : ICommandHandler<
             Package = options.Package,
             Project = project,
         }, cancellationToken);
+        if (LlmGate.For(context, LlmGate.Ranking) is { } llm)
+        {
+            result = await RankAsync(llm, result, new Offramp.NuGet.Rules.PackageMap(config.Deps.PackageMap), cancellationToken);
+        }
+
         return result.Partial ? new CommandOutcome<DepsAuditResult>(result, OutcomeKind.Partial) : CommandOutcome<DepsAuditResult>.Completed(result);
+    }
+
+    /// <summary>
+    /// <c>llm.uses: ranking</c>: where several package-map entries match a package, the model
+    /// picks one of them (marked <c>source: llm</c>); otherwise, or when its answer is not a
+    /// candidate, the rules' first stays.
+    /// </summary>
+    private static async Task<DepsAuditResult> RankAsync(LlmGate llm, DepsAuditResult result, Offramp.NuGet.Rules.PackageMap map, CancellationToken cancellationToken)
+    {
+        var packages = new List<PackageAudit>();
+        foreach (var package in result.Packages)
+        {
+            var candidates = package.Replacement is null ? [] : map.Candidates(package.Id);
+            if (candidates.Count < 2)
+            {
+                packages.Add(package);
+                continue;
+            }
+
+            var schema = new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject { ["choice"] = new JsonObject { ["type"] = "integer", ["minimum"] = 1, ["maximum"] = candidates.Count } },
+                ["required"] = new JsonArray("choice"),
+                ["additionalProperties"] = false,
+            };
+            var prompt = $"""
+                A .NET Framework project uses the NuGet package {package.Id}, which does not carry over to {result.Target}. These successors are known:
+                {string.Join("\n", candidates.Select((c, i) => string.Create(CultureInfo.InvariantCulture, $"{i + 1}. {c.Replacement}")))}
+
+                Which one should most projects migrating to {result.Target} choose? Answer with its number.
+                """;
+            var chosen = await llm.AskAsync(new Offramp.Llm.LlmRequest { Use = LlmGate.Ranking, Prompt = prompt, Schema = schema, MaxTokens = 32 },
+                answer => answer["choice"] is JsonValue value && value.TryGetValue<int>(out var choice) && choice >= 1 && choice <= candidates.Count ? candidates[choice - 1] : null,
+                package.Id, cancellationToken);
+            packages.Add(chosen is null ? package : package with { Replacement = chosen with { Source = LlmGate.Source } });
+        }
+
+        return result with { Packages = packages };
     }
 
     /// <summary>--format markdown and --format json print the document alone (the envelope needs --json).</summary>

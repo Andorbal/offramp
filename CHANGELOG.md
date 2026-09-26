@@ -11,6 +11,35 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp mcp serve [--allow-apply] [--root PATH]`: Offramp as a Model Context Protocol server
+  over stdio (`Offramp.Mcp`, the official C# SDK). One tool per command
+  (`offramp_<group>_<command>`) with an input schema generated from the command's options, run
+  in process with `--json` so the answer is the command's envelope; progress as MCP progress
+  notifications; `offramp_help` with the suggested workflow; resources `offramp://workspace`,
+  `offramp://ledger`, `offramp://plan/<id>`, `offramp://diagnostics/<code>`. Every call is a dry
+  run unless the server was started with `--allow-apply`; paths outside `--root` are refused
+  (OFR9101).
+- `Offramp.Llm`: `ILlm` with adapters for any OpenAI-compatible endpoint (model discovery,
+  schema-constrained JSON) and the Anthropic Messages API (a forced answer tool), with
+  timeouts, retries, and token logging at `--verbose`.
+- `--llm` gates at the permitted sites, each with its deterministic fallback (OFR9001 when a
+  call fails or an answer is not usable): `naming` for `seams` interface names and
+  `extract interface` without `--name`; `ranking` for `deps audit` when several package-map
+  entries match; `summarizing` for the summary paragraph of `report --format markdown`;
+  `classifying` for low-confidence `audit dead-code` candidates (evidence only). What the model
+  produced is marked `"source": "llm"`.
+- An architecture test for the layering rule: nothing but `Offramp.Cli` references
+  `Offramp.Llm` or `Offramp.Mcp`, and `Offramp.Core` references nothing in `src/`.
+
+### Changed
+- `report --format markdown` starts with a summary paragraph (a template sentence with the
+  headline numbers, or the model's with `--llm`), and its result has `summary`.
+  Migration: tools that compare markdown reports see one new paragraph after the title; the
+  JSON result only gains a property.
+- The package map keeps every matching entry; `deps audit` still shows the first (exact before
+  prefix, configuration before the rule file) unless `--llm` ranks them.
+
 ## [0.13.0] - 2026-09-26
 
 ### Added

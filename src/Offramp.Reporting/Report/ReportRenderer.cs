@@ -4,11 +4,11 @@ namespace Offramp.Reporting.Report;
 
 public static class ReportRenderer
 {
-    public static string Render(ReportData report, ReportFormat format, string? graphHtml = null) => format switch
+    public static string Render(ReportData report, ReportFormat format, string? graphHtml = null, ReportSummary? summary = null) => format switch
     {
         ReportFormat.Html => HtmlReportWriter.Write(report, graphHtml),
         ReportFormat.Json => OfframpJson.Serialize(report, ReportingJsonContext.Default.ReportData),
-        ReportFormat.Markdown => MarkdownReportWriter.Write(report),
+        ReportFormat.Markdown => MarkdownReportWriter.Write(report, summary),
         _ => throw new ArgumentOutOfRangeException(nameof(format), format, null),
     };
 

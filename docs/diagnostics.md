@@ -218,6 +218,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR5010](#ofr5010) | warning | verify | new error code relative to baseline |
 | [OFR5020](#ofr5020) | warning | verify | finding from the verification command |
 | [OFR5090](#ofr5090) | info | verify | verification skipped by configuration |
+| [OFR9001](#ofr9001) | warning | llm | model answer not used |
+| [OFR9101](#ofr9101) | error | mcp serve | path outside the MCP server's root |
 
 ### OFR0001
 
@@ -1938,6 +1940,24 @@ The build reports an error code that the recorded baseline does not contain.
 - **Typical cause:** Verification turned off in `offramp.yml`, for example while iterating on a plan.
 - **Fix:** Set `verify.mode` to `build` or `command` to verify changes.
 
+### OFR9001
+
+**model answer not used** · warning · llm
+
+A command asked the configured model for a permitted use (naming, ranking, summarizing, classifying) and the call failed, or the answer was not usable (not a valid name, not one of the candidates). The deterministic value is used instead, so the output is what `--no-llm` gives.
+
+- **Typical cause:** The model's server is down or slow, the API key is missing, or the model ignored the answer format.
+- **Fix:** Check `llm.url`, `llm.model`, and the key variable (`llm.apiKeyEnv`), or run with `--no-llm`.
+
+### OFR9101
+
+**path outside the MCP server's root** · error · mcp serve
+
+`offramp mcp serve --root DIR` confines every path a tool call names to DIR, and a call named a path outside it (absolute, or climbing out with `..`). The tool did not run.
+
+- **Typical cause:** An agent passing a path from another checkout, or a relative path meant for a different working directory.
+- **Fix:** Pass paths inside the root (relative paths are resolved against it), or start the server with a wider `--root`.
+
 ## Reserved codes
 
 Codes the specification assigns to commands that have not shipped yet. Implementations
@@ -1947,4 +1967,3 @@ use these numbers; each moves to the table above in the pull request that first 
 |---|---|---|
 | OFR2010 | error | move crosses a solution slice boundary |
 | OFR4030 | error | gRPC unavailable for net48 host |
-| OFR9101 | error | MCP request outside allowed root |

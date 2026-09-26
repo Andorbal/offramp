@@ -14,6 +14,5 @@ public static class ReservedDiagnostics
     [
         new("OFR2010", "error", "move crosses a solution slice boundary"),
         new("OFR4030", "error", "gRPC unavailable for net48 host"),
-        new("OFR9101", "error", "MCP request outside allowed root"),
     ];
 }

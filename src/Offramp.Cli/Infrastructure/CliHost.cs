@@ -37,6 +37,12 @@ public sealed record CliHost
 
     public IGitService? Git { get; init; }
 
+    /// <summary>Where progress goes instead of stderr (<c>mcp serve</c> turns it into MCP notifications); null chooses by terminal and <c>--json</c>.</summary>
+    public Offramp.Core.Progress.IProgressSink? Progress { get; init; }
+
+    /// <summary>The HTTP client LLM calls go through; null uses a shared one.</summary>
+    public HttpClient? LlmHttp { get; init; }
+
     public IReferenceAssembliesProbe ReferenceAssemblies { get; init; } = new ReferenceAssembliesProbe();
 
     /// <summary>Runtime identifier reported by doctor, for example <c>linux-x64</c>.</summary>

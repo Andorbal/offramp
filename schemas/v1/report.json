@@ -10,6 +10,16 @@
     "format": { "enum": ["html", "json", "markdown", null] },
     "output": { "type": ["string", "null"] },
     "report": { "$ref": "report-data.json" },
-    "content": { "type": ["string", "null"] }
+    "content": { "type": ["string", "null"] },
+    "summary": {
+      "type": "object",
+      "description": "With --format markdown: the summary paragraph, a template sentence or the model's.",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "source": { "const": "llm", "description": "Present when a language model produced or annotated this (--llm)." }
+      }
+    }
   }
 }

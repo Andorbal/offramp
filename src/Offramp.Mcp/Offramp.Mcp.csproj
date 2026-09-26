@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The Model Context Protocol server behind `offramp mcp serve`. A leaf: it references no
+    Offramp project; Offramp.Cli hands it a catalog of tools and resources built from the
+    CLI's own command tree, so tool calls run the same handlers as the terminal.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <RootNamespace>Offramp.Mcp</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.Core" />
+  </ItemGroup>
+</Project>

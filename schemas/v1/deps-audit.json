@@ -73,7 +73,7 @@
           "type": ["object", "null"],
           "additionalProperties": false,
           "required": ["match", "replacement", "source"],
-          "properties": { "match": { "type": "string" }, "replacement": { "type": "string" }, "source": { "type": "string" } }
+          "properties": { "match": { "type": "string" }, "replacement": { "type": "string" }, "source": { "type": "string", "description": "The rule file or offramp.yml that maps it, or llm when a language model chose among several (--llm)." } }
         },
         "status": { "enum": ["ok", "upgrade", "replace", "blocked", "unknown"] }
       }
