@@ -11,6 +11,28 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp plan`: a leaf-first migration order with each project's framework class, blast
+  radius (transitive dependents), framework-only blockers, readiness, and wave (0 already
+  portable, 1 portable today, n after wave n-1; cycle members share a wave). `--frontier`,
+  `--for PROJECT` (the framework-only closure to port for one project), `--waves` (grouped
+  view), and `--exclude-kind` (`schemas/v1/plan.json`).
+- `offramp verify`: builds the selected projects with the repository's own toolchain
+  (`verify.configuration`, `verify.properties`, `noWarn`, `warnAsError`, `restore`) through one
+  `dotnet build` of the solution or a generated solution filter, or runs `verify.command` with
+  `OFFRAMP_VERIFY_PROJECTS`/`_TARGET`/`_CHANGESET` and merges a JSON envelope it prints.
+  Errors come from the binary log, grouped by code with the first occurrence; per-project
+  status; `--projects`, `--affected-by PATHS` (owners plus direct dependents), `--all`,
+  `--mode build|command|none`, and `--baseline` (`.offramp/verify/baseline.json`; later runs
+  fail only on errors it does not list) (`schemas/v1/verify.json`,
+  `schemas/v1/verify-baseline.json`).
+- Diagnostics OFR5001 (verification failed), OFR5002 (timed out), OFR5010 (new error code
+  relative to the baseline), OFR5020 (finding from the verification command), and OFR5090
+  (verification skipped).
+- A scratch work tree helper (a detached `git worktree` of `HEAD` with working-tree files
+  copied over it) for trying changes without touching the user's working tree.
+- ADR 0017 (plan waves, verify selection, baselines, merged findings).
+
 ## [0.3.0] - 2026-09-26
 
 ### Added

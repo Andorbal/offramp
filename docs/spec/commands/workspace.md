@@ -122,20 +122,32 @@ See `03-configuration.md#init`.
 Computes a migration order and readiness from the graph. Structural only, fast.
 
 ```
-offramp plan [--frontier] [--for PROJECT] [--waves] [--exclude-kind test]
+offramp plan [--frontier] [--for PROJECT] [--waves] [--exclude-kind test,...]
 ```
 
-- Default: topological order, leaf-first, with each project's
-  `frameworkClass`, blast radius (number of transitive dependents), and
-  blockers (dependencies that are `framework`-only).
+- Default: every project, leaf-first, with its `frameworkClass`, blast radius
+  (number of transitive dependents), blockers (the `framework`-only projects it
+  depends on, directly or transitively), readiness, and wave.
+- Waves: `0` for projects already portable (standard, modern, dual); `1` for
+  framework-only projects that can be ported today; `n` for those whose
+  framework-only dependencies are all in earlier waves. Members of a reference
+  cycle share a wave and are marked `inCycle`; the cycle must be broken first.
+  The order is by wave, then blast radius (largest first), then path, so every
+  project comes after the framework-only projects it needs
+  (`docs/decisions/0017-plan-and-verify.md`).
 - `--frontier`: only projects whose dependencies are all `standard`, `modern`,
-  or `dual`, i.e. portable today.
-- `--for PROJECT`: the minimal closure that must be ported for `PROJECT` to
-  run on the target, in order.
-- `--waves`: groups the order into waves where every project in a wave depends
-  only on earlier waves.
-- Result JSON: `order: [{ project, wave, frameworkClass, blastRadius, blockers: [..], readiness: ready|blocked|done }]`,
-  `cycles`.
+  or `dual`, i.e. portable today (`readiness: ready`, wave 1).
+- `--for PROJECT`: the framework-only projects in `PROJECT`'s closure (itself
+  included), in order: the minimal set to port for it to run on the target.
+  `report`'s application numbers use the same rule. An unknown project is
+  `OFR0021`.
+- `--waves`: groups the human view by wave; the JSON always carries `wave`.
+- `--exclude-kind`: leaves projects of those kinds out of the listing; blast
+  radius, blockers, and readiness still come from the whole model.
+- Result (`schemas/v1/plan.json`): `for`, `frontier`, `excludeKinds`,
+  `order: [{ project, name, kind, frameworkClass, wave, blastRadius, blockers: [..], readiness: ready|blocked|done, inCycle }]`,
+  `cycles` (those touching a listed project), and
+  `counts: { projects, done, ready, blocked, waves }`.
 
 ## `verify`
 
@@ -143,25 +155,57 @@ Runs the user's verification. Called standalone or by movers and the
 consolidator.
 
 ```
-offramp verify [--projects P1,P2,...] [--affected-by PATHS] [--all] [--mode build|command|none]
+offramp verify [--projects P1,P2,...] [--affected-by PATHS] [--all] [--mode build|command|none] [--baseline]
 ```
 
-- `mode: build`: `dotnet build` of the given projects (or the projects
-  affected by a change set plus their direct dependents) with
-  `verify.properties`, `--no-restore` unless `verify.restore`,
-  `-warnaserror:<warnAsError>`, `-nowarn:<noWarn>`, `-p:TreatWarningsAsErrors`
-  as configured, and a fresh binlog under `.offramp/verify/`.
-- `mode: command`: runs `verify.command` with environment variables
-  `OFFRAMP_VERIFY_PROJECTS` (semicolon list), `OFFRAMP_VERIFY_TARGET`,
-  `OFFRAMP_VERIFY_CHANGESET` (path to the change set JSON). Exit 0 passes. If
-  the command prints a JSON envelope, its diagnostics are merged.
+- Selection (one of the three options, else `verify.projects.include`, else
+  every project; `verify.projects.exclude` always applies last):
+  - `--projects`: paths or names; an unknown one is `OFR0021`.
+  - `--affected-by PATHS`: the owners of each changed path plus their direct
+    dependents. A project file owns itself; a source file belongs to the
+    projects compiling it; a `.props`, `.targets`, `global.json`, or
+    `nuget.config` file affects every project beneath its folder; any other
+    path belongs to the project whose folder holds it, else to every project
+    beneath it.
+  - `--all`: every project.
+  An empty selection verifies nothing (`OFR5090`).
+- `mode: build`: one `dotnet build` of the solution when everything is
+  selected, else of a solution filter written to `.offramp/verify/verify.slnf`
+  (projects without a solution are built one by one), with
+  `-c <verify.configuration>`, `-p:` for each of `verify.properties`,
+  `--no-restore` unless `verify.restore`, `-warnaserror:<warnAsError>`,
+  `-nowarn:<noWarn>`, and a fresh binlog under `.offramp/verify/`. Errors come
+  from the binlog, with repository-relative paths; a failed build that logged
+  no error contributes one error carrying its last output lines.
+- `mode: command`: runs `verify.command` through the shell (`/bin/sh -c`, or
+  `cmd.exe /d /s /c` on Windows) in the repository root with environment
+  variables `OFFRAMP_VERIFY_PROJECTS` (semicolon list), `OFFRAMP_VERIFY_TARGET`,
+  `OFFRAMP_VERIFY_CHANGESET` (path to the change set JSON, when a mover calls
+  it). Exit 0 passes. If stdout is a JSON envelope, its diagnostics are merged:
+  `OFR` codes as they are, other codes under `OFR5020` with the original code in
+  `data.code`; its errors count like build errors. A failed command's last
+  output lines are in `outputTail`. `mode: command` without `verify.command` is
+  `OFR0053`.
 - `mode: none`: records that verification was skipped (`OFR5090`).
-- Result: `passed`, per-project status, new errors grouped by code with the
-  first occurrence of each, and a diff against the baseline error set when a
-  baseline exists (`verify --baseline` records one).
+- `--baseline` records the current errors in `.offramp/verify/baseline.json`
+  (`schemas/v1/verify-baseline.json`; code, project, file, and message, without
+  line numbers) and judges the run against it. With a baseline, only errors it
+  does not list count: the run passes when every error is known, and new codes
+  are `OFR5010`. `.offramp/verify/` is git-ignored by `init`; commit the baseline
+  with `git add -f` to share it.
+- Timeout: `verify.timeoutSeconds` for the whole run (`OFR5002`).
+- Result (`schemas/v1/verify.json`): `mode`, `status`
+  (`passed|failed|timedOut|skipped`), `passed`, `scope` (how the projects were
+  chosen), per-project `status` (`passed|failed|notVerified`: a project with no
+  error of its own in a failed run was not verified), the counted errors grouped
+  by code with the count and the first occurrence in path order, `errorCount`,
+  `baseline` (known, new, fixed, new codes) or null, `baselineRecorded`,
+  `invocations` (command line, binlog, exit code, timed out), and `outputTail`.
+  A failed or timed-out run exits 1.
 
-Diagnostics: `OFR5001` build failed, `OFR5002` timeout, `OFR5010` new error
-code compared to baseline, `OFR5090` verification skipped by config.
+Diagnostics: `OFR5001` verification failed, `OFR5002` timeout, `OFR5010` new
+error code compared to baseline, `OFR5020` finding from the verification
+command, `OFR5090` verification skipped.
 
 ## `slice`
 

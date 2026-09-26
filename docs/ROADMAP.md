@@ -58,7 +58,7 @@ Acceptance: HTML graph and report open offline; `deps audit` on `versions`
 identifies lowest/newest supporting versions correctly against a recorded feed
 (tests use a local file feed so they do not depend on nuget.org).
 
-## M3 — Verify ☐
+## M3 — Verify ◐
 
 - `verify` (build mode, command mode, none), baselines, error grouping,
   scratch worktree helper used by consolidation.
