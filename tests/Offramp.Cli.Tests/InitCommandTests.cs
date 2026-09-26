@@ -108,7 +108,8 @@ public sealed class InitCommandTests : IDisposable
     public async Task With_windows_only_steps_init_offers_the_compile_only_block(bool accept)
     {
         FixtureRepository.CopyDirectory(FixtureRepository.SourcePath("windows-only-build-steps"), _cli.Repo.Path);
-        await _cli.RunAsync("scan", "--binlog", "msbuild.binlog");
+        var scan = await _cli.RunAsync("scan", "--binlog", "msbuild.binlog");
+        Assert.True(_cli.Repo.Exists(".offramp/workspace.json"), scan.ToString());
         var before = _cli.Repo.Read("Directory.Build.props");
         _cli.InputIsTerminal = true;
         _cli.OutputIsTerminal = true;
@@ -121,6 +122,7 @@ public sealed class InitCommandTests : IDisposable
         var run = await _cli.RunAsync("init");
 
         Assert.Equal(0, run.ExitCode);
+        Assert.True(prompter.Offered is not null, run.ToString());
         Assert.Contains("+  <PropertyGroup Condition=", prompter.Offered!.Diff, StringComparison.Ordinal);
         var props = _cli.Repo.Read("Directory.Build.props");
         Assert.Equal(accept, props.Contains("<OfframpCompileOnly>true</OfframpCompileOnly>", StringComparison.Ordinal));

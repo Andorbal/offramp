@@ -24,6 +24,8 @@ public sealed record BinlogData
 /// <summary>Reads evaluations, items, targets, and errors from a binary log with MSBuild.StructuredLogger.</summary>
 public static class BinlogReader
 {
+    private static readonly object ReadLock = new();
+
     /// <summary>Properties copied from each evaluation; the rest are dropped to keep large repositories small in memory.</summary>
     public static readonly IReadOnlySet<string> PropertyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -49,7 +51,7 @@ public static class BinlogReader
 
     public static BinlogData Read(string binlogPath)
     {
-        var build = BinaryLog.ReadBuild(binlogPath);
+        var build = ReadBuild(binlogPath);
         var evaluations = new List<ProjectEvaluation>();
         build.VisitAllChildren<ProjectEvaluation>(evaluations.Add);
         var projects = new List<LoggedProject>();
@@ -105,6 +107,28 @@ public static class BinlogReader
             SdkVersion = any?.Property("NETCoreSdkVersion"),
             RuntimeIdentifier = any?.Property("NETCoreSdkRuntimeIdentifier"),
         };
+    }
+
+    /// <summary>
+    /// Reads the log. <c>BinaryLog.ReadBuild</c> returns its result through a static field
+    /// (<c>StructuredLogger.CurrentBuild</c>), so concurrent reads in one process can lose
+    /// each other's builds; reads are serialized. A read that still fails comes back as a
+    /// build with only an error node, which is turned into an exception.
+    /// </summary>
+    private static Build ReadBuild(string binlogPath)
+    {
+        Build build;
+        lock (ReadLock)
+        {
+            build = BinaryLog.ReadBuild(binlogPath);
+        }
+
+        if (!build.Children.OfType<TimedNode>().Any() && build.Children.OfType<Error>().FirstOrDefault() is { } error)
+        {
+            throw new InvalidDataException(error.Text);
+        }
+
+        return build;
     }
 
     private static bool IsRestoreEvaluation(IReadOnlyDictionary<string, string> properties) =>
