@@ -11,6 +11,41 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp deps consolidate (--package ID | --all | --family PREFIX)`: one version per package
+  across the solution.
+  - Constraints come from direct references, every resolved package's dependency ranges (each
+    with its chain), the chosen versions' own dependencies, and pins.
+  - The version is the lowest (or `--prefer newest`) that supports every target framework of
+    the projects using it.
+  - Families share the highest member version. Pins keep their project on its version
+    (`VersionOverride` under central package management).
+  - Versions are written in place, into the existing central file, or, with `--cpm`, into a
+    new one (named after the solution, with per-project opt-in, when projects outside the
+    solution would inherit it).
+  - Nothing is applied unless NuGet's own restore of the proposal, in a scratch worktree,
+    reports no new NU1605, NU1107, NU1608, NU1010, or restore error.
+  - Schema: `schemas/v1/deps-consolidate.json`.
+- `offramp redirects sync [--app PROJECT] [--prune]`: binding redirects for .NET Framework
+  applications, computed from the assemblies the resolved packages deploy.
+  - Redirects are added, changed, or (with `--prune`) removed entry by entry; every other byte
+    of `web.config`/`app.config` stays.
+  - Schema: `schemas/v1/redirects-sync.json`.
+- `offramp deps resolve-dlls [--project PROJECT]`: loose `HintPath` references become a
+  `ProjectReference` (the DLL is a project's output) or a `PackageReference`. The package must
+  ship the assembly with the same public key, at the referenced version or higher, for every
+  target framework. .NET Framework DLLs with no replacement are reported as blockers
+  (`schemas/v1/deps-resolve-dlls.json`).
+- Package inspection records dependency groups and assembly identities (cache format 2).
+- Diagnostics OFR1200, OFR1203, OFR1210–1212, OFR1220, OFR1401–1404, and OFR1501–1504.
+- Fixtures `loose-dlls` (stub DLLs from a generator) and `cpm-shadowing`, both in the scan
+  snapshots.
+- ADR 0020 (consolidation decides and restore verifies, the opt-in import, loose DLL candidates,
+  redirect rules).
+
+### Changed
+- Unified diffs print removed lines before added ones, as git does.
+
 ## [0.6.0] - 2026-09-26
 
 ### Added
