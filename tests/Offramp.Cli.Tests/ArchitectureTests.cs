@@ -26,7 +26,7 @@ public sealed class ArchitectureTests
     public void Compiled_assemblies_follow_it_too()
     {
         // Catches a reference that bypasses ProjectReference (a HintPath, a copied DLL).
-        foreach (var assembly in new[] { "Offramp.Core", "Offramp.Workspace", "Offramp.NuGet", "Offramp.Analysis", "Offramp.Refactoring", "Offramp.Scaffolding", "Offramp.Reporting" })
+        foreach (var assembly in new[] { "Offramp.Core", "Offramp.Workspace", "Offramp.NuGet", "Offramp.Analysis", "Offramp.Refactoring", "Offramp.Scaffolding", "Offramp.Reporting", "Offramp.Ide" })
         {
             var references = Assembly.Load(assembly).GetReferencedAssemblies().Select(a => a.Name).ToList();
             Assert.DoesNotContain("Offramp.Llm", references);

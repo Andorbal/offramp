@@ -49,6 +49,9 @@ public sealed record MovePlanRequest
 
     /// <summary><c>move extract</c>: the destination does not exist yet; <see cref="To"/> is its path.</summary>
     public NewProject? Create { get; init; }
+
+    /// <summary>Where compilations come from; null reads the compiler log as recorded.</summary>
+    public ICompilationSource? Compilations { get; init; }
 }
 
 /// <summary>A project <c>move extract</c> creates: its model entry, its file, and its compilation per target, all in memory.</summary>
@@ -88,7 +91,8 @@ public static class MovePlanner
             return null;
         }
 
-        using var loader = new CompilationLoader(request.RepositoryRoot);
+        using var recorded = request.Compilations is null ? new CompilationLoader(request.RepositoryRoot) : null;
+        var loader = request.Compilations ?? recorded!;
         var sourceTarget = CompilationLoader.PreferredTarget(source);
         var sourceCompilation = sourceTarget is null ? null : loader.LoadForProject(source, sourceTarget) as CSharpCompilation;
         var destinations = request.Create is { } created
@@ -119,8 +123,55 @@ public static class MovePlanner
         return context.Run(requested);
     }
 
+    /// <summary>
+    /// Whether one file moves to a destination as it is (docs/spec/commands/ide.md#easily-movable):
+    /// no co-moves, no new reference for the destination, no resource pair, a free destination
+    /// path, and a trial compilation in every destination target with no errors. The rest of the
+    /// source and its dependents are not checked; <see cref="Plan"/> does that. Null when the file
+    /// is not a C# compile item inside the source's folder, or a compilation is missing.
+    /// </summary>
+    public static MoveAssessment? Assess(MoveAssessRequest request)
+    {
+        var model = request.Model;
+        var source = model.Projects.Single(p => p.Id == request.From);
+        var destination = model.Projects.Single(p => p.Id == request.To);
+        if (source.Id == destination.Id || source.Language != "csharp" || destination.Language != "csharp"
+            || !source.Compile.Contains(request.File, StringComparer.Ordinal) || !Inside(request.File, source.Id))
+        {
+            return null;
+        }
+
+        var sourceTarget = CompilationLoader.PreferredTarget(source);
+        var sourceCompilation = sourceTarget is null ? null : request.Compilations.LoadForProject(source, sourceTarget) as CSharpCompilation;
+        var destinations = destination.CompilerCalls.Keys
+            .Select(tfm => (Tfm: tfm, Compilation: request.Compilations.LoadForProject(destination, tfm) as CSharpCompilation))
+            .Where(d => d.Compilation is not null)
+            .Select(d => (d.Tfm, d.Compilation!))
+            .ToList();
+        if (sourceCompilation is null || destinations.Count == 0)
+        {
+            return null;
+        }
+
+        var planRequest = new MovePlanRequest
+        {
+            RepositoryRoot = request.RepositoryRoot,
+            Model = model,
+            Config = request.Config,
+            WorkspaceHash = "",
+            From = source.Id,
+            To = destination.Id,
+            Files = [request.File],
+            CoMove = "none",
+            NamespaceMismatch = request.Config.Move.NamespaceMismatch,
+            Diagnostics = new DiagnosticBag(),
+            Compilations = request.Compilations,
+        };
+        return new PlanContext(planRequest, request.Compilations, source, destination, sourceCompilation, sourceTarget!, destinations).Assess(request.File);
+    }
+
     private sealed class PlanContext(
-        MovePlanRequest request, CompilationLoader loader, ProjectInfo source, ProjectInfo destination,
+        MovePlanRequest request, ICompilationSource loader, ProjectInfo source, ProjectInfo destination,
         CSharpCompilation sourceCompilation, string sourceTarget, List<(string Tfm, CSharpCompilation Compilation)> destinations)
     {
         private readonly Dictionary<string, string?> _coMoveOf = new(StringComparer.Ordinal);
@@ -145,10 +196,7 @@ public static class MovePlanner
 
         public MovePlanResult Run(IReadOnlyList<string> requested)
         {
-            _trees = source.Compile
-                .Select(f => (File: f, Tree: sourceCompilation.SyntaxTrees.FirstOrDefault(t => SamePath(t.FilePath, RepoPaths.ToAbsolute(Root, f)))))
-                .Where(t => t.Tree is not null)
-                .ToDictionary(t => t.File, t => t.Tree!, StringComparer.Ordinal);
+            MapTrees();
             _uses = _trees.ToDictionary(t => t.Key, t => Uses(t.Value), StringComparer.Ordinal);
 
             var candidates = new SortedSet<string>(StringComparer.Ordinal);
@@ -175,6 +223,101 @@ public static class MovePlanner
             PlatformCheck(candidates, needs);
             NamespaceCheck(candidates);
             return Result(candidates, needs);
+        }
+
+        /// <summary>The rules of <see cref="MovePlanner.Assess"/>, in order; the first that fails is the reason.</summary>
+        public MoveAssessment? Assess(string file)
+        {
+            MapTrees();
+            if (!_trees.TryGetValue(file, out var tree))
+            {
+                return null;
+            }
+
+            var destinationPath = Destination(file);
+            var referenced = source.ProjectReferences.Contains(destination.Id);
+            MoveAssessment No(DiagnosticDescriptor code, string message, IReadOnlyList<string> details) =>
+                new() { To = destination.Id, Movable = false, Destination = destinationPath, Referenced = referenced, Code = code.Code, Message = message, Details = details };
+
+            if (Frozen(request.Config, source.Id) || Frozen(request.Config, destination.Id))
+            {
+                var frozen = Frozen(request.Config, source.Id) ? source.Id : destination.Id;
+                return No(DiagnosticCatalog.OFR2003, $"{frozen} is frozen in offramp.yml; nothing moves into or out of it.", [frozen]);
+            }
+
+            if (DestinationAboveSource)
+            {
+                return No(DiagnosticCatalog.OFR6004, $"{destination.Id} depends on {source.Id}.", [destination.Id]);
+            }
+
+            if (Pairs(file).FirstOrDefault() is { } pair)
+            {
+                return No(DiagnosticCatalog.OFR6003, $"Moves only together with {pair}.", [pair]);
+            }
+
+            if (PartialSiblings(tree).Order(StringComparer.Ordinal).FirstOrDefault() is { } sibling)
+            {
+                return No(DiagnosticCatalog.OFR2110, $"Declares part of a partial type that {sibling} also declares.", [sibling]);
+            }
+
+            var uses = Uses(tree);
+            if (uses.Files.Where(f => f != file).Order(StringComparer.Ordinal).FirstOrDefault() is { } needed)
+            {
+                return No(DiagnosticCatalog.OFR2101, $"Needs {needed}, which stays in {source.Id}.", [needed]);
+            }
+
+            foreach (var project in uses.Projects.Where(p => p != destination.Id && p != source.Id && !destination.ProjectReferences.Contains(p)).Order(StringComparer.Ordinal))
+            {
+                if (Reach(Model, project).Contains(destination.Id))
+                {
+                    var path = CyclePath(project);
+                    return No(DiagnosticCatalog.OFR2001, $"Needs {project}, which depends on {destination.Id}: {string.Join(" → ", path)}.", path);
+                }
+
+                return No(DiagnosticCatalog.OFR6003, $"Needs {project}, which {destination.Id} does not reference.", [project]);
+            }
+
+            foreach (var package in uses.Packages.Where(p => !DestinationHas(p.Id)).DistinctBy(p => p.Id, StringComparer.OrdinalIgnoreCase).OrderBy(p => p.Id, StringComparer.OrdinalIgnoreCase))
+            {
+                if (destinations.FirstOrDefault(d => PackageAssets(package, d.Tfm) is { Count: 0 }) is { Tfm: not null } missing)
+                {
+                    return No(DiagnosticCatalog.OFR2102, $"Needs package {package.Id} {package.Version}, which has no assets for {missing.Tfm}.", [package.Id]);
+                }
+
+                return No(DiagnosticCatalog.OFR6003, $"Needs package {package.Id} {package.Version}, which {destination.Id} does not reference.", [package.Id]);
+            }
+
+            if (File.Exists(RepoPaths.ToAbsolute(Root, destinationPath)))
+            {
+                return No(DiagnosticCatalog.OFR6003, $"{destinationPath} already exists.", [destinationPath]);
+            }
+
+            if (DestinationExcludes(destinationPath) is { } pattern)
+            {
+                return No(DiagnosticCatalog.OFR2111, $"{destination.Id} removes {pattern} from its Compile items.", [pattern]);
+            }
+
+            var candidates = new SortedSet<string>(StringComparer.Ordinal) { file };
+            foreach (var (tfm, compilation) in destinations)
+            {
+                var trial = DestinationTrial(tfm, compilation, candidates, [], out var moved);
+                var errors = trial.GetSemanticModel(moved[file]).GetDiagnostics()
+                    .Where(d => d.Severity == DiagnosticSeverity.Error)
+                    .Take(3)
+                    .Select(e => $"{tfm}: {e.Id}: {e.GetMessage(CultureInfo.InvariantCulture)}")
+                    .ToList();
+                if (errors.Count > 0)
+                {
+                    return No(DiagnosticCatalog.OFR2103, $"Does not compile in {destination.Id}.", errors);
+                }
+            }
+
+            if (request.NamespaceMismatch == "block" && OutsideRootNamespace(file) is { Count: > 0 } outside)
+            {
+                return No(DiagnosticCatalog.OFR2120, $"Declares {string.Join(", ", outside)}, outside {destination.Id}'s root namespace {destination.RootNamespace ?? destination.Name}.", outside);
+            }
+
+            return new MoveAssessment { To = destination.Id, Movable = true, Destination = destinationPath, Referenced = referenced };
         }
 
         /// <summary>Adds a file with its resource pair and the other files of any partial type it declares.</summary>
@@ -514,8 +657,7 @@ public static class MovePlanner
             var root = destination.RootNamespace ?? destination.Name;
             foreach (var file in candidates.Where(_trees.ContainsKey).ToList())
             {
-                var namespaces = _trees[file].GetRoot().DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>().Select(n => n.Name.ToString()).Distinct().ToList();
-                var outside = namespaces.Where(n => n != root && !n.StartsWith(root + ".", StringComparison.Ordinal)).ToList();
+                var outside = OutsideRootNamespace(file);
                 if (outside.Count == 0)
                 {
                     continue;
@@ -531,6 +673,14 @@ public static class MovePlanner
                     Bag.Report(DiagnosticCatalog.OFR2120, message, new DiagnosticLocation(source.Id, file));
                 }
             }
+        }
+
+        /// <summary>The namespaces a file declares outside the destination's root namespace.</summary>
+        private List<string> OutsideRootNamespace(string file)
+        {
+            var root = destination.RootNamespace ?? destination.Name;
+            var namespaces = _trees[file].GetRoot().DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>().Select(n => n.Name.ToString()).Distinct().ToList();
+            return [.. namespaces.Where(n => n != root && !n.StartsWith(root + ".", StringComparison.Ordinal))];
         }
 
         private MovePlanResult Result(SortedSet<string> candidates, Dictionary<string, List<ReferenceNeed>> needs)
@@ -846,7 +996,29 @@ public static class MovePlanner
         }
 
         private string? FileOf(SyntaxTree tree) =>
-            _trees.FirstOrDefault(t => ReferenceEquals(t.Value, tree)).Key;
+            _files.GetValueOrDefault(tree);
+
+        private Dictionary<SyntaxTree, string> _files = null!;
+
+        /// <summary>The source's compile items and their trees in the source compilation (the first tree of a path wins).</summary>
+        private void MapTrees()
+        {
+            var byPath = new Dictionary<string, SyntaxTree>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            foreach (var tree in sourceCompilation.SyntaxTrees)
+            {
+                byPath.TryAdd(Full(tree.FilePath), tree);
+            }
+
+            _trees = source.Compile
+                .Select(f => (File: f, Tree: byPath.GetValueOrDefault(Full(RepoPaths.ToAbsolute(Root, f)))))
+                .Where(t => t.Tree is not null)
+                .ToDictionary(t => t.File, t => t.Tree!, StringComparer.Ordinal);
+            _files = new Dictionary<SyntaxTree, string>();
+            foreach (var (file, tree) in _trees)
+            {
+                _files.TryAdd(tree, file);
+            }
+        }
 
         private bool DestinationHas(string package) =>
             destination.Resolved.Values.SelectMany(f => f.Packages).Any(p => string.Equals(p.Id, package, StringComparison.OrdinalIgnoreCase));
@@ -1044,9 +1216,6 @@ public static class MovePlanner
         var slash = path.LastIndexOf('/');
         return slash < 0 ? "" : path[..slash];
     }
-
-    private static bool SamePath(string a, string b) =>
-        string.Equals(Full(a), Full(b), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     private static string Full(string path) => (Path.IsPathRooted(path) ? Path.GetFullPath(path) : path).Replace('\\', '/');
 }

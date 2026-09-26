@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The editor integration's engine (docs/spec/commands/ide.md): what an editor shows in a file
+    of a .NET Framework-only project (new code, findings on it, types that could move to a
+    portable counterpart), the moves themselves, and the Language Server Protocol server the
+    VS Code, Visual Studio, and Rider extensions talk to.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <RootNamespace>Offramp.Ide</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Offramp.Core\Offramp.Core.csproj" />
+    <ProjectReference Include="..\Offramp.Workspace\Offramp.Workspace.csproj" />
+    <ProjectReference Include="..\Offramp.Analysis\Offramp.Analysis.csproj" />
+    <ProjectReference Include="..\Offramp.Refactoring\Offramp.Refactoring.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Offramp.Ide.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,170 @@
+﻿{
+  "base": {
+    "ref": "HEAD",
+    "commit": "{Commit}",
+    "scope": "lines"
+  },
+  "enablement": {
+    "mode": "auto",
+    "enabled": true,
+    "reason": "state-directory"
+  },
+  "counterparts": [
+    {
+      "project": "src/Foo/Foo.csproj",
+      "counterparts": [
+        "src/ModernF/ModernF.csproj",
+        "src/Shared/Shared.csproj"
+      ],
+      "source": "referenced"
+    },
+    {
+      "project": "src/Legacy/Legacy.csproj",
+      "counterparts": [],
+      "source": "none"
+    }
+  ],
+  "files": [
+    {
+      "file": "src/Foo/Pricing/TaxRule.cs",
+      "project": "src/Foo/Foo.csproj",
+      "applies": true,
+      "newLines": [
+        [
+          1,
+          7
+        ]
+      ],
+      "findings": [],
+      "types": [
+        {
+          "name": "Foo.Pricing.TaxRule",
+          "kind": "class",
+          "line": 3,
+          "column": 25,
+          "endLine": 3,
+          "endColumn": 32,
+          "new": true
+        }
+      ],
+      "moves": [
+        {
+          "to": "src/ModernF/ModernF.csproj",
+          "movable": true,
+          "destination": "src/ModernF/Pricing/TaxRule.cs",
+          "referenced": true,
+          "code": null,
+          "message": null,
+          "details": []
+        },
+        {
+          "to": "src/Shared/Shared.csproj",
+          "movable": true,
+          "destination": "src/Shared/Pricing/TaxRule.cs",
+          "referenced": true,
+          "code": null,
+          "message": null,
+          "details": []
+        }
+      ]
+    },
+    {
+      "file": "src/Foo/Web/CookieReader.cs",
+      "project": "src/Foo/Foo.csproj",
+      "applies": true,
+      "newLines": [
+        [
+          9,
+          10
+        ]
+      ],
+      "findings": [
+        {
+          "code": "OFR3001",
+          "severity": "error",
+          "line": 10,
+          "column": 40,
+          "endLine": 10,
+          "endColumn": 51,
+          "symbol": "System.Web.HttpContext",
+          "message": "System.Web.HttpContext (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+          "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+          "details": {
+            "assembly": "System.Web",
+            "compilerError": "CS0103",
+            "mapping": "none",
+            "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+          }
+        }
+      ],
+      "types": [
+        {
+          "name": "Foo.Web.CookieReader",
+          "kind": "class",
+          "line": 6,
+          "column": 25,
+          "endLine": 6,
+          "endColumn": 37,
+          "new": false
+        }
+      ],
+      "moves": [
+        {
+          "to": "src/ModernF/ModernF.csproj",
+          "movable": false,
+          "destination": "src/ModernF/Web/CookieReader.cs",
+          "referenced": true,
+          "code": "OFR2103",
+          "message": "Does not compile in src/ModernF/ModernF.csproj.",
+          "details": [
+            "netstandard2.0: CS0103: The name 'HttpContext' does not exist in the current context",
+            "netstandard2.0: CS0103: The name 'HttpContext' does not exist in the current context"
+          ]
+        },
+        {
+          "to": "src/Shared/Shared.csproj",
+          "movable": false,
+          "destination": "src/Shared/Web/CookieReader.cs",
+          "referenced": true,
+          "code": "OFR2103",
+          "message": "Does not compile in src/Shared/Shared.csproj.",
+          "details": [
+            "netstandard2.0: CS0103: The name 'HttpContext' does not exist in the current context",
+            "netstandard2.0: CS0103: The name 'HttpContext' does not exist in the current context"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src/Legacy/Farewell.cs",
+      "project": "src/Legacy/Legacy.csproj",
+      "applies": true,
+      "newLines": [
+        [
+          1,
+          7
+        ]
+      ],
+      "findings": [],
+      "types": [
+        {
+          "name": "Legacy.Farewell",
+          "kind": "class",
+          "line": 3,
+          "column": 25,
+          "endLine": 3,
+          "endColumn": 33,
+          "new": true
+        }
+      ],
+      "moves": []
+    }
+  ],
+  "summary": {
+    "files": 3,
+    "newLines": 16,
+    "findings": 1,
+    "newMovableTypes": 1,
+    "movableFiles": 1
+  }
+}

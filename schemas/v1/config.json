@@ -211,6 +211,34 @@
       "properties": {
         "externalConsumers": { "$ref": "#/$defs/stringList" }
       }
+    },
+    "projectMap": {
+      "type": "array",
+      "description": "Where a .NET Framework project's portable code lives. See docs/spec/commands/ide.md.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "type": "string", "minLength": 1, "description": "A project path or name; * and ? match any characters." },
+          "to": { "type": "string", "minLength": 1, "description": "A project path or name; {name} is the matched project's name." }
+        }
+      }
+    },
+    "ide": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "newCode": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "base": { "type": "string", "minLength": 1, "description": "auto (origin/HEAD, else HEAD) or a git ref." },
+            "scope": { "enum": ["lines", "files", "all"] }
+          }
+        },
+        "implicitCounterparts": { "type": "boolean" }
+      }
     }
   },
   "$defs": {

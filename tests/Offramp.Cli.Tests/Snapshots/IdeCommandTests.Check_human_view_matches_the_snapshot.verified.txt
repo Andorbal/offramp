@@ -1,0 +1,12 @@
+﻿1 file, 7 new lines since HEAD ({Commit}): 0 findings on new code, 1 new type that could live in a portable project.
+
+  File                         Types           Can move to
+────────────────────────────────────────────────────────────────
+  src/Foo/Pricing/TaxRule.cs   TaxRule (new)   ModernF, Shared
+
+
+· OFR0016 No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.
+· OFR6001 src/Foo/Pricing/TaxRule.cs:3:25 TaxRule needs nothing from .NET Framework: TaxRule.cs can move to ModernF,
+which Foo references (or Shared), and would not need migrating.
+
+2 info

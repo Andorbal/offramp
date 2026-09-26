@@ -5,7 +5,6 @@ using Offramp.Analysis.Audits.Matchers;
 using Offramp.Analysis.Compilations;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
-using Offramp.Core.Paths;
 using Offramp.Core.Progress;
 using Offramp.Workspace.Targets;
 using ProjectInfo = Offramp.Core.Model.ProjectInfo;
@@ -51,6 +50,9 @@ public sealed record AuditRequest
 /// </summary>
 public static class AuditRunner
 {
+    /// <summary>The named matchers rule packs refer to (<c>matcher:</c>).</summary>
+    public static IReadOnlyDictionary<string, IAuditMatcher> NamedMatchers => Matchers;
+
     private static readonly Dictionary<string, IAuditMatcher> Matchers = new IAuditMatcher[]
     {
         new TargetCompilationMatcher(), new CultureSensitiveStringMatcher(), new EncodingCodePageMatcher(), new WindowsPathMatcher(),
@@ -70,7 +72,7 @@ public static class AuditRunner
         var files = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
         using var loader = new CompilationLoader(request.RepositoryRoot);
-        var targets = new TargetBuilds(request, loader);
+        var targets = new TargetCompilationBuilder(request.RepositoryRoot, request.Model, request.TargetMajor, request.References, request.Diagnostics, loader);
         var contexts = new List<AuditMatchContext>();
         using (var phase = request.Progress.BeginPhase("audit " + Wire(request.Audit), 1, 1))
         {
@@ -297,114 +299,4 @@ public static class AuditRunner
         AuditKind.Serialization => "serialization",
         _ => "native",
     };
-
-    /// <summary>Target compilations of the run, built on demand so project references can use each other's.</summary>
-    private sealed class TargetBuilds(AuditRequest request, CompilationLoader loader)
-    {
-        private readonly Dictionary<string, TargetCompilation?> _built = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, MetadataReference> _files = new(StringComparer.Ordinal);
-
-        public async Task<TargetCompilation?> BuildAsync(ProjectInfo project, List<string> skipped, CancellationToken cancellationToken)
-        {
-            if (_built.TryGetValue(project.Id, out var known))
-            {
-                return known;
-            }
-
-            _built[project.Id] = null; // a cycle ends here
-            var built = await BuildUncachedAsync(project, skipped, cancellationToken).ConfigureAwait(false);
-            _built[project.Id] = built;
-            return built;
-        }
-
-        private async Task<TargetCompilation?> BuildUncachedAsync(ProjectInfo project, List<string> skipped, CancellationToken cancellationToken)
-        {
-            if (request.References is null || loader.LoadForProject(project) is not CSharpCompilation recorded)
-            {
-                return null;
-            }
-
-            var desktop = project.Kind is ProjectKind.Winforms or ProjectKind.Wpf;
-            var tfm = $"net{request.TargetMajor}.0" + (desktop ? "-windows" : "");
-            var frameworks = new List<string>();
-            if (project.Kind == ProjectKind.Web)
-            {
-                frameworks.Add("Microsoft.AspNetCore.App");
-            }
-
-            if (desktop)
-            {
-                frameworks.Add("Microsoft.WindowsDesktop.App");
-            }
-
-            var resolved = await request.References.ResolveAsync(new TargetReferenceRequest
-            {
-                TargetFramework = tfm,
-                Frameworks = frameworks,
-                Packages = DirectPackages(project),
-            }, cancellationToken).ConfigureAwait(false);
-            if (resolved.Error is { } error)
-            {
-                request.Diagnostics.Report(DiagnosticCatalog.OFR3010,
-                    $"{project.Id} was not compiled against {tfm}, so missing and Windows-only APIs are not reported for it: {error}",
-                    new DiagnosticLocation(project.Id));
-                skipped.Add($"{project.Id}: not compiled against {tfm} (OFR3010).");
-                return null;
-            }
-
-            if (resolved.DroppedPackages.Count > 0)
-            {
-                request.Diagnostics.Report(DiagnosticCatalog.OFR3011,
-                    $"{string.Join(", ", resolved.DroppedPackages)} {(resolved.DroppedPackages.Count == 1 ? "does" : "do")} not support {tfm}; the APIs used from {(resolved.DroppedPackages.Count == 1 ? "it" : "them")} are reported as missing.",
-                    new DiagnosticLocation(project.Id),
-                    [KeyValuePair.Create<string, JsonNode?>("packages", new JsonArray([.. resolved.DroppedPackages.Select(p => (JsonNode?)p)]))]);
-            }
-
-            var references = resolved.Paths.Select(File).ToList();
-            foreach (var reference in project.ProjectReferences.Order(StringComparer.Ordinal))
-            {
-                if (request.Model.Projects.FirstOrDefault(p => p.Id == reference) is { } dependency && await ReferenceAsync(dependency, skipped, cancellationToken).ConfigureAwait(false) is { } dependencyReference)
-                {
-                    references.Add(dependencyReference);
-                }
-            }
-
-            foreach (var loose in project.AssemblyReferences.Where(a => a.Kind == AssemblyReferenceKind.File && a.HintPath is not null))
-            {
-                var path = RepoPaths.ToAbsolute(request.RepositoryRoot, loose.HintPath!);
-                if (System.IO.File.Exists(path))
-                {
-                    references.Add(File(path));
-                }
-            }
-
-            return TargetCompilation.Create(recorded, tfm, request.TargetMajor, references);
-        }
-
-        /// <summary>A referenced project as the target sees it: its own target compilation, or its recorded modern or standard build.</summary>
-        private async Task<MetadataReference?> ReferenceAsync(ProjectInfo dependency, List<string> skipped, CancellationToken cancellationToken)
-        {
-            if (dependency.FrameworkClass == FrameworkClass.Framework)
-            {
-                return (await BuildAsync(dependency, skipped, cancellationToken).ConfigureAwait(false))?.Compilation.ToMetadataReference();
-            }
-
-            var modern = dependency.CompilerCalls.Keys.Where(t => !t.StartsWith("net4", StringComparison.Ordinal)).Order(StringComparer.Ordinal).LastOrDefault();
-            return modern is not null && loader.LoadForProject(dependency, modern) is { } compilation ? compilation.ToMetadataReference() : null;
-        }
-
-        private MetadataReference File(string path) =>
-            _files.TryGetValue(path, out var reference) ? reference : _files[path] = MetadataReference.CreateFromFile(path);
-
-        private static List<(string Id, string Version)> DirectPackages(ProjectInfo project)
-        {
-            var target = CompilationLoader.PreferredTarget(project);
-            if (target is not null && project.Resolved.TryGetValue(target, out var resolved))
-            {
-                return [.. resolved.Packages.Where(p => p.Direct).Select(p => (p.Id, p.Version))];
-            }
-
-            return [.. project.PackageReferences.Where(p => p.Version is not null).Select(p => (p.Id, p.Version!))];
-        }
-    }
 }

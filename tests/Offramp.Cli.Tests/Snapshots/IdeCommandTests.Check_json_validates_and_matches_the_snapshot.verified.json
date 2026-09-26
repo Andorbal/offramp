@@ -1,0 +1,231 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "ide check",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "IdeCounterpart.slnx",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "ide": {
+        "implicitCounterparts": true,
+        "newCode": {
+          "base": "auto",
+          "scope": "lines"
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projectMap": [],
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "base": {
+      "ref": "HEAD",
+      "commit": "{Commit}",
+      "scope": "lines"
+    },
+    "enablement": {
+      "mode": "auto",
+      "enabled": true,
+      "reason": "state-directory"
+    },
+    "counterparts": [
+      {
+        "project": "src/Foo/Foo.csproj",
+        "counterparts": [
+          "src/ModernF/ModernF.csproj",
+          "src/Shared/Shared.csproj"
+        ],
+        "source": "referenced"
+      },
+      {
+        "project": "src/Legacy/Legacy.csproj",
+        "counterparts": [],
+        "source": "none"
+      }
+    ],
+    "files": [
+      {
+        "file": "src/Foo/Pricing/TaxRule.cs",
+        "project": "src/Foo/Foo.csproj",
+        "applies": true,
+        "newLines": [
+          [
+            1,
+            7
+          ]
+        ],
+        "findings": [],
+        "types": [
+          {
+            "name": "Foo.Pricing.TaxRule",
+            "kind": "class",
+            "line": 3,
+            "column": 25,
+            "endLine": 3,
+            "endColumn": 32,
+            "new": true
+          }
+        ],
+        "moves": [
+          {
+            "to": "src/ModernF/ModernF.csproj",
+            "movable": true,
+            "destination": "src/ModernF/Pricing/TaxRule.cs",
+            "referenced": true,
+            "code": null,
+            "message": null,
+            "details": []
+          },
+          {
+            "to": "src/Shared/Shared.csproj",
+            "movable": true,
+            "destination": "src/Shared/Pricing/TaxRule.cs",
+            "referenced": true,
+            "code": null,
+            "message": null,
+            "details": []
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "files": 1,
+      "newLines": 7,
+      "findings": 0,
+      "newMovableTypes": 1,
+      "movableFiles": 1
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "OFR0016",
+      "severity": "info",
+      "message": "No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.",
+      "project": null,
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR0016"
+    },
+    {
+      "code": "OFR6001",
+      "severity": "info",
+      "message": "TaxRule needs nothing from .NET Framework: TaxRule.cs can move to ModernF, which Foo references (or Shared), and would not need migrating.",
+      "project": "src/Foo/Foo.csproj",
+      "file": "src/Foo/Pricing/TaxRule.cs",
+      "line": 3,
+      "column": 25,
+      "data": {
+        "counterparts": [
+          "src/ModernF/ModernF.csproj",
+          "src/Shared/Shared.csproj"
+        ]
+      },
+      "help": "https://offramp.dev/diagnostics/OFR6001"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 2
+  }
+}

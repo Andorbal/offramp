@@ -15,6 +15,7 @@ public static class DiagnosticsDocument
         ("OFR3000–3999", "audits"),
         ("OFR4000–4999", "scaffolding, seams, codemods"),
         ("OFR5000–5999", "verification"),
+        ("OFR6000–6999", "editor integration"),
         ("OFR9000–9999", "MCP and LLM"),
     ];
 

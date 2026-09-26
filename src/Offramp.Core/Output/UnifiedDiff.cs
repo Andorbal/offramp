@@ -35,6 +35,38 @@ public static class UnifiedDiff
 
     public static string ForNewFile(string path, string content) => Create(null, path, "", content);
 
+    /// <summary>
+    /// The 1-based numbers of the lines of <paramref name="newText"/> that are not in
+    /// <paramref name="oldText"/> (inserted or changed), ignoring line-ending differences. Lines
+    /// both texts share at the start and end are skipped before diffing; a middle longer than
+    /// <paramref name="maxLines"/> lines on either side counts as changed throughout.
+    /// </summary>
+    public static IReadOnlyList<int> ChangedLines(string oldText, string newText, int maxLines = 5000)
+    {
+        var a = SplitLines(oldText);
+        var b = SplitLines(newText);
+        var prefix = 0;
+        while (prefix < a.Count && prefix < b.Count && string.Equals(a[prefix], b[prefix], StringComparison.Ordinal))
+        {
+            prefix++;
+        }
+
+        var suffix = 0;
+        while (suffix < a.Count - prefix && suffix < b.Count - prefix && string.Equals(a[a.Count - 1 - suffix], b[b.Count - 1 - suffix], StringComparison.Ordinal))
+        {
+            suffix++;
+        }
+
+        var oldMiddle = a.Skip(prefix).Take(a.Count - prefix - suffix).ToList();
+        var newMiddle = b.Skip(prefix).Take(b.Count - prefix - suffix).ToList();
+        if (oldMiddle.Count == 0 || newMiddle.Count == 0 || oldMiddle.Count > maxLines || newMiddle.Count > maxLines)
+        {
+            return [.. Enumerable.Range(prefix + 1, newMiddle.Count)];
+        }
+
+        return [.. Diff(oldMiddle, newMiddle).Where(e => e.Kind == EditKind.Insert).Select(e => prefix + e.NewIndex + 1).Order()];
+    }
+
     public static IReadOnlyList<string> SplitLines(string text)
     {
         if (text.Length == 0)

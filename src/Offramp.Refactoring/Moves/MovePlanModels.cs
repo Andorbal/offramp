@@ -19,6 +19,46 @@ public sealed record PlannedMove
     public IReadOnlyList<string> Needs { get; init; } = [];
 }
 
+/// <summary>What <see cref="MovePlanner.Assess"/> needs: one file of the source, one destination, and the compilations to use.</summary>
+public sealed record MoveAssessRequest
+{
+    public required string RepositoryRoot { get; init; }
+
+    public required Offramp.Core.Model.WorkspaceModel Model { get; init; }
+
+    public required Offramp.Core.Configuration.OfframpConfig Config { get; init; }
+
+    public required string From { get; init; }
+
+    public required string To { get; init; }
+
+    /// <summary>The file, repository-relative.</summary>
+    public required string File { get; init; }
+
+    public required Offramp.Analysis.Compilations.ICompilationSource Compilations { get; init; }
+}
+
+/// <summary>Whether a file moves to one destination as it is, and if not, why (a diagnostic code, as <c>move plan</c> reports exclusions).</summary>
+public sealed record MoveAssessment
+{
+    /// <summary>The destination project.</summary>
+    public required string To { get; init; }
+
+    public required bool Movable { get; init; }
+
+    /// <summary>Where the file would go, repository-relative.</summary>
+    public string? Destination { get; init; }
+
+    /// <summary>True when the source already references the destination; otherwise a move adds the reference if anything left behind uses the file.</summary>
+    public bool Referenced { get; init; }
+
+    public string? Code { get; init; }
+
+    public string? Message { get; init; }
+
+    public IReadOnlyList<string> Details { get; init; } = [];
+}
+
 /// <summary>A file left where it is, with the diagnostic that says why.</summary>
 public sealed record ExcludedMove
 {
