@@ -11,6 +11,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-26
+
 ### Added
 - `offramp mcp serve [--allow-apply] [--root PATH]`: Offramp as a Model Context Protocol server
   over stdio (`Offramp.Mcp`, the official C# SDK). One tool per command
@@ -535,7 +537,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `Directory.Build.props` no longer produces a separate symbols package: PDBs
   are embedded, so `dotnet pack` failed with NU5017 when asked for a `.snupkg`.
 
-[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/Andorbal/offramp/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/Andorbal/offramp/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/Andorbal/offramp/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/Andorbal/offramp/compare/v0.10.0...v0.11.0
