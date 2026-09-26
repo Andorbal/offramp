@@ -29,6 +29,13 @@
           "manage": []
         }
       },
+      "ide": {
+        "implicitCounterparts": true,
+        "newCode": {
+          "base": "auto",
+          "scope": "lines"
+        }
+      },
       "llm": {
         "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
         "enabled": false,
@@ -63,6 +70,7 @@
         "exclude": [],
         "state": ".offramp"
       },
+      "projectMap": [],
       "projects": [],
       "report": {
         "ledger": ".offramp/ledger",

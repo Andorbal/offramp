@@ -100,7 +100,8 @@ public static class IdeCheck
 
     public static string ProjectName(string project) => Path.GetFileNameWithoutExtension(project);
 
-    private static string ShortName(string name)
+    /// <summary>A type's name without namespace or type parameters: <c>Foo.Box&lt;T&gt;</c> is <c>Box</c>.</summary>
+    public static string ShortName(string name)
     {
         var generic = name.IndexOf('<', StringComparison.Ordinal);
         var bare = generic < 0 ? name : name[..generic];

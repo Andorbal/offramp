@@ -125,6 +125,52 @@ jobs:
           --blame-hang-timeout 20m
           --blame-hang-dump-type none
 
+  # Roadmap M15: the VS Code extension compiles, its unit tests pass, it works in a real VS Code
+  # against a scanned fixture (diagnostic, lenses, quick fix), and it packages (docs/spec/commands/ide.md).
+  vscode-extension:
+    name: VS Code extension
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: editors/vscode
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build the CLI
+        working-directory: .
+        run: dotnet build src/Offramp.Cli -c Release -f net10.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Compile and test
+        run: npm test
+
+      - name: Test in VS Code
+        run: |
+          workspace="$RUNNER_TEMP/ide-workspace"
+          test/integration/prepare.sh "$workspace"
+          OFFRAMP_TEST_WORKSPACE="$workspace" xvfb-run -a npm run test:integration
+
+      - name: Package
+        run: npx vsce package --out offramp.vsix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offramp-vscode
+          path: editors/vscode/offramp.vsix
+
   pack:
     name: Pack (smoke)
     needs: build-test

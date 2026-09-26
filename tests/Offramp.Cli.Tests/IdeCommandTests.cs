@@ -56,6 +56,16 @@ public sealed class IdeCommandTests
     }
 
     [Fact]
+    public void Serve_accepts_the_stdio_flag_language_clients_pass()
+    {
+        using var cli = new CliHarness();
+        var root = OfframpCli.BuildRoot(cli.Host(new StringWriter(), new StringWriter()));
+
+        Assert.Empty(root.Parse(["ide", "serve", "--stdio"]).Errors);
+        Assert.NotEmpty(root.Parse(["ide", "serve", "--tcp"]).Errors);
+    }
+
+    [Fact]
     public async Task Serve_offers_to_scan_a_repository_without_a_model_and_then_reports_on_it()
     {
         using var repository = await FixtureRepository.CreateAsync("ide-counterpart");

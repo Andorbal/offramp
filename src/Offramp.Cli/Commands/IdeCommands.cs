@@ -20,7 +20,12 @@ public static class IdeCommands
         var ide = new Command("ide", "What the VS Code, Visual Studio, and Rider extensions show: new code in .NET Framework projects checked for APIs modern .NET lacks, and types that could live in a portable counterpart.");
         ide.Subcommands.Add(IdeCheckCommand.Create(host, globals));
 
-        var serve = new Command("serve", "Serve the editor integration as a Language Server Protocol server over stdio, for the IDE extensions. Logs go to stderr.");
+        // Language clients commonly pass --stdio (vscode-languageclient's stdio transport does); stdio is the only transport.
+        var stdio = new Option<bool>("--stdio") { Description = "Accepted for language clients that pass it; the server always uses stdio.", Hidden = true };
+        var serve = new Command("serve", "Serve the editor integration as a Language Server Protocol server over stdio, for the IDE extensions. Logs go to stderr.")
+        {
+            stdio,
+        };
         serve.SetAction(async (_, ct) =>
         {
             await using var input = Console.OpenStandardInput();
@@ -162,7 +167,7 @@ public sealed class IdeCheckCommand : ICommandHandler<IdeCheckOptions, IdeCheckR
             {
                 table.AddRow(
                     new Markup(Markup.Escape(file.File)),
-                    new Markup(Markup.Escape(string.Join(", ", file.Types.Select(t => ShortName(t.Name) + (t.New ? " (new)" : ""))))),
+                    new Markup(Markup.Escape(string.Join(", ", file.Types.Select(t => IdeCheck.ShortName(t.Name) + (t.New ? " (new)" : ""))))),
                     new Markup(Markup.Escape(string.Join(", ", file.Moves.Where(m => m.Movable).Select(m => IdeCheck.ProjectName(m.To))))));
             }
 
@@ -178,11 +183,4 @@ public sealed class IdeCheckCommand : ICommandHandler<IdeCheckOptions, IdeCheckR
     private static string Base(IdeBase @base) => @base.Commit is null ? "(no git base)" : $"{@base.Ref} ({@base.Commit[..Math.Min(8, @base.Commit.Length)]})";
 
     private static string Plural(int count) => count == 1 ? "" : "s";
-
-    private static string ShortName(string name)
-    {
-        var generic = name.IndexOf('<', StringComparison.Ordinal);
-        var bare = generic < 0 ? name : name[..generic];
-        return bare[(bare.LastIndexOf('.') + 1)..];
-    }
 }

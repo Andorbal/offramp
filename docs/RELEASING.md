@@ -1,7 +1,9 @@
 # Releasing
 
-Offramp ships as the `offramp` .NET global tool on nuget.org (and later the
-`Offramp.Analyzers` package). Versions come from git tags via MinVer.
+Offramp ships as the `offramp` .NET global tool on nuget.org, the
+`Offramp.Analyzers` package, and the VS Code extension (`editors/vscode`, a
+`.vsix` attached to each GitHub Release). Versions come from git tags via
+MinVer; the extension takes the tag's `X.Y.Z` when it is packaged.
 
 ## Versioning
 
@@ -26,7 +28,11 @@ Offramp ships as the `offramp` .NET global tool on nuget.org (and later the
 5. `release.yml` runs: builds, tests on all three OSes, packs, pushes to
    nuget.org with the `NUGET_API_KEY` secret, and creates a GitHub Release
    whose notes are the matching CHANGELOG section (extracted by
-   `eng/changelog-section.sh`), with the `.nupkg` attached.
+   `eng/changelog-section.sh`), with the `.nupkg` files and the VS Code
+   extension's `.vsix` attached. Publishing the extension to the Visual Studio
+   Marketplace and Open VSX (`vsce publish`, `ovsx publish`) is manual until a
+   publisher account and its tokens exist; add them as secrets and a step here
+   then.
 6. Verify: `dotnet tool update -g offramp` shows the new version;
    `offramp --version` matches.
 

@@ -60,6 +60,8 @@ public sealed class OfframpLanguageServer : IDisposable
     private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonNode?>> _pending = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _debounce = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, (string Uri, string Text)> _documents = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _closed = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _changed = new(StringComparer.Ordinal);
     private IdeEngine? _engine;
     private string? _root;
     private string? _canonicalRoot;
@@ -132,7 +134,7 @@ public sealed class OfframpLanguageServer : IDisposable
             {
                 try
                 {
-                    await NotificationAsync(method, message["params"] as JsonObject, cancellationToken);
+                    Notification(method, message["params"] as JsonObject, cancellationToken);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -271,6 +273,7 @@ public sealed class OfframpLanguageServer : IDisposable
         await _engineLock.WaitAsync(cancellationToken);
         try
         {
+            SyncLocked();
             return _engine is null ? null : await _engine.ReportAsync(file, cancellationToken);
         }
         finally
@@ -319,6 +322,7 @@ public sealed class OfframpLanguageServer : IDisposable
             }
             else
             {
+                SyncLocked();
                 plan = _engine.PlanMove(file, to, diagnostics);
             }
         }
@@ -364,7 +368,7 @@ public sealed class OfframpLanguageServer : IDisposable
         if (applied.Applied && !applied.RolledBack && applied.Moved.Count > 0)
         {
             var moved = plan.Moves[0].To;
-            await ShowAsync(3, $"Moved {Path.GetFileName(file)} to {IdeCheck.ProjectName(to)} ({moved}), staged with git mv. "
+            await ShowAsync(3, $"Moved {Path.GetFileName(file)} to {IdeCheck.ProjectName(to)} ({moved}). "
                 + $"Undo with `offramp move rollback --journal {applied.Journal}`.", cancellationToken);
             if (_showDocument)
             {
@@ -377,7 +381,7 @@ public sealed class OfframpLanguageServer : IDisposable
         }
 
         await SendStatusAsync(cancellationToken);
-        await RefreshAllAsync(cancellationToken);
+        RefreshAll(cancellationToken);
         return new IdeMoveResult { File = file, To = to, Plan = plan, Apply = applied, Diagnostics = diagnostics.ToSortedList() };
     }
 
@@ -387,7 +391,7 @@ public sealed class OfframpLanguageServer : IDisposable
         var move = plan.Moves[0];
         var text = new StringBuilder();
         text.Append(CultureInfo.InvariantCulture, $"Move {Path.GetFileName(move.File)} to {IdeCheck.ProjectName(plan.To)}? ");
-        text.Append(CultureInfo.InvariantCulture, $"It is renamed with git mv to {move.To}; its contents, namespace included, do not change.");
+        text.Append(CultureInfo.InvariantCulture, $"It moves to {move.To} unchanged, namespace included (a staged git mv when git tracks it).");
         foreach (var edit in plan.ProjectEdits)
         {
             var project = IdeCheck.ProjectName(edit.Project);
@@ -435,7 +439,7 @@ public sealed class OfframpLanguageServer : IDisposable
     {
         await LoadEngineLockedAsync(cancellationToken);
         await SendStatusAsync(cancellationToken);
-        await RefreshAllAsync(cancellationToken);
+        RefreshAll(cancellationToken);
         if (_model == "missing" && askToScan && !_scanAsked)
         {
             _scanAsked = true;
@@ -487,11 +491,9 @@ public sealed class OfframpLanguageServer : IDisposable
                 References = new TargetReferenceResolver(_root!, _options.Processes, cache),
                 Time = _options.Time,
             }, cancellationToken);
-            foreach (var (file, document) in _documents)
-            {
-                _engine.Workspace.SetOpenDocument(file, document.Text);
-            }
-
+            _closed.Clear();
+            _changed.Clear();
+            SyncLocked();
             _baseCheckedAt = _options.Time.GetUtcNow();
             var stale = _engine.Staleness();
             _model = stale is null ? "fresh" : "stale";
@@ -530,65 +532,75 @@ public sealed class OfframpLanguageServer : IDisposable
         var counterparts = _engine is null
             ? new JsonArray()
             : JsonSerializer.SerializeToNode(_engine.Counterparts.ToList(), IdeJsonContext.Default.ListProjectCounterparts)!;
+        // What the engine found about the repository rather than a file (the project map, the new-code base).
+        var problems = new JsonArray([.. (_engine?.Diagnostics.ToSortedList() ?? [])
+            .Where(d => d.Code.StartsWith("OFR6", StringComparison.Ordinal) || d.Severity >= Severity.Warning)
+            .Select(d => (JsonNode?)new JsonObject { ["code"] = d.Code, ["message"] = d.Message })]);
         await NotifyAsync("offramp/status", new JsonObject
         {
             ["enabled"] = enablement.Enabled,
             ["reason"] = enablement.Reason,
             ["model"] = _model,
             ["counterparts"] = counterparts,
+            ["problems"] = problems,
             ["message"] = _message,
         }, cancellationToken);
     }
 
     // ----- notifications -----
 
-    private async Task NotificationAsync(string method, JsonObject? parameters, CancellationToken cancellationToken)
+    /// <summary>
+    /// Handles a notification without waiting on the engine or the client: the read loop must stay
+    /// free to read the answers other work is waiting for. Document changes are recorded here and
+    /// applied to the engine (<see cref="SyncLocked"/>) by whatever uses it next.
+    /// </summary>
+    private void Notification(string method, JsonObject? parameters, CancellationToken cancellationToken)
     {
         switch (method)
         {
             case "initialized":
-                _ = Task.Run(() => LoadEngineAsync(askToScan: true, cancellationToken), CancellationToken.None);
+                Background(() => LoadEngineAsync(askToScan: true, cancellationToken));
                 break;
             case "$/cancelRequest":
                 if (parameters?["id"] is { } id && _requests.TryGetValue(Key(id), out var source))
                 {
-                    await source.CancelAsync();
+                    source.Cancel();
                 }
 
                 break;
             case "textDocument/didOpen":
-                await OpenAsync((string?)parameters?["textDocument"]?["uri"], (string?)parameters?["textDocument"]?["text"], cancellationToken);
+                Open((string?)parameters?["textDocument"]?["uri"], (string?)parameters?["textDocument"]?["text"]);
                 break;
             case "textDocument/didChange":
-                var text = (parameters?["contentChanges"] as JsonArray)?.OfType<JsonObject>().Select(c => (string?)c["text"]).LastOrDefault(t => t is not null);
-                await OpenAsync((string?)parameters?["textDocument"]?["uri"], text, cancellationToken);
+                Open((string?)parameters?["textDocument"]?["uri"],
+                    (parameters?["contentChanges"] as JsonArray)?.OfType<JsonObject>().Select(c => (string?)c["text"]).LastOrDefault(t => t is not null));
                 break;
             case "textDocument/didSave":
                 if (File((string?)parameters?["textDocument"]?["uri"]) is { } saved)
                 {
-                    await RefreshBaseAsync(force: true, cancellationToken);
+                    _baseCheckedAt = DateTimeOffset.MinValue;
                     Schedule(saved, TimeSpan.Zero);
                 }
 
                 break;
             case "textDocument/didClose":
-                await CloseAsync((string?)parameters?["textDocument"]?["uri"], cancellationToken);
+                Close((string?)parameters?["textDocument"]?["uri"], cancellationToken);
                 break;
             case "workspace/didChangeWatchedFiles":
-                await WatchedFilesAsync(parameters?["changes"] as JsonArray, cancellationToken);
+                WatchedFiles(parameters?["changes"] as JsonArray, cancellationToken);
                 break;
             case "workspace/didChangeConfiguration":
                 if (parameters?["settings"]?["offramp"] is { } settings)
                 {
                     _settings = Settings(settings) with { ClientCommands = _settings.ClientCommands };
-                    await LoadEngineAsync(askToScan: true, cancellationToken);
+                    Background(() => LoadEngineAsync(askToScan: true, cancellationToken));
                 }
 
                 break;
         }
     }
 
-    private async Task OpenAsync(string? uri, string? text, CancellationToken cancellationToken)
+    private void Open(string? uri, string? text)
     {
         if (uri is null || text is null || File(uri) is not { } file || !file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
         {
@@ -596,45 +608,27 @@ public sealed class OfframpLanguageServer : IDisposable
         }
 
         _documents[file] = (uri, text);
-        await _engineLock.WaitAsync(cancellationToken);
-        try
-        {
-            _engine?.Workspace.SetOpenDocument(file, text);
-        }
-        finally
-        {
-            _engineLock.Release();
-        }
-
+        _closed.TryRemove(file, out _);
         Schedule(file, _options.Debounce);
     }
 
-    private async Task CloseAsync(string? uri, CancellationToken cancellationToken)
+    private void Close(string? uri, CancellationToken cancellationToken)
     {
         if (uri is null || File(uri) is not { } file || !_documents.TryRemove(file, out _))
         {
             return;
         }
 
+        _closed[file] = 0;
         if (_debounce.TryRemove(file, out var pending))
         {
-            await pending.CancelAsync();
+            pending.Cancel();
         }
 
-        await _engineLock.WaitAsync(cancellationToken);
-        try
-        {
-            _engine?.Workspace.CloseDocument(file);
-        }
-        finally
-        {
-            _engineLock.Release();
-        }
-
-        await NotifyAsync("textDocument/publishDiagnostics", new JsonObject { ["uri"] = uri, ["diagnostics"] = new JsonArray() }, cancellationToken);
+        Background(() => NotifyAsync("textDocument/publishDiagnostics", new JsonObject { ["uri"] = uri, ["diagnostics"] = new JsonArray() }, cancellationToken));
     }
 
-    private async Task WatchedFilesAsync(JsonArray? changes, CancellationToken cancellationToken)
+    private void WatchedFiles(JsonArray? changes, CancellationToken cancellationToken)
     {
         var files = changes?.OfType<JsonObject>().Select(c => File((string?)c["uri"])).OfType<string>().ToList() ?? [];
         if (files.Count == 0)
@@ -644,33 +638,88 @@ public sealed class OfframpLanguageServer : IDisposable
 
         if (files.Any(f => f.EndsWith("/workspace.json", StringComparison.Ordinal) || f == "workspace.json" || Path.GetFileName(f) == ConfigLoader.DefaultFileName))
         {
-            await LoadEngineAsync(askToScan: false, cancellationToken);
+            Background(() => LoadEngineAsync(askToScan: false, cancellationToken));
             return;
         }
 
-        await _engineLock.WaitAsync(cancellationToken);
-        try
+        foreach (var file in files)
         {
-            foreach (var file in files)
-            {
-                _engine?.Workspace.FileChanged(file);
-            }
-
-            if (_engine is not null && files.Any(f => WorkspaceInputs.IsInput(Path.GetFileName(f))))
-            {
-                var stale = _engine.Staleness();
-                _model = stale is null ? "fresh" : "stale";
-                _message = stale is null ? null : $"The workspace model is stale ({stale}); moves need `offramp scan`.";
-            }
-        }
-        finally
-        {
-            _engineLock.Release();
+            _changed[file] = 0;
         }
 
-        await SendStatusAsync(cancellationToken);
-        await RefreshAllAsync(cancellationToken);
+        Background(async () =>
+        {
+            if (files.Any(f => WorkspaceInputs.IsInput(Path.GetFileName(f))))
+            {
+                await _engineLock.WaitAsync(cancellationToken);
+                try
+                {
+                    SyncLocked();
+                    if (_engine is not null)
+                    {
+                        var stale = _engine.Staleness();
+                        _model = stale is null ? "fresh" : "stale";
+                        _message = stale is null ? null : $"The workspace model is stale ({stale}); moves need `offramp scan`.";
+                    }
+                }
+                finally
+                {
+                    _engineLock.Release();
+                }
+
+                await SendStatusAsync(cancellationToken);
+            }
+
+            RefreshAll(cancellationToken);
+        });
     }
+
+    /// <summary>Applies the recorded document and file changes to the engine; call with the engine lock held.</summary>
+    private void SyncLocked()
+    {
+        if (_engine is null)
+        {
+            return;
+        }
+
+        foreach (var file in _closed.Keys.ToList())
+        {
+            if (_closed.TryRemove(file, out _) && !_documents.ContainsKey(file))
+            {
+                _engine.Workspace.CloseDocument(file);
+            }
+        }
+
+        foreach (var file in _changed.Keys.ToList())
+        {
+            if (_changed.TryRemove(file, out _))
+            {
+                _engine.Workspace.FileChanged(file);
+            }
+        }
+
+        foreach (var (file, document) in _documents)
+        {
+            _engine.Workspace.SetOpenDocument(file, document.Text);
+        }
+    }
+
+    /// <summary>Runs work off the read loop, logging what fails.</summary>
+    private void Background(Func<Task> work) =>
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await work();
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                await LogAsync(ex.ToString());
+            }
+        }, CancellationToken.None);
 
     // ----- diagnostics -----
 
@@ -715,6 +764,7 @@ public sealed class OfframpLanguageServer : IDisposable
         await _engineLock.WaitAsync(cancellationToken);
         try
         {
+            SyncLocked();
             diagnostics = _engine is null || !Enablement.Enabled
                 ? []
                 : LspRender.Diagnostics(await _engine.ReportAsync(file, cancellationToken));
@@ -751,7 +801,7 @@ public sealed class OfframpLanguageServer : IDisposable
         }
     }
 
-    private async Task RefreshAllAsync(CancellationToken cancellationToken)
+    private void RefreshAll(CancellationToken cancellationToken)
     {
         foreach (var file in _documents.Keys)
         {
@@ -760,13 +810,17 @@ public sealed class OfframpLanguageServer : IDisposable
 
         if (_codeLensRefresh)
         {
-            try
+            // Never awaited where the read loop could be waiting: the answer comes through it.
+            Background(async () =>
             {
-                await RequestClientAsync("workspace/codeLens/refresh", null, cancellationToken);
-            }
-            catch (LspException)
-            {
-            }
+                try
+                {
+                    await RequestClientAsync("workspace/codeLens/refresh", null, cancellationToken);
+                }
+                catch (LspException)
+                {
+                }
+            });
         }
     }
 

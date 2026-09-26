@@ -11,7 +11,8 @@ moves it there on request.
 It does this with the same engine and the same rules as the command line. A
 suggestion in the editor is exactly what `offramp ide check` reports for the
 file, and a move started from the editor is a `move plan` of that file followed
-by `move apply`: pure, staged with `git mv`, journaled, and verified. Decisions
+by `move apply`: pure, staged with `git mv` (a plain move for a file git does not
+track yet), journaled, and verified. Decisions
 are recorded in `docs/decisions/0029-ide-integration.md`.
 
 ```
@@ -119,9 +120,9 @@ file ("easily movable", rules below). The answer attaches to the types the file
 declares:
 
 - **New types** (the type's name is on a new line) in a file that can move get
-  `OFR6001` (info): "`PriceCalculator` needs nothing from .NET Framework; it can
-  live in `ModernF`, which `Foo` references, and will not need migrating." Its
-  quick fix moves the file.
+  `OFR6001` (info): "PriceCalculator needs nothing from .NET Framework:
+  PriceCalculator.cs can move to ModernF, which Foo references, and would not need
+  migrating." Its quick fix moves the file.
 - **Every** file that can move, new or not, gets a lens on its first type
   declaration (the type named like the file, else the first one): `Move to
   ModernF`, one per counterpart. The same move is offered as a refactoring code
@@ -215,18 +216,18 @@ A lens, a quick fix, and a refactoring action all run the server command
 2. `move plan --from SRC --to TO --files FILE --co-move none`, with the editor's
    text laid over the recorded sources. When the plan moves anything other than
    exactly the file, or excludes it, nothing happens and the reason is shown.
-3. The user confirms: "Move `PriceCalculator.cs` to `ModernF`? It is renamed
-   with `git mv` to `src/ModernF/Pricing/PriceCalculator.cs` and stays in
-   namespace `Foo.Pricing`; `Foo` gets a project reference to `ModernF`." No
-   confirmation, no change.
+3. The user confirms: "Move PriceCalculator.cs to ModernF? It moves to
+   src/ModernF/Pricing/PriceCalculator.cs unchanged, namespace included (a staged
+   git mv when git tracks it). Foo gets a project reference to ModernF." Every
+   project-file edit is listed. No confirmation, no change.
 4. `move apply` of the plan (saved under `.offramp/plans/`), verified with
    `move.verify`, rolled back on failure per `verify.onFailure`, with progress.
    The moved file opens at its new path; the journal is named so
    `offramp move rollback --journal PATH` can undo it.
 
 Everything the move contract promises holds: the file's bytes do not change
-(its namespace stays), the rename is staged, project-file edits are left
-unstaged, and nothing is committed. After a move, the server lays the plan's
+(its namespace stays), the rename of a tracked file is staged, project-file edits
+are left unstaged, and nothing is committed. After a move, the server lays the plan's
 effects (compile items, references) over its copy of the model and remembers the
 project files it wrote, so the next move does not need a new scan; `offramp`
 commands on the command line still see the model as stale until the next
@@ -269,7 +270,8 @@ offramp ide check [--file PATH ...] [--base REF] [--scope lines|files|all]
 
 - `--file` (repeatable, relative to the current directory): the files to report
   on. Without it, every C# file that is new or changed since the base (`git diff
-  --name-only`, plus untracked files), in any project of the model.
+  --name-status -M`, plus untracked files), generated files (under `bin/` or `obj/`,
+  `*.g.cs`) left out.
 - `--base` and `--scope` override `ide.newCode.base` and `ide.newCode.scope`.
 - Always runs; `enablement` says what an editor would do with `auto`.
 - Diagnostics: every finding on new code with its own code and severity, one
@@ -340,12 +342,15 @@ from the file reports above.
 - **`workspace/executeCommand`:** `offramp.move` ([Moves](#moves-from-the-editor);
   asks with `window/showMessageRequest`, reports with `window/showMessage`, shows
   progress with `window/workDoneProgress/create` and `$/progress`, opens the moved
-  file with `window/showDocument`; returns `{ plan, apply }`), `offramp.scan`
+  file with `window/showDocument`; returns the plan and the `move apply` result, or
+  why nothing moved), `offramp.scan`
   (runs `offramp scan` through the same command tree, then reloads), and
   `offramp.refresh`.
 - **`offramp/status` (notification to the client):** `{ enabled, reason, model:
-  missing|stale|fresh, counterparts, message }` after start, after a scan or
-  move, and when freshness changes; shells show it in a status bar. When the model
+  missing|stale|fresh|off|invalid-config, counterparts, problems, message }` after
+  start, after a scan or move, and when freshness changes; `problems` are the
+  repository-level diagnostics (`OFR6002`, `OFR6004`, `OFR6007`, a target that does
+  not resolve). Shells show it in a status bar. When the model
   is missing the server also asks once whether to run `offramp scan`.
 - **`offramp/fileReport` (request from the client):** `{ uri }` → the file report,
   for shells that draw with their IDE's own APIs (Visual Studio's lenses).
@@ -366,7 +371,9 @@ from the file reports above.
   `Offramp: Enable in this workspace`, `Disable in this workspace`, `Restart`, and
   `Show output`.
 - Status bar: on/off and why, the model's state, and a click to scan.
-- Published to the Marketplace and Open VSX; the `.vsix` is built in CI.
+- The `.vsix` is built and tested in CI and attached to each release; publishing to the
+  Marketplace and Open VSX follows once a publisher account exists
+  (`docs/RELEASING.md`).
 
 ### Visual Studio (M16)
 

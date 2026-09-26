@@ -122,15 +122,8 @@ public sealed record IdeFileReport
     /// <summary>The type a move lens sits on: the one named like the file, else the first; null when no move is possible.</summary>
     public IdeType? LensType() =>
         Moves.Any(m => m.Movable) && Types.Count > 0
-            ? Types.FirstOrDefault(t => string.Equals(ShortName(t.Name), Path.GetFileNameWithoutExtension(File).Split('.')[0], StringComparison.Ordinal)) ?? Types[0]
+            ? Types.FirstOrDefault(t => string.Equals(IdeCheck.ShortName(t.Name), Path.GetFileNameWithoutExtension(File).Split('.')[0], StringComparison.Ordinal)) ?? Types[0]
             : null;
-
-    private static string ShortName(string name)
-    {
-        var generic = name.IndexOf('<', StringComparison.Ordinal);
-        var bare = generic < 0 ? name : name[..generic];
-        return bare[(bare.LastIndexOf('.') + 1)..];
-    }
 }
 
 public sealed record IdeSummary

@@ -111,7 +111,22 @@ llm:
 report:
   title: "Monolith migration"
   ledger: .offramp/ledger
+
+projectMap:                   # where a .NET Framework project's portable code lives (commands/ide.md)
+  - from: Foo                 # a project name or repository-relative path; * and ? match
+    to: ModernF               # a name or path; {name} is the matched project's name
+  - from: "Contoso.*"
+    to: "{name}.Portable"     # a project that does not exist is skipped
+
+ide:                          # what the editor integration shows (commands/ide.md)
+  newCode:
+    base: auto                # auto (origin/HEAD, else HEAD) or a git ref; new = differs from its merge base with HEAD
+    scope: lines              # lines | files | all
+  implicitCounterparts: true  # without a projectMap entry, use the portable projects a project references
 ```
+
+Whether the editor integration is on at all is an IDE setting (`offramp.enabled`), not a key
+here: `auto` turns it on in repositories with an `.offramp/` directory.
 
 ## Validation
 

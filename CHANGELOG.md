@@ -12,6 +12,38 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- Editor integration (`docs/spec/commands/ide.md`, ADR 0029), for developers who are not on the
+  migration: new code in .NET Framework-only projects stays migration-friendly.
+  - `Offramp.Ide`: for each file, the lines that differ from the merge base of `HEAD` and
+    `ide.newCode.base` (`auto`: `origin/HEAD`, else `HEAD`); the `audit api` findings on those
+    lines; the types the file declares; and whether the file moves as it is to each counterpart,
+    or the code that says why not. Counterparts are the portable projects a .NET Framework
+    project can reference and that do not depend on it. They come from the new top-level
+    `projectMap` (names or paths, `*`/`?`, `{name}` conventions), else from the portable projects
+    the project already references. The engine reads the recorded compilations with the
+    editor's text laid over them, so source edits need no scan.
+  - `offramp ide check [--file PATH ...] [--base REF] [--scope lines|files|all]`: those reports
+    as JSON (`schemas/v1/ide-check.json`); with `--fail-on`, a gate for pull requests. Also an
+    MCP tool (`offramp_ide_check`).
+  - `offramp ide serve`: a Language Server Protocol server. It sends diagnostics on new code,
+    `Move to …` lenses on files that move as they are, quick fixes and refactorings, and
+    `offramp.move` (plan, confirm, `move apply` with verification and a journal, open the moved
+    file). It also sends `offramp/status` and answers `offramp/fileReport`. It offers to run
+    `offramp scan` when there is no model. After its own moves it needs no new scan, even when a
+    move edited a project file.
+  - `editors/vscode`: the VS Code extension. It is on by default only in repositories with an
+    `.offramp` folder, and `offramp.enabled` (`auto`, `on`, `off`) sets it per user or per
+    workspace. It uses the repository's local tool, else the global tool, else
+    `offramp.server.path`. It has a status bar item and commands, and CI builds the `.vsix`.
+  - `MovePlanner.Assess` (the planner's rules for one file with `--co-move none` and nothing
+    but a move) and an `ICompilationSource` for the planner and the `audit api` target build.
+  - Configuration: `projectMap`, `ide.newCode.base`, `ide.newCode.scope`,
+    `ide.implicitCounterparts` (they appear in every envelope's `effectiveConfig`).
+  - Diagnostics: OFR6001 new type could live in its counterpart, OFR6002 project map entry does
+    not resolve, OFR6003 more than a move, OFR6004 counterpart cannot take the project's code,
+    OFR6005 no counterpart, OFR6006 file not in the workspace model, OFR6007 new-code base
+    unavailable, OFR6008 file has unsaved changes.
+  - Fixture: `ide-counterpart`. Roadmap: M15 (this), M16 Visual Studio, M17 Rider.
 - `offramp guide [--run|--done|--skip|--reset STEP] [--project P] [--apply]`: a walk through the
   migration for people who have not done one before. A fixed checklist of Offramp's commands in
   four stages (get set up; see what you have; tidy up while still on .NET Framework; port, a wave
@@ -27,6 +59,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `schemas/v1/guide.json`. Diagnostics: OFR0040 progress file unreadable, OFR0041 step needs a
   project, OFR0042 step did not complete, OFR0043 step cannot be skipped or marked done.
   ADR 0028.
+
+### Changed
+- Moving a file git does not track (for example one created after the last commit) is a plain
+  move instead of a failed `git mv`; its bytes still do not change.
+- `move plan` maps a source project's files to its compiled trees by path lookup instead of a
+  scan per file, which matters for projects with thousands of files.
 
 ## [0.14.0] - 2026-09-26
 

@@ -20,6 +20,7 @@ public sealed class LayeringTests
         ["Offramp.Refactoring"] = ["Offramp.Core", "Offramp.Workspace", "Offramp.Analysis", "Offramp.NuGet", "Offramp.Analyzers", "Offramp.Analyzers.CodeFixes"],
         ["Offramp.Scaffolding"] = ["Offramp.Core", "Offramp.Workspace", "Offramp.Analysis", "Offramp.NuGet", "Offramp.Refactoring"],
         ["Offramp.Reporting"] = ["Offramp.Core", "Offramp.Workspace", "Offramp.Analysis", "Offramp.NuGet"],
+        ["Offramp.Ide"] = ["Offramp.Core", "Offramp.Workspace", "Offramp.Analysis", "Offramp.Refactoring"],
         ["Offramp.Analyzers"] = [],
         ["Offramp.Analyzers.CodeFixes"] = ["Offramp.Analyzers"],
         ["Offramp.Llm"] = ["Offramp.Core"],
@@ -27,12 +28,12 @@ public sealed class LayeringTests
         ["Offramp.Cli"] =
         [
             "Offramp.Core", "Offramp.Workspace", "Offramp.Analysis", "Offramp.NuGet", "Offramp.Refactoring",
-            "Offramp.Scaffolding", "Offramp.Reporting", "Offramp.Analyzers", "Offramp.Llm", "Offramp.Mcp",
+            "Offramp.Scaffolding", "Offramp.Reporting", "Offramp.Analyzers", "Offramp.Llm", "Offramp.Mcp", "Offramp.Ide",
         ],
     };
 
     private static readonly string[] MustNotReachLlm =
-        ["Offramp.Core", "Offramp.Workspace", "Offramp.NuGet", "Offramp.Analysis", "Offramp.Refactoring"];
+        ["Offramp.Core", "Offramp.Workspace", "Offramp.NuGet", "Offramp.Analysis", "Offramp.Refactoring", "Offramp.Ide"];
 
     private static Dictionary<string, List<string>> References()
     {

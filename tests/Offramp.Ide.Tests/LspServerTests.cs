@@ -76,18 +76,56 @@ public sealed class LspServerTests
         await off.NotifyAsync("initialized", new JsonObject());
         var offStatus = await off.NextAsync("offramp/status");
         var offLenses = await off.RequestAsync("textDocument/codeLens", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = uri } });
-        var initialize = await on.RequestAsync("initialize", new JsonObject { ["rootUri"] = new Uri(fixture.Root).AbsoluteUri, ["initializationOptions"] = new JsonObject { ["clientCommands"] = true } });
+        var initialize = await on.RequestAsync("initialize", new JsonObject
+        {
+            ["rootUri"] = new Uri(fixture.Root).AbsoluteUri,
+            ["initializationOptions"] = new JsonObject
+            {
+                ["clientCommands"] = true,
+                ["projectMap"] = new JsonArray(new JsonObject { ["from"] = "Legacy", ["to"] = "Nope" }),
+            },
+        });
         await on.NotifyAsync("initialized", new JsonObject());
-        await on.NextAsync("offramp/status");
+        var onStatus = await on.NextAsync("offramp/status");
         var report = await on.RequestAsync("offramp/fileReport", new JsonObject { ["uri"] = uri });
         var unknown = await Assert.ThrowsAsync<LspException>(() => on.RequestAsync("textDocument/hover", new JsonObject()));
 
         Assert.Equal((false, "setting-off"), ((bool)offStatus["enabled"]!, (string)offStatus["reason"]!));
         Assert.Empty(offLenses!.AsArray());
         Assert.Null(initialize!["capabilities"]!["executeCommandProvider"]);
+        Assert.Equal("OFR6002", (string?)onStatus["problems"]![0]!["code"]);
         Assert.Equal("src/Foo/Pricing/PriceCalculator.cs", (string?)report!["file"]);
         Assert.True((bool)report["moves"]![0]!["movable"]!);
         Assert.Equal(-32601, unknown.Code);
+    }
+
+    [Fact]
+    public async Task A_settings_change_while_the_client_is_asked_to_refresh_lenses_does_not_block_the_server()
+    {
+        var fixture = await ScannedFixtures.GetAsync(Engines.Fixture);
+        var uri = new Uri(fixture.Repository.Directory.Combine("src", "Foo", "Pricing", "PriceCalculator.cs")).AbsoluteUri;
+        await using var client = new TestClient(fixture.Root);
+
+        // VS Code sends didChangeConfiguration right after initialized and supports codeLens/refresh, which the
+        // server asks for after loading; an answer the read loop cannot read would stall every later request.
+        await client.RequestAsync("initialize", new JsonObject
+        {
+            ["rootUri"] = new Uri(fixture.Root).AbsoluteUri,
+            ["capabilities"] = new JsonObject { ["workspace"] = new JsonObject { ["codeLens"] = new JsonObject { ["refreshSupport"] = true } } },
+            ["initializationOptions"] = new JsonObject { ["clientCommands"] = true },
+        });
+        await client.NotifyAsync("initialized", new JsonObject());
+        await client.NotifyAsync("workspace/didChangeConfiguration", new JsonObject { ["settings"] = new JsonObject { ["offramp"] = new JsonObject { ["codeLens"] = true } } });
+        await client.NotifyAsync("textDocument/didOpen", new JsonObject
+        {
+            ["textDocument"] = new JsonObject { ["uri"] = uri, ["languageId"] = "csharp", ["version"] = 1, ["text"] = fixture.Repository.Directory.Read("src/Foo/Pricing/PriceCalculator.cs") },
+        });
+        await client.NextAsync("offramp/status");
+        await client.NextAsync("offramp/status");
+        var lenses = await client.RequestAsync("textDocument/codeLens", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = uri } });
+
+        Assert.Equal(2, lenses!.AsArray().Count);
+        Assert.True(client.Refreshes > 0);
     }
 
     /// <summary>A language client over in-memory pipes; it answers the server's requests (Move, progress, showDocument).</summary>
@@ -102,6 +140,7 @@ public sealed class LspServerTests
         private readonly SemaphoreSlim _arrived = new(0);
         private readonly Task _reader;
         private int _id;
+        private int _refreshes;
 
         public TestClient(string root)
         {
@@ -118,6 +157,8 @@ public sealed class LspServerTests
         }
 
         public Task<int> ServerExit { get; }
+
+        public int Refreshes => Volatile.Read(ref _refreshes);
 
         public ConcurrentQueue<string> Asked { get; } = new();
 
@@ -194,6 +235,11 @@ public sealed class LspServerTests
                 var parameters = message["params"] as JsonObject ?? [];
                 if (message["id"] is { } id)
                 {
+                    if (method == "workspace/codeLens/refresh")
+                    {
+                        Interlocked.Increment(ref _refreshes);
+                    }
+
                     JsonNode? result = method switch
                     {
                         "window/showMessageRequest" => Ask(parameters),

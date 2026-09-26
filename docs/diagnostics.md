@@ -21,6 +21,7 @@ where a command reports a code at another severity, the entry says so.
 | OFR3000–3999 | audits |
 | OFR4000–4999 | scaffolding, seams, codemods |
 | OFR5000–5999 | verification |
+| OFR6000–6999 | editor integration |
 | OFR9000–9999 | MCP and LLM |
 
 ## Codes
@@ -222,6 +223,14 @@ where a command reports a code at another severity, the entry says so.
 | [OFR5010](#ofr5010) | warning | verify | new error code relative to baseline |
 | [OFR5020](#ofr5020) | warning | verify | finding from the verification command |
 | [OFR5090](#ofr5090) | info | verify | verification skipped by configuration |
+| [OFR6001](#ofr6001) | info | ide | new type could live in its counterpart |
+| [OFR6002](#ofr6002) | warning | ide | project map entry does not resolve |
+| [OFR6003](#ofr6003) | info | ide | more than a move |
+| [OFR6004](#ofr6004) | warning | ide | counterpart cannot take the project's code |
+| [OFR6005](#ofr6005) | info | ide | no counterpart for a .NET Framework project |
+| [OFR6006](#ofr6006) | warning | ide | file not in the workspace model |
+| [OFR6007](#ofr6007) | warning | ide | new-code base unavailable |
+| [OFR6008](#ofr6008) | error | ide | file has unsaved changes |
 | [OFR9001](#ofr9001) | warning | llm | model answer not used |
 | [OFR9101](#ofr9101) | error | mcp serve | path outside the MCP server's root |
 
@@ -1979,6 +1988,78 @@ The build reports an error code that the recorded baseline does not contain.
 
 - **Typical cause:** Verification turned off in `offramp.yml`, for example while iterating on a plan.
 - **Fix:** Set `verify.mode` to `build` or `command` to verify changes.
+
+### OFR6001
+
+**new type could live in its counterpart** · info · ide
+
+A type added in new code to a .NET Framework-only project needs nothing from .NET Framework: its file moves to a portable counterpart the project can reference as it is, so it would not need migrating later.
+
+- **Typical cause:** Adding a class where the rest of the feature lives, out of habit, when the project has a .NET 8/10 friendly counterpart.
+- **Fix:** Move the file to the counterpart (the quick fix, or `offramp move plan --files FILE --to COUNTERPART`). Its namespace stays; the project keeps using it through its reference.
+
+### OFR6002
+
+**project map entry does not resolve** · warning · ide
+
+A `projectMap` entry (in offramp.yml or the editor's settings) names no project of the workspace model, names one that several projects share, or maps a project to itself, so it is ignored.
+
+- **Typical cause:** A typo, a renamed or removed project, or a name used by two projects.
+- **Fix:** Use the project's repository-relative path, or a name only one project has. `offramp ide check` lists the counterparts each project ends up with.
+
+### OFR6003
+
+**more than a move** · info · ide
+
+The file could reach the counterpart, but not by a move alone: the counterpart would need a project or package reference it does not have, the file travels with a resource file, or its destination path is taken. The editor only offers moves that are nothing but a move, so it offers none here.
+
+- **Typical cause:** Code that uses a library the counterpart does not reference, designer-generated code, or a file of the same name already in the counterpart.
+- **Fix:** Plan the move on the command line, which adds references and co-moves (`offramp move plan`), or add the reference to the counterpart first.
+
+### OFR6004
+
+**counterpart cannot take the project's code** · warning · ide
+
+A counterpart (from the project map, or a portable project referenced directly) is dropped because code from the project could not live there: it is .NET Framework-only or modern-only, the project cannot reference it for one of its targets, it depends on the project, it is frozen, it is not C#, or the scan recorded no compilation for it.
+
+- **Typical cause:** A map entry pointing at the wrong project, or a counterpart that references the project it serves.
+- **Fix:** Point the entry at a netstandard2.0 or multi-targeted project that the source can reference and that does not depend on it.
+
+### OFR6005
+
+**no counterpart for a .NET Framework project** · info · ide
+
+New code in this .NET Framework-only project is checked for APIs modern .NET lacks, but no type can be suggested elsewhere: the project has no project map entry and references no portable project.
+
+- **Typical cause:** A repository without a portable library next to this project yet, or without a project map.
+- **Fix:** Add a `projectMap` entry for the project (offramp.yml or the editor's settings), creating the portable project first if needed (`offramp move extract` can).
+
+### OFR6006
+
+**file not in the workspace model** · warning · ide
+
+The file belongs to no project of the workspace model, so nothing is reported for it.
+
+- **Typical cause:** A project added since the last scan, or a file outside every project.
+- **Fix:** Run `offramp scan` again.
+
+### OFR6007
+
+**new-code base unavailable** · warning · ide
+
+What counts as new code is decided against a git base, and that base is not available: outside a git repository every line counts as new; when the configured ref does not resolve, the base falls back to HEAD.
+
+- **Typical cause:** No git repository, a clone without the remote default branch (`origin/HEAD`), or a misspelled `ide.newCode.base`.
+- **Fix:** Set `ide.newCode.base` (or `--base`) to a ref that exists, for example `origin/main`, or run `git remote set-head origin --auto`.
+
+### OFR6008
+
+**file has unsaved changes** · error · ide
+
+A move from the editor renames the file on disk with git mv, so the editor's unsaved text would be lost or moved out of step; nothing was moved.
+
+- **Typical cause:** Choosing the move while the file has changes that are not saved.
+- **Fix:** Save the file and choose the move again.
 
 ### OFR9001
 
