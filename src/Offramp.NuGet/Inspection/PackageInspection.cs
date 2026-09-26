@@ -8,7 +8,7 @@ namespace Offramp.NuGet.Inspection;
 public sealed record PackageInspection
 {
     /// <summary>Bumped when inspection changes, so older cache entries are recomputed.</summary>
-    public const int CurrentFormat = 1;
+    public const int CurrentFormat = 2;
 
     public int Format { get; init; } = CurrentFormat;
 
@@ -24,7 +24,26 @@ public sealed record PackageInspection
 
     /// <summary>Managed assemblies under lib, ref, and runtimes/*/lib, with Windows-only evidence.</summary>
     public required IReadOnlyList<InspectedAssembly> Assemblies { get; init; }
+
+    /// <summary>The nuspec's dependency groups (framework short name, <c>any</c> for none), in framework order.</summary>
+    public IReadOnlyList<InspectedDependencyGroup> DependencyGroups { get; init; } = [];
 }
 
-/// <summary>An assembly in a package and why it only works on Windows, if it does.</summary>
-public sealed record InspectedAssembly(string Path, string Framework, string? WindowsOnly);
+/// <summary>A package's dependencies for one target framework.</summary>
+public sealed record InspectedDependencyGroup(string Framework, IReadOnlyList<InspectedDependency> Dependencies);
+
+/// <summary>A dependency and the version range the package asks for (NuGet range syntax).</summary>
+public sealed record InspectedDependency(string Id, string Range);
+
+/// <summary>An assembly in a package, its identity, and why it only works on Windows, if it does.</summary>
+public sealed record InspectedAssembly(string Path, string Framework, string? WindowsOnly)
+{
+    /// <summary>The assembly name, or null when the file has no assembly metadata.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>The assembly version (<c>13.0.0.0</c>).</summary>
+    public string? Version { get; init; }
+
+    /// <summary>The public key token (hex), or null for an unsigned assembly.</summary>
+    public string? PublicKeyToken { get; init; }
+}

@@ -1,0 +1,242 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "LooseDlls.slnx",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/App/App.csproj",
+      "name": "App",
+      "assemblyName": "App",
+      "rootNamespace": "App",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/App/Entry.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [
+        {
+          "name": "Legacy.Core",
+          "hintPath": "lib/Legacy.Core.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "1.0.0.0",
+            "targetFramework": ".NETStandard,Version=v2.0",
+            "publicKeyToken": null
+          }
+        },
+        {
+          "name": "Newtonsoft.Json",
+          "hintPath": "lib/Newtonsoft.Json.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "13.0.0.0",
+            "targetFramework": ".NETFramework,Version=v4.5",
+            "publicKeyToken": "30ad4fe6b2a6aeed"
+          }
+        },
+        {
+          "name": "Vendor.Common",
+          "hintPath": "lib/Vendor.Common.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "1.0.0.0",
+            "targetFramework": ".NETStandard,Version=v2.0",
+            "publicKeyToken": null
+          }
+        },
+        {
+          "name": "Vendor.Reporting",
+          "hintPath": "lib/Vendor.Reporting.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "2.1.0.0",
+            "targetFramework": ".NETFramework,Version=v4.8",
+            "publicKeyToken": null
+          }
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 7,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Legacy.Core/Legacy.Core.csproj",
+      "name": "Legacy.Core",
+      "assemblyName": "Legacy.Core",
+      "rootNamespace": "Legacy.Core",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "netstandard2.0"
+      ],
+      "frameworkClass": "standard",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "netstandard2.0": [
+          "TRACE",
+          "DEBUG",
+          "NETSTANDARD",
+          "NETSTANDARD2_0",
+          "NETSTANDARD1_0_OR_GREATER",
+          "NETSTANDARD1_1_OR_GREATER",
+          "NETSTANDARD1_2_OR_GREATER",
+          "NETSTANDARD1_3_OR_GREATER",
+          "NETSTANDARD1_4_OR_GREATER",
+          "NETSTANDARD1_5_OR_GREATER",
+          "NETSTANDARD1_6_OR_GREATER",
+          "NETSTANDARD2_0_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Legacy.Core/Clock.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "netstandard2.0": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "netstandard2.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 7,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/App/App.csproj",
+        "to": "src/Legacy.Core/Legacy.Core.csproj",
+        "kind": "assembly"
+      }
+    ],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Legacy.Core/Legacy.Core.csproj",
+      "src/App/App.csproj"
+    ]
+  },
+  "packages": {},
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "LooseDlls.slnx",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/App/App.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Legacy.Core/Legacy.Core.csproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}

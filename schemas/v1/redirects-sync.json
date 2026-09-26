@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/redirects-sync.json",
+  "title": "offramp redirects sync result",
+  "description": "The result of `offramp redirects sync`. See docs/spec/commands/deps.md#redirects-sync.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apps", "summary", "applied", "journal", "preview"],
+  "properties": {
+    "apps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "configFile", "targetFramework", "redirects", "skipped"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "configFile": { "type": ["string", "null"] },
+          "targetFramework": { "type": "string" },
+          "skipped": { "type": ["string", "null"] },
+          "redirects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["assembly", "publicKeyToken", "culture", "oldVersion", "newVersion", "action", "was", "referenced"],
+              "properties": {
+                "assembly": { "type": "string" },
+                "publicKeyToken": { "type": ["string", "null"] },
+                "culture": { "type": ["string", "null"] },
+                "oldVersion": { "type": ["string", "null"] },
+                "newVersion": { "type": ["string", "null"] },
+                "action": { "enum": ["unchanged", "added", "changed", "pruned", "stale"] },
+                "was": { "type": ["string", "null"] },
+                "referenced": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["added", "changed", "pruned", "stale", "unchanged"],
+      "properties": {
+        "added": { "type": "integer", "minimum": 0 },
+        "changed": { "type": "integer", "minimum": 0 },
+        "pruned": { "type": "integer", "minimum": 0 },
+        "stale": { "type": "integer", "minimum": 0 },
+        "unchanged": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  }
+}

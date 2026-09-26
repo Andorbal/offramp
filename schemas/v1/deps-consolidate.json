@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/deps-consolidate.json",
+  "title": "offramp deps consolidate result",
+  "description": "The result of `offramp deps consolidate`. See docs/spec/commands/deps.md#deps-consolidate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["target", "prefer", "packages", "unsatisfiable", "cpm", "hazards", "verification", "applied", "journal", "preview"],
+  "properties": {
+    "target": { "type": "string" },
+    "prefer": { "enum": ["lowest", "newest"] },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "family", "current", "selected", "reason", "deciding", "constraints", "pinned", "changes"],
+        "properties": {
+          "id": { "type": "string" },
+          "family": { "type": ["string", "null"] },
+          "current": { "$ref": "#/$defs/versionsInUse" },
+          "selected": { "type": ["string", "null"] },
+          "reason": { "type": "string" },
+          "deciding": { "oneOf": [{ "$ref": "#/$defs/constraint" }, { "type": "null" }] },
+          "constraints": { "type": "array", "items": { "$ref": "#/$defs/constraint" } },
+          "pinned": { "$ref": "#/$defs/versionsInUse" },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["file", "kind", "from", "to"],
+              "properties": {
+                "file": { "$ref": "workspace.json#/$defs/relativePath" },
+                "kind": { "enum": ["setVersion", "removeVersion", "versionOverride", "packageVersion"] },
+                "from": { "type": ["string", "null"] },
+                "to": { "type": ["string", "null"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "unsatisfiable": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "code", "message", "chain"],
+        "properties": {
+          "id": { "type": "string" },
+          "code": { "type": "string", "pattern": "^OFR[0-9]{4}$" },
+          "message": { "type": "string" },
+          "chain": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "cpm": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "file", "optIn"],
+          "properties": {
+            "mode": { "enum": ["existing", "convert"] },
+            "file": { "$ref": "workspace.json#/$defs/relativePath" },
+            "optIn": { "$ref": "workspace.json#/$defs/pathList" }
+          }
+        }
+      ]
+    },
+    "hazards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "path", "message"],
+        "properties": {
+          "code": { "enum": ["OFR1301", "OFR1302", "OFR1303"] },
+          "path": { "$ref": "workspace.json#/$defs/relativePath" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "verification": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "passed", "warnings"],
+          "properties": {
+            "mode": { "enum": ["restore", "build"] },
+            "passed": { "type": "boolean" },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["code", "project", "message"],
+                "properties": {
+                  "code": { "type": "string", "pattern": "^NU[0-9]{4}$" },
+                  "project": { "type": ["string", "null"] },
+                  "message": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "versionsInUse": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "projects"],
+        "properties": {
+          "version": { "type": "string" },
+          "projects": { "$ref": "workspace.json#/$defs/pathList" }
+        }
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "project", "range", "chain"],
+      "properties": {
+        "kind": { "enum": ["direct", "transitive", "selected", "pin"] },
+        "project": { "type": ["string", "null"] },
+        "range": { "type": "string" },
+        "chain": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

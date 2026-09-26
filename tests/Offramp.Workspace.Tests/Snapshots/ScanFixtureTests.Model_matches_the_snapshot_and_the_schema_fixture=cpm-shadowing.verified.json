@@ -1,0 +1,318 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "CpmShadowing.slnx",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Api/Api.csproj",
+      "name": "Api",
+      "assemblyName": "Api",
+      "rootNamespace": "Api",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "netstandard2.0"
+      ],
+      "frameworkClass": "standard",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "netstandard2.0": [
+          "TRACE",
+          "DEBUG",
+          "NETSTANDARD",
+          "NETSTANDARD2_0",
+          "NETSTANDARD1_0_OR_GREATER",
+          "NETSTANDARD1_1_OR_GREATER",
+          "NETSTANDARD1_2_OR_GREATER",
+          "NETSTANDARD1_3_OR_GREATER",
+          "NETSTANDARD1_4_OR_GREATER",
+          "NETSTANDARD1_5_OR_GREATER",
+          "NETSTANDARD1_6_OR_GREATER",
+          "NETSTANDARD2_0_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Api/Marker.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "Newtonsoft.Json",
+          "version": "12.0.3",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "netstandard2.0"
+          ]
+        }
+      ],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "netstandard2.0": {
+          "packages": [
+            {
+              "id": "Newtonsoft.Json",
+              "version": "12.0.3",
+              "dependencies": [],
+              "direct": true
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "netstandard2.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 6,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Legacy/Legacy.csproj",
+      "name": "Legacy",
+      "assemblyName": "Legacy",
+      "rootNamespace": "Legacy",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "netstandard2.0"
+      ],
+      "frameworkClass": "standard",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "netstandard2.0": [
+          "TRACE",
+          "DEBUG",
+          "NETSTANDARD",
+          "NETSTANDARD2_0",
+          "NETSTANDARD1_0_OR_GREATER",
+          "NETSTANDARD1_1_OR_GREATER",
+          "NETSTANDARD1_2_OR_GREATER",
+          "NETSTANDARD1_3_OR_GREATER",
+          "NETSTANDARD1_4_OR_GREATER",
+          "NETSTANDARD1_5_OR_GREATER",
+          "NETSTANDARD1_6_OR_GREATER",
+          "NETSTANDARD2_0_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": true,
+      "compile": [
+        "src/Legacy/Marker.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "netstandard2.0": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "netstandard2.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 6,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Worker/Worker.csproj",
+      "name": "Worker",
+      "assemblyName": "Worker",
+      "rootNamespace": "Worker",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "netstandard2.0"
+      ],
+      "frameworkClass": "standard",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "netstandard2.0": [
+          "TRACE",
+          "DEBUG",
+          "NETSTANDARD",
+          "NETSTANDARD2_0",
+          "NETSTANDARD1_0_OR_GREATER",
+          "NETSTANDARD1_1_OR_GREATER",
+          "NETSTANDARD1_2_OR_GREATER",
+          "NETSTANDARD1_3_OR_GREATER",
+          "NETSTANDARD1_4_OR_GREATER",
+          "NETSTANDARD1_5_OR_GREATER",
+          "NETSTANDARD1_6_OR_GREATER",
+          "NETSTANDARD2_0_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Worker/Marker.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "Newtonsoft.Json",
+          "version": "13.0.1",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "netstandard2.0"
+          ]
+        }
+      ],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "netstandard2.0": {
+          "packages": [
+            {
+              "id": "Newtonsoft.Json",
+              "version": "13.0.1",
+              "dependencies": [],
+              "direct": true
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "netstandard2.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 6,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Api/Api.csproj",
+      "src/Legacy/Legacy.csproj",
+      "src/Worker/Worker.csproj"
+    ]
+  },
+  "packages": {
+    "Newtonsoft.Json": {
+      "versions": {
+        "12.0.3": [
+          "src/Api/Api.csproj"
+        ],
+        "13.0.1": [
+          "src/Worker/Worker.csproj"
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "CpmShadowing.slnx",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Api/Api.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Legacy/Legacy.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Legacy/packages.config",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Nested/Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Worker/Worker.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "tools/Stray/Stray.csproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}

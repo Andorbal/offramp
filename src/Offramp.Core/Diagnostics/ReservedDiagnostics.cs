@@ -12,15 +12,6 @@ public static class ReservedDiagnostics
 {
     public static IReadOnlyList<ReservedDiagnostic> All { get; } =
     [
-        new("OFR1203", "warning", "pin kept a package below the otherwise-selected version"),
-        new("OFR1210", "error", "pin conflicts with a transitive lower bound (chain attached)"),
-        new("OFR1211", "error", "restore verification reported NU1605/NU1107/NU1608/NU1010"),
-        new("OFR1220", "warning", "family member lacks the family version"),
-        new("OFR1401", "info", "loose DLL is another project's output"),
-        new("OFR1402", "info", "loose DLL matched to a package"),
-        new("OFR1403", "warning", "loose DLL unmatched"),
-        new("OFR1404", "error", "loose Framework-only DLL with no replacement"),
-        new("OFR1501–1504", "info/warning", "binding redirect added/changed/pruned/stale"),
         new("OFR2010", "error", "move crosses a solution slice boundary"),
         new("OFR3001", "error", "API missing on target"),
         new("OFR3002", "warning", "Windows-only API"),

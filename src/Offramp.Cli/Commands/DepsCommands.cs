@@ -24,7 +24,9 @@ public static class DepsCommands
     {
         var deps = new Command("deps", "Package and assembly dependencies: what supports the target, and what to do about the rest.");
         deps.Subcommands.Add(DepsAuditCommand.Create(host, globals));
+        deps.Subcommands.Add(DepsConsolidateCommand.Create(host, globals));
         deps.Subcommands.Add(DepsGacCommand.Create(host, globals));
+        deps.Subcommands.Add(DepsResolveDllsCommand.Create(host, globals));
         return deps;
     }
 

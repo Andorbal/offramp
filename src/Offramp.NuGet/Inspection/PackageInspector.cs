@@ -45,7 +45,9 @@ public static class PackageInspector
                 using var entry = reader.GetStream(path);
                 using var copy = new MemoryStream();
                 entry.CopyTo(copy);
-                assemblies.Add(new InspectedAssembly(path, framework.GetShortFolderName(), WindowsEvidence(copy.ToArray())));
+                var bytes = copy.ToArray();
+                var (name, version, token) = Identity(bytes);
+                assemblies.Add(new InspectedAssembly(path, framework.GetShortFolderName(), WindowsEvidence(bytes)) { Name = name, Version = version, PublicKeyToken = token });
             }
         }
 
@@ -56,6 +58,12 @@ public static class PackageInspector
             AssetFrameworks = Names(frameworks),
             DependencyFrameworks = Names(reader.GetPackageDependencies().Select(g => g.TargetFramework)),
             Assemblies = assemblies,
+            DependencyGroups = [.. reader.GetPackageDependencies()
+                .Where(g => !g.TargetFramework.IsUnsupported)
+                .Select(g => new InspectedDependencyGroup(
+                    g.TargetFramework.IsAny ? "any" : g.TargetFramework.GetShortFolderName(),
+                    [.. g.Packages.OrderBy(d => d.Id, StringComparer.OrdinalIgnoreCase).Select(d => new InspectedDependency(d.Id, d.VersionRange.ToNormalizedString()))]))
+                .OrderBy(g => g.Framework, StringComparer.Ordinal)],
         };
     }
 
@@ -89,6 +97,41 @@ public static class PackageInspector
 
         var framework = NuGetFramework.ParseFolder(folder);
         return framework.IsUnsupported ? null : framework;
+    }
+
+    /// <summary>An assembly's name, version, and public key token; nulls when it has no assembly metadata.</summary>
+    internal static (string? Name, string? Version, string? PublicKeyToken) Identity(byte[] bytes)
+    {
+        try
+        {
+            using var pe = new PEReader(new MemoryStream(bytes));
+            if (!pe.HasMetadata || !pe.GetMetadataReader().IsAssembly)
+            {
+                return (null, null, null);
+            }
+
+            var metadata = pe.GetMetadataReader();
+            var definition = metadata.GetAssemblyDefinition();
+            return (metadata.GetString(definition.Name), definition.Version.ToString(), PublicKeyToken(metadata.GetBlobBytes(definition.PublicKey)));
+        }
+        catch (BadImageFormatException)
+        {
+            return (null, null, null);
+        }
+    }
+
+    /// <summary>The public key token: the last eight bytes of the key's SHA-1, reversed; null for an unsigned assembly.</summary>
+    public static string? PublicKeyToken(byte[] publicKey)
+    {
+        if (publicKey.Length == 0)
+        {
+            return null;
+        }
+
+#pragma warning disable CA5350 // SHA-1 is how .NET defines a public key token, not a security use.
+        var hash = System.Security.Cryptography.SHA1.HashData(publicKey);
+#pragma warning restore CA5350
+        return string.Concat(hash[^8..].Reverse().Select(b => b.ToString("x2", System.Globalization.CultureInfo.InvariantCulture)));
     }
 
     /// <summary>Why an assembly only works on Windows, or null.</summary>

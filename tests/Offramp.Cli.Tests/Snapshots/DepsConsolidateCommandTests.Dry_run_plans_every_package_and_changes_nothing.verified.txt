@@ -1,0 +1,56 @@
+﻿Would consolidate 3 packages.
+Microsoft.Extensions.DependencyInjection.Abstractions 6.0.0 → 8.0.0
+  src/Reporting/Reporting.csproj: Microsoft.Extensions.Logging.Abstractions 8.0.0 →
+Microsoft.Extensions.DependencyInjection.Abstractions >= 8.0.0.
+Microsoft.Extensions.Logging.Abstractions 6.0.0, 8.0.0 → 8.0.0
+  src/Shared/Shared.csproj references Microsoft.Extensions.Logging.Abstractions 8.0.0.
+Newtonsoft.Json 11.0.2, 12.0.3, 13.0.1, 9.0.1 → 13.0.3
+  src/Reporting/Reporting.csproj: Contoso.Serialization 2.0.0 → Newtonsoft.Json >= 13.0.3.
+  Pinned to 9.0.1: src/Customer.Api/Customer.Api.csproj
+
+--- a/src/Billing/Billing.csproj
++++ b/src/Billing/Billing.csproj
+@@ -8,8 +8,8 @@
+     <Reference Include="System.Drawing" />
+   </ItemGroup>
+   <ItemGroup>
+-    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0" />
++    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
++    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+     <PackageReference Include="EntityFramework" Version="6.2.0" />
+     <PackageReference Include="Contoso.Legacy.Reports" Version="1.1.0" />
+   </ItemGroup>
+--- a/src/Modern.App/Modern.App.csproj
++++ b/src/Modern.App/Modern.App.csproj
+@@ -4,9 +4,9 @@
+     <TargetFramework>net10.0</TargetFramework>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="6.0.0" />
+-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0" />
++    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
++    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
++    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+     <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+   </ItemGroup>
+ </Project>
+--- a/src/Shared/Shared.csproj
++++ b/src/Shared/Shared.csproj
+@@ -4,7 +4,7 @@
+     <LangVersion>7.3</LangVersion>
+   </PropertyGroup>
+   <ItemGroup>
+-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
++    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+     <PackageReference Include="Contoso.Windows.Controls" Version="1.0.0" />
+   </ItemGroup>
+
+Dry run. Apply with --apply
+
+! OFR1203 src/Customer.Api/Customer.Api.csproj Stays on Newtonsoft.Json 9.0.1 (pinned: Customer integrations depend on
+9.x serialization behavior); the rest move to 13.0.3.
+
+1 warning(s)

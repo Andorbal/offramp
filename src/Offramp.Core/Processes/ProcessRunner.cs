@@ -66,6 +66,9 @@ public sealed class ProcessRunner : IProcessRunner
         info.Environment["DOTNET_NOLOGO"] = "1";
         info.Environment["DOTNET_CLI_UI_LANGUAGE"] = "en";
         info.Environment["GIT_TERMINAL_PROMPT"] = "0";
+
+        // MSBuild worker nodes that outlive a build would hold its output pipes open.
+        info.Environment["MSBUILDDISABLENODEREUSE"] = "1";
         foreach (var (key, value) in spec.Environment)
         {
             if (value is null)
@@ -78,11 +81,15 @@ public sealed class ProcessRunner : IProcessRunner
             }
         }
 
-        using var process = new Process { StartInfo = info };
+        using var process = new Process { StartInfo = info, EnableRaisingEvents = true };
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
-        process.OutputDataReceived += (_, e) => { if (e.Data is not null) lock (stdout) stdout.Append(e.Data).Append('\n'); };
-        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) lock (stderr) stderr.Append(e.Data).Append('\n'); };
+        var outputClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var errorClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        process.OutputDataReceived += (_, e) => Collect(stdout, outputClosed, e.Data);
+        process.ErrorDataReceived += (_, e) => Collect(stderr, errorClosed, e.Data);
+        process.Exited += (_, _) => exited.TrySetResult();
 
         try
         {
@@ -103,7 +110,8 @@ public sealed class ProcessRunner : IProcessRunner
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
         try
         {
-            await process.WaitForExitAsync(linked.Token).ConfigureAwait(false);
+            // The process exiting, not its pipes closing: see below.
+            await exited.Task.WaitAsync(linked.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -113,12 +121,37 @@ public sealed class ProcessRunner : IProcessRunner
                 throw;
             }
 
-            return new ProcessResult(-1, stdout.ToString(), stderr.ToString()) { TimedOut = true };
+            return new ProcessResult(-1, Text(stdout), Text(stderr)) { TimedOut = true };
         }
 
-        // Drain the asynchronous readers.
-        process.WaitForExit();
-        return new ProcessResult(process.ExitCode, stdout.ToString(), stderr.ToString());
+        // Drain the readers, for a bounded time: processes the child started (MSBuild nodes, the
+        // compiler server) can inherit its output pipes and hold them open long after it exits.
+        await Task.WhenAny(Task.WhenAll(outputClosed.Task, errorClosed.Task), Task.Delay(DrainTimeout, cancellationToken)).ConfigureAwait(false);
+        return new ProcessResult(process.ExitCode, Text(stdout), Text(stderr));
+    }
+
+    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(10);
+
+    private static void Collect(StringBuilder output, TaskCompletionSource closed, string? line)
+    {
+        if (line is null)
+        {
+            closed.TrySetResult();
+            return;
+        }
+
+        lock (output)
+        {
+            output.Append(line).Append('\n');
+        }
+    }
+
+    private static string Text(StringBuilder output)
+    {
+        lock (output)
+        {
+            return output.ToString();
+        }
     }
 
     private static void TryKill(Process process)

@@ -19,6 +19,9 @@ Offramp's own settings when a fixture is built in place.
 | `tests-in-prod` | move tests (detection, helpers, `--create`, `InternalsVisibleTo`, pruning, rollback), graph |
 | `move-cases` | move plan (one case per rule: clean, package, co-move, cycle, framework-only, partial, resources, internals, Windows-only API, removed path, source still depends), move apply, forwarders; see its README |
 
+| `loose-dlls` | deps resolve-dlls (a project's output, a package's DLL, two vendor DLLs); stub DLLs from `LooseDlls` |
+| `cpm-shadowing` | deps consolidate --cpm hazards (OFR1301–1303), non-default central file with opt-in |
+
 `hollow` is generated, not checked in (`GeneratedFixtures.Hollow` in
 `tests/Offramp.Fixtures`): 500 files in `src/Big` to be moved into `src/Big.Core`
 by one `move plan --all` and `move apply` run, with `src/App` depending on Big.

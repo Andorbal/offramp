@@ -71,6 +71,90 @@ public sealed class ProjectFileEditor
         return matches.Count;
     }
 
+    /// <summary>
+    /// Sets (or, with a null value, removes) a metadata value on every item of the type whose
+    /// Include matches, conditioned or not; an existing value keeps its attribute or element
+    /// form, a new one is an attribute. Returns how many items matched.
+    /// </summary>
+    public int SetMetadata(string itemType, string include, string name, string? value)
+    {
+        var items = _root.ItemGroups.SelectMany(g => g.Items)
+            .Where(i => string.Equals(i.ItemType, itemType, StringComparison.OrdinalIgnoreCase) && Same(i.Include, include))
+            .ToList();
+        foreach (var item in items)
+        {
+            var existing = item.Metadata.FirstOrDefault(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (value is null)
+            {
+                if (existing is not null)
+                {
+                    item.RemoveChild(existing);
+                }
+            }
+            else if (existing is not null)
+            {
+                existing.Value = value;
+            }
+            else
+            {
+                item.AddMetadata(name, value, expressAsAttribute: true);
+            }
+        }
+
+        return items.Count;
+    }
+
+    /// <summary>Adds <c>&lt;Import Project="..." /&gt;</c> at the end unless an import of that path exists.</summary>
+    public void AddImport(string project)
+    {
+        if (_root.Imports.Any(i => Same(i.Project, project)))
+        {
+            return;
+        }
+
+        _root.AddImport(project);
+    }
+
+    /// <summary>The value of the first unconditioned property with the name, or null.</summary>
+    public string? Property(string name) =>
+        _root.PropertyGroups.Where(g => string.IsNullOrEmpty(g.Condition)).SelectMany(g => g.Properties)
+            .FirstOrDefault(p => string.IsNullOrEmpty(p.Condition) && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    /// <summary>Sets the first unconditioned property with the name, or adds it to the first unconditioned property group.</summary>
+    public void SetProperty(string name, string value)
+    {
+        var existing = _root.PropertyGroups.Where(g => string.IsNullOrEmpty(g.Condition)).SelectMany(g => g.Properties)
+            .FirstOrDefault(p => string.IsNullOrEmpty(p.Condition) && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            existing.Value = value;
+            return;
+        }
+
+        var group = _root.PropertyGroups.FirstOrDefault(g => string.IsNullOrEmpty(g.Condition)) ?? _root.AddPropertyGroup();
+        group.AddProperty(name, value);
+    }
+
+    /// <summary>Removes every <c>Reference</c> item whose assembly name (the Include up to its first comma) matches; returns how many.</summary>
+    public int RemoveReference(string assemblyName)
+    {
+        var matches = _root.ItemGroups.SelectMany(g => g.Items)
+            .Where(i => string.Equals(i.ItemType, "Reference", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(i.Include.Split(',')[0].Trim(), assemblyName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        foreach (var item in matches)
+        {
+            var group = item.Parent;
+            group.RemoveChild(item);
+            if (group.Count == 0 && group.Parent is not null)
+            {
+                group.Parent.RemoveChild(group);
+            }
+        }
+
+        return matches.Count;
+    }
+
     public void AddEmbeddedResource(string include) => AddItem("EmbeddedResource", include.Replace('/', '\\'), null);
 
     /// <summary>

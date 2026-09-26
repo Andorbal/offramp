@@ -90,7 +90,7 @@ Acceptance: every case in `move-cases` yields the specified outcome; an
 overnight-style run (`--all` on a generated 500-file fixture) completes with a
 single verification at the end and a correct plan; `forwarders` output compiles.
 
-## M6 — Dependencies ☐
+## M6 — Dependencies ◐
 
 - `deps consolidate` (constraints, families, pins, CPM output incl. non-default
   path and opt-in, restore verification, preflight hazards).

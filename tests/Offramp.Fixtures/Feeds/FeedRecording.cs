@@ -85,6 +85,9 @@ public sealed record RecordedAssembly
 
     /// <summary>Values of assembly-level <c>SupportedOSPlatformAttribute</c>s.</summary>
     public IReadOnlyList<string> SupportedOSPlatforms { get; init; } = [];
+
+    /// <summary>The <c>TargetFrameworkAttribute</c> value (<c>.NETFramework,Version=v4.8</c>), or null for none.</summary>
+    public string? TargetFramework { get; init; }
 }
 
 public sealed record RecordedAssemblyReference(string Name, string Version, string? PublicKeyToken);

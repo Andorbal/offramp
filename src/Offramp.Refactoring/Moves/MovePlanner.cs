@@ -867,8 +867,8 @@ public static class MovePlanner
 
         private static string? GlobalPackageFolder(PackageUse package)
         {
-            var settings = NuGet.Configuration.Settings.LoadDefaultSettings(null);
-            var folder = Path.Combine(NuGet.Configuration.SettingsUtility.GetGlobalPackagesFolder(settings), package.Id.ToLowerInvariant(), package.Version.ToLowerInvariant());
+            var settings = global::NuGet.Configuration.Settings.LoadDefaultSettings(null);
+            var folder = Path.Combine(global::NuGet.Configuration.SettingsUtility.GetGlobalPackagesFolder(settings), package.Id.ToLowerInvariant(), package.Version.ToLowerInvariant());
             return Directory.Exists(folder) ? folder : null;
         }
 

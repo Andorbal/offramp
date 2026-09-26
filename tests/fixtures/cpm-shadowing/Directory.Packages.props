@@ -1,0 +1,6 @@
+<Project>
+  <!-- Central package management is not on yet; turning it on here would reach tools/ too. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

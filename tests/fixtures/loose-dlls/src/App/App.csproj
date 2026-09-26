@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Loose DLLs copied into lib/ by hand over the years: a NuGet assembly, another project's output, and two vendor DLLs. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed">
+      <HintPath>..\..\lib\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Legacy.Core">
+      <HintPath>..\..\lib\Legacy.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Vendor.Reporting">
+      <HintPath>..\..\lib\Vendor.Reporting.dll</HintPath>
+    </Reference>
+    <Reference Include="Vendor.Common">
+      <HintPath>..\..\lib\Vendor.Common.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

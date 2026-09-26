@@ -72,9 +72,23 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1004](#ofr1004) | warning | deps | package assets are Windows-only |
 | [OFR1005](#ofr1005) | warning | deps | package not found on any feed |
 | [OFR1006](#ofr1006) | warning | deps | feed unreachable; result partial |
+| [OFR1200](#ofr1200) | error | deps | package not referenced |
+| [OFR1203](#ofr1203) | warning | deps | pin kept a package below the otherwise-selected version |
+| [OFR1210](#ofr1210) | error | deps | pin conflicts with a transitive lower bound |
+| [OFR1211](#ofr1211) | error | deps | restore verification failed |
+| [OFR1212](#ofr1212) | error | deps | no version satisfies every constraint |
+| [OFR1220](#ofr1220) | warning | deps | family member lacks the family version |
 | [OFR1301](#ofr1301) | warning | deps | project outside the solution would inherit CPM |
 | [OFR1302](#ofr1302) | warning | deps | nested Directory.Packages.props shadows the root |
 | [OFR1303](#ofr1303) | warning | deps | packages.config project cannot use CPM |
+| [OFR1401](#ofr1401) | info | deps | loose DLL is another project's output |
+| [OFR1402](#ofr1402) | info | deps | loose DLL matched to a package |
+| [OFR1403](#ofr1403) | warning | deps | loose DLL unmatched |
+| [OFR1404](#ofr1404) | error | deps | loose Framework-only DLL with no replacement |
+| [OFR1501](#ofr1501) | info | deps | binding redirect added |
+| [OFR1502](#ofr1502) | info | deps | binding redirect changed |
+| [OFR1503](#ofr1503) | info | deps | binding redirect pruned |
+| [OFR1504](#ofr1504) | warning | deps | stale binding redirect |
 | [OFR2001](#ofr2001) | warning | move | move would create a project reference cycle |
 | [OFR2002](#ofr2002) | error | move | destination equals source |
 | [OFR2003](#ofr2003) | error | move | project is frozen |
@@ -512,6 +526,60 @@ A NuGet feed could not be queried, so any answer that depends on it is incomplet
 - **Typical cause:** No network, a feed that is down, or missing credentials for a private feed.
 - **Fix:** Check `nuget.config`, network access, and credential providers, then re-run.
 
+### OFR1200
+
+**package not referenced** · error · deps
+
+`deps consolidate --package` names a package no project in the workspace model references directly.
+
+- **Typical cause:** A typo, a package that only arrives transitively, or a model scanned before the reference was added.
+- **Fix:** Check the id (`offramp deps audit` lists them), or run `offramp scan` again.
+
+### OFR1203
+
+**pin kept a package below the otherwise-selected version** · warning · deps
+
+A pin in offramp.yml keeps a project on an older version than the one the rest of the solution consolidates to; under central package management the project gets `VersionOverride`.
+
+- **Typical cause:** A deliberate pin (its reason is quoted).
+- **Fix:** Nothing, while the pin's reason holds; remove the pin to consolidate the project too.
+
+### OFR1210
+
+**pin conflicts with a transitive lower bound** · error · deps
+
+A pinned version is lower than a range another package in the same graph asks for, so restore would report a downgrade (NU1605). The chain from the direct reference to the range is attached.
+
+- **Typical cause:** A pin older than what a dependency now requires.
+- **Fix:** Isolate the pinned project from that dependency, raise the pin, or add `NoWarn NU1605` to that project with a recorded reason.
+
+### OFR1211
+
+**restore verification failed** · error · deps
+
+`dotnet restore` of the proposed project files, in a scratch copy of the repository, reported NU1605 (downgrade), NU1107 (version conflict), NU1608 (outside a dependency's range), NU1010 (missing PackageVersion), or a restore error that the current files do not. Nothing was applied; the warnings are quoted verbatim.
+
+- **Typical cause:** A constraint the workspace model does not show (a conditional reference, a package's own dependencies at the new version, an SDK-implicit reference).
+- **Fix:** Read the quoted warnings; pin or consolidate the package they name, then run again.
+
+### OFR1212
+
+**no version satisfies every constraint** · error · deps
+
+No published version of the package is at least every lower bound, within every upper bound, and supports every target framework of the projects that reference it. The package keeps its versions.
+
+- **Typical cause:** An upper bound from one dependency below the lower bound from another, or a package whose newer versions dropped a framework still in use.
+- **Fix:** Read the attached constraints; upgrade or replace the package that imposes the bound, or split the projects.
+
+### OFR1220
+
+**family member lacks the family version** · warning · deps
+
+A package in a `deps.families` family has no published version equal to the family's (the highest member version), so it keeps its own consolidated version.
+
+- **Typical cause:** Families whose members version independently, or a member discontinued before the family's version.
+- **Fix:** Narrow the family prefix, or replace the member.
+
 ### OFR1301
 
 **project outside the solution would inherit CPM** · warning · deps
@@ -538,6 +606,78 @@ The project still uses `packages.config`, which central package management does 
 
 - **Typical cause:** A legacy project not yet migrated to `PackageReference`.
 - **Fix:** Migrate the project to `PackageReference` (`offramp csproj modernize`, or Visual Studio's migration).
+
+### OFR1401
+
+**loose DLL is another project's output** · info · deps
+
+A `Reference` with a `HintPath` points at a DLL whose assembly name is a project's in the solution; a `ProjectReference` builds it instead of trusting a copied file.
+
+- **Typical cause:** A project's output copied into a lib folder before the projects shared a solution.
+- **Fix:** Apply `deps resolve-dlls`, which swaps the reference.
+
+### OFR1402
+
+**loose DLL matched to a package** · info · deps
+
+A `Reference` with a `HintPath` points at a DLL that a package ships (same assembly name and public key, at the referenced version or higher, for every target framework of the project).
+
+- **Typical cause:** A package's DLL copied into a lib folder by hand.
+- **Fix:** Apply `deps resolve-dlls`, which swaps the reference for a `PackageReference`.
+
+### OFR1403
+
+**loose DLL unmatched** · warning · deps
+
+No project builds the DLL and no package named like the assembly ships it. Its metadata (version, target framework, public key token) is attached for a person to decide.
+
+- **Typical cause:** A vendor or in-house DLL with no package, or a package whose id differs from the assembly name.
+- **Fix:** Find the package or source it came from, or publish it to a private feed.
+
+### OFR1404
+
+**loose Framework-only DLL with no replacement** · error · deps
+
+A DLL referenced by `HintPath` is built for .NET Framework, and no project or package replaces it, so the project cannot move to the target while it depends on it.
+
+- **Typical cause:** A vendor library that never shipped for .NET Standard or modern .NET.
+- **Fix:** Ask the vendor for a modern build, replace the library, or isolate its use behind a seam (`offramp seams`).
+
+### OFR1501
+
+**binding redirect added** · info · deps
+
+Assemblies in the application's package graph reference a version of the assembly other than the one deployed, and the configuration file has no redirect for it; `redirects sync` adds one to the deployed version.
+
+- **Typical cause:** A package upgrade or consolidation.
+- **Fix:** Nothing; review the diff and apply.
+
+### OFR1502
+
+**binding redirect changed** · info · deps
+
+An existing redirect's range or target does not match the graph (the deployed version, from 0.0.0.0 up to the highest version referenced); `redirects sync` updates it.
+
+- **Typical cause:** A package upgrade or consolidation after the redirect was written.
+- **Fix:** Nothing; review the diff and apply.
+
+### OFR1503
+
+**binding redirect pruned** · info · deps
+
+With `--prune`, a redirect for an assembly no package in the application's graph provides is removed.
+
+- **Typical cause:** A package removed, or a redirect copied from another application.
+- **Fix:** Nothing; review the diff and apply.
+
+### OFR1504
+
+**stale binding redirect** · warning · deps
+
+A redirect names an assembly no package in the application's graph provides, so it redirects to a version the build does not deploy. It is kept unless `--prune` is given.
+
+- **Typical cause:** A package removed, a redirect copied from another application, or a redirect for a framework assembly.
+- **Fix:** Run `offramp redirects sync --prune`, or keep the redirect when a framework assembly needs it.
 
 ### OFR2001
 
@@ -825,15 +965,6 @@ use these numbers; each moves to the table above in the pull request that first 
 
 | Code | Severity | Meaning |
 |---|---|---|
-| OFR1203 | warning | pin kept a package below the otherwise-selected version |
-| OFR1210 | error | pin conflicts with a transitive lower bound (chain attached) |
-| OFR1211 | error | restore verification reported NU1605/NU1107/NU1608/NU1010 |
-| OFR1220 | warning | family member lacks the family version |
-| OFR1401 | info | loose DLL is another project's output |
-| OFR1402 | info | loose DLL matched to a package |
-| OFR1403 | warning | loose DLL unmatched |
-| OFR1404 | error | loose Framework-only DLL with no replacement |
-| OFR1501–1504 | info/warning | binding redirect added/changed/pruned/stale |
 | OFR2010 | error | move crosses a solution slice boundary |
 | OFR3001 | error | API missing on target |
 | OFR3002 | warning | Windows-only API |

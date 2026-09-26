@@ -158,6 +158,58 @@ opt-in; consolidate defaults to that when `OFR1301` fires.
 Result: per package `{ id, current: [...], selected, reason, constraints: [...], changes: [...] }`,
 `unsatisfiable: [...]` with chains, and the change set preview.
 
+### Details (M6, `docs/decisions/0020-consolidate-redirects-dlls.md`)
+
+- **Selection.** Exactly one of `--package`, `--all`, and `--family`. A
+  package in a `deps.families` family brings the rest of its family. A
+  package no project references directly is `OFR1200` (exit 2).
+- **Constraints**, each recorded with its origin and chain:
+  - `direct`: each project's own reference, as a lower bound.
+  - `transitive`: every resolved package's range for it, in every project's
+    graph, with the shortest path from a direct reference.
+  - `selected`: ranges the chosen versions of the other consolidated packages
+    ask for (read from their nuspec dependency groups), iterated to a fixed
+    point.
+  - `pin`: from `deps.pins`. A project pin takes that project out of the
+    other constraints: it keeps its version (`OFR1203` when below the rest)
+    and is checked against its own graph (`OFR1210`).
+- **The version** is the lowest (`--prefer newest`: newest) listed, stable
+  (unless `deps.includePrerelease`) version that satisfies every range and
+  supports every target framework of the projects referencing it. None is
+  `OFR1212`, and a global pin that breaks a range is `OFR1210` with the
+  violated chain. Either way the package keeps its versions.
+- **Families** share the highest member version when each member has it
+  published and it satisfies the member; otherwise the member keeps its own
+  (`OFR1220`). A member raised by its family says so in `reason`, with the
+  deciding chain of the member that needed it.
+- **`reason`** names the deciding constraint: the highest lower bound, with its
+  project and chain, for example `src/Reporting/Reporting.csproj:
+  Contoso.Serialization 2.0.0 → Newtonsoft.Json >= 13.0.3.`
+- **Where versions are written:**
+  - Projects already on central management: the `PackageVersion` in the
+    nearest `Directory.Packages.props`, and `VersionOverride` for pins.
+  - Without it and without `--cpm`: each `PackageReference`'s `Version`, in
+    place.
+  - `--cpm`: every direct package of the PackageReference projects gets a
+    `PackageVersion`. That is the selected version, or, for packages outside
+    the selection, the version in use, or the highest in use with
+    `VersionOverride` where projects differ. References lose `Version`, and
+    `packages.config` projects are left alone.
+- **Opting in to a non-default central file.** A non-default file (named
+  `<Solution>.Packages.props` when OFR1301 fires, or `deps.cpm.file`) needs
+  opting in. The SDK imports `Directory.Packages.props` before the project
+  body, so `DirectoryPackagesPropsPath` set in a project comes too late:
+  - With `--opt-in-via PATH`, both properties go into that props file.
+  - Otherwise each project gets `ManagePackageVersionsCentrally` and an
+    explicit `<Import>` of the central file.
+- **Restore verification** (`--verify restore`, the default) restores the
+  solution in a scratch worktree twice, before and after writing the
+  proposal. A blocking warning or restore error the "before" restore did not
+  report is `OFR1211`, and nothing is applied. Multi-line NuGet messages are
+  kept whole and verbatim. `--verify build` then builds the changed projects
+  in the scratch copy. `--apply` writes through a journal, which `move
+  rollback` undoes. Schema: `schemas/v1/deps-consolidate.json`.
+
 ## `deps resolve-dlls`
 
 Loose assembly references (`HintPath`) → package or project references.
@@ -179,6 +231,23 @@ For each `Reference` with a `HintPath`:
    decide.
 4. Report DLLs whose `TargetFrameworkAttribute` is `.NETFramework` and that
    have no package replacement as blockers for the target (`OFR1404`).
+
+Details (M6, ADR 0020):
+- **Candidates.** NuGet feeds cannot be searched by assembly name, so the only
+  candidate is the package whose id is the assembly name, confirmed by
+  inspecting its versions' assets.
+- **Match rules.**
+  - A candidate DLL must have the same public key token.
+  - The exact assembly version wins over the lowest package version above
+    it.
+  - Every target framework of the project must be supported.
+- **Blockers and unmatched DLLs.** A .NET Framework DLL with no replacement is
+  reported only as a blocker (`OFR1404`). Other unmatched DLLs are `OFR1403`,
+  with their metadata.
+- **`--apply`** replaces the `Reference` with the `ProjectReference` or
+  `PackageReference`; versionless under central management. It writes
+  through a journal.
+- **Schema:** `schemas/v1/deps-resolve-dlls.json`.
 
 ## `deps gac`
 
@@ -241,3 +310,28 @@ offramp redirects sync [--app PATH ...] [--apply] [--prune]
   graph (stale).
 - After `deps consolidate`, `redirects sync` typically deletes most redirects;
   the summary says how many.
+
+Details (M6, ADR 0020):
+- **Applications** are projects of kind console, service, web, test,
+  winforms, or wpf with a `net4x` target (or those named with `--app`).
+- **The config file** is `web.config` for web projects, else `app.config`. A
+  project without one is skipped with the reason: the SDK generates redirects
+  for executables' output.
+- **The graph** is the assemblies in each resolved package's nearest `lib/`
+  folder, from the global packages folder, with their references read by
+  System.Reflection.Metadata.
+- **Needing a redirect.** A signed assembly needs one when a reference names
+  another version than the deployed one. The redirect is `0.0.0.0-<highest
+  referenced or deployed>` → the deployed version.
+- **Existing redirects:**
+  - A needed redirect that matches is `unchanged`.
+  - One that differs is changed in place (`OFR1502`); a missing one is
+    added (`OFR1501`).
+  - A redirect for an assembly the graph deploys at one version is left
+    alone.
+  - A redirect for an assembly no package provides is `stale` (`OFR1504`,
+    warning) and is removed only with `--prune` (`OFR1503`).
+- **Edits** replace only the characters of the changed entry. Removals take
+  their whole line; additions copy the siblings' indentation. Everything else
+  in the file, including the byte order mark and line endings, is kept.
+  Schema: `schemas/v1/redirects-sync.json`.

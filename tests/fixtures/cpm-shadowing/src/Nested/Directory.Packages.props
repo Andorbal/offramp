@@ -1,0 +1,6 @@
+<Project>
+  <!-- Shadows the root file for projects below src/Nested and does not import it (OFR1302). -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

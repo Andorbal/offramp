@@ -1,0 +1,25 @@
+﻿Would sync redirects: 0 added, 0 changed, 1 pruned.
+src/Customer.Api/Customer.Api.csproj src/Customer.Api/web.config
+  unchanged Newtonsoft.Json 0.0.0.0-9.0.0.0 → 9.0.0.0
+  unchanged System.Net.Http.Formatting 0.0.0.0-5.2.3.0 → 5.2.3.0
+  pruned    System.Web.Mvc 0.0.0.0-5.2.7.0 → 5.2.7.0
+
+--- a/src/Customer.Api/web.config
++++ b/src/Customer.Api/web.config
+@@ -14,10 +14,6 @@
+         <assemblyIdentity name="System.Net.Http.Formatting" publicKeyToken="31bf3856ad364e35" culture="neutral" />
+         <bindingRedirect oldVersion="0.0.0.0-5.2.3.0" newVersion="5.2.3.0" />
+       </dependentAssembly>
+-      <dependentAssembly>
+-        <assemblyIdentity name="System.Web.Mvc" publicKeyToken="31bf3856ad364e35" culture="neutral" />
+-        <bindingRedirect oldVersion="0.0.0.0-5.2.7.0" newVersion="5.2.7.0" />
+-      </dependentAssembly>
+     </assemblyBinding>
+   </runtime>
+ </configuration>
+
+Dry run. Apply with --apply
+
+· OFR1503 src/Customer.Api/web.config Removes the redirect for System.Web.Mvc: no package in the graph provides it.
+
+1 info

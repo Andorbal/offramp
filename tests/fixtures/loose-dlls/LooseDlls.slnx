@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/App/App.csproj" />
+    <Project Path="src/Legacy.Core/Legacy.Core.csproj" />
+  </Folder>
+</Solution>
