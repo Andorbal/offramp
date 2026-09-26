@@ -11,6 +11,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-26
+
 ### Added
 - `offramp audit dead-code`: types and members nothing in the solution references, from one
   index of every name the semantic model binds (by documentation ID, including the members the
@@ -338,7 +340,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `Directory.Build.props` no longer produces a separate symbols package: PDBs
   are embedded, so `dotnet pack` failed with NU5017 when asked for a `.snupkg`.
 
-[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/Andorbal/offramp/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Andorbal/offramp/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Andorbal/offramp/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Andorbal/offramp/compare/v0.5.0...v0.6.0
