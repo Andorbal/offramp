@@ -67,7 +67,7 @@ identifies lowest/newest supporting versions correctly against a recorded feed
 Acceptance: `verify` fails on a fixture with an injected error (`OFR5001`) and
 passes after removal; command mode merges a JSON envelope from a script.
 
-## M4 — Move tests ☐
+## M4 — Move tests ◐
 
 - Change sets, journal, rollback, purity enforcement, `git mv`/`File.Move`.
 - `move tests` with semantic detection, helper fixpoint, target selection,

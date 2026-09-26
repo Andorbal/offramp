@@ -11,6 +11,27 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp move tests`: finds test code in a production project semantically (test-framework
+  attributes and base types; helpers by a fixpoint over which files use which, across the
+  project and its dependents, requiring test-support evidence) and moves it, byte for byte, to
+  its test project: `--to`, the `<Name>.Tests` naming rule, or `--create` (a new SDK-style test
+  project for the detected framework, added to the solution). Each file is proven to compile in
+  the destination by trial compilation and the source to compile without it; the destination
+  gets the project and package references it needs and the source an `InternalsVisibleTo`.
+  Dry run by default with a unified diff; `--apply` journals, stages renames with `git mv`,
+  leaves project edits unstaged, verifies, and rolls back on failure. `--include-helpers`,
+  `--prune-packages` (`schemas/v1/move-tests.json`).
+- `offramp move rollback --journal PATH`: undoes an applied move exactly, and refuses when a file
+  changed since (`schemas/v1/move-rollback.json`, `schemas/v1/journal.json`).
+- `Offramp.Refactoring`: change sets (new files, edits, renames) with a unified-diff preview, a
+  journal written before every step, purity checks on every rename, and rollback; project-file
+  editing with Microsoft.Build's construction model (formatting, byte order mark, and line
+  endings kept); solution editing.
+- Diagnostics OFR2002, OFR2050, OFR2103, OFR2104, OFR2151, OFR2201–2206, and OFR2210.
+- Fixture `tests-in-prod`, also added to the scan and graph snapshots.
+- ADR 0018 (helper evidence, trial compilation, rollback that refuses to clobber).
+
 ## [0.4.0] - 2026-09-26
 
 ### Added

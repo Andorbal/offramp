@@ -113,8 +113,9 @@ offramp move apply --plan plan.json [--verify none|per-project|batch:N|end] [--o
    `--force`).
 2. Check every file's `sha256` still matches (`OFR2150 file changed since
    plan`, skipped).
-3. Open a journal `.offramp/journal/<timestamp>.json`; write each step before
-   performing it (rename, edit with the original content).
+3. Open a journal `.offramp/journal/<yyyyMMdd-HHmmss>-<command>.json`; write
+   each step before performing it (rename, edit with the original content, and
+   the SHA-256 the file has after the step).
 4. Perform project edits first, then renames (`git mv`, or `File.Move` outside
    a repo, creating directories as needed).
 5. Verify per the policy. On failure with `rollback`, undo from the journal
@@ -133,42 +134,107 @@ project.
 
 ```
 offramp move tests --project SRC.csproj [--to TESTS.csproj] [--create]
-                   [--include-helpers high|medium|low|none] [--apply] [--verify ...]
+                   [--include-helpers high|medium|low|none] [--prune-packages]
+                   [--apply] [--verify none|end]
 ```
 
-Detection (semantic):
+Detection (semantic, C# only; another language is `OFR2205`):
 - **Test file**: any type with an attribute whose containing assembly is a
-  known test framework (`xunit.core`, `nunit.framework`,
+  known test framework (`xunit.core`, `xunit.v3.core`, `nunit.framework`,
   `Microsoft.VisualStudio.TestPlatform.TestFramework`, `TUnit.Core`), or that
   derives from a known test base type. Confidence `certain`.
-- **Helper file**: iterate to a fixpoint: a file is a helper when it is not a
-  test file and every reference to every symbol it declares comes from test
-  or helper files (via `SymbolFinder.FindReferencesAsync` within the source
-  project's compilation and the existing test project's compilation).
-  Confidence `high`. Signals that raise a `medium` candidate (referenced from
-  nowhere, i.e. dead or reflected) to review status: names containing
-  `Builder`, `Fake`, `Stub`, `Mock`, `Fixture`, `TestData`, `Harness`;
-  imports of Moq, NSubstitute, FakeItEasy, AutoFixture, Bogus, FluentAssertions,
-  Shouldly; residence under a `Tests`/`Testing`/`TestSupport` folder.
-  Symbols reachable by string (`Type.GetType`, `Activator.CreateInstance` with
-  names) or by convention-based DI registration are never above `medium`.
-- Files referenced by production code are never moved (`OFR2201`).
+- **Helper file**: iterate to a fixpoint over which files use which (every
+  simple name bound with the semantic model, in the source project and in the
+  compilations of every project that depends on it). A candidate is a non-test
+  file with test-support evidence: it uses a test framework, assertion, or
+  mocking library (`xunit.assert`, Moq, NSubstitute, FakeItEasy, AutoFixture,
+  Bogus, FluentAssertions, Shouldly), a declared type's name contains `Builder`,
+  `Fake`, `Stub`, `Mock`, `Fixture`, `TestData`, or `Harness`, or it lives under
+  a `Tests`, `Test`, `Testing`, `TestSupport`, `TestData`, `TestHelpers`,
+  `Fakes`, or `Mocks` folder. A candidate is a helper when every user of what
+  it declares is a test or another helper (or the destination project) and a
+  test reaches it; confidence `high`. A file used only by tests but with no
+  evidence is the code under test and stays
+  (`docs/decisions/0018-move-tests.md`).
+- Used by nothing at all: `medium` with evidence (listed for review as
+  `candidates`), `low` without (unused code, not listed). A helper whose type
+  name appears in a string literal (`Type.GetType("...")`) is never above
+  `medium`.
+- Files used by production code, or by a project other than the destination,
+  are never moved (`OFR2201`, with the users listed).
+- `--include-helpers` (default `move.tests.helperMinConfidence`, `high`) moves
+  helpers at or above that confidence; `none` moves tests only.
 
 Target selection: `--to`, else a project whose name equals `SRC` name +
 `move.tests.targetSuffix` anywhere in the solution (`OFR2202` if several),
-else with `--create` a new project next to `SRC` named `<Name>.Tests` from a
-template matching the detected framework and `SRC`'s modern target (dual if
-`SRC` is dual), else `OFR2203`.
+else with `--create` a new project next to `SRC` (`src/Bar` gets
+`src/Bar.Tests/Bar.Tests.csproj`) named `<Name>.Tests`, else `OFR2203`. The
+destination may not be the source (`OFR2002`). A created project is SDK-style,
+targets `SRC`'s target frameworks, copies its `LangVersion`, `Nullable`,
+`ImplicitUsings`, and .NET Framework `Reference` items, references `SRC`, and
+gets the detected framework's packages from `rules/test-projects.yml` (the
+framework package at `SRC`'s version); it is added to the model's solution
+(and, for a solution filter, to the filter and the solution it filters).
 
 Path mapping: relative path under `SRC` preserved, with a `Tests` directory
 segment removed when `stripTestsSegment` (so `Foo/Service/Tests/X.cs` →
-`Foo.Tests/Service/X.cs`). Collisions → `OFR2204`, file skipped.
+`Foo.Tests/Service/X.cs`). Collisions (the path exists, or two files map to
+it) → `OFR2204`, file skipped. A file linked from outside `SRC`'s folder has no
+destination (`OFR2206`).
 
-Then: delegate to the `move plan` machinery (same purity, references, trial
-compile) with `DEST` = the test project; add `InternalsVisibleTo`; after
-applying, if `SRC` no longer references any test-framework symbol, propose
-removing the test-framework `PackageReference`s (`OFR2210`, applied with
-`--prune-packages`).
+Then the `move plan` machinery:
+- **Trial compilation** in the destination, for `SRC`'s preferred target
+  framework (the first `net4x`, else the first): the destination's recorded
+  compilation (or, for a new project, `SRC`'s .NET Framework references), with
+  `SRC` minus the moved files (and an `InternalsVisibleTo` for the destination)
+  in place of its old reference, plus the package and project references the
+  moved files need that the destination lacks. A file with errors stays
+  (`OFR2103`, warning, first three errors); repeat until the rest compiles.
+  .NET Framework references are never added to an existing destination, so a
+  file needing one stays.
+- **Source check**: `SRC` minus the moved files must compile with no new
+  errors; otherwise nothing moves (`OFR2104`), since `SRC` cannot reference its
+  test project.
+- **Project edits**: the destination gets `ProjectReference` to `SRC` if
+  missing, `PackageReference`s for needed packages (the direct package of
+  `SRC` that supplies each assembly, at `SRC`'s version; versionless under
+  central package management), `ProjectReference`s for needed projects, and
+  `Compile Include` items when not SDK-style. `SRC` loses explicit
+  `Compile Include` items for moved files and gets `InternalsVisibleTo` for
+  the destination (an item in SDK-style projects, else a line in
+  `Properties/AssemblyInfo.cs`) when moved code uses its internals; a
+  strong-named `SRC` or a legacy one without `AssemblyInfo.cs` keeps such
+  files (`OFR2103`).
+- **Pruning**: when nothing left in `SRC` uses a test framework, its
+  test-framework `PackageReference`s are reported (`OFR2210`) and removed with
+  `--prune-packages`.
+
+Without `--apply` the result carries `preview`: a unified diff of the project
+files and the list of renames; nothing is written. With `--apply` the change
+set is applied as in `move apply` (journal, edits first, then `git mv`), then
+verified once (the source, the destination, and the source's direct
+dependents) unless `--verify none` (default `move.verify`). A failed
+verification rolls back (`OFR2050`) unless `verify.onFailure: keep` (exit 4).
+
+Result (`schemas/v1/move-tests.json`): `project`, `to`, `created`,
+`framework`, `moves: [{ file, to, kind: test|helper, confidence, reasons }]`,
+`skipped: [{ file, code, message, details }]`, `candidates`,
+`projectEdits: [{ project, kind, value, version }]`, `prunable`, `applied`,
+`journal`, `rolledBack`, `preview`, `verify`.
+
+## `move rollback`
+
+```
+offramp move rollback --journal PATH
+```
+
+Undoes an applied change set from its journal
+(`.offramp/journal/<yyyyMMdd-HHmmss>-<command>.json`, `schemas/v1/journal.json`):
+renames reversed with `git mv`, edited files restored byte for byte, created
+files deleted, and directories the move created removed when empty. Each
+journal step records the SHA-256 its file had after the step; when any file
+changed since, nothing is undone (`OFR2151`, with the files listed). Result
+(`schemas/v1/move-rollback.json`): `journal`, `command`, `undone`, `changed`.
 
 ## `move extract`
 
@@ -217,5 +283,12 @@ offramp forwarders --from SRC.csproj --to DEST.csproj [--since GIT_REF] [--apply
 | OFR2111 | destination excludes the file's path |
 | OFR2120 | namespace differs from destination root namespace |
 | OFR2150 | file changed since plan |
-| OFR2201–2210 | test move specific (see above) |
+| OFR2151 | file changed since the move; rollback stopped |
+| OFR2201 | test code used by production code (or another project); not moved |
+| OFR2202 | multiple candidate test projects |
+| OFR2203 | no test project found; use `--to` or `--create` |
+| OFR2204 | destination path collision |
+| OFR2205 | project language not supported by `move tests` |
+| OFR2206 | file linked from outside the project folder |
+| OFR2210 | test-framework packages removable from source |
 | OFR2301 | string reference to moved type found |
