@@ -14,6 +14,8 @@ namespace Offramp.Workspace;
     ReadCommentHandling = JsonCommentHandling.Skip,
     AllowTrailingCommas = true)]
 [JsonSerializable(typeof(DoctorReport))]
+[JsonSerializable(typeof(Offramp.Workspace.Guide.GuideResult))]
+[JsonSerializable(typeof(Offramp.Workspace.Guide.GuideState))]
 [JsonSerializable(typeof(Offramp.Workspace.Init.InitResult))]
 [JsonSerializable(typeof(Offramp.Workspace.Planning.PlanResult))]
 [JsonSerializable(typeof(Offramp.Workspace.Store.LedgerSnapshot))]

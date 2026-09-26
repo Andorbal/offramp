@@ -64,6 +64,8 @@ public static class McpToolCatalog
         offramp_move_extract, offramp_codemod_run, offramp_csproj_modernize; offramp_verify builds; offramp_report shows progress.
         Every tool returns the command's JSON envelope (result, diagnostics with OFR codes, exit code). Commands that write are
         dry runs unless the server allows --apply; offramp_move_rollback undoes an applied change from its journal.
+        offramp_guide shows the same path as a checklist for this repository: what is done, what is open next (result.next),
+        and why each step matters; run=STEP runs one, done/skip=STEP record progress in .offramp/guide.json.
         """;
 
     public static McpCatalog Build(CliHost host, string root, bool allowApply)

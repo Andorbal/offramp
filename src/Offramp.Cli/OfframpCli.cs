@@ -18,6 +18,7 @@ public static class OfframpCli
 
         root.Subcommands.Add(DoctorCommand.Create(host, globals));
         root.Subcommands.Add(InitCommand.Create(host, globals));
+        root.Subcommands.Add(GuideCommand.Create(host, globals));
         root.Subcommands.Add(ScanCommand.Create(host, globals));
         root.Subcommands.Add(SliceCommand.Create(host, globals));
         root.Subcommands.Add(GraphCommand.Create(host, globals));
@@ -48,6 +49,7 @@ public static class OfframpCli
         root.SetAction(parse => ((SynchronousCommandLineAction)help.Action!).Invoke(parse));
 
         HelpExamples.Add(root,
+            "offramp guide",
             "offramp doctor",
             "offramp init --defaults",
             "offramp doctor --json | jq .result.summary");

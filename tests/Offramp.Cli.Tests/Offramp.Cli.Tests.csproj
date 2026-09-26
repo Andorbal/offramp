@@ -4,6 +4,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Spectre.Console.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Offramp.Cli\Offramp.Cli.csproj" />
     <ProjectReference Include="..\Offramp.Fixtures\Offramp.Fixtures.csproj" />
   </ItemGroup>

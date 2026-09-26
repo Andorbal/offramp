@@ -55,6 +55,7 @@ public sealed class McpServeTests
         Assert.Contains("offramp_deps_audit", names);
         Assert.Contains("offramp_move_plan", names);
         Assert.Contains("offramp_deps_resolve_dlls", names);
+        Assert.Contains("offramp_guide", names);
         Assert.DoesNotContain(names, n => n.StartsWith("offramp_mcp", StringComparison.Ordinal));
         var audit = tools.Single(t => t.Name == "offramp_deps_audit").JsonSchema;
         Assert.True(audit.GetProperty("properties").TryGetProperty("package", out _));

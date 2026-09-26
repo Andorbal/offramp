@@ -42,6 +42,10 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0021](#ofr0021) | error | workspace | project not in the workspace model |
 | [OFR0022](#ofr0022) | error | workspace | no solution found |
 | [OFR0030](#ofr0030) | error | configuration | offramp.yml already exists |
+| [OFR0040](#ofr0040) | error | guide | guide progress file unreadable |
+| [OFR0041](#ofr0041) | error | guide | guide step needs a project |
+| [OFR0042](#ofr0042) | warning | guide | guide step did not complete |
+| [OFR0043](#ofr0043) | error | guide | guide step cannot be skipped or marked done |
 | [OFR0050](#ofr0050) | warning | configuration | unknown key in offramp.yml |
 | [OFR0051](#ofr0051) | warning | configuration | pin without a reason |
 | [OFR0052](#ofr0052) | info | configuration | rule override without a reason |
@@ -355,6 +359,42 @@ A project named on the command line is not part of the scanned solution.
 
 - **Typical cause:** `init` was run twice.
 - **Fix:** Edit the existing file, or re-run with `--force` to replace it.
+
+### OFR0040
+
+**guide progress file unreadable** · error · guide
+
+`offramp guide` keeps its progress in `<state>/guide.json`, and that file is not valid, so the guide stopped without changing it.
+
+- **Typical cause:** The file was edited by hand, cut off by a full disk, or written by a newer Offramp.
+- **Fix:** Fix the JSON, or run `offramp guide --reset all` to start the guide's record over (the workspace model and everything else stay).
+
+### OFR0041
+
+**guide step needs a project** · error · guide
+
+The step is done per project, several projects are still open for it, and no `--project` said which one to run.
+
+- **Typical cause:** `offramp guide --run STEP` without a terminal to ask on, for a step such as `move-tests` or `port`.
+- **Fix:** Pass `--project` with one of the projects the message lists, or run `offramp guide` on a terminal to pick one.
+
+### OFR0042
+
+**guide step did not complete** · warning · guide
+
+A step the guide ran exited with a failure, so the step stays open. The step's own output says what went wrong.
+
+- **Typical cause:** `doctor` found a failing check, a command could not run (no workspace model, bad options), or an applied change failed verification.
+- **Fix:** Fix what the step reported and run it again, or mark it done or skipped if it does not matter for this repository.
+
+### OFR0043
+
+**guide step cannot be skipped or marked done** · error · guide
+
+The guide decides this step from the repository itself: `scan` is done while the workspace model exists and is fresh, and every later step reads the model.
+
+- **Typical cause:** `offramp guide --skip scan` or `--done scan`.
+- **Fix:** Run `offramp scan` (or `offramp guide --run scan`).
 
 ### OFR0050
 

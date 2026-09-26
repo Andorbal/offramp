@@ -6,11 +6,11 @@ Every command follows these rules. A command that deviates is a bug.
 
 ```
 offramp <group> <command> [options]
-offramp <command> [options]          # top-level commands: scan, doctor, init, graph, plan, verify, slice, report
+offramp <command> [options]          # top-level commands: scan, doctor, init, guide, graph, plan, verify, slice, report
 ```
 
 Groups: `deps`, `move`, `audit`, `extract`, `csproj`, `config`, `codemod`,
-`mcp`. Single-word commands: `scan`, `doctor`, `init`, `graph`, `plan`,
+`mcp`. Single-word commands: `scan`, `doctor`, `init`, `guide`, `graph`, `plan`,
 `verify`, `slice`, `report`, `seams`, `remote`, `service`, `web`,
 `forwarders`, `ifdef`, `redirects`.
 
@@ -157,6 +157,8 @@ Offramp should feel like a well-made modern CLI (think OpenCode, Claude Code,
 
 ## Interactivity
 
-No command *requires* a TTY. Anything a prompt can ask has a flag. The `init`
-command is the only conversational one, and `init --defaults` writes the
-detected configuration without asking.
+No command *requires* a TTY. Anything a prompt can ask has a flag. `init` and
+`guide` are the only conversational commands: `init --defaults` writes the
+detected configuration without asking, and `guide` without a terminal reports
+where the migration stands, with `--run`, `--done`, `--skip`, and `--reset`
+for its questions (`commands/guide.md`).

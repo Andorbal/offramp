@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/guide.json",
+  "title": "offramp guide result",
+  "description": "The result of `offramp guide`: where the migration stands, what was run, and what could come next. See docs/spec/commands/guide.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["stateFile", "started", "interactive", "target", "ran", "stage", "next", "stages", "counts"],
+  "properties": {
+    "stateFile": { "$ref": "workspace.json#/$defs/relativePath" },
+    "started": { "type": "boolean", "description": "This run created the progress file." },
+    "interactive": { "type": "boolean", "description": "A session ran (a terminal without --json or action flags)." },
+    "target": { "type": "string", "pattern": "^net[0-9]+\\.0$" },
+    "ran": {
+      "type": "array",
+      "description": "Steps this run executed, in order.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step", "project", "command", "exitCode", "outcome", "envelope"],
+        "properties": {
+          "step": { "$ref": "#/$defs/stepId" },
+          "project": { "oneOf": [{ "$ref": "workspace.json#/$defs/relativePath" }, { "type": "null" }] },
+          "command": { "type": "string", "pattern": "^offramp " },
+          "exitCode": { "type": "integer" },
+          "outcome": { "enum": ["done", "previewed", "failed"] },
+          "envelope": {
+            "description": "The command's JSON envelope, with --json; null otherwise.",
+            "oneOf": [{ "$ref": "envelope.json" }, { "type": "null" }]
+          }
+        }
+      }
+    },
+    "stage": { "oneOf": [{ "$ref": "#/$defs/stageId" }, { "type": "null" }], "description": "The first stage with an open step; null when nothing is open." },
+    "next": { "type": "array", "items": { "$ref": "#/$defs/stepId" }, "description": "The current stage's open steps: the choices." },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "status", "steps"],
+        "properties": {
+          "id": { "$ref": "#/$defs/stageId" },
+          "title": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["done", "current", "upcoming"] },
+          "steps": { "type": "array", "items": { "$ref": "#/$defs/step" } }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["steps", "done", "skipped", "open", "blocked", "notApplicable"],
+      "properties": {
+        "steps": { "type": "integer", "minimum": 0 },
+        "done": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "open": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "notApplicable": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "stageId": { "enum": ["setup", "understand", "prepare", "port"] },
+    "stepId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "why", "command", "writes", "requires", "status", "note", "projects"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stepId" },
+        "title": { "type": "string", "minLength": 1 },
+        "why": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "pattern": "^offramp ", "description": "With {project} for steps done per project." },
+        "writes": { "enum": ["nothing", "state", "config", "repository"] },
+        "requires": { "type": "array", "items": { "$ref": "#/$defs/stepId" } },
+        "status": { "$ref": "#/$defs/status" },
+        "note": { "type": ["string", "null"] },
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["project", "status", "command", "note"],
+            "properties": {
+              "project": { "$ref": "workspace.json#/$defs/relativePath" },
+              "status": { "enum": ["done", "skipped", "open"] },
+              "command": { "type": "string", "pattern": "^offramp " },
+              "note": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "status": { "enum": ["done", "skipped", "open", "blocked", "notApplicable"] }
+  }
+}

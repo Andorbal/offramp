@@ -16,6 +16,7 @@ machine-readable output so the next tool, a CI job, or an AI agent can use it.
 
 | Area | Commands | What you get |
 |---|---|---|
+| Get started | `guide` | A step-by-step walk through the migration that explains each step, runs it, and remembers where you are |
 | Understand | `scan`, `doctor`, `graph`, `report`, `plan` | A workspace model, a dependency graph you can show stakeholders, and a leaf-first migration order |
 | Dependencies | `deps audit`, `deps consolidate`, `deps resolve-dlls`, `deps gac`, `redirects sync` | Which packages support your target, one version per package, no more binding-redirect archaeology |
 | Move code | `move tests`, `move plan`/`move apply`, `move extract`, `forwarders` | Pure, git-friendly moves of files and test code between projects, verified by compilation |
@@ -35,6 +36,20 @@ offramp doctor        # checks SDKs, reference packs, git, and your repo
 offramp init          # writes offramp.yml with detected defaults
 offramp scan          # builds the workspace model in .offramp/
 ```
+
+## Not sure where to start?
+
+```bash
+offramp guide
+```
+
+The guide walks through the migration one step at a time: it explains why each
+step matters, runs the Offramp command for it, remembers what is done in
+`.offramp/guide.json`, and asks whenever more than one step could come next. It
+does not try to migrate the application for you, and it never changes your code
+unless you start it with `--apply`. Without a terminal (or with `--json`) it
+reports where you are; `--run`, `--done`, and `--skip` move it along. See
+[docs/spec/commands/guide.md](docs/spec/commands/guide.md).
 
 ## Five-minute tour
 

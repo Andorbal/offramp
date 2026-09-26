@@ -1,0 +1,436 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "guide",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": null,
+    "workspaceHash": null,
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "stateFile": ".offramp/guide.json",
+    "started": true,
+    "interactive": false,
+    "target": "net10.0",
+    "ran": [
+      {
+        "step": "doctor",
+        "project": null,
+        "command": "offramp doctor",
+        "exitCode": 0,
+        "outcome": "done",
+        "envelope": "{Envelope of offramp doctor}"
+      }
+    ],
+    "stage": "setup",
+    "next": [
+      "init"
+    ],
+    "stages": [
+      {
+        "id": "setup",
+        "title": "Get set up",
+        "status": "current",
+        "steps": [
+          {
+            "id": "doctor",
+            "title": "Check the machine and the repository",
+            "why": "Offramp needs a .NET SDK that can build net10.0, the .NET Framework reference assemblies (so .NET Framework code compiles on any OS), and git (so moves show up as renames). Doctor checks these and your repository and says how to fix whatever is missing.",
+            "command": "offramp doctor",
+            "writes": "nothing",
+            "requires": [],
+            "status": "done",
+            "note": null,
+            "projects": []
+          },
+          {
+            "id": "init",
+            "title": "Write offramp.yml",
+            "why": "offramp.yml records the target .NET version, which solution to work on, how changes are verified, and package versions you must keep. Every command reads it. On a terminal, init asks a few questions with the detected answers as defaults, and it adds Offramp's scratch files to .gitignore.",
+            "command": "offramp init",
+            "writes": "config",
+            "requires": [
+              "doctor"
+            ],
+            "status": "open",
+            "note": null,
+            "projects": []
+          },
+          {
+            "id": "scan",
+            "title": "Build the workspace model",
+            "why": "Offramp builds your solution once with a binary log and reads everything else from it: projects, references, packages, and exactly what the compiler saw. Every later step reads this model, so scan again whenever project files change; the guide notices when the model is out of date.",
+            "command": "offramp scan",
+            "writes": "state",
+            "requires": [
+              "init"
+            ],
+            "status": "blocked",
+            "note": "Waiting on: init.",
+            "projects": []
+          },
+          {
+            "id": "compile-only",
+            "title": "Let macOS and Linux compile projects with Windows-only build steps",
+            "why": "Some projects run build steps that only work on Windows (sgen, COM references, T4, SQL projects, build events). A small block in Directory.Build.props skips those steps outside Windows so the code still compiles for analysis and for your IDE. Builds on Windows do not change.",
+            "command": "offramp doctor --fix",
+            "writes": "repository",
+            "requires": [
+              "doctor",
+              "scan"
+            ],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          }
+        ]
+      },
+      {
+        "id": "understand",
+        "title": "See what you have",
+        "status": "upcoming",
+        "steps": [
+          {
+            "id": "plan",
+            "title": "See the order to port projects in",
+            "why": "A project can move to net10.0 only after the .NET Framework projects it depends on. plan sorts them into waves: wave 1 can be ported today (the frontier), wave 2 right after, and so on. Projects in a reference cycle share a wave, and the cycle has to be broken first.",
+            "command": "offramp plan --waves",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Comes after “Get set up”.",
+            "projects": []
+          },
+          {
+            "id": "graph",
+            "title": "Look at the dependency graph",
+            "why": "The same projects as a picture: what depends on what, colored by framework. The terminal shows a summary; `offramp graph --format html --out graph.html` writes a page you can open offline and show to others.",
+            "command": "offramp graph",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Comes after “Get set up”.",
+            "projects": []
+          },
+          {
+            "id": "deps-audit",
+            "title": "Check your NuGet packages against net10.0",
+            "why": "Packages are often what holds a migration up. For each package this shows whether the version you use supports net10.0, the lowest version that does, and a successor when the package is abandoned or Windows-only.",
+            "command": "offramp deps audit",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "audit-api",
+            "title": "Find APIs that are missing on net10.0",
+            "why": "Lists every use of an API that does not exist on net10.0 or throws there (System.Web, AppDomain, remoting, WCF services, ...), with what to use instead. This is most of the work of porting a project, so it is worth knowing its size early.",
+            "command": "offramp audit api",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Comes after “Get set up”.",
+            "projects": []
+          },
+          {
+            "id": "audit-behavior",
+            "title": "Find code that compiles but behaves differently",
+            "why": "Some code compiles on both and does something else at runtime: culture-sensitive string comparison, Windows time zone IDs, Process.Start with a URL, System.Data.SqlClient defaults. This audit finds those places so tests can cover them before you switch.",
+            "command": "offramp audit behavior",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Comes after “Get set up”.",
+            "projects": []
+          },
+          {
+            "id": "audit-serialization",
+            "title": "Find binary serialization",
+            "why": "BinaryFormatter is gone in .NET 9 and later. This finds it and tells the harmless deep-clone idiom apart from data written to files, caches, or the network, which needs a plan for reading old data.",
+            "command": "offramp audit serialization",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Comes after “Get set up”.",
+            "projects": []
+          },
+          {
+            "id": "audit-native",
+            "title": "Find native interop and COM",
+            "why": "P/Invoke declarations and COM usage tie code to Windows or change marshalling on net10.0. This lists them so you know which code needs Windows or a different approach.",
+            "command": "offramp audit native",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Comes after “Get set up”.",
+            "projects": []
+          },
+          {
+            "id": "audit-dead-code",
+            "title": "Find code nobody uses",
+            "why": "Code that nothing calls does not need porting. Each candidate has a confidence level; deleting the high-confidence ones before you start makes everything after it smaller.",
+            "command": "offramp audit dead-code",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Comes after “Get set up”.",
+            "projects": []
+          },
+          {
+            "id": "web-inventory",
+            "title": "Take stock of each ASP.NET application",
+            "why": "An ASP.NET application does not port by adding a target: it moves to ASP.NET Core piece by piece. The inventory lists its controllers, routes, filters, modules, handlers, session and authentication use, so you can see what that involves.",
+            "command": "offramp web inventory --project {project}",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "report",
+            "title": "Make a progress report",
+            "why": "A summary for stakeholders: how much is portable, which applications are blocked by what, and what can be ported today. Every scan adds a point to the burn-down, so run it again as you go; `offramp report --out report.html` writes a page to share.",
+            "command": "offramp report",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Comes after “Get set up”.",
+            "projects": []
+          }
+        ]
+      },
+      {
+        "id": "prepare",
+        "title": "Tidy up while still on .NET Framework",
+        "status": "upcoming",
+        "steps": [
+          {
+            "id": "move-tests",
+            "title": "Move test code out of production projects",
+            "why": "Tests kept inside a production project pull test frameworks into production and have to be ported with it. This moves test files, byte for byte and with git mv, into a test project (created next to it when there is none).",
+            "command": "offramp move tests --project {project} --create",
+            "writes": "repository",
+            "requires": [],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "csproj-modernize",
+            "title": "Convert legacy project files to SDK style",
+            "why": "SDK-style project files are short, use PackageReference, and can target .NET Framework and net10.0 at the same time, which is how projects are ported one at a time. The conversion is checked by building both versions and comparing what the compiler gets.",
+            "command": "offramp csproj modernize --all",
+            "writes": "repository",
+            "requires": [],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "deps-consolidate",
+            "title": "Use one version of each package",
+            "why": "Different versions of the same package across projects cause binding redirects and restore conflicts once projects start to multi-target. This picks one version per package that satisfies every project, respects your pins, and checks it with a real restore.",
+            "command": "offramp deps consolidate --all",
+            "writes": "repository",
+            "requires": [],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "resolve-dlls",
+            "title": "Replace references to loose DLLs",
+            "why": "References to DLLs checked into the repository hide what you depend on, and those DLLs rarely work on net10.0. This replaces each with the project that builds it or the NuGet package that ships it, and lists the ones it cannot place.",
+            "command": "offramp deps resolve-dlls",
+            "writes": "repository",
+            "requires": [],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "codemods",
+            "title": "Apply the automatic rewrites",
+            "why": "Codemods rewrite recurring patterns into code that works on both .NET Framework and net10.0, such as System.Data.SqlClient to Microsoft.Data.SqlClient. You see every change as a diff first, and applied changes are checked with a build.",
+            "command": "offramp codemod run --mod all",
+            "writes": "repository",
+            "requires": [],
+            "status": "blocked",
+            "note": "Comes after “Get set up”.",
+            "projects": []
+          }
+        ]
+      },
+      {
+        "id": "port",
+        "title": "Port, a wave at a time",
+        "status": "upcoming",
+        "steps": [
+          {
+            "id": "port",
+            "title": "Add net10.0 to the projects that are ready",
+            "why": "A project is ready when everything it depends on already runs on net10.0. This step adds net10.0 next to its .NET Framework target, and the dry run first builds both in a scratch copy. If that build fails, its errors are the to-do list: fix them in the .NET Framework code, so the repository keeps building, and run the step again. `offramp audit api --project P` explains each API, `offramp codemod run --project P` rewrites common patterns, #if NETFRAMEWORK covers the rest, and `offramp seams --project P` fences off code that cannot move. (To add the target anyway and fix forward on a branch, run the command with --accept-diff.) After applying, scan again: the project leaves the frontier and the next wave opens.",
+            "command": "offramp csproj modernize --project {project} --tfm {tfms}",
+            "writes": "repository",
+            "requires": [],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "config-convert",
+            "title": "Move application settings to appsettings.json",
+            "why": "Modern .NET reads settings through IConfiguration, not App.config or Web.config. This turns appSettings, connection strings, and custom sections into appsettings.json with an options class per section, and can add a shim so existing ConfigurationManager calls keep working meanwhile.",
+            "command": "offramp config convert --project {project}",
+            "writes": "repository",
+            "requires": [],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "service",
+            "title": "Turn Windows services into workers",
+            "why": "A ServiceBase or Topshelf service becomes a worker for the generic host that runs in a Linux container, as a Windows service, or both, with health checks and JSON logs if you want them. The old project stays until you remove it.",
+            "command": "offramp service --project {project}",
+            "writes": "repository",
+            "requires": [],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "web-scaffold",
+            "title": "Start an ASP.NET Core front for each web application",
+            "why": "The strangler fig: a new ASP.NET Core application serves the controller actions that already port and forwards everything else to the old application, so the web front moves one route at a time while both run.",
+            "command": "offramp web scaffold --project {project} --new {new}",
+            "writes": "repository",
+            "requires": [
+              "web-inventory"
+            ],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "steps": 23,
+      "done": 1,
+      "skipped": 0,
+      "open": 1,
+      "blocked": 21,
+      "notApplicable": 0
+    }
+  },
+  "diagnostics": [],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 0
+  }
+}
