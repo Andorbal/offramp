@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Offramp.Scaffolding.Remote;
+using Offramp.Scaffolding.Service;
 
 namespace Offramp.Scaffolding;
 
@@ -14,6 +15,7 @@ namespace Offramp.Scaffolding;
     ReadCommentHandling = JsonCommentHandling.Skip,
     AllowTrailingCommas = true)]
 [JsonSerializable(typeof(RemoteResult))]
+[JsonSerializable(typeof(ServiceResult))]
 public sealed partial class ScaffoldingJsonContext : JsonSerializerContext
 {
 }

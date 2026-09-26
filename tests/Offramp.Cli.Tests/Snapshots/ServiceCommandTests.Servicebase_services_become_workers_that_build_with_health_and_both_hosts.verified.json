@@ -1,0 +1,293 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "service",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "WindowsService.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "project": "src/Heartbeat/Heartbeat.csproj",
+    "host": "both",
+    "services": [
+      {
+        "kind": "servicebase",
+        "type": "Heartbeat.HeartbeatService",
+        "serviceName": "Heartbeat",
+        "displayName": "Heartbeat",
+        "description": "Records a beat every few seconds.",
+        "account": "LocalSystem",
+        "startType": "Automatic",
+        "dependsOn": [
+          "EventLog"
+        ],
+        "lifecycle": [
+          "OnStart",
+          "OnStop",
+          "OnPause",
+          "OnContinue"
+        ],
+        "timers": [
+          {
+            "name": "_timer",
+            "kind": "System.Timers.Timer",
+            "interval": "5000",
+            "callback": "OnElapsed",
+            "converted": true
+          }
+        ],
+        "logging": [
+          "EventLog",
+          "Trace"
+        ],
+        "configuration": [
+          "Source"
+        ],
+        "worker": "Heartbeat.HeartbeatWorker"
+      },
+      {
+        "kind": "servicebase",
+        "type": "Heartbeat.JanitorService",
+        "serviceName": "Janitor",
+        "displayName": null,
+        "description": null,
+        "account": "LocalSystem",
+        "startType": "Manual",
+        "dependsOn": [],
+        "lifecycle": [
+          "OnStart",
+          "OnStop",
+          "OnSessionChange"
+        ],
+        "timers": [
+          {
+            "name": "_sweep",
+            "kind": "System.Threading.Timer",
+            "interval": null,
+            "callback": null,
+            "converted": false
+          }
+        ],
+        "logging": [],
+        "configuration": [],
+        "worker": "Heartbeat.JanitorWorker"
+      }
+    ],
+    "worker": {
+      "path": "src/Heartbeat.Worker/Heartbeat.Worker.csproj",
+      "sdk": "Microsoft.NET.Sdk.Web",
+      "targetFramework": "net10.0"
+    },
+    "linkedSources": [
+      "src/Heartbeat/Pulse.cs"
+    ],
+    "files": [
+      "src/Heartbeat.Worker/Dockerfile",
+      "src/Heartbeat.Worker/Dockerfile.dockerignore",
+      "src/Heartbeat.Worker/Heartbeat.Worker.csproj",
+      "src/Heartbeat.Worker/HeartbeatWorker.cs",
+      "src/Heartbeat.Worker/JanitorWorker.cs",
+      "src/Heartbeat.Worker/Program.cs",
+      "src/Heartbeat.Worker/WorkerHeartbeat.cs",
+      "src/Heartbeat.Worker/appsettings.json",
+      "src/Heartbeat.Worker/heartbeat-worker.service",
+      "src/Heartbeat.Worker/install.ps1",
+      "src/Heartbeat.Worker/kubernetes.yaml",
+      "src/Heartbeat.Worker/uninstall.ps1"
+    ],
+    "removals": [
+      {
+        "path": "src/Heartbeat/Heartbeat.csproj",
+        "reason": "Reference System.Configuration.Install: the worker uses Microsoft.Extensions.Hosting"
+      },
+      {
+        "path": "src/Heartbeat/Heartbeat.csproj",
+        "reason": "Reference System.ServiceProcess: the worker uses Microsoft.Extensions.Hosting"
+      },
+      {
+        "path": "src/Heartbeat/ProjectInstaller.cs",
+        "reason": "service installer: sc.exe (install.ps1) or the container platform installs the worker"
+      }
+    ],
+    "nextSteps": [
+      "dotnet sln add src/Heartbeat.Worker/Heartbeat.Worker.csproj",
+      "dotnet run --project src/Heartbeat.Worker/Heartbeat.Worker.csproj",
+      "docker build -f src/Heartbeat.Worker/Dockerfile -t heartbeat-worker .",
+      "kubectl apply -f src/Heartbeat.Worker/kubernetes.yaml",
+      "dotnet publish src/Heartbeat.Worker/Heartbeat.Worker.csproj -c Release -r win-x64, then run install.ps1 from the output as an administrator",
+      "On Linux: install heartbeat-worker.service with systemd (see the comment at its top)",
+      "offramp config convert, to move app.config settings to appsettings.json",
+      "Review the regions marked OFR4102 in the workers; then remove what the removals list names from the service project"
+    ],
+    "applied": false,
+    "journal": null,
+    "preview": "--- /dev/null\n+++ b/src/Heartbeat.Worker/Dockerfile\n@@ -0,0 +1,17 @@\n+# Generated by offramp service. Build from the repository root:\n+#   docker build -f src/Heartbeat.Worker/Dockerfile -t heartbeat-worker .\n+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build\n+WORKDIR /src\n+COPY . .\n+RUN dotnet publish src/Heartbeat.Worker/Heartbeat.Worker.csproj -c Release -o /app\n+\n+FROM mcr.microsoft.com/dotnet/aspnet:10.0\n+WORKDIR /app\n+COPY --from=build /app .\n+# The .NET images define a non-root user; server GC is left to configuration (DOTNET_gcServer).\n+USER $APP_UID\n+# The health endpoint listens on Health__Port; the image's default HTTP port setting is cleared.\n+ENV ASPNETCORE_HTTP_PORTS=\"\" \\\n+    Health__Port=8080\n+EXPOSE 8080\n+ENTRYPOINT [\"dotnet\", \"Heartbeat.Worker.dll\"]\n--- /dev/null\n+++ b/src/Heartbeat.Worker/Dockerfile.dockerignore\n@@ -0,0 +1,5 @@\n+**/bin/\n+**/obj/\n+**/.vs/\n+.git/\n+.offramp/\n--- /dev/null\n+++ b/src/Heartbeat.Worker/Heartbeat.Worker.csproj\n@@ -0,0 +1,23 @@\n+<Project Sdk=\"Microsoft.NET.Sdk.Web\">\n+  <!-- Generated by offramp service: the service as a hosted worker (both). -->\n+  <PropertyGroup>\n+    <OutputType>Exe</OutputType>\n+    <TargetFramework>net10.0</TargetFramework>\n+    <Nullable>disable</Nullable>\n+    <ImplicitUsings>disable</ImplicitUsings>\n+    <RootNamespace>Heartbeat</RootNamespace>\n+    <!-- ConfigurationManager reads Heartbeat.Worker.dll.config; `offramp config convert` moves the settings to appsettings.json. -->\n+    <AppConfig>..\\Heartbeat\\App.config</AppConfig>\n+  </PropertyGroup>\n+\n+  <ItemGroup>\n+    <PackageReference Include=\"Microsoft.Extensions.Hosting.Systemd\" Version=\"10.0.12\" />\n+    <PackageReference Include=\"Microsoft.Extensions.Hosting.WindowsServices\" Version=\"10.0.12\" />\n+    <PackageReference Include=\"System.Configuration.ConfigurationManager\" Version=\"10.0.12\" />\n+  </ItemGroup>\n+\n+  <!-- The code the service uses, compiled from src/Heartbeat until it moves here. -->\n+  <ItemGroup>\n+    <Compile Include=\"..\\Heartbeat\\Pulse.cs\" Link=\"Service\\Pulse.cs\" />\n+  </ItemGroup>\n+</Project>\n--- /dev/null\n+++ b/src/Heartbeat.Worker/HeartbeatWorker.cs\n@@ -0,0 +1,136 @@\n+// Generated by offramp service from Heartbeat.HeartbeatService. Review the regions marked OFR4102, then own this file.\n+using System;\n+using System.Configuration;\n+using System.Diagnostics;\n+using System.Timers;\n+\n+namespace Heartbeat\n+{\n+    /// <summary>Records a beat every few seconds.</summary>\n+    public sealed class HeartbeatWorker : Microsoft.Extensions.Hosting.BackgroundService\n+    {\n+        private readonly Microsoft.Extensions.Logging.ILogger<HeartbeatWorker> _workerLogger;\n+\n+        private readonly Heartbeat.WorkerHeartbeat _workerHeartbeat;\n+\n+        private readonly Pulse _pulse = new Pulse();\n+\n+        private bool _paused;\n+\n+        public HeartbeatWorker(Microsoft.Extensions.Logging.ILogger<HeartbeatWorker> logger, Heartbeat.WorkerHeartbeat heartbeat)\n+        {\n+            _workerLogger = logger;\n+            _workerHeartbeat = heartbeat;\n+        }\n+\n+        private void OnStart(string[] args)\n+        {\n+            _pulse.Reset(ConfigurationManager.AppSettings[\"Source\"] ?? \"heartbeat\");\n+            Log(Microsoft.Extensions.Logging.LogLevel.Information, \"Heartbeat started.\");\n+        }\n+\n+        private void OnStop()\n+        {\n+#if OFFRAMP_SERVICEBASE // OFR4102: ServiceBase.RequestAdditionalTime has no equivalent in the host; review.\n+            RequestAdditionalTime(2000);\n+#endif\n+            _pulse.Flush();\n+            Log(Microsoft.Extensions.Logging.LogLevel.Warning, \"Heartbeat stopped after \" + _pulse.Count + \" beats.\");\n+        }\n+\n+        private void OnPause()\n+        {\n+            _paused = true;\n+        }\n+\n+        private void OnContinue()\n+        {\n+            _paused = false;\n+        }\n+\n+        private void OnElapsed(object sender, ElapsedEventArgs e)\n+        {\n+            if (_paused)\n+            {\n+                return;\n+            }\n+\n+            _pulse.Beat(DateTime.UtcNow);\n+            Trace.WriteLine(\"beat \" + _pulse.Count);\n+        }\n+\n+        /// <summary>\n+        /// The host has no pause or continue (OFR4101): nothing calls <see cref=\"Pause\"/> or\n+        /// <see cref=\"Continue\"/> unless the application does. While paused, timer ticks are skipped.\n+        /// </summary>\n+        public bool Paused { get; private set; }\n+\n+        public void Pause()\n+        {\n+            Paused = true;\n+            OnPause();\n+        }\n+\n+        public void Continue()\n+        {\n+            Paused = false;\n+            OnContinue();\n+        }\n+\n+        protected override async System.Threading.Tasks.Task ExecuteAsync(System.Threading.CancellationToken stoppingToken)\n+        {\n+            // OnStart runs off the host's startup path, as it did under the service control manager.\n+            await System.Threading.Tasks.Task.Yield();\n+            OnStart(System.Array.Empty<string>());\n+            _workerHeartbeat.Beat(\"HeartbeatWorker\");\n+            try\n+            {\n+                await EveryAsync(System.TimeSpan.FromMilliseconds(5000), () => OnElapsed(null, null), stoppingToken);\n+            }\n+            catch (System.OperationCanceledException) when (stoppingToken.IsCancellationRequested)\n+            {\n+            }\n+        }\n+\n+        public override async System.Threading.Tasks.Task StopAsync(System.Threading.CancellationToken cancellationToken)\n+        {\n+            // Stop the ticks first, then run OnStop.\n+            await base.StopAsync(cancellationToken);\n+            OnStop();\n+        }\n+\n+        /// <summary>\n+        /// A converted System.Timers.Timer: runs <paramref name=\"tick\"/> every <paramref name=\"interval\"/> until\n+        /// the host stops. A failing tick is logged and the next one runs, as with the timer.\n+        /// </summary>\n+        private async System.Threading.Tasks.Task EveryAsync(System.TimeSpan interval, System.Action tick, System.Threading.CancellationToken stoppingToken)\n+        {\n+            using (var timer = new System.Threading.PeriodicTimer(interval))\n+            {\n+                while (await timer.WaitForNextTickAsync(stoppingToken))\n+                {\n+                    if (Paused)\n+                    {\n+                        continue;\n+                    }\n+\n+                    try\n+                    {\n+                        tick();\n+                    }\n+                    catch (System.Exception exception)\n+                    {\n+                        Microsoft.Extensions.Logging.LoggerExtensions.LogError(_workerLogger, exception, \"A timer tick failed.\");\n+                    }\n+\n+                    _workerHeartbeat.Beat(\"HeartbeatWorker\");\n+                }\n+            }\n+        }\n+\n+        private void Log(Microsoft.Extensions.Logging.LogLevel level, string message)\n+        {\n+            Microsoft.Extensions.Logging.LoggerExtensions.Log(_workerLogger, level, \"{Message}\", message);\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Heartbeat.Worker/JanitorWorker.cs\n@@ -0,0 +1,73 @@\n+// Generated by offramp service from Heartbeat.JanitorService. Review the regions marked OFR4102, then own this file.\n+using System;\n+using System.Threading;\n+\n+namespace Heartbeat\n+{\n+    /// <summary>Sweeps once a minute and reacts to logons: a second service in the same executable.</summary>\n+    public sealed class JanitorWorker : Microsoft.Extensions.Hosting.BackgroundService\n+    {\n+        private readonly Microsoft.Extensions.Logging.ILogger<JanitorWorker> _workerLogger;\n+\n+        private readonly Heartbeat.WorkerHeartbeat _workerHeartbeat;\n+\n+        private Timer _sweep;\n+\n+        public JanitorWorker(Microsoft.Extensions.Logging.ILogger<JanitorWorker> logger, Heartbeat.WorkerHeartbeat heartbeat)\n+        {\n+            _workerLogger = logger;\n+            _workerHeartbeat = heartbeat;\n+        }\n+\n+        private void OnStart(string[] args)\n+        {\n+            _sweep = new Timer(_ => Sweep(), null, TimeSpan.Zero, TimeSpan.FromMinutes(1));\n+        }\n+\n+        private void OnStop()\n+        {\n+            _sweep.Dispose();\n+        }\n+\n+#if OFFRAMP_SERVICEBASE // OFR4105: the host does not deliver session changes; review.\n+        protected override void OnSessionChange(SessionChangeDescription changeDescription)\n+        {\n+            if (changeDescription.Reason == SessionChangeReason.SessionLogon)\n+            {\n+                Sweep();\n+            }\n+        }\n+#endif\n+\n+        private static void Sweep()\n+        {\n+            Console.WriteLine(\"swept at \" + DateTime.UtcNow.ToString(\"O\"));\n+        }\n+\n+        protected override async System.Threading.Tasks.Task ExecuteAsync(System.Threading.CancellationToken stoppingToken)\n+        {\n+            // OnStart runs off the host's startup path, as it did under the service control manager.\n+            await System.Threading.Tasks.Task.Yield();\n+            OnStart(System.Array.Empty<string>());\n+            try\n+            {\n+                // Nothing ticks here, so the health check hears from the worker every ten seconds while it runs.\n+                while (true)\n+                {\n+                    _workerHeartbeat.Beat(\"JanitorWorker\");\n+                    await System.Threading.Tasks.Task.Delay(System.TimeSpan.FromSeconds(10), stoppingToken);\n+                }\n+            }\n+            catch (System.OperationCanceledException) when (stoppingToken.IsCancellationRequested)\n+            {\n+            }\n+        }\n+\n+        public override async System.Threading.Tasks.Task StopAsync(System.Threading.CancellationToken cancellationToken)\n+        {\n+            // Stop the ticks first, then run OnStop.\n+            await base.StopAsync(cancellationToken);\n+            OnStop();\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Heartbeat.Worker/Program.cs\n@@ -0,0 +1,33 @@\n+// Generated by offramp service: the host that runs the workers.\n+using System;\n+using Microsoft.Extensions.Configuration;\n+using Microsoft.Extensions.DependencyInjection;\n+using Microsoft.Extensions.Hosting;\n+using Microsoft.Extensions.Logging;\n+using Microsoft.AspNetCore.Builder;\n+using Microsoft.AspNetCore.Hosting;\n+using Microsoft.AspNetCore.Http;\n+\n+var builder = WebApplication.CreateBuilder(args);\n+builder.Logging.ClearProviders();\n+builder.Logging.AddJsonConsole();\n+\n+// Containers and systemd stop the process with SIGTERM and kill it after a grace period\n+// (Kubernetes: terminationGracePeriodSeconds, 30 by default); keep the shutdown timeout below it.\n+builder.Services.Configure<HostOptions>(options =>\n+    options.ShutdownTimeout = TimeSpan.FromSeconds(builder.Configuration.GetValue(\"HostOptions:ShutdownTimeoutSeconds\", 25)));\n+builder.Services.AddWindowsService(options => options.ServiceName = \"Heartbeat\");\n+builder.Services.AddSystemd();\n+builder.Services.AddSingleton(new Heartbeat.WorkerHeartbeat(TimeSpan.FromSeconds(builder.Configuration.GetValue(\"Health:StaleAfterSeconds\", 60)), \"HeartbeatWorker\", \"JanitorWorker\"));\n+builder.Services.AddHostedService<Heartbeat.HeartbeatWorker>();\n+builder.Services.AddHostedService<Heartbeat.JanitorWorker>();\n+\n+// The health endpoint: 200 while every worker has checked in recently, 503 otherwise.\n+builder.WebHost.UseUrls(\"http://+:\" + builder.Configuration.GetValue(\"Health:Port\", 8080).ToString(System.Globalization.CultureInfo.InvariantCulture));\n+var app = builder.Build();\n+app.MapGet(\"/health\", (Heartbeat.WorkerHeartbeat heartbeat) =>\n+{\n+    var report = heartbeat.Report(DateTimeOffset.UtcNow);\n+    return report.Healthy ? Results.Ok(report) : Results.Json(report, statusCode: StatusCodes.Status503ServiceUnavailable);\n+});\n+app.Run();\n--- /dev/null\n+++ b/src/Heartbeat.Worker/WorkerHeartbeat.cs\n@@ -0,0 +1,43 @@\n+// Generated by offramp service: when each worker last checked in, for the health endpoint.\n+namespace Heartbeat\n+{\n+    using System;\n+    using System.Collections.Concurrent;\n+    using System.Collections.Generic;\n+    using System.Linq;\n+\n+    /// <summary>Workers call <see cref=\"Beat\"/> as they work; the health endpoint asks whether all of them did recently.</summary>\n+    public sealed class WorkerHeartbeat\n+    {\n+        private readonly ConcurrentDictionary<string, DateTimeOffset> _beats = new ConcurrentDictionary<string, DateTimeOffset>(StringComparer.Ordinal);\n+        private readonly TimeSpan _staleAfter;\n+        private readonly string[] _workers;\n+\n+        public WorkerHeartbeat(TimeSpan staleAfter, params string[] workers)\n+        {\n+            _staleAfter = staleAfter;\n+            _workers = workers;\n+        }\n+\n+        public void Beat(string worker)\n+        {\n+            _beats[worker] = DateTimeOffset.UtcNow;\n+        }\n+\n+        public HealthReport Report(DateTimeOffset now)\n+        {\n+            var workers = _workers.ToDictionary(w => w, w => _beats.TryGetValue(w, out var last) ? last : (DateTimeOffset?)null, StringComparer.Ordinal);\n+            var healthy = workers.Values.All(last => last.HasValue && now - last.Value <= _staleAfter);\n+            return new HealthReport { Status = healthy ? \"healthy\" : \"unhealthy\", Healthy = healthy, Workers = workers };\n+        }\n+    }\n+\n+    public sealed class HealthReport\n+    {\n+        public string Status { get; set; }\n+\n+        public bool Healthy { get; set; }\n+\n+        public IDictionary<string, DateTimeOffset?> Workers { get; set; }\n+    }\n+}\n--- /dev/null\n+++ b/src/Heartbeat.Worker/appsettings.json\n@@ -0,0 +1,15 @@\n+{\n+  \"Logging\": {\n+    \"LogLevel\": {\n+      \"Default\": \"Information\",\n+      \"Microsoft.Hosting.Lifetime\": \"Information\"\n+    }\n+  },\n+  \"HostOptions\": {\n+    \"ShutdownTimeoutSeconds\": 25\n+  },\n+  \"Health\": {\n+    \"Port\": 8080,\n+    \"StaleAfterSeconds\": 60\n+  }\n+}\n--- /dev/null\n+++ b/src/Heartbeat.Worker/heartbeat-worker.service\n@@ -0,0 +1,18 @@\n+# Generated by offramp service. Publish to /opt/heartbeat-worker (dotnet publish -c Release -r linux-x64 -o /opt/heartbeat-worker), then:\n+#   sudo cp heartbeat-worker.service /etc/systemd/system/ && sudo systemctl enable --now heartbeat-worker\n+[Unit]\n+Description=Records a beat every few seconds.; Janitor\n+After=network-online.target\n+Wants=network-online.target\n+\n+[Service]\n+Type=notify\n+WorkingDirectory=/opt/heartbeat-worker\n+ExecStart=/opt/heartbeat-worker/Heartbeat.Worker\n+Restart=on-failure\n+DynamicUser=yes\n+TimeoutStopSec=30\n+Environment=DOTNET_ENVIRONMENT=Production\n+\n+[Install]\n+WantedBy=multi-user.target\n--- /dev/null\n+++ b/src/Heartbeat.Worker/install.ps1\n@@ -0,0 +1,12 @@\n+# Generated by offramp service: installs Heartbeat.Worker as the Windows service \"Heartbeat\".\n+# Run from an elevated PowerShell next to the published output (dotnet publish -c Release -r win-x64).\n+param(\n+    [string]$BinaryPath = (Join-Path $PSScriptRoot 'Heartbeat.Worker.exe')\n+)\n+\n+$ErrorActionPreference = 'Stop'\n+sc.exe create \"Heartbeat\" binPath= \"`\"$BinaryPath`\"\" start= auto obj= LocalSystem depend= EventLog\n+if ($LASTEXITCODE -ne 0) { throw \"sc.exe create failed with exit code $LASTEXITCODE\" }\n+sc.exe description \"Heartbeat\" \"Records a beat every few seconds.; Janitor\" | Out-Null\n+sc.exe failure \"Heartbeat\" reset= 86400 actions= restart/60000/restart/60000// | Out-Null\n+sc.exe start \"Heartbeat\"\n--- /dev/null\n+++ b/src/Heartbeat.Worker/kubernetes.yaml\n@@ -0,0 +1,55 @@\n+# Generated by offramp service: Heartbeat.Worker on Linux nodes.\n+apiVersion: v1\n+kind: ConfigMap\n+metadata:\n+  name: heartbeat-worker\n+data:\n+  DOTNET_ENVIRONMENT: Production\n+  HostOptions__ShutdownTimeoutSeconds: \"25\"\n+---\n+apiVersion: apps/v1\n+kind: Deployment\n+metadata:\n+  name: heartbeat-worker\n+  labels:\n+    app: heartbeat-worker\n+spec:\n+  replicas: 1\n+  selector:\n+    matchLabels:\n+      app: heartbeat-worker\n+  template:\n+    metadata:\n+      labels:\n+        app: heartbeat-worker\n+    spec:\n+      nodeSelector:\n+        kubernetes.io/os: linux\n+      # Longer than HostOptions:ShutdownTimeoutSeconds, so the workers finish stopping.\n+      terminationGracePeriodSeconds: 30\n+      containers:\n+        - name: worker\n+          image: heartbeat-worker:latest\n+          envFrom:\n+            - configMapRef:\n+                name: heartbeat-worker\n+          resources:\n+            requests:\n+              cpu: 100m\n+              memory: 128Mi\n+            limits:\n+              memory: 512Mi\n+            ports:\n+              - containerPort: 8080\n+            livenessProbe:\n+              httpGet:\n+                path: /health\n+                port: 8080\n+              initialDelaySeconds: 15\n+              periodSeconds: 20\n+            readinessProbe:\n+              httpGet:\n+                path: /health\n+                port: 8080\n+              initialDelaySeconds: 5\n+              periodSeconds: 10\n--- /dev/null\n+++ b/src/Heartbeat.Worker/uninstall.ps1\n@@ -0,0 +1,5 @@\n+# Generated by offramp service: removes the Windows service \"Heartbeat\".\n+$ErrorActionPreference = 'Stop'\n+sc.exe stop \"Heartbeat\" | Out-Null\n+sc.exe delete \"Heartbeat\"\n+if ($LASTEXITCODE -ne 0) { throw \"sc.exe delete failed with exit code $LASTEXITCODE\" }\n"
+  },
+  "diagnostics": [
+    {
+      "code": "OFR4101",
+      "severity": "warning",
+      "message": "Heartbeat.HeartbeatService handles OnPause, OnContinue; the host has no pause, continue, or custom commands, so HeartbeatWorker keeps them as methods the application can call (Pause and Continue set Paused, which the timer loop honors).",
+      "project": "src/Heartbeat/Heartbeat.csproj",
+      "file": "src/Heartbeat/HeartbeatService.cs",
+      "line": 39,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4101"
+    },
+    {
+      "code": "OFR4102",
+      "severity": "warning",
+      "message": "Heartbeat.HeartbeatService uses ServiceBase.RequestAdditionalTime, which the host does not have; HeartbeatWorker keeps the statement in an excluded region (OFFRAMP_SERVICEBASE) to review.",
+      "project": "src/Heartbeat/Heartbeat.csproj",
+      "file": "src/Heartbeat/HeartbeatService.cs",
+      "line": 34,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4102"
+    },
+    {
+      "code": "OFR4103",
+      "severity": "info",
+      "message": "src/Heartbeat/Heartbeat.csproj runs 2 services (Heartbeat, Janitor); the worker project hosts one worker for each in one process.",
+      "project": "src/Heartbeat/Heartbeat.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4103"
+    },
+    {
+      "code": "OFR4104",
+      "severity": "warning",
+      "message": "Heartbeat depends on EventLog; a container or systemd unit does not start those first, so the worker must wait for or retry them.",
+      "project": "src/Heartbeat/Heartbeat.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "dependsOn": [
+          "EventLog"
+        ]
+      },
+      "help": "https://offramp.dev/diagnostics/OFR4104"
+    },
+    {
+      "code": "OFR4105",
+      "severity": "warning",
+      "message": "Heartbeat.JanitorService.OnSessionChange handles session changes, which the host does not deliver; it is kept in an excluded region of JanitorWorker.",
+      "project": "src/Heartbeat/Heartbeat.csproj",
+      "file": "src/Heartbeat/JanitorService.cs",
+      "line": 28,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4105"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 4,
+    "info": 1
+  }
+}

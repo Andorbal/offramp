@@ -131,7 +131,7 @@ Acceptance: string-referenced and convention-registered types are never above
 
 Acceptance: as stated in `commands/seams.md`.
 
-## M10 — Services ☐
+## M10 — Services ◐
 
 - `service` (detection for ServiceBase and Topshelf, worker generation, hosts,
   Dockerfile, k8s, health, removal list).

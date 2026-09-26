@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/service.json",
+  "title": "offramp service result",
+  "description": "The result of `offramp service`. See docs/spec/commands/scaffold.md#service.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "host", "services", "worker", "linkedSources", "files", "removals", "nextSteps", "applied", "journal", "preview"],
+  "properties": {
+    "project": { "type": "string" },
+    "host": { "enum": ["linux", "windows", "both"] },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "type", "serviceName", "displayName", "description", "account", "startType", "dependsOn", "lifecycle", "timers", "logging", "configuration", "worker"],
+        "properties": {
+          "kind": { "enum": ["servicebase", "topshelf"] },
+          "type": { "type": "string" },
+          "serviceName": { "type": "string" },
+          "displayName": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "account": { "enum": ["LocalSystem", "LocalService", "NetworkService", "User", null] },
+          "startType": { "enum": ["Automatic", "AutomaticDelayed", "Manual", "Disabled", null] },
+          "dependsOn": { "type": "array", "items": { "type": "string" }, "description": "Windows services it depends on (OFR4104)." },
+          "lifecycle": { "type": "array", "items": { "type": "string" } },
+          "timers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "kind", "interval", "callback", "converted"],
+              "properties": {
+                "name": { "type": "string" },
+                "kind": { "enum": ["System.Timers.Timer", "System.Threading.Timer"] },
+                "interval": { "type": ["string", "null"], "description": "Milliseconds, as a constant or an expression." },
+                "callback": { "type": ["string", "null"] },
+                "converted": { "type": "boolean", "description": "Became a PeriodicTimer loop in the worker." }
+              }
+            }
+          },
+          "logging": { "type": "array", "items": { "enum": ["EventLog", "Trace", "Debug", "log4net", "NLog", "Serilog"] } },
+          "configuration": { "type": "array", "items": { "type": "string" }, "description": "ConfigurationManager keys read (see config convert)." },
+          "worker": { "type": "string" }
+        }
+      }
+    },
+    "worker": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["path", "sdk", "targetFramework"],
+      "properties": {
+        "path": { "$ref": "workspace.json#/$defs/relativePath" },
+        "sdk": { "enum": ["Microsoft.NET.Sdk.Worker", "Microsoft.NET.Sdk.Web"] },
+        "targetFramework": { "type": "string" }
+      }
+    },
+    "linkedSources": { "$ref": "workspace.json#/$defs/pathList" },
+    "files": { "$ref": "workspace.json#/$defs/pathList" },
+    "removals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "$ref": "workspace.json#/$defs/relativePath" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "nextSteps": { "type": "array", "items": { "type": "string" } },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  }
+}

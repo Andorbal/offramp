@@ -23,6 +23,7 @@ Offramp's own settings when a fixture is built in place.
 | `dead-code` | audit dead-code (one example per confidence level, test-only usage, removable lines); see its README |
 | `behavior` | every audit rule, one class per rule with `Positive` and `Negative` members; `ifdef wrap`; see its README |
 | `seams` | seams (taint, min cut, articulation point, wire-friendliness), extract interface, remote (net10.0-windows host, net48 fallback, round trip); see its README |
+| `windows-service` | service (ServiceBase with timers, installers, pause/continue, session changes; Topshelf), project kind detection; see its README |
 
 `hollow` is generated, not checked in (`GeneratedFixtures.Hollow` in
 `tests/Offramp.Fixtures`): 500 files in `src/Big` to be moved into `src/Big.Core`

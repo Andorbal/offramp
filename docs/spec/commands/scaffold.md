@@ -15,6 +15,8 @@ offramp service --project P [--host linux|windows|both] [--out DIR|--in-place]
                 [--dockerfile] [--k8s] [--health] [--logging json-console|simple] [--apply]
 ```
 
+(`--in-place` is deferred until `csproj modernize`; see ADR 0024.)
+
 Detection (from the workspace model and the compilation):
 - `ServiceBase` subclasses: `OnStart`, `OnStop`, `OnPause`, `OnContinue`,
   `OnShutdown`, `OnCustomCommand`; `ServiceName`; `ServiceInstaller`/
@@ -58,6 +60,38 @@ Diagnostics: `OFR4101` pause/continue semantics, `OFR4102` code left in
 compatibility region, `OFR4103` multiple services in one executable (one
 worker each), `OFR4104` service depends on other Windows services
 (`ServicesDependedOn`), `OFR4105` uses `SessionChange`/`PowerEvent`.
+
+### Details (M10)
+
+Decisions in `docs/decisions/0024-service-workers.md`.
+
+- Output: a new project at `--out` (default `NAME.Worker` next to the service project),
+  targeting `netN.0` from `offramp.yml`, `Microsoft.NET.Sdk.Worker` (or `.Web` with
+  `--health`). The service project is not edited; `--in-place` is deferred until
+  `csproj modernize`, and the removal list is reported (`removals`).
+- Workers: one per service, named `NameWorker`. A `ServiceBase` class is lifted: its
+  members keep their text, the lifecycle overrides become private methods called from
+  `ExecuteAsync`/`StopAsync`, `EventLog.WriteEntry` becomes logging, and other uses of
+  `ServiceBase` stay inside `#if OFFRAMP_SERVICEBASE` (OFR4102). A Topshelf service is
+  wrapped: `ConstructUsing`, `WhenStarted`, and `WhenStopped` become its creation,
+  start, and stop.
+- Timers: a `System.Timers.Timer` used only through setup (`Interval`, `Elapsed +=`,
+  `Start`, `Stop`, `Dispose`, `Enabled`, `AutoReset`) whose handler ignores its sender
+  and arguments becomes a `PeriodicTimer` loop; a failing tick is logged and the loop
+  goes on. Other timers stay. `services[].timers` says which converted.
+- Code the service uses from its project is compiled as links (`linkedSources`). The
+  worker and the links are compiled in memory for the target; errors are OFR4106 (the
+  project is still written). `ConfigurationManager` keeps working through
+  `<AppConfig>`; `services[].configuration` lists the keys for `config convert`.
+- Health: `WorkerHeartbeat` and `/health` on `Health:Port` (8080), 200 while every
+  worker beat within `Health:StaleAfterSeconds` (60), 503 otherwise.
+- Hosts: `windows` adds `AddWindowsService`, `install.ps1`, `uninstall.ps1`; `both` also
+  `AddSystemd` and `IMAGE.service`. `--dockerfile` writes `Dockerfile` and
+  `Dockerfile.dockerignore` (build from the repository root); `--k8s` writes
+  `kubernetes.yaml` (ConfigMap and Deployment; probes with `--health`).
+- Also OFR4106 worker does not compile, OFR4107 no service in the project, OFR4108
+  output directory exists (nothing generated). A dry run until `--apply`. Schema:
+  `schemas/v1/service.json`.
 
 ## `web inventory`
 
