@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/codemod-list.json",
+  "title": "offramp codemod list result",
+  "description": "The result of `offramp codemod list`: the codemod catalog. See docs/spec/commands/codemod.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["codemods"],
+  "properties": {
+    "codemods": {
+      "type": "array",
+      "description": "In catalog (ID) order.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "title", "description", "optIn", "experimental", "rewritesCode", "packages"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^OFRM[0-9]{3}$", "description": "The analyzer diagnostic ID." },
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "The short name `--mod` takes." },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "optIn": { "type": "boolean", "description": "Changes behavior on purpose: runs only when named, never with `all`." },
+          "experimental": { "type": "boolean", "description": "Needs --experimental (OFR4503)." },
+          "rewritesCode": { "type": "boolean", "description": "False when the codemod's change is a package reference and no code is rewritten." },
+          "packages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "version", "targets"],
+              "properties": {
+                "id": { "type": "string" },
+                "version": { "type": "string" },
+                "targets": { "enum": ["all", "framework", "modern"], "description": "The targets the package is referenced for; framework and modern references are conditioned on TargetFrameworkIdentifier." }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

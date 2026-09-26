@@ -1,0 +1,17 @@
+# Offramp.Analyzers: the codemods as IDE suggestions. Raise a rule to warning to enforce it,
+# or set it to none to silence it. OFRM009 (string-comparison) changes behavior on purpose
+# and is off unless enabled here.
+[*.cs]
+dotnet_diagnostic.OFRM001.severity = suggestion
+dotnet_diagnostic.OFRM002.severity = suggestion
+dotnet_diagnostic.OFRM003.severity = suggestion
+dotnet_diagnostic.OFRM004.severity = suggestion
+dotnet_diagnostic.OFRM005.severity = suggestion
+dotnet_diagnostic.OFRM006.severity = suggestion
+dotnet_diagnostic.OFRM007.severity = suggestion
+dotnet_diagnostic.OFRM008.severity = suggestion
+dotnet_diagnostic.OFRM009.severity = none
+dotnet_diagnostic.OFRM010.severity = suggestion
+dotnet_diagnostic.OFRM011.severity = suggestion
+dotnet_diagnostic.OFRM012.severity = suggestion
+dotnet_diagnostic.OFRM013.severity = suggestion

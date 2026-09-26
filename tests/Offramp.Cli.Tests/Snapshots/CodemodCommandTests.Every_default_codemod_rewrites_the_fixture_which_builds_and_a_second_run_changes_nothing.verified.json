@@ -1,0 +1,368 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "codemod run",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "Codemods.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "mode": "driver",
+    "codemods": [
+      "sqlclient",
+      "config-manager",
+      "http-context",
+      "webclient",
+      "javascript-serializer",
+      "binaryformatter-clone",
+      "process-start-url",
+      "codepages",
+      "timezone-ids",
+      "service-controller",
+      "assemblyinfo"
+    ],
+    "projects": [
+      {
+        "project": "src/Shared/Shared.csproj",
+        "targetFramework": "net48",
+        "files": [
+          "src/Shared/Clock.cs",
+          "src/Shared/Cloner.cs"
+        ],
+        "sites": [
+          {
+            "codemod": "timezone-ids",
+            "file": "src/Shared/Clock.cs",
+            "line": 9,
+            "column": 24,
+            "outcome": "rewritten",
+            "reason": null
+          },
+          {
+            "codemod": "binaryformatter-clone",
+            "file": "src/Shared/Cloner.cs",
+            "line": 8,
+            "column": 25,
+            "outcome": "rewritten",
+            "reason": null
+          }
+        ],
+        "packages": [
+          {
+            "codemod": "binaryformatter-clone",
+            "id": "System.Text.Json",
+            "version": "10.0.12",
+            "condition": "'$(TargetFrameworkIdentifier)' == '.NETFramework'",
+            "files": [
+              "src/Shared/Shared.csproj"
+            ]
+          },
+          {
+            "codemod": "timezone-ids",
+            "id": "TimeZoneConverter",
+            "version": "7.2.0",
+            "condition": null,
+            "files": [
+              "src/Shared/Shared.csproj"
+            ]
+          }
+        ],
+        "properties": []
+      },
+      {
+        "project": "src/Shop/Shop.csproj",
+        "targetFramework": "net48",
+        "files": [
+          "src/Shop/Feeds.cs",
+          "src/Shop/Json.cs",
+          "src/Shop/Mailer.cs",
+          "src/Shop/Orders.cs",
+          "src/Shop/Program.cs"
+        ],
+        "sites": [
+          {
+            "codemod": "webclient",
+            "file": "src/Shop/Feeds.cs",
+            "line": 10,
+            "column": 33,
+            "outcome": "rewritten",
+            "reason": null
+          },
+          {
+            "codemod": "webclient",
+            "file": "src/Shop/Feeds.cs",
+            "line": 20,
+            "column": 33,
+            "outcome": "skipped",
+            "reason": "the method is synchronous; HttpClient's methods are asynchronous."
+          },
+          {
+            "codemod": "javascript-serializer",
+            "file": "src/Shop/Json.cs",
+            "line": 10,
+            "column": 20,
+            "outcome": "rewritten",
+            "reason": null
+          },
+          {
+            "codemod": "javascript-serializer",
+            "file": "src/Shop/Json.cs",
+            "line": 15,
+            "column": 20,
+            "outcome": "rewritten",
+            "reason": null
+          },
+          {
+            "codemod": "config-manager",
+            "file": "src/Shop/Mailer.cs",
+            "line": 21,
+            "column": 20,
+            "outcome": "rewritten",
+            "reason": null
+          },
+          {
+            "codemod": "config-manager",
+            "file": "src/Shop/Mailer.cs",
+            "line": 26,
+            "column": 20,
+            "outcome": "skipped",
+            "reason": "in a static member or an initializer, which cannot use an injected field."
+          },
+          {
+            "codemod": "service-controller",
+            "file": "src/Shop/Monitor.cs",
+            "line": 9,
+            "column": 37,
+            "outcome": "referenced",
+            "reason": null
+          },
+          {
+            "codemod": "sqlclient",
+            "file": "src/Shop/Orders.cs",
+            "line": 1,
+            "column": 7,
+            "outcome": "rewritten",
+            "reason": null
+          },
+          {
+            "codemod": "codepages",
+            "file": "src/Shop/Program.cs",
+            "line": 9,
+            "column": 27,
+            "outcome": "rewritten",
+            "reason": null
+          },
+          {
+            "codemod": "process-start-url",
+            "file": "src/Shop/Program.cs",
+            "line": 23,
+            "column": 13,
+            "outcome": "rewritten",
+            "reason": null
+          }
+        ],
+        "packages": [
+          {
+            "codemod": "sqlclient",
+            "id": "Microsoft.Data.SqlClient",
+            "version": "7.1.0",
+            "condition": null,
+            "files": [
+              "src/Shop/Shop.csproj"
+            ]
+          },
+          {
+            "codemod": "config-manager",
+            "id": "Microsoft.Extensions.Configuration.Abstractions",
+            "version": "10.0.12",
+            "condition": null,
+            "files": [
+              "src/Shop/Shop.csproj"
+            ]
+          },
+          {
+            "codemod": "javascript-serializer",
+            "id": "System.Text.Json",
+            "version": "10.0.12",
+            "condition": "'$(TargetFrameworkIdentifier)' == '.NETFramework'",
+            "files": [
+              "src/Shop/Shop.csproj"
+            ]
+          },
+          {
+            "codemod": "codepages",
+            "id": "System.Text.Encoding.CodePages",
+            "version": "10.0.12",
+            "condition": "'$(TargetFrameworkIdentifier)' == '.NETFramework'",
+            "files": [
+              "src/Shop/Shop.csproj"
+            ]
+          },
+          {
+            "codemod": "service-controller",
+            "id": "System.ServiceProcess.ServiceController",
+            "version": "10.0.12",
+            "condition": "'$(TargetFrameworkIdentifier)' != '.NETFramework'",
+            "files": [
+              "src/Shop/Shop.csproj"
+            ]
+          }
+        ],
+        "properties": []
+      }
+    ],
+    "summary": {
+      "projects": 2,
+      "filesChanged": 7,
+      "sitesRewritten": 9,
+      "sitesSkipped": 2,
+      "packagesAdded": 7
+    },
+    "applied": false,
+    "journal": null,
+    "preview": "--- a/src/Shared/Clock.cs\n+++ b/src/Shared/Clock.cs\n@@ -6,7 +6,7 @@\n     {\n         public static DateTime PacificNow()\n         {\n-            var zone = TimeZoneInfo.FindSystemTimeZoneById(\"Pacific Standard Time\");\n+            var zone = TimeZoneConverter.TZConvert.GetTimeZoneInfo(\"Pacific Standard Time\");\n             return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone);\n         }\n     }\n--- a/src/Shared/Cloner.cs\n+++ b/src/Shared/Cloner.cs\n@@ -5,15 +5,12 @@\n {\n     public static class Cloner\n     {\n+        /// <summary>Deep clones copy public properties and fields (offramp codemod binaryformatter-clone).</summary>\n+        private static readonly System.Text.Json.JsonSerializerOptions CloneOptions = new System.Text.Json.JsonSerializerOptions { IncludeFields = true };\n+\n         public static T Clone<T>(T source)\n         {\n-            var formatter = new BinaryFormatter();\n-            using (var stream = new MemoryStream())\n-            {\n-                formatter.Serialize(stream, source);\n-                stream.Position = 0;\n-                return (T)formatter.Deserialize(stream);\n-            }\n+            return System.Text.Json.JsonSerializer.Deserialize<T>(System.Text.Json.JsonSerializer.Serialize<T>(source, CloneOptions), CloneOptions);\n         }\n     }\n }\n--- a/src/Shared/Shared.csproj\n+++ b/src/Shared/Shared.csproj\n@@ -6,4 +6,10 @@\n     <!-- BinaryFormatter is obsolete as an error on modern .NET; the clone codemod removes it. -->\n     <NoWarn>$(NoWarn);SYSLIB0011</NoWarn>\n   </PropertyGroup>\n+  <ItemGroup Condition=\"'$(TargetFrameworkIdentifier)' == '.NETFramework'\">\n+    <PackageReference Include=\"System.Text.Json\" Version=\"10.0.12\" />\n+  </ItemGroup>\n+  <ItemGroup>\n+    <PackageReference Include=\"TimeZoneConverter\" Version=\"7.2.0\" />\n+  </ItemGroup>\n </Project>\n--- a/src/Shop/Feeds.cs\n+++ b/src/Shop/Feeds.cs\n@@ -7,9 +7,9 @@\n     {\n         public async Task<int> LengthAsync(string url)\n         {\n-            using (var client = new WebClient())\n+            using (var client = new System.Net.Http.HttpClient())\n             {\n-                var text = client.DownloadString(url);\n+                var text = await client.GetStringAsync(url);\n                 await Task.Yield();\n                 return text.Length;\n             }\n--- a/src/Shop/Json.cs\n+++ b/src/Shop/Json.cs\n@@ -4,15 +4,17 @@\n {\n     public class Json\n     {\n+        /// <summary>JavaScriptSerializer's behavior: names as declared, case-insensitive reads, fields included (offramp codemod javascript-serializer).</summary>\n+        private static readonly System.Text.Json.JsonSerializerOptions JavaScriptSerializerOptions = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true, IncludeFields = true };\n+\n         public string Write(object value)\n         {\n-            var serializer = new JavaScriptSerializer();\n-            return serializer.Serialize(value);\n+            return System.Text.Json.JsonSerializer.Serialize<object>(value, JavaScriptSerializerOptions);\n         }\n \n         public T Read<T>(string json)\n         {\n-            return new JavaScriptSerializer().Deserialize<T>(json);\n+            return System.Text.Json.JsonSerializer.Deserialize<T>(json, JavaScriptSerializerOptions);\n         }\n     }\n }\n--- a/src/Shop/Mailer.cs\n+++ b/src/Shop/Mailer.cs\n@@ -9,16 +9,18 @@\n \n     public class Mailer\n     {\n+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;\n         private readonly IClock _clock;\n \n-        public Mailer(IClock clock)\n+        public Mailer(IClock clock, Microsoft.Extensions.Configuration.IConfiguration configuration)\n         {\n+            _configuration = configuration;\n             _clock = clock;\n         }\n \n         public string Host()\n         {\n-            return ConfigurationManager.AppSettings[\"SmtpHost\"] + \" at \" + _clock.Now;\n+            return _configuration[\"SmtpHost\"] + \" at \" + _clock.Now;\n         }\n \n         public static string DefaultSender()\n--- a/src/Shop/Orders.cs\n+++ b/src/Shop/Orders.cs\n@@ -1,4 +1,4 @@\n-using System.Data.SqlClient;\n+using Microsoft.Data.SqlClient;\n \n namespace Shop\n {\n--- a/src/Shop/Program.cs\n+++ b/src/Shop/Program.cs\n@@ -8,6 +8,8 @@\n     {\n         public static int Main(string[] args)\n         {\n+            // Code page encodings (offramp codemod codepages).\n+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);\n             var latin = Encoding.GetEncoding(1252);\n             Console.WriteLine(latin.WebName);\n             if (args.Length > 0)\n@@ -20,7 +22,7 @@\n \n         private static void OpenHelp(string url)\n         {\n-            Process.Start(url);\n+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });\n         }\n     }\n }\n--- a/src/Shop/Shop.csproj\n+++ b/src/Shop/Shop.csproj\n@@ -14,4 +14,15 @@\n   <ItemGroup>\n     <ProjectReference Include=\"..\\Shared\\Shared.csproj\" />\n   </ItemGroup>\n+  <ItemGroup>\n+    <PackageReference Include=\"Microsoft.Data.SqlClient\" Version=\"7.1.0\" />\n+    <PackageReference Include=\"Microsoft.Extensions.Configuration.Abstractions\" Version=\"10.0.12\" />\n+  </ItemGroup>\n+  <ItemGroup Condition=\"'$(TargetFrameworkIdentifier)' == '.NETFramework'\">\n+    <PackageReference Include=\"System.Text.Encoding.CodePages\" Version=\"10.0.12\" />\n+    <PackageReference Include=\"System.Text.Json\" Version=\"10.0.12\" />\n+  </ItemGroup>\n+  <ItemGroup Condition=\"'$(TargetFrameworkIdentifier)' != '.NETFramework'\">\n+    <PackageReference Include=\"System.ServiceProcess.ServiceController\" Version=\"10.0.12\" />\n+  </ItemGroup>\n </Project>\n",
+    "verify": null,
+    "rolledBack": false
+  },
+  "diagnostics": [
+    {
+      "code": "OFR4501",
+      "severity": "info",
+      "message": "webclient: the method is synchronous; HttpClient's methods are asynchronous.",
+      "project": "src/Shop/Shop.csproj",
+      "file": "src/Shop/Feeds.cs",
+      "line": 20,
+      "column": 33,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4501"
+    },
+    {
+      "code": "OFR4501",
+      "severity": "info",
+      "message": "config-manager: in a static member or an initializer, which cannot use an injected field.",
+      "project": "src/Shop/Shop.csproj",
+      "file": "src/Shop/Mailer.cs",
+      "line": 26,
+      "column": 20,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4501"
+    },
+    {
+      "code": "OFR4510",
+      "severity": "info",
+      "message": "src/Shop/Shop.csproj now uses Microsoft.Data.SqlClient, which encrypts connections by default; servers without a trusted certificate need TrustServerCertificate=True in their connection strings.",
+      "project": "src/Shop/Shop.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4510"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 3
+  }
+}

@@ -21,22 +21,8 @@ public sealed class CompilationLoader : IDisposable
     public CompilationLoader(string repositoryRoot) => _repositoryRoot = repositoryRoot;
 
     /// <summary>The compilation for a recorded compiler call, or null when the compiler log is missing.</summary>
-    public Compilation? Load(CompilerCallRef call)
-    {
-        var path = RepoPaths.ToAbsolute(_repositoryRoot, call.Complog);
-        if (!File.Exists(path))
-        {
-            return null;
-        }
-
-        if (!_readers.TryGetValue(path, out var reader))
-        {
-            reader = CompilerLogReader.Create(path, null, null);
-            _readers[path] = reader;
-        }
-
-        return reader.ReadCompilationData(call.Index).GetCompilationAfterGenerators();
-    }
+    public Compilation? Load(CompilerCallRef call) =>
+        Reader(call)?.ReadCompilationData(call.Index).GetCompilationAfterGenerators();
 
     /// <summary>The compilation of a project for its first .NET Framework target (or its first target), or null.</summary>
     public Compilation? LoadForProject(ProjectInfo project) =>
@@ -54,11 +40,31 @@ public sealed class CompilationLoader : IDisposable
     /// </summary>
     public (ImmutableArray<DiagnosticAnalyzer> Analyzers, AnalyzerOptions Options)? LoadAnalyzers(ProjectInfo project, string targetFramework)
     {
-        if (!project.CompilerCalls.TryGetValue(targetFramework, out var call))
+        if (!project.CompilerCalls.TryGetValue(targetFramework, out var call) || Reader(call) is not { } reader)
         {
             return null;
         }
 
+        var data = reader.ReadCompilationData(call.Index);
+        var global = new GlobalOptionsProvider(data.AnalyzerOptions.AnalyzerConfigOptionsProvider.GlobalOptions);
+        return (data.GetAnalyzers(out _), new AnalyzerOptions(data.AnalyzerOptions.AdditionalFiles, global));
+    }
+
+    /// <summary>The recorded global analyzer config options (<c>build_property.*</c>, .globalconfig) of a project's compilation, without loading its analyzers.</summary>
+    public AnalyzerConfigOptions? LoadGlobalOptions(ProjectInfo project, string targetFramework) =>
+        project.CompilerCalls.TryGetValue(targetFramework, out var call) && Reader(call) is { } reader
+            ? reader.ReadCompilationData(call.Index).AnalyzerOptions.AnalyzerConfigOptionsProvider.GlobalOptions
+            : null;
+
+    /// <summary>The target framework analyses use by default: the first .NET Framework one, else the first.</summary>
+    public static string? PreferredTarget(ProjectInfo project) =>
+        project.CompilerCalls.Keys
+            .OrderBy(k => k.StartsWith("net4", StringComparison.Ordinal) ? 0 : 1)
+            .ThenBy(k => k, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+    private CompilerLogReader? Reader(CompilerCallRef call)
+    {
         var path = RepoPaths.ToAbsolute(_repositoryRoot, call.Complog);
         if (!File.Exists(path))
         {
@@ -71,17 +77,8 @@ public sealed class CompilationLoader : IDisposable
             _readers[path] = reader;
         }
 
-        var data = reader.ReadCompilationData(call.Index);
-        var global = new GlobalOptionsProvider(data.AnalyzerOptions.AnalyzerConfigOptionsProvider.GlobalOptions);
-        return (data.GetAnalyzers(out _), new AnalyzerOptions(data.AnalyzerOptions.AdditionalFiles, global));
+        return reader;
     }
-
-    /// <summary>The target framework analyses use by default: the first .NET Framework one, else the first.</summary>
-    public static string? PreferredTarget(ProjectInfo project) =>
-        project.CompilerCalls.Keys
-            .OrderBy(k => k.StartsWith("net4", StringComparison.Ordinal) ? 0 : 1)
-            .ThenBy(k => k, StringComparer.Ordinal)
-            .FirstOrDefault();
 
     public void Dispose()
     {

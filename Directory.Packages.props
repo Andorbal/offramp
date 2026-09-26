@@ -38,6 +38,8 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.9.0" />
+    <!-- Offramp.Analyzers compiles against Roslyn 4.8 (VersionOverride) so older compilers can load it. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
     <PackageVersion Include="Microsoft.VisualStudio.SolutionPersistence" Version="1.0.52" />
     <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.12" />
   </ItemGroup>
@@ -57,5 +59,6 @@
     <PackageVersion Include="Verify.XunitV3" Version="32.0.1" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="Spectre.Console.Testing" Version="0.57.2" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" Version="1.1.4" />
   </ItemGroup>
 </Project>

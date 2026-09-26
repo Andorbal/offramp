@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net48;net10.0</TargetFrameworks>
+    <LangVersion>7.3</LangVersion>
+    <RootNamespace>Shared</RootNamespace>
+    <!-- BinaryFormatter is obsolete as an error on modern .NET; the clone codemod removes it. -->
+    <NoWarn>$(NoWarn);SYSLIB0011</NoWarn>
+  </PropertyGroup>
+</Project>

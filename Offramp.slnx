@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Offramp.Analysis/Offramp.Analysis.csproj" />
+    <Project Path="src/Offramp.Analyzers.CodeFixes/Offramp.Analyzers.CodeFixes.csproj" />
+    <Project Path="src/Offramp.Analyzers/Offramp.Analyzers.csproj" />
     <Project Path="src/Offramp.Cli/Offramp.Cli.csproj" />
     <Project Path="src/Offramp.Core/Offramp.Core.csproj" />
     <Project Path="src/Offramp.NuGet/Offramp.NuGet.csproj" />
@@ -11,6 +13,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Offramp.Analysis.Tests/Offramp.Analysis.Tests.csproj" />
+    <Project Path="tests/Offramp.Analyzers.Tests/Offramp.Analyzers.Tests.csproj" />
     <Project Path="tests/Offramp.Cli.Tests/Offramp.Cli.Tests.csproj" />
     <Project Path="tests/Offramp.Core.Tests/Offramp.Core.Tests.csproj" />
     <Project Path="tests/Offramp.Fixtures/Offramp.Fixtures.csproj" />

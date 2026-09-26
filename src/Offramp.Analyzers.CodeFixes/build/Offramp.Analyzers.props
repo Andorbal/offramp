@@ -1,0 +1,7 @@
+<Project>
+  <!-- OFRM013 (assemblyinfo) reads these through the analyzer config options. -->
+  <ItemGroup>
+    <CompilerVisibleProperty Include="UsingMicrosoftNETSdk" />
+    <CompilerVisibleProperty Include="GenerateAssemblyInfo" />
+  </ItemGroup>
+</Project>

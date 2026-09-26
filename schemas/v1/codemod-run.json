@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/codemod-run.json",
+  "title": "offramp codemod run result",
+  "description": "The result of `offramp codemod run`. See docs/spec/commands/codemod.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mode", "codemods", "projects", "summary", "applied", "journal", "preview", "verify", "rolledBack"],
+  "properties": {
+    "mode": { "enum": ["driver", "format"], "description": "driver: Offramp ran the fixers over the recorded compilations; format: `dotnet format analyzers` ran them (--format-mode)." },
+    "codemods": { "type": "array", "items": { "type": "string" }, "description": "The codemods run, by name, in catalog order." },
+    "projects": {
+      "type": "array",
+      "description": "Projects with at least one site, by path.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "targetFramework", "files", "sites", "packages", "properties"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "targetFramework": { "type": ["string", "null"], "description": "The target whose recorded compilation was analyzed (the first .NET Framework one); null in format mode." },
+          "files": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" }, "description": "Source files changed, sorted." },
+          "sites": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["codemod", "file", "line", "column", "outcome", "reason"],
+              "properties": {
+                "codemod": { "type": "string" },
+                "file": { "$ref": "workspace.json#/$defs/relativePath" },
+                "line": { "type": "integer", "minimum": 0, "description": "1-based, in the file as scanned." },
+                "column": { "type": "integer", "minimum": 0 },
+                "outcome": { "enum": ["rewritten", "skipped", "referenced"], "description": "referenced: a package-only codemod's site; the code stays and the package is added." },
+                "reason": { "type": ["string", "null"], "description": "Why a skipped site is left (OFR4501)." }
+              }
+            }
+          },
+          "packages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["codemod", "id", "version", "condition", "files"],
+              "properties": {
+                "codemod": { "type": "string" },
+                "id": { "type": "string" },
+                "version": { "type": "string" },
+                "condition": { "type": ["string", "null"], "description": "The MSBuild condition of the reference's item group, for framework- or modern-only packages." },
+                "files": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" }, "description": "The project file, and Directory.Packages.props under central package management." }
+              }
+            }
+          },
+          "properties": {
+            "type": "array",
+            "description": "Project properties set from removed assembly attributes (assemblyinfo).",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "value"],
+              "properties": { "name": { "type": "string" }, "value": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projects", "filesChanged", "sitesRewritten", "sitesSkipped", "packagesAdded"],
+      "properties": {
+        "projects": { "type": "integer", "minimum": 0 },
+        "filesChanged": { "type": "integer", "minimum": 0 },
+        "sitesRewritten": { "type": "integer", "minimum": 0 },
+        "sitesSkipped": { "type": "integer", "minimum": 0 },
+        "packagesAdded": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"], "description": "The journal of the applied change set (driver mode); `offramp move rollback --journal` undoes it." },
+    "preview": { "type": ["string", "null"], "description": "The unified diff of a dry run (driver mode)." },
+    "verify": { "oneOf": [{ "type": "null" }, { "$ref": "verify.json" }] },
+    "rolledBack": { "type": "boolean", "description": "Verification failed and every file was restored from the journal (OFR4507)." }
+  }
+}

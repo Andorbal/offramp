@@ -138,6 +138,8 @@ jobs:
           global-json-file: global.json
       - name: Pack tool
         run: dotnet pack src/Offramp.Cli -c Release -o artifacts
+      - name: Pack analyzer package
+        run: dotnet pack src/Offramp.Analyzers.CodeFixes -c Release -o artifacts
       - name: Install and run the packed tool
         run: |
           dotnet tool install -g offramp --add-source ./artifacts --prerelease

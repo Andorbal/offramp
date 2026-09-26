@@ -15,6 +15,9 @@
     <ProjectReference Include="..\Offramp.Workspace\Offramp.Workspace.csproj" />
     <ProjectReference Include="..\Offramp.Analysis\Offramp.Analysis.csproj" />
     <ProjectReference Include="..\Offramp.NuGet\Offramp.NuGet.csproj" />
+    <!-- The codemods (docs/spec/commands/codemod.md): netstandard2.0 analyzers and fixers that `codemod run` drives. -->
+    <ProjectReference Include="..\Offramp.Analyzers\Offramp.Analyzers.csproj" />
+    <ProjectReference Include="..\Offramp.Analyzers.CodeFixes\Offramp.Analyzers.CodeFixes.csproj" />
   </ItemGroup>
 
   <ItemGroup>
