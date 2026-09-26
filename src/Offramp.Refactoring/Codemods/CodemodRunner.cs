@@ -204,7 +204,6 @@ public static class CodemodRunner
         {
             var document = workspace.Solution.GetDocument(id)!;
             var fixedDocument = await implementation.Fixer!.FixDocumentAsync(document, [.. list], cancellationToken);
-            fixedDocument = await CodemodFixer.CleanupAsync(fixedDocument, cancellationToken);
             files[id].Map.Add(await fixedDocument.GetTextChangesAsync(document, cancellationToken));
             workspace.Solution = fixedDocument.Project.Solution;
         }

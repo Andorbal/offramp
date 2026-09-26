@@ -67,9 +67,9 @@ Decisions in `docs/decisions/0025-codemods.md`.
 - For each project, the recorded compilation becomes a Roslyn workspace project. The
   chosen codemods run one after another in catalog order. Each one analyzes the project
   as the previous codemods left it, then fixes each document's sites in one
-  `FixDocumentAsync` pass followed by the code action cleanup (simplify, then format the
-  annotated nodes). This is the same code path as the IDE's fix-all and
-  `dotnet format`.
+  `FixDocumentAsync` pass, which ends with the cleanup a code action would do (simplify,
+  then format the annotated nodes) and gives every line the fix wrote the file's line
+  ending. This is the same code path as the IDE's fix-all and `dotnet format`.
 - Only the project's own compile items are rewritten: not generated code, and not files
   outside the repository.
 - A site whose file differs from the text the scan recorded is skipped: OFR4504, once

@@ -15,7 +15,7 @@ public sealed class ThreadAbortFixer : CodemodFixer
 {
     public override Codemod Codemod => Codemods.ThreadAbort;
 
-    public override async Task<Document> FixDocumentAsync(Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellationToken)
+    protected override async Task<Document> FixSitesAsync(Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellationToken)
     {
         var editor = await DocumentEditor.CreateAsync(document, cancellationToken).ConfigureAwait(false);
         var model = editor.SemanticModel;

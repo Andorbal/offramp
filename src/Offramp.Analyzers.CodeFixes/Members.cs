@@ -17,7 +17,7 @@ internal static class Members
         editor.InsertMembers(type, 0, [field]);
         if (type.Members.FirstOrDefault() is { } next and not FieldDeclarationSyntax)
         {
-            var newLine = editor.OriginalRoot.ToFullString().Contains("\r\n") ? "\r\n" : "\n";
+            var newLine = CodemodFixer.LineEnding(editor.OriginalRoot.ToFullString());
             editor.ReplaceNode(next, (current, _) => current.WithLeadingTrivia(current.GetLeadingTrivia().Insert(0, SyntaxFactory.EndOfLine(newLine))));
         }
     }

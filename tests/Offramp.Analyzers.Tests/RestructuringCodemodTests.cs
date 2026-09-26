@@ -8,7 +8,12 @@ namespace Offramp.Analyzers.Tests;
 public sealed class RestructuringCodemodTests
 {
     [Fact]
-    public Task Config_reads_use_an_injected_configuration() => new CodemodTest<ConfigManagerAnalyzer, ConfigManagerFixer>(
+    public Task Config_reads_use_an_injected_configuration() => ConfigReads().RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public Task Generated_lines_follow_a_crlf_file() => ConfigReads().WithCrlf().RunAsync(TestContext.Current.CancellationToken);
+
+    private static CodemodTest<ConfigManagerAnalyzer, ConfigManagerFixer> ConfigReads() => new(
         """
         using System.Configuration;
 
@@ -56,7 +61,7 @@ public sealed class RestructuringCodemodTests
 
             public static string Static() => [|ConfigurationManager.AppSettings["Static"]|];
         }
-        """).RunAsync(TestContext.Current.CancellationToken);
+        """);
 
     [Fact]
     public Task Config_reads_in_classes_created_with_new_are_left() => new SitesTest<ConfigManagerAnalyzer>(

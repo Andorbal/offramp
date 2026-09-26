@@ -35,6 +35,21 @@ internal sealed class CodemodTest<TAnalyzer, TFixer> : CSharpCodeFixTest<TAnalyz
         FixedState.MarkupHandling = MarkupMode.Allow;
     }
 
+    /// <summary>The formatter's line ending, never the file's: generated lines must follow the file's.</summary>
+    private string _formatterEndOfLine = "crlf";
+
+    /// <summary>The code with CRLF line endings (and LF for the formatter).</summary>
+    public CodemodTest<TAnalyzer, TFixer> WithCrlf()
+    {
+        // TestCode and FixedCode add a file each time they are set.
+        TestState.Sources.Clear();
+        TestState.Sources.Add(_before.ReplaceLineEndings("\r\n"));
+        FixedState.Sources.Clear();
+        FixedState.Sources.Add(_after.ReplaceLineEndings("\r\n"));
+        _formatterEndOfLine = "lf";
+        return this;
+    }
+
     /// <summary>Global analyzer options, as the build passes them (build_property.*).</summary>
     public CodemodTest<TAnalyzer, TFixer> WithGlobalOptions(string config)
     {
@@ -45,6 +60,7 @@ internal sealed class CodemodTest<TAnalyzer, TFixer> : CSharpCodeFixTest<TAnalyz
 
     public new async Task RunAsync(CancellationToken cancellationToken = default)
     {
+        TestState.AnalyzerConfigFiles.Add(("/.editorconfig", $"root = true\n\n[*.cs]\nend_of_line = {_formatterEndOfLine}\n"));
         await base.RunAsync(cancellationToken);
         TestFileMarkupParser.GetSpans(_before, out string before, out ImmutableArray<Microsoft.CodeAnalysis.Text.TextSpan> _);
         TestFileMarkupParser.GetSpans(_after, out string after, out ImmutableArray<Microsoft.CodeAnalysis.Text.TextSpan> _);
@@ -76,7 +92,7 @@ public sealed class EmptyFixer : CodeFixProvider
 
 /// <summary>
 /// Applies a fixer the way <c>offramp codemod run</c> does: the analyzer's diagnostics over the
-/// whole compilation, one <c>FixDocumentAsync</c>, then the code action cleanup. For codemods
+/// whole compilation and one <c>FixDocumentAsync</c> (which cleans up). For codemods
 /// whose diagnostics are reported at compilation end, which the testing library does not fix.
 /// </summary>
 internal static class DirectFix
@@ -99,7 +115,6 @@ internal static class DirectFix
         var analyzerOptions = new AnalyzerOptions([], new GlobalOptionsProvider(new DictionaryOptions(values)));
         var diagnostics = await compilation!.WithAnalyzers([analyzer], analyzerOptions).GetAnalyzerDiagnosticsAsync(cancellationToken);
         var fixedDocument = await fixer.FixDocumentAsync(document, Offramp.Analyzers.CodeFixes.CodemodFixer.Fixable(diagnostics), cancellationToken);
-        fixedDocument = await Offramp.Analyzers.CodeFixes.CodemodFixer.CleanupAsync(fixedDocument, cancellationToken);
         return (await fixedDocument.GetTextAsync(cancellationToken)).ToString();
     }
 }

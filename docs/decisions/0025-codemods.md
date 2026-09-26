@@ -25,9 +25,17 @@ leaves these open:
   it. `Offramp.Analyzers.CodeFixes` holds the fixers, which need Workspaces (RS1038). It
   also packs both as the `Offramp.Analyzers` NuGet package. The two assemblies still
   reference nothing in Offramp. `Offramp.Refactoring` references both for the driver.
-- **One fix path.** Every fixer implements `FixDocumentAsync(document, diagnostics)`,
-  which rewrites all of a document's sites in one pass. The IDE's single fix, fix-all,
-  `dotnet format`, and `codemod run` all call it, followed by the code action cleanup.
+- **One fix path.** Every fixer implements `FixSitesAsync(document, diagnostics)`,
+  which rewrites all of a document's sites in one pass; `FixDocumentAsync` runs it, then
+  the code action cleanup, with the file's line ending. The IDE's single fix, fix-all,
+  `dotnet format`, and `codemod run` all call `FixDocumentAsync`.
+  - The cleanup is the fixer's own, not the code action's: the formatter's line ending
+    is the platform's (or `end_of_line`), and fixers build code from strings with `\n`,
+    so a CRLF file would get LF lines on Linux and an LF file CRLF lines on Windows.
+    `FixDocumentAsync` formats with the file's line ending, removes the annotations (the
+    code action's cleanup then has nothing to do), and rewrites the line endings of the
+    changed text to the file's. The unit tests run with the opposite `end_of_line`, and
+    one runs a CRLF file.
   The unit tests run each before/after pair through the testing library and through the
   driver's path, and require both to give the same text.
   - The two paths do differ: Roslyn's formatter leaves the separator before an appended

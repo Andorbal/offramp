@@ -13,7 +13,7 @@ public sealed class CodePagesFixer : CodemodFixer
 {
     public override Codemod Codemod => Codemods.CodePages;
 
-    public override async Task<Document> FixDocumentAsync(Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellationToken)
+    protected override async Task<Document> FixSitesAsync(Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
