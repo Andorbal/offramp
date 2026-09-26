@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Roslyn analyzers for the codemods (docs/spec/commands/codemod.md): OFRM###
+    diagnostics on sites with a mechanical rewrite, or with the reason there is none.
+    netstandard2.0 on Roslyn 4.8 and no Offramp or Workspaces dependencies, so the
+    compiler, the IDE, and `offramp codemod` all load it. The fixers are in
+    Offramp.Analyzers.CodeFixes, which also packs the Offramp.Analyzers package.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Offramp.Analyzers</RootNamespace>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <!-- The package named Offramp.Analyzers is packed by Offramp.Analyzers.CodeFixes. -->
+    <PackageId>Offramp.Analyzers.Rules</PackageId>
+    <!-- Release tracking files (AnalyzerReleases.*.md) are replaced by CHANGELOG.md. -->
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="4.8.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Offramp.Analyzers.CodeFixes" />
+    <InternalsVisibleTo Include="Offramp.Analyzers.Tests" />
+  </ItemGroup>
+</Project>

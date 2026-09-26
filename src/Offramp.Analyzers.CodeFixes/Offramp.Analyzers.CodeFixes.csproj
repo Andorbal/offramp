@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The code fixes for the codemods, and the Offramp.Analyzers NuGet package (both
+    assemblies under analyzers/dotnet/cs). Separate from the analyzers because fixers
+    need Microsoft.CodeAnalysis.Workspaces, which the command-line compiler does not load
+    (RS1038).
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Offramp.Analyzers.CodeFixes</RootNamespace>
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Offramp.Analyzers</PackageId>
+    <Description>Roslyn analyzers and code fixes for migrating .NET Framework code to modern .NET: the codemods of the offramp tool (OFRM001-OFRM013), as IDE suggestions and dotnet format fixes.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" VersionOverride="4.8.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Offramp.Analyzers\Offramp.Analyzers.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)Offramp.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+    <None Include="build\Offramp.Analyzers.props" Pack="true" PackagePath="build" />
+    <None Include="sample.editorconfig" Pack="true" PackagePath="content" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Offramp.Analyzers.Tests" />
+  </ItemGroup>
+</Project>

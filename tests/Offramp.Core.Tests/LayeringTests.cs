@@ -17,10 +17,11 @@ public sealed class LayeringTests
         ["Offramp.Workspace"] = ["Offramp.Core"],
         ["Offramp.Analysis"] = ["Offramp.Core", "Offramp.Workspace"],
         ["Offramp.NuGet"] = ["Offramp.Core", "Offramp.Workspace", "Offramp.Analysis"],
-        ["Offramp.Refactoring"] = ["Offramp.Core", "Offramp.Workspace", "Offramp.Analysis", "Offramp.NuGet"],
+        ["Offramp.Refactoring"] = ["Offramp.Core", "Offramp.Workspace", "Offramp.Analysis", "Offramp.NuGet", "Offramp.Analyzers", "Offramp.Analyzers.CodeFixes"],
         ["Offramp.Scaffolding"] = ["Offramp.Core", "Offramp.Workspace", "Offramp.Analysis", "Offramp.NuGet", "Offramp.Refactoring"],
         ["Offramp.Reporting"] = ["Offramp.Core", "Offramp.Workspace", "Offramp.Analysis", "Offramp.NuGet"],
         ["Offramp.Analyzers"] = [],
+        ["Offramp.Analyzers.CodeFixes"] = ["Offramp.Analyzers"],
         ["Offramp.Llm"] = ["Offramp.Core"],
         ["Offramp.Mcp"] = ["Offramp.Core"],
         ["Offramp.Cli"] =

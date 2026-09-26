@@ -1,0 +1,304 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "codemod list",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": null,
+    "workspaceHash": null,
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "codemods": [
+      {
+        "id": "OFRM001",
+        "name": "sqlclient",
+        "title": "Use Microsoft.Data.SqlClient",
+        "description": "System.Data.SqlClient is deprecated; Microsoft.Data.SqlClient is its successor. Usings and qualified names move to the new namespace and the package is added. Encrypt now defaults to true (OFR4510).",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": [
+          {
+            "id": "Microsoft.Data.SqlClient",
+            "version": "7.1.0",
+            "targets": "all"
+          }
+        ]
+      },
+      {
+        "id": "OFRM002",
+        "name": "config-manager",
+        "title": "Read settings from IConfiguration",
+        "description": "ConfigurationManager.AppSettings[\"key\"] in a class that takes its dependencies through its constructor becomes an injected IConfiguration[\"key\"].",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": [
+          {
+            "id": "Microsoft.Extensions.Configuration.Abstractions",
+            "version": "10.0.12",
+            "targets": "all"
+          }
+        ]
+      },
+      {
+        "id": "OFRM003",
+        "name": "http-context",
+        "title": "Use IHttpContextAccessor",
+        "description": "HttpContext.Current in a class that takes its dependencies through its constructor becomes an injected IHttpContextAccessor.HttpContext, where the project references ASP.NET Core.",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": []
+      },
+      {
+        "id": "OFRM004",
+        "name": "webclient",
+        "title": "Use HttpClient instead of WebClient",
+        "description": "A WebClient local used only for DownloadString, DownloadData, or UploadString inside an async method becomes an HttpClient with the awaited equivalents.",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": []
+      },
+      {
+        "id": "OFRM005",
+        "name": "javascript-serializer",
+        "title": "Use System.Text.Json instead of JavaScriptSerializer",
+        "description": "JavaScriptSerializer.Serialize and Deserialize<T> become System.Text.Json.JsonSerializer calls with options that keep JavaScriptSerializer's behavior (names as declared, case-insensitive reads).",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": [
+          {
+            "id": "System.Text.Json",
+            "version": "10.0.12",
+            "targets": "framework"
+          }
+        ]
+      },
+      {
+        "id": "OFRM006",
+        "name": "binaryformatter-clone",
+        "title": "Clone without BinaryFormatter",
+        "description": "A method that deep-clones by serializing to a MemoryStream with BinaryFormatter and reading it back becomes a System.Text.Json round trip.",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": [
+          {
+            "id": "System.Text.Json",
+            "version": "10.0.12",
+            "targets": "framework"
+          }
+        ]
+      },
+      {
+        "id": "OFRM007",
+        "name": "thread-abort",
+        "title": "Stop threads with cancellation instead of Thread.Abort",
+        "description": "Thread.Abort throws on modern .NET. A thread whose loop runs in the same type gets a CancellationTokenSource: the loop checks it and Abort becomes Cancel.",
+        "optIn": false,
+        "experimental": true,
+        "rewritesCode": true,
+        "packages": []
+      },
+      {
+        "id": "OFRM008",
+        "name": "process-start-url",
+        "title": "Keep UseShellExecute for Process.Start(string)",
+        "description": "Process.Start(fileName[, arguments]) used the shell on .NET Framework and does not on modern .NET, so URLs and documents stop opening. The call gets a ProcessStartInfo with UseShellExecute = true.",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": []
+      },
+      {
+        "id": "OFRM009",
+        "name": "string-comparison",
+        "title": "Make string comparisons ordinal",
+        "description": "Culture-sensitive StartsWith, EndsWith, IndexOf, string.Compare, and ToLower()/ToUpper() equality become ordinal comparisons. Changes behavior on purpose: opt-in.",
+        "optIn": true,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": []
+      },
+      {
+        "id": "OFRM010",
+        "name": "codepages",
+        "title": "Register the code pages provider",
+        "description": "Modern .NET knows only Unicode, ASCII, and Latin-1 until the code pages provider is registered; the entry point registers it (the package supplies the provider on .NET Framework).",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": [
+          {
+            "id": "System.Text.Encoding.CodePages",
+            "version": "10.0.12",
+            "targets": "framework"
+          }
+        ]
+      },
+      {
+        "id": "OFRM011",
+        "name": "timezone-ids",
+        "title": "Look up time zones with TZConvert",
+        "description": "A Windows time zone ID (\"Pacific Standard Time\") passed to FindSystemTimeZoneById fails on Linux without ICU; TZConvert.GetTimeZoneInfo accepts Windows and IANA IDs everywhere.",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": [
+          {
+            "id": "TimeZoneConverter",
+            "version": "7.2.0",
+            "targets": "all"
+          }
+        ]
+      },
+      {
+        "id": "OFRM012",
+        "name": "service-controller",
+        "title": "Reference System.ServiceProcess.ServiceController",
+        "description": "Code that controls Windows services (ServiceController) outside a service needs the System.ServiceProcess.ServiceController package on modern .NET. No code changes; the package is added.",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": false,
+        "packages": [
+          {
+            "id": "System.ServiceProcess.ServiceController",
+            "version": "10.0.12",
+            "targets": "modern"
+          }
+        ]
+      },
+      {
+        "id": "OFRM013",
+        "name": "assemblyinfo",
+        "title": "Remove assembly attributes the SDK generates",
+        "description": "SDK-style projects generate AssemblyTitle, AssemblyVersion, AssemblyCompany, and the like; the same attributes in AssemblyInfo.cs are duplicates (CS0579) and go.",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": []
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "code": "OFR0016",
+      "severity": "info",
+      "message": "No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.",
+      "project": null,
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR0016"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 1
+  }
+}

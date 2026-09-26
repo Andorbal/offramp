@@ -42,9 +42,8 @@ jobs:
       - name: Pack
         run: |
           dotnet pack src/Offramp.Cli -c Release -o artifacts
-          if [ -f src/Offramp.Analyzers/Offramp.Analyzers.csproj ]; then
-            dotnet pack src/Offramp.Analyzers -c Release -o artifacts
-          fi
+          # The Offramp.Analyzers package (analyzers and code fixes) is packed by the CodeFixes project.
+          dotnet pack src/Offramp.Analyzers.CodeFixes -c Release -o artifacts
           ls -l artifacts
 
       - name: Derive version from tag

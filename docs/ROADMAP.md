@@ -141,7 +141,7 @@ Acceptance: generated projects build on all OSes; the Linux container image
 builds in CI (docker available on ubuntu runner) and responds on the health
 endpoint; `--host both` generates the systemd unit and install scripts.
 
-## M11 — Codemods ☐
+## M11 — Codemods ◐
 
 - `Offramp.Analyzers` with the initial catalog; `codemod list|run`;
   `--format-mode`; analyzer NuGet package.

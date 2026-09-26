@@ -187,6 +187,15 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4106](#ofr4106) | warning | service | generated worker does not compile |
 | [OFR4107](#ofr4107) | error | service | no service found |
 | [OFR4108](#ofr4108) | error | service | worker directory exists |
+| [OFR4501](#ofr4501) | info | codemod | codemod site skipped |
+| [OFR4502](#ofr4502) | error | codemod | unknown codemod |
+| [OFR4503](#ofr4503) | error | codemod | codemod is experimental |
+| [OFR4504](#ofr4504) | error | codemod | source changed since the last scan |
+| [OFR4505](#ofr4505) | warning | codemod | package not added |
+| [OFR4506](#ofr4506) | warning | codemod | project does not reference Offramp.Analyzers |
+| [OFR4507](#ofr4507) | error | codemod | verification failed; codemod rolled back |
+| [OFR4508](#ofr4508) | error | codemod | dotnet format failed |
+| [OFR4510](#ofr4510) | info | codemod | connections encrypted by default (Microsoft.Data.SqlClient) |
 | [OFR5001](#ofr5001) | error | verify | verification failed |
 | [OFR5002](#ofr5002) | error | verify | verification timed out |
 | [OFR5010](#ofr5010) | warning | verify | new error code relative to baseline |
@@ -1633,6 +1642,87 @@ The worker project (the generated code and the linked files it uses) was compile
 - **Typical cause:** Running `service` twice, or an --out that points at an existing project.
 - **Fix:** Pass another --out, or delete the earlier output.
 
+### OFR4501
+
+**codemod site skipped** · info · codemod
+
+The codemod found a site it does not rewrite safely; the message says why (a synchronous method, a static member, a class created with new, ...). The code is unchanged.
+
+- **Typical cause:** Patterns just outside what the codemod proves safe.
+- **Fix:** Change the site by hand, or change the code around it so the codemod can, and run it again.
+
+### OFR4502
+
+**unknown codemod** · error · codemod
+
+`codemod run --mod` names no codemod in the catalog.
+
+- **Typical cause:** A typo, or an ID from a newer version.
+- **Fix:** Run `offramp codemod list` for the names and IDs.
+
+### OFR4503
+
+**codemod is experimental** · error · codemod
+
+The codemod is right less than about 95% of the time on the fixtures and corpus, so it runs only with --experimental.
+
+- **Typical cause:** Codemods whose rewrite changes behavior in ways that need review (thread-abort).
+- **Fix:** Pass --experimental and review every change before committing it.
+
+### OFR4504
+
+**source changed since the last scan** · error · codemod
+
+A file the codemod would rewrite differs from the text recorded by the last scan, so it was left alone: rewriting it would lose the newer edits.
+
+- **Typical cause:** Editing files after `offramp scan`.
+- **Fix:** Run `offramp scan` and the codemod again.
+
+### OFR4505
+
+**package not added** · warning · codemod
+
+The rewritten code needs a package that could not be added to the project file (a packages.config project, or no central PackageVersion file found under central package management).
+
+- **Typical cause:** Old-style projects, central package management with an unusual layout.
+- **Fix:** Add the package the message names by hand, or modernize the project first (`offramp csproj modernize`).
+
+### OFR4506
+
+**project does not reference Offramp.Analyzers** · warning · codemod
+
+`--format-mode` runs `dotnet format analyzers`, which only sees analyzers the project references; this project does not reference the Offramp.Analyzers package, so it was skipped.
+
+- **Typical cause:** Using --format-mode before adding the analyzer package.
+- **Fix:** Add `<PackageReference Include="Offramp.Analyzers" PrivateAssets="all" />`, or run without --format-mode.
+
+### OFR4507
+
+**verification failed; codemod rolled back** · error · codemod
+
+The build (or verification command) failed after the codemod, and `verify.onFailure: rollback` restored every file from the journal.
+
+- **Typical cause:** A rewrite that needs a package the project cannot restore, or a build that was already broken.
+- **Fix:** Read the verification errors; fix them or skip the sites, then run the codemod again. `verify.onFailure: keep` leaves the change in place.
+
+### OFR4508
+
+**dotnet format failed** · error · codemod
+
+`--format-mode` ran `dotnet format analyzers` for the project and it failed: an exit code other than 0 (or 2, which a dry run returns when there are changes), or no report.
+
+- **Typical cause:** A project that does not restore or load, or an SDK without `dotnet format`.
+- **Fix:** Run the command in the message yourself to see its output; `dotnet restore` the project first, or run without --format-mode.
+
+### OFR4510
+
+**connections encrypted by default (Microsoft.Data.SqlClient)** · info · codemod
+
+Microsoft.Data.SqlClient defaults Encrypt to true (System.Data.SqlClient defaulted to false), so connections to servers without a trusted certificate now fail.
+
+- **Typical cause:** Development and on-premises SQL Servers with self-signed certificates.
+- **Fix:** Install a trusted certificate on the server, or set TrustServerCertificate=True (or Encrypt=False) in the connection strings that need it.
+
 ### OFR5001
 
 **verification failed** · error · verify
@@ -1690,5 +1780,4 @@ use these numbers; each moves to the table above in the pull request that first 
 | OFR4201–4202 | varies | web scaffold notes |
 | OFR4301–4303 | varies | csproj modernize notes |
 | OFR4401–4404 | varies | config convert notes |
-| OFR4501, OFR4510 | varies | codemod skipped site; SqlClient encrypt default |
 | OFR9101 | error | MCP request outside allowed root |

@@ -46,6 +46,34 @@ public sealed class ProjectFileEditor
     public void AddPackageReference(string id, string? version) =>
         AddItem("PackageReference", id, version is null ? null : [("Version", version)]);
 
+    /// <summary>True when any PackageReference in the file, conditioned or not, includes the package.</summary>
+    public bool ReferencesPackage(string id) =>
+        _root.ItemGroups.SelectMany(g => g.Items).Any(i => string.Equals(i.ItemType, "PackageReference", StringComparison.OrdinalIgnoreCase) && Same(i.Include, id));
+
+    /// <summary>
+    /// Adds a PackageReference in an item group with the condition (created at the end when the
+    /// file has none), unless that group already references the package.
+    /// </summary>
+    public void AddConditionedPackageReference(string id, string? version, string condition)
+    {
+        var group = _root.ItemGroups.FirstOrDefault(g => string.Equals(g.Condition, condition, StringComparison.Ordinal));
+        if (group is null)
+        {
+            group = _root.AddItemGroup();
+            group.Condition = condition;
+        }
+        else if (group.Items.Any(i => string.Equals(i.ItemType, "PackageReference", StringComparison.OrdinalIgnoreCase) && Same(i.Include, id)))
+        {
+            return;
+        }
+
+        var item = group.AddItem("PackageReference", id);
+        if (version is not null)
+        {
+            item.AddMetadata("Version", version, expressAsAttribute: true);
+        }
+    }
+
     /// <summary>Adds a PackageVersion (central package management) unless one for the id exists.</summary>
     public void AddPackageVersion(string id, string version) =>
         AddItem("PackageVersion", id, [("Version", version)]);

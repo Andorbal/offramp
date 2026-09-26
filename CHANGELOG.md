@@ -11,6 +11,44 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- Codemods (`docs/spec/commands/codemod.md`): OFRM001–013 as Roslyn analyzers
+  (`Offramp.Analyzers`, netstandard2.0) and code fixes (`Offramp.Analyzers.CodeFixes`):
+  `sqlclient`, `config-manager`, `http-context`, `webclient`, `javascript-serializer`,
+  `binaryformatter-clone`, `thread-abort` (experimental), `process-start-url`,
+  `string-comparison` (opt-in), `codepages`, `timezone-ids`, `service-controller`, and
+  `assemblyinfo`.
+  - A site that is not rewritten is still reported, with the reason.
+- `offramp codemod list`: the catalog with each codemod's packages.
+- `offramp codemod run --mod NAME|ID|all`: runs the fixers over the recorded compilations.
+  - A dry-run diff by default.
+  - Adds the packages the rewritten code needs. Framework- and modern-only packages are
+    conditioned on `TargetFrameworkIdentifier`; central package management is honored.
+  - `assemblyinfo` moves attribute values to project properties.
+  - `--apply` writes through a journal and verifies with a build (`--verify end|none`),
+    rolling back on failure.
+  - `--format-mode` delegates to `dotnet format analyzers --diagnostics OFRM###` in
+    projects that reference the package.
+  - Diagnostics: OFR4501 (site skipped), OFR4502 (unknown codemod), OFR4503 (experimental),
+    OFR4504 (source changed since the scan), OFR4505 (package not added), OFR4506 (no
+    analyzer package), OFR4507 (verification failed, rolled back), OFR4508 (dotnet format
+    failed), OFR4510 (SqlClient encrypts by default).
+  - Schemas: `schemas/v1/codemod-list.json`, `schemas/v1/codemod-run.json`.
+- The `Offramp.Analyzers` NuGet package: both assemblies as analyzers, every rule a
+  suggestion by default, and a `sample.editorconfig`. It is packed by CI and by the
+  release workflow.
+- Fixture `codemods`. ADR 0025.
+
+### Changed
+- `docs/spec/commands/codemod.md`:
+  - `binaryformatter-clone` applies to the serialize-then-deserialize idiom itself instead
+    of waiting for `audit serialization`.
+  - `config-manager --shim` is deferred until `config convert` (M12).
+
+### Fixed
+- `offramp scan` builds with `--no-incremental`. A scan right after a build used to record
+  no compiler calls for up-to-date projects, which left them `partial`.
+
 ## [0.11.0] - 2026-09-26
 
 ### Added
