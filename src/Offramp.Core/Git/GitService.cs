@@ -28,6 +28,12 @@ public interface IGitService
     Task MoveAsync(string repositoryRoot, string fromAbsolute, string toAbsolute, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<GitStatusEntry>> StatusAsync(string repositoryRoot, CancellationToken cancellationToken = default);
+
+    /// <summary>Checks out <c>HEAD</c> into a new detached work tree at <paramref name="path"/> (<c>git worktree add --detach</c>).</summary>
+    Task AddWorktreeAsync(string repositoryRoot, string path, CancellationToken cancellationToken = default);
+
+    /// <summary>Removes a work tree added by <see cref="AddWorktreeAsync"/>, discarding its changes.</summary>
+    Task RemoveWorktreeAsync(string repositoryRoot, string path, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Git through the command line.</summary>
@@ -101,6 +107,28 @@ public sealed class GitService(IProcessRunner runner) : IGitService
         }
 
         return ParsePorcelainZ(result.StandardOutput);
+    }
+
+    public async Task AddWorktreeAsync(string repositoryRoot, string path, CancellationToken cancellationToken = default)
+    {
+        var result = await runner.RunAsync(
+            new ProcessSpec("git", ["worktree", "add", "--detach", "--quiet", path, "HEAD"]) { WorkingDirectory = repositoryRoot, Timeout = TimeSpan.FromMinutes(10) },
+            cancellationToken);
+        if (!result.Succeeded)
+        {
+            throw new GitCommandException($"git worktree add failed: {result.StandardError.Trim()}");
+        }
+    }
+
+    public async Task RemoveWorktreeAsync(string repositoryRoot, string path, CancellationToken cancellationToken = default)
+    {
+        var result = await runner.RunAsync(
+            new ProcessSpec("git", ["worktree", "remove", "--force", path]) { WorkingDirectory = repositoryRoot, Timeout = QuickTimeout },
+            cancellationToken);
+        if (!result.Succeeded)
+        {
+            throw new GitCommandException($"git worktree remove failed: {result.StandardError.Trim()}");
+        }
     }
 
     /// <summary>Parses <c>git status --porcelain=v1 -z</c> output.</summary>

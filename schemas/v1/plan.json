@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/plan.json",
+  "title": "offramp plan result",
+  "description": "The result of `offramp plan`: a leaf-first migration order in waves. See docs/spec/commands/workspace.md#plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["for", "frontier", "excludeKinds", "order", "cycles", "counts"],
+  "properties": {
+    "for": { "oneOf": [{ "$ref": "workspace.json#/$defs/relativePath" }, { "type": "null" }] },
+    "frontier": { "type": "boolean" },
+    "excludeKinds": { "type": "array", "items": { "$ref": "workspace.json#/$defs/kind" } },
+    "order": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "name", "kind", "frameworkClass", "wave", "blastRadius", "blockers", "readiness", "inCycle"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "name": { "type": "string" },
+          "kind": { "$ref": "workspace.json#/$defs/kind" },
+          "frameworkClass": { "$ref": "workspace.json#/$defs/frameworkClass" },
+          "wave": { "type": "integer", "minimum": 0, "description": "0: already portable; 1: portable today; n: after wave n-1." },
+          "blastRadius": { "type": "integer", "minimum": 0, "description": "Projects that depend on this one, directly or transitively." },
+          "blockers": { "$ref": "workspace.json#/$defs/pathList" },
+          "readiness": { "enum": ["ready", "blocked", "done"] },
+          "inCycle": { "type": "boolean" }
+        }
+      }
+    },
+    "cycles": { "type": "array", "items": { "$ref": "workspace.json#/$defs/pathList" } },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projects", "done", "ready", "blocked", "waves"],
+      "properties": {
+        "projects": { "type": "integer", "minimum": 0 },
+        "done": { "type": "integer", "minimum": 0 },
+        "ready": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "waves": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
