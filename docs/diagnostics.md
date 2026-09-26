@@ -75,11 +75,23 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1301](#ofr1301) | warning | deps | project outside the solution would inherit CPM |
 | [OFR1302](#ofr1302) | warning | deps | nested Directory.Packages.props shadows the root |
 | [OFR1303](#ofr1303) | warning | deps | packages.config project cannot use CPM |
+| [OFR2001](#ofr2001) | warning | move | move would create a project reference cycle |
 | [OFR2002](#ofr2002) | error | move | destination equals source |
+| [OFR2003](#ofr2003) | error | move | project is frozen |
+| [OFR2004](#ofr2004) | error | move | file is not part of the source project |
+| [OFR2005](#ofr2005) | error | move | move plan file missing or invalid |
 | [OFR2050](#ofr2050) | error | move | verification failed; changes rolled back |
+| [OFR2101](#ofr2101) | warning | move | file needs a co-move |
+| [OFR2102](#ofr2102) | warning | move | required package unavailable for destination |
 | [OFR2103](#ofr2103) | warning | move | file does not compile in the destination |
 | [OFR2104](#ofr2104) | error | move | source still depends on moved code |
+| [OFR2105](#ofr2105) | warning | move | moved file uses Windows-only APIs |
+| [OFR2110](#ofr2110) | info | move | partial type co-moved |
+| [OFR2111](#ofr2111) | warning | move | destination excludes the file path |
+| [OFR2120](#ofr2120) | warning | move | namespace differs from destination root namespace |
+| [OFR2150](#ofr2150) | warning | move | file changed since plan |
 | [OFR2151](#ofr2151) | error | move | file changed since the move; rollback stopped |
+| [OFR2152](#ofr2152) | error | move | interrupted move cannot be resumed |
 | [OFR2201](#ofr2201) | warning | move | test code used by production code |
 | [OFR2202](#ofr2202) | error | move | multiple candidate test projects |
 | [OFR2203](#ofr2203) | error | move | no test project found |
@@ -87,6 +99,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR2205](#ofr2205) | error | move | project language not supported |
 | [OFR2206](#ofr2206) | warning | move | file outside the project folder |
 | [OFR2210](#ofr2210) | info | move | test-framework packages removable from source |
+| [OFR2301](#ofr2301) | warning | move | string reference to a moved type |
+| [OFR2302](#ofr2302) | error | move | revision not found |
 | [OFR5001](#ofr5001) | error | verify | verification failed |
 | [OFR5002](#ofr5002) | error | verify | verification timed out |
 | [OFR5010](#ofr5010) | warning | verify | new error code relative to baseline |
@@ -525,6 +539,15 @@ The project still uses `packages.config`, which central package management does 
 - **Typical cause:** A legacy project not yet migrated to `PackageReference`.
 - **Fix:** Migrate the project to `PackageReference` (`offramp csproj modernize`, or Visual Studio's migration).
 
+### OFR2001
+
+**move would create a project reference cycle** · warning · move
+
+The file needs a project that depends on the destination, so the destination cannot reference it; the file stays. The cycle path is attached.
+
+- **Typical cause:** Moving code into a lower layer while it still uses a higher one.
+- **Fix:** Move the needed code down first, or leave the file; the path shows which reference closes the cycle.
+
 ### OFR2002
 
 **destination equals source** · error · move
@@ -534,6 +557,33 @@ The move's destination project is the source project itself.
 - **Typical cause:** `--to` naming the source project, or a naming rule that resolves to it.
 - **Fix:** Name a different destination with `--to`.
 
+### OFR2003
+
+**project is frozen** · error · move
+
+`projects[].frozen` in `offramp.yml` marks the source or destination as frozen: nothing moves into or out of it, and its project file is never edited.
+
+- **Typical cause:** A project owned by another team, or a generated one.
+- **Fix:** Choose another project, or remove `frozen` if the freeze no longer applies.
+
+### OFR2004
+
+**file is not part of the source project** · error · move
+
+A file named for the move is not compiled by the source project (nor a .resx beside its files).
+
+- **Typical cause:** A path relative to another folder, a file excluded from the project, or the wrong `--from`.
+- **Fix:** Pass repository-relative paths of files the source project compiles.
+
+### OFR2005
+
+**move plan file missing or invalid** · error · move
+
+`move apply --plan` could not read the plan: the file does not exist, is not JSON, or is not a `move-plan.json` document.
+
+- **Typical cause:** A wrong path, or a plan edited by hand into invalid JSON.
+- **Fix:** Check the path, or write the plan again with `offramp move plan ... --out PATH`.
+
 ### OFR2050
 
 **verification failed; changes rolled back** · error · move
@@ -542,6 +592,24 @@ The build (or verification command) failed after the move, and `verify.onFailure
 
 - **Typical cause:** Moved code that compiles in isolation but breaks the solution build, a test project that does not restore, or an unrelated broken build.
 - **Fix:** Read the verification errors in the result; fix them or narrow the move, then run it again. `verify.onFailure: keep` leaves a failed move in place for inspection.
+
+### OFR2101
+
+**file needs a co-move** · warning · move
+
+The file uses code declared in another file of the source project that is not moving (with `--co-move none`), or that cannot move, so the file stays.
+
+- **Typical cause:** Moving part of a cluster of files that use each other.
+- **Fix:** Add the needed files to the move, or use `--co-move closure` (the default).
+
+### OFR2102
+
+**required package unavailable for destination** · warning · move
+
+The file uses a package with no compile assets for one of the destination's target frameworks, so the file stays.
+
+- **Typical cause:** A .NET Framework-only package used by code moving to a .NET Standard or modern project.
+- **Fix:** Find a package version or replacement that supports the destination (`offramp deps audit`), then plan again.
 
 ### OFR2103
 
@@ -561,6 +629,51 @@ Without the moved files the source project no longer compiles, and it cannot ref
 - **Typical cause:** Production code using a test or helper in a way the analysis could not see, such as through a generated file.
 - **Fix:** Look at the source errors in the details, move the used code out of the test files, and plan again.
 
+### OFR2105
+
+**moved file uses Windows-only APIs** · warning · move
+
+The destination's platform analyzer (CA1416) reports Windows-only APIs in the file for a modern non-Windows target. The file still moves.
+
+- **Typical cause:** Registry, WMI, System.Drawing, or other Windows-only APIs in code moving to a cross-platform project.
+- **Fix:** Guard the calls with `OperatingSystem.IsWindows()` or mark the code `[SupportedOSPlatform("windows")]` in a separate change.
+
+### OFR2110
+
+**partial type co-moved** · info · move
+
+The file declares part of a partial type that a moving file also declares, so they move together.
+
+- **Typical cause:** Partial classes split across files (generated code, large types).
+- **Fix:** Nothing to do; the files move as one.
+
+### OFR2111
+
+**destination excludes the file path** · warning · move
+
+The destination's project file removes the path the file would move to from its Compile items, so the file stays.
+
+- **Typical cause:** A `<Compile Remove="..." />` glob in the destination covering the moved folder.
+- **Fix:** Adjust the destination's Remove pattern in a separate change, then plan again.
+
+### OFR2120
+
+**namespace differs from destination root namespace** · warning · move
+
+The file declares a namespace outside the destination's root namespace. Moves never edit namespaces; `--namespace-mismatch block` keeps such files.
+
+- **Typical cause:** Code moving between projects whose namespaces follow their names.
+- **Fix:** Keep the namespace (namespaces are not bound to projects), or rename it in a separate change.
+
+### OFR2150
+
+**file changed since plan** · warning · move
+
+A planned file no longer matches the plan (its contents changed, it is gone, or its destination is taken), so `move apply` leaves it, and every planned file that needs it, where it is.
+
+- **Typical cause:** Edits made between `move plan` and `move apply`.
+- **Fix:** Plan again.
+
 ### OFR2151
 
 **file changed since the move; rollback stopped** · error · move
@@ -569,6 +682,15 @@ A file the move wrote (a moved file, an edited project file, or a new file) chan
 
 - **Typical cause:** Edits made after `move tests --apply`, or a second move over the same files.
 - **Fix:** Undo the later changes first (for example `git stash`), then roll back; or leave the move in place.
+
+### OFR2152
+
+**interrupted move cannot be resumed** · error · move
+
+`move apply --resume` found no interrupted journal for the plan, or a file the journal still has to write is neither as the journal expects nor as it would leave it.
+
+- **Typical cause:** The run finished or was rolled back already; or files were edited, moved, or restored after the interruption.
+- **Fix:** Check `.offramp/journal/`. Roll the interrupted journal back with `offramp move rollback --journal PATH` and apply again.
 
 ### OFR2201
 
@@ -633,6 +755,24 @@ After the move, nothing left in the source project uses the test framework, so i
 - **Typical cause:** The last tests moved out of a production project.
 - **Fix:** Run again with `--prune-packages`, or remove the references by hand.
 
+### OFR2301
+
+**string reference to a moved type** · warning · move
+
+A string names a type that moved together with the assembly it moved out of (`"Ns.Type, Source"`), in a C# string literal or a configuration or data file. Type forwarders redirect compiled references, not strings resolved at run time.
+
+- **Typical cause:** `Type.GetType("...")`, configuration sections, XAML, dependency-injection or serializer settings written before the move.
+- **Fix:** Change the string to name the destination assembly, or keep it and rely on the forwarder only where the loader follows forwards.
+
+### OFR2302
+
+**revision not found** · error · move
+
+`forwarders --since` names something that is not a commit in the repository, so the source's former public types cannot be read.
+
+- **Typical cause:** A typo, a branch that exists only elsewhere, or a shallow clone without that history.
+- **Fix:** Pass a commit, branch, or tag that exists locally (`git fetch` it first), or omit `--since` to use the last scan's compilation.
+
 ### OFR5001
 
 **verification failed** · error · verify
@@ -694,16 +834,7 @@ use these numbers; each moves to the table above in the pull request that first 
 | OFR1403 | warning | loose DLL unmatched |
 | OFR1404 | error | loose Framework-only DLL with no replacement |
 | OFR1501–1504 | info/warning | binding redirect added/changed/pruned/stale |
-| OFR2001 | error | move would create a project reference cycle |
 | OFR2010 | error | move crosses a solution slice boundary |
-| OFR2101 | warning | file needs co-move |
-| OFR2102 | error | required package unavailable for destination |
-| OFR2105 | warning | Windows-only API in moved file |
-| OFR2110 | info | partial type co-moved |
-| OFR2111 | warning | destination excludes the file path |
-| OFR2120 | warning | namespace differs from destination root namespace |
-| OFR2150 | warning | file changed since plan |
-| OFR2301 | warning | string reference to a moved type |
 | OFR3001 | error | API missing on target |
 | OFR3002 | warning | Windows-only API |
 | OFR3003 | error | API throws on modern .NET |
