@@ -25,10 +25,14 @@ public sealed class FixtureRepository : IDisposable
 
     public static string SourcePath(string name) => RepositoryFiles.Path("tests", "fixtures", name);
 
-    public static async Task<FixtureRepository> CreateAsync(string name, bool git = true)
+    public static Task<FixtureRepository> CreateAsync(string name, bool git = true) =>
+        CreateAsync(name, path => CopyDirectory(SourcePath(name), path), git);
+
+    /// <summary>A repository whose files <paramref name="generate"/> writes (see <see cref="GeneratedFixtures"/>).</summary>
+    public static async Task<FixtureRepository> CreateAsync(string name, Action<string> generate, bool git = true)
     {
         var directory = new ScratchDirectory(name);
-        CopyDirectory(SourcePath(name), directory.Path);
+        generate(directory.Path);
         var repository = new FixtureRepository(name, directory);
         if (git)
         {

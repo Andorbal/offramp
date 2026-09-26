@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Offramp.Refactoring.ChangeSets;
+using Offramp.Refactoring.Forwarders;
 using Offramp.Refactoring.Moves;
 
 namespace Offramp.Refactoring;
@@ -17,6 +18,10 @@ namespace Offramp.Refactoring;
 [JsonSerializable(typeof(Journal))]
 [JsonSerializable(typeof(MoveTestsResult))]
 [JsonSerializable(typeof(MoveRollbackResult))]
+[JsonSerializable(typeof(MovePlanDocument))]
+[JsonSerializable(typeof(MovePlanResult))]
+[JsonSerializable(typeof(MoveApplyResult))]
+[JsonSerializable(typeof(ForwardersResult))]
 public sealed partial class RefactoringJsonContext : JsonSerializerContext
 {
 }

@@ -47,6 +47,9 @@ public enum ProjectEditKind
     AddInternalsVisibleTo,
     AddCompile,
     RemoveCompile,
+
+    /// <summary>A moved .resx keeps its manifest resource name (<c>EmbeddedResource Update LogicalName</c>); the value is the path, the version the name.</summary>
+    KeepResourceName,
 }
 
 /// <summary>One change to a project or solution file (the file itself is edited, never a moved file).</summary>

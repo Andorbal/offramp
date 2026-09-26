@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/move-plan.json",
+  "title": "Offramp move plan",
+  "description": "A move plan written by `offramp move plan --out`, read by `offramp move apply --plan`. Deterministic and reviewable: remove entries before applying to move less. See docs/spec/commands/move.md#move-plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "from", "to", "target", "workspaceHash", "moves", "projectEdits", "excluded", "cycles", "verify"],
+  "properties": {
+    "$schema": { "const": "https://offramp.dev/schemas/v1/move-plan.json" },
+    "version": { "const": 1 },
+    "from": { "$ref": "workspace.json#/$defs/relativePath" },
+    "to": { "$ref": "workspace.json#/$defs/relativePath" },
+    "target": { "type": "string", "description": "The migration target framework (net10.0)." },
+    "workspaceHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "The workspace model the plan was made from; apply refuses another (OFR0002) unless --force." },
+    "moves": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "to", "coMoveOf", "sha256", "needs"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "to": { "$ref": "workspace.json#/$defs/relativePath" },
+          "coMoveOf": { "type": ["string", "null"], "description": "The file whose move brought this one along; null when asked for." },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The file's hash when planned; apply skips a file that changed (OFR2150)." },
+          "needs": { "$ref": "workspace.json#/$defs/pathList", "description": "Other planned files that must move no later than this one; apply skips this file when one of them stays." }
+        }
+      }
+    },
+    "projectEdits": { "type": "array", "items": { "$ref": "#/$defs/projectEdit" } },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "code", "message", "details"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "code": { "type": "string", "pattern": "^OFR[0-9]{4}$" },
+          "message": { "type": "string" },
+          "details": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "cycles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "path"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "path": { "$ref": "workspace.json#/$defs/pathList" }
+        }
+      }
+    },
+    "verify": { "type": "string", "pattern": "^(none|end|per-project|batch:[1-9][0-9]*)$" }
+  },
+  "$defs": {
+    "projectEdit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "kind", "value", "version"],
+      "properties": {
+        "project": { "$ref": "workspace.json#/$defs/relativePath" },
+        "kind": { "enum": ["createProject", "addToSolution", "addProjectReference", "addPackageReference", "addPackageVersion", "removePackageReference", "addInternalsVisibleTo", "addCompile", "removeCompile", "keepResourceName"] },
+        "value": { "type": ["string", "null"], "description": "A project path, package id, assembly name, or (keepResourceName) the moved .resx path." },
+        "version": { "type": ["string", "null"], "description": "A package version, or (keepResourceName) the manifest resource name kept." }
+      }
+    }
+  }
+}

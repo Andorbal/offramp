@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/move-plan-result.json",
+  "title": "offramp move plan result",
+  "description": "The result of `offramp move plan`. See docs/spec/commands/move.md#move-plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["plan", "output", "preview"],
+  "properties": {
+    "plan": { "$ref": "move-plan.json" },
+    "output": { "type": ["string", "null"], "description": "The plan file written with --out, repository-relative." },
+    "preview": { "type": "string", "description": "The unified diff of the project files, then the renames." }
+  }
+}

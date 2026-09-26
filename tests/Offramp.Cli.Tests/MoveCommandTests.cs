@@ -200,7 +200,7 @@ public sealed class MoveCommandTests
     }
 
     /// <summary>Every source file (not build output, not Offramp's state) with its hash.</summary>
-    private static List<string> Tree(string root) =>
+    internal static List<string> Tree(string root) =>
         [.. Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
             .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'))
             .Where(f => !f.StartsWith(".git/", StringComparison.Ordinal) && !f.StartsWith(".offramp/", StringComparison.Ordinal)

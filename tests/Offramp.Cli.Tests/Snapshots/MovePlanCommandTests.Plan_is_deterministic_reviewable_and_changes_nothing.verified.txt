@@ -1,0 +1,75 @@
+﻿Would move 4 files (1 brought along) from src/Legacy/Legacy.csproj to src/Core/Core.csproj.
+
+  File                                    To                                      Why
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  src/Legacy/Clean/Money.cs               src/Core/Clean/Money.cs                 asked
+  src/Legacy/Orders/OrderMapper.cs        src/Core/Orders/OrderMapper.cs          asked
+  src/Legacy/Resources/Strings.Designer   src/Core/Resources/Strings.Designer.c   asked
+  .cs                                     s
+  src/Legacy/Resources/Strings.resx       src/Core/Resources/Strings.resx         needed by
+                                                                                  src/Legacy/Resources/Strings.Designe
+                                                                                  r.cs
+
+Edit: src/Core/Core.csproj add ProjectReference src/Contracts/Contracts.csproj
+Edit: src/Legacy/Legacy.csproj add ProjectReference src/Core/Core.csproj
+Edit: src/Core/Core.csproj keep the resource name Legacy.Resources.Strings.resources for src/Core/Resources/Strings.resx
+
+--- a/src/Core/Core.csproj
++++ b/src/Core/Core.csproj
+@@ -4,4 +4,18 @@
+     <LangVersion>latest</LangVersion>
+     <RootNamespace>Core</RootNamespace>
+   </PropertyGroup>
++  <ItemGroup>
++    <ProjectReference Include="..\Contracts\Contracts.csproj" />
++  </ItemGroup>
++  <ItemGroup>
++    <EmbeddedResource Update="Resources\Strings.resx" LogicalName="Legacy.Resources.Strings.resources">
++      <Generator>ResXFileCodeGenerator</Generator>
++      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
++    </EmbeddedResource>
++    <Compile Update="Resources\Strings.Designer.cs">
++      <DesignTime>True</DesignTime>
++      <AutoGen>True</AutoGen>
++      <DependentUpon>Strings.resx</DependentUpon>
++    </Compile>
++  </ItemGroup>
+ </Project>
+--- a/src/Legacy/Legacy.csproj
++++ b/src/Legacy/Legacy.csproj
+@@ -10,20 +10,10 @@
+   </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\Contracts\Contracts.csproj" />
++    <ProjectReference Include="..\Core\Core.csproj" />
+     <ProjectReference Include="..\Reports\Reports.csproj" />
+   </ItemGroup>
+   <ItemGroup>
+     <Reference Include="System.Web" />
+   </ItemGroup>
+-  <ItemGroup>
+-    <Compile Update="Resources\Strings.Designer.cs">
+-      <DesignTime>True</DesignTime>
+-      <AutoGen>True</AutoGen>
+-      <DependentUpon>Strings.resx</DependentUpon>
+-    </Compile>
+-    <EmbeddedResource Update="Resources\Strings.resx">
+-      <Generator>ResXFileCodeGenerator</Generator>
+-      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+-    </EmbeddedResource>
+-  </ItemGroup>
+ </Project>
+rename from src/Legacy/Clean/Money.cs
+rename to src/Core/Clean/Money.cs
+rename from src/Legacy/Orders/OrderMapper.cs
+rename to src/Core/Orders/OrderMapper.cs
+rename from src/Legacy/Resources/Strings.Designer.cs
+rename to src/Core/Resources/Strings.Designer.cs
+rename from src/Legacy/Resources/Strings.resx
+rename to src/Core/Resources/Strings.resx
+
+Nothing written. Save the plan with --out move-plan.json, review it, then offramp move apply --plan move-plan.json
+
+· OFR0016 No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.
+
+1 info

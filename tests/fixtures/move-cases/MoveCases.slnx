@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Contracts/Contracts.csproj" />
+    <Project Path="src/Core/Core.csproj" />
+    <Project Path="src/Legacy/Legacy.csproj" />
+    <Project Path="src/Modern/Modern.csproj" />
+    <Project Path="src/Reports/Reports.csproj" />
+  </Folder>
+</Solution>

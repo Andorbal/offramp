@@ -1,5 +1,7 @@
+using System.Collections.Immutable;
 using Basic.CompilerLog.Util;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using ProjectInfo = Offramp.Core.Model.ProjectInfo;
@@ -44,6 +46,36 @@ public sealed class CompilationLoader : IDisposable
     public Compilation? LoadForProject(ProjectInfo project, string targetFramework) =>
         project.CompilerCalls.TryGetValue(targetFramework, out var call) ? Load(call) : null;
 
+    /// <summary>
+    /// The analyzers and analyzer options recorded for a project's compilation, or null. The
+    /// options answer every syntax tree with the recorded global options (the MSBuild
+    /// properties analyzers read): the recorded per-file options are keyed by the recorded
+    /// trees, which a rebuilt or trial compilation does not contain.
+    /// </summary>
+    public (ImmutableArray<DiagnosticAnalyzer> Analyzers, AnalyzerOptions Options)? LoadAnalyzers(ProjectInfo project, string targetFramework)
+    {
+        if (!project.CompilerCalls.TryGetValue(targetFramework, out var call))
+        {
+            return null;
+        }
+
+        var path = RepoPaths.ToAbsolute(_repositoryRoot, call.Complog);
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        if (!_readers.TryGetValue(path, out var reader))
+        {
+            reader = CompilerLogReader.Create(path, null, null);
+            _readers[path] = reader;
+        }
+
+        var data = reader.ReadCompilationData(call.Index);
+        var global = new GlobalOptionsProvider(data.AnalyzerOptions.AnalyzerConfigOptionsProvider.GlobalOptions);
+        return (data.GetAnalyzers(out _), new AnalyzerOptions(data.AnalyzerOptions.AdditionalFiles, global));
+    }
+
     /// <summary>The target framework analyses use by default: the first .NET Framework one, else the first.</summary>
     public static string? PreferredTarget(ProjectInfo project) =>
         project.CompilerCalls.Keys
@@ -59,5 +91,14 @@ public sealed class CompilationLoader : IDisposable
         }
 
         _readers.Clear();
+    }
+
+    private sealed class GlobalOptionsProvider(AnalyzerConfigOptions global) : AnalyzerConfigOptionsProvider
+    {
+        public override AnalyzerConfigOptions GlobalOptions => global;
+
+        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => global;
+
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => global;
     }
 }

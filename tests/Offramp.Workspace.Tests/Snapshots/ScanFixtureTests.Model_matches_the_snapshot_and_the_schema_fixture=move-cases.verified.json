@@ -1,0 +1,506 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "MoveCases.slnx",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Contracts/Contracts.csproj",
+      "name": "Contracts",
+      "assemblyName": "Contracts",
+      "rootNamespace": "Contracts",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "netstandard2.0"
+      ],
+      "frameworkClass": "standard",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "latest",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "netstandard2.0": [
+          "TRACE",
+          "DEBUG",
+          "NETSTANDARD",
+          "NETSTANDARD2_0",
+          "NETSTANDARD1_0_OR_GREATER",
+          "NETSTANDARD1_1_OR_GREATER",
+          "NETSTANDARD1_2_OR_GREATER",
+          "NETSTANDARD1_3_OR_GREATER",
+          "NETSTANDARD1_4_OR_GREATER",
+          "NETSTANDARD1_5_OR_GREATER",
+          "NETSTANDARD1_6_OR_GREATER",
+          "NETSTANDARD2_0_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Contracts/OrderDto.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "netstandard2.0": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "netstandard2.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 9,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Core/Core.csproj",
+      "name": "Core",
+      "assemblyName": "Core",
+      "rootNamespace": "Core",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "netstandard2.0"
+      ],
+      "frameworkClass": "standard",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "latest",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "netstandard2.0": [
+          "TRACE",
+          "DEBUG",
+          "NETSTANDARD",
+          "NETSTANDARD2_0",
+          "NETSTANDARD1_0_OR_GREATER",
+          "NETSTANDARD1_1_OR_GREATER",
+          "NETSTANDARD1_2_OR_GREATER",
+          "NETSTANDARD1_3_OR_GREATER",
+          "NETSTANDARD1_4_OR_GREATER",
+          "NETSTANDARD1_5_OR_GREATER",
+          "NETSTANDARD1_6_OR_GREATER",
+          "NETSTANDARD2_0_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Core/Existing/Paths.cs",
+        "src/Core/Existing/Slug.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "netstandard2.0": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "netstandard2.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 15,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Legacy/Legacy.csproj",
+      "name": "Legacy",
+      "assemblyName": "Legacy",
+      "rootNamespace": "Legacy",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "latest",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Legacy/Clean/Money.cs",
+        "src/Legacy/Cycle/Reporter.cs",
+        "src/Legacy/Data/ShopContext.cs",
+        "src/Legacy/Generated/Stamp.cs",
+        "src/Legacy/Internal/Billing.cs",
+        "src/Legacy/Internal/Rounding.cs",
+        "src/Legacy/Json/Serializer.cs",
+        "src/Legacy/Orders/OrderMapper.cs",
+        "src/Legacy/Partial/Invoice.Totals.cs",
+        "src/Legacy/Partial/Invoice.cs",
+        "src/Legacy/Platform/RegistryReader.cs",
+        "src/Legacy/Resources/Strings.Designer.cs",
+        "src/Legacy/Web/LinkBuilder.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [
+        "src/Contracts/Contracts.csproj",
+        "src/Reports/Reports.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "EntityFramework",
+          "version": "6.2.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        },
+        {
+          "id": "Newtonsoft.Json",
+          "version": "13.0.3",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "EntityFramework",
+              "version": "6.2.0",
+              "dependencies": [],
+              "direct": true
+            },
+            {
+              "id": "Newtonsoft.Json",
+              "version": "13.0.3",
+              "dependencies": [],
+              "direct": true
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 131,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Modern/Modern.csproj",
+      "name": "Modern",
+      "assemblyName": "Modern",
+      "rootNamespace": "Modern",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net10.0"
+      ],
+      "frameworkClass": "modern",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "14.0",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "Nullable": "enable",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net10.0": [
+          "TRACE",
+          "DEBUG",
+          "NET",
+          "NET10_0",
+          "NETCOREAPP",
+          "NET5_0_OR_GREATER",
+          "NET6_0_OR_GREATER",
+          "NET7_0_OR_GREATER",
+          "NET8_0_OR_GREATER",
+          "NET9_0_OR_GREATER",
+          "NET10_0_OR_GREATER",
+          "NETCOREAPP1_0_OR_GREATER",
+          "NETCOREAPP1_1_OR_GREATER",
+          "NETCOREAPP2_0_OR_GREATER",
+          "NETCOREAPP2_1_OR_GREATER",
+          "NETCOREAPP2_2_OR_GREATER",
+          "NETCOREAPP3_0_OR_GREATER",
+          "NETCOREAPP3_1_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Modern/Placeholder.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net10.0": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "net10.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 6,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Reports/Reports.csproj",
+      "name": "Reports",
+      "assemblyName": "Reports",
+      "rootNamespace": "Reports",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "netstandard2.0"
+      ],
+      "frameworkClass": "standard",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "latest",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "netstandard2.0": [
+          "TRACE",
+          "DEBUG",
+          "NETSTANDARD",
+          "NETSTANDARD2_0",
+          "NETSTANDARD1_0_OR_GREATER",
+          "NETSTANDARD1_1_OR_GREATER",
+          "NETSTANDARD1_2_OR_GREATER",
+          "NETSTANDARD1_3_OR_GREATER",
+          "NETSTANDARD1_4_OR_GREATER",
+          "NETSTANDARD1_5_OR_GREATER",
+          "NETSTANDARD1_6_OR_GREATER",
+          "NETSTANDARD2_0_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Reports/ReportWriter.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [
+        "src/Core/Core.csproj"
+      ],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "netstandard2.0": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "netstandard2.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 8,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/Legacy/Legacy.csproj",
+        "to": "src/Contracts/Contracts.csproj",
+        "kind": "project"
+      },
+      {
+        "from": "src/Legacy/Legacy.csproj",
+        "to": "src/Reports/Reports.csproj",
+        "kind": "project"
+      },
+      {
+        "from": "src/Reports/Reports.csproj",
+        "to": "src/Core/Core.csproj",
+        "kind": "project"
+      }
+    ],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Contracts/Contracts.csproj",
+      "src/Core/Core.csproj",
+      "src/Modern/Modern.csproj",
+      "src/Reports/Reports.csproj",
+      "src/Legacy/Legacy.csproj"
+    ]
+  },
+  "packages": {
+    "EntityFramework": {
+      "versions": {
+        "6.2.0": [
+          "src/Legacy/Legacy.csproj"
+        ]
+      }
+    },
+    "Newtonsoft.Json": {
+      "versions": {
+        "13.0.3": [
+          "src/Legacy/Legacy.csproj"
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "MoveCases.slnx",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Contracts/Contracts.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Core/Core.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Legacy/Legacy.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Modern/Modern.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Reports/Reports.csproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}
