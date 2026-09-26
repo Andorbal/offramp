@@ -1,0 +1,11 @@
+version: 1
+target: 10
+solution: Versions.slnx
+deps:
+  families:
+    - prefix: "Microsoft.Extensions."
+  pins:
+    - package: Newtonsoft.Json
+      project: src/Customer.Api/Customer.Api.csproj
+      version: 9.0.1
+      reason: "Customer integrations depend on 9.x serialization behavior"

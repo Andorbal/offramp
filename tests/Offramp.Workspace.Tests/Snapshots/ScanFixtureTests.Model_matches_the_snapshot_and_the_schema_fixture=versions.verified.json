@@ -1,0 +1,1061 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "Versions.slnx",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Billing/Billing.csproj",
+      "name": "Billing",
+      "assemblyName": "Billing",
+      "rootNamespace": "Billing",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Billing/Invoice.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "Contoso.Legacy.Reports",
+          "version": "1.1.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        },
+        {
+          "id": "EntityFramework",
+          "version": "6.2.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        },
+        {
+          "id": "Microsoft.Extensions.Logging.Abstractions",
+          "version": "6.0.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        },
+        {
+          "id": "Newtonsoft.Json",
+          "version": "11.0.2",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "System.Configuration",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Drawing",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Contoso.Legacy.Reports",
+              "version": "1.1.0",
+              "dependencies": [],
+              "direct": true
+            },
+            {
+              "id": "EntityFramework",
+              "version": "6.2.0",
+              "dependencies": [],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.Extensions.Logging.Abstractions",
+              "version": "6.0.0",
+              "dependencies": [
+                {
+                  "id": "System.Buffers",
+                  "range": "[4.5.1, )"
+                },
+                {
+                  "id": "System.Memory",
+                  "range": "[4.5.4, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Newtonsoft.Json",
+              "version": "11.0.2",
+              "dependencies": [],
+              "direct": true
+            },
+            {
+              "id": "System.Buffers",
+              "version": "4.5.1",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "System.Memory",
+              "version": "4.5.4",
+              "dependencies": [
+                {
+                  "id": "System.Buffers",
+                  "range": "[4.5.1, )"
+                },
+                {
+                  "id": "System.Numerics.Vectors",
+                  "range": "[4.5.0, )"
+                },
+                {
+                  "id": "System.Runtime.CompilerServices.Unsafe",
+                  "range": "[4.5.3, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "System.Numerics.Vectors",
+              "version": "4.5.0",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "System.Runtime.CompilerServices.Unsafe",
+              "version": "4.5.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 11,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Customer.Api/Customer.Api.csproj",
+      "name": "Customer.Api",
+      "assemblyName": "Customer.Api",
+      "rootNamespace": "Customer.Api",
+      "language": "csharp",
+      "kind": "web",
+      "kindEvidence": "Reference System.Web + OutputType=Library + web.config",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Customer.Api/CustomersController.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "Microsoft.AspNet.WebApi.Core",
+          "version": "5.2.3",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        },
+        {
+          "id": "Newtonsoft.Json",
+          "version": "9.0.1",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.AspNet.WebApi.Client",
+              "version": "5.2.3",
+              "dependencies": [
+                {
+                  "id": "Newtonsoft.Json",
+                  "range": "[6.0.4, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "Microsoft.AspNet.WebApi.Core",
+              "version": "5.2.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.AspNet.WebApi.Client",
+                  "range": "[5.2.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Newtonsoft.Json",
+              "version": "9.0.1",
+              "dependencies": [],
+              "direct": true
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 9,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Modern.App/Modern.App.csproj",
+      "name": "Modern.App",
+      "assemblyName": "Modern.App",
+      "rootNamespace": "Modern.App",
+      "language": "csharp",
+      "kind": "console",
+      "kindEvidence": "OutputType=Exe",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net10.0"
+      ],
+      "frameworkClass": "modern",
+      "outputType": "Exe",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "14.0",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net10.0": [
+          "TRACE",
+          "DEBUG",
+          "NET",
+          "NET10_0",
+          "NETCOREAPP",
+          "NET5_0_OR_GREATER",
+          "NET6_0_OR_GREATER",
+          "NET7_0_OR_GREATER",
+          "NET8_0_OR_GREATER",
+          "NET9_0_OR_GREATER",
+          "NET10_0_OR_GREATER",
+          "NETCOREAPP1_0_OR_GREATER",
+          "NETCOREAPP1_1_OR_GREATER",
+          "NETCOREAPP2_0_OR_GREATER",
+          "NETCOREAPP2_1_OR_GREATER",
+          "NETCOREAPP2_2_OR_GREATER",
+          "NETCOREAPP3_0_OR_GREATER",
+          "NETCOREAPP3_1_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Modern.App/Program.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+          "version": "6.0.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net10.0"
+          ]
+        },
+        {
+          "id": "Microsoft.Extensions.Logging.Abstractions",
+          "version": "6.0.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net10.0"
+          ]
+        },
+        {
+          "id": "Newtonsoft.Json",
+          "version": "12.0.3",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net10.0"
+          ]
+        },
+        {
+          "id": "System.Drawing.Common",
+          "version": "8.0.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net10.0"
+          ]
+        }
+      ],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net10.0": {
+          "packages": [
+            {
+              "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+              "version": "6.0.0",
+              "dependencies": [],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.Extensions.Logging.Abstractions",
+              "version": "6.0.0",
+              "dependencies": [],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.Win32.SystemEvents",
+              "version": "8.0.0",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "Newtonsoft.Json",
+              "version": "12.0.3",
+              "dependencies": [],
+              "direct": true
+            },
+            {
+              "id": "System.Drawing.Common",
+              "version": "8.0.0",
+              "dependencies": [
+                {
+                  "id": "Microsoft.Win32.SystemEvents",
+                  "range": "[8.0.0, )"
+                }
+              ],
+              "direct": true
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net10.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 1,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Reporting/Reporting.csproj",
+      "name": "Reporting",
+      "assemblyName": "Reporting",
+      "rootNamespace": "Reporting",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Reporting/Report.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [
+        "src/Shared/Shared.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Contoso.Serialization",
+          "version": "2.0.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        },
+        {
+          "id": "WindowsAzure.Storage",
+          "version": "9.3.3",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Contoso.Serialization",
+              "version": "2.0.0",
+              "dependencies": [
+                {
+                  "id": "Newtonsoft.Json",
+                  "range": "[13.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Contoso.Windows.Controls",
+              "version": "1.0.0",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "Microsoft.Azure.KeyVault.Core",
+              "version": "1.0.0",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "Microsoft.Bcl.AsyncInterfaces",
+              "version": "8.0.0",
+              "dependencies": [
+                {
+                  "id": "System.Threading.Tasks.Extensions",
+                  "range": "[4.5.4, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+              "version": "8.0.0",
+              "dependencies": [
+                {
+                  "id": "Microsoft.Bcl.AsyncInterfaces",
+                  "range": "[8.0.0, )"
+                },
+                {
+                  "id": "System.Threading.Tasks.Extensions",
+                  "range": "[4.5.4, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "Microsoft.Extensions.Logging.Abstractions",
+              "version": "8.0.0",
+              "dependencies": [
+                {
+                  "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+                  "range": "[8.0.0, )"
+                },
+                {
+                  "id": "System.Buffers",
+                  "range": "[4.5.1, )"
+                },
+                {
+                  "id": "System.Memory",
+                  "range": "[4.5.5, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "Newtonsoft.Json",
+              "version": "13.0.3",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "System.Buffers",
+              "version": "4.5.1",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "System.Memory",
+              "version": "4.5.5",
+              "dependencies": [
+                {
+                  "id": "System.Buffers",
+                  "range": "[4.5.1, )"
+                },
+                {
+                  "id": "System.Numerics.Vectors",
+                  "range": "[4.5.0, )"
+                },
+                {
+                  "id": "System.Runtime.CompilerServices.Unsafe",
+                  "range": "[4.5.3, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "System.Numerics.Vectors",
+              "version": "4.5.0",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "System.Runtime.CompilerServices.Unsafe",
+              "version": "4.5.3",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "System.Threading.Tasks.Extensions",
+              "version": "4.5.4",
+              "dependencies": [
+                {
+                  "id": "System.Runtime.CompilerServices.Unsafe",
+                  "range": "[4.5.3, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "WindowsAzure.Storage",
+              "version": "9.3.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.Azure.KeyVault.Core",
+                  "range": "[1.0.0, )"
+                },
+                {
+                  "id": "Newtonsoft.Json",
+                  "range": "[10.0.2, )"
+                }
+              ],
+              "direct": true
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 7,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Shared/Shared.csproj",
+      "name": "Shared",
+      "assemblyName": "Shared",
+      "rootNamespace": "Shared",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "netstandard2.0"
+      ],
+      "frameworkClass": "standard",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "netstandard2.0": [
+          "TRACE",
+          "DEBUG",
+          "NETSTANDARD",
+          "NETSTANDARD2_0",
+          "NETSTANDARD1_0_OR_GREATER",
+          "NETSTANDARD1_1_OR_GREATER",
+          "NETSTANDARD1_2_OR_GREATER",
+          "NETSTANDARD1_3_OR_GREATER",
+          "NETSTANDARD1_4_OR_GREATER",
+          "NETSTANDARD1_5_OR_GREATER",
+          "NETSTANDARD1_6_OR_GREATER",
+          "NETSTANDARD2_0_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Shared/Money.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "Contoso.Windows.Controls",
+          "version": "1.0.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "netstandard2.0"
+          ]
+        },
+        {
+          "id": "Microsoft.Extensions.Logging.Abstractions",
+          "version": "8.0.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "netstandard2.0"
+          ]
+        },
+        {
+          "id": "Newtonsoft.Json",
+          "version": "13.0.1",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "netstandard2.0"
+          ]
+        }
+      ],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "netstandard2.0": {
+          "packages": [
+            {
+              "id": "Contoso.Windows.Controls",
+              "version": "1.0.0",
+              "dependencies": [],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.Bcl.AsyncInterfaces",
+              "version": "8.0.0",
+              "dependencies": [
+                {
+                  "id": "System.Threading.Tasks.Extensions",
+                  "range": "[4.5.4, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+              "version": "8.0.0",
+              "dependencies": [
+                {
+                  "id": "Microsoft.Bcl.AsyncInterfaces",
+                  "range": "[8.0.0, )"
+                },
+                {
+                  "id": "System.Threading.Tasks.Extensions",
+                  "range": "[4.5.4, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "Microsoft.Extensions.Logging.Abstractions",
+              "version": "8.0.0",
+              "dependencies": [
+                {
+                  "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+                  "range": "[8.0.0, )"
+                },
+                {
+                  "id": "System.Buffers",
+                  "range": "[4.5.1, )"
+                },
+                {
+                  "id": "System.Memory",
+                  "range": "[4.5.5, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Newtonsoft.Json",
+              "version": "13.0.1",
+              "dependencies": [],
+              "direct": true
+            },
+            {
+              "id": "System.Buffers",
+              "version": "4.5.1",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "System.Memory",
+              "version": "4.5.5",
+              "dependencies": [
+                {
+                  "id": "System.Buffers",
+                  "range": "[4.5.1, )"
+                },
+                {
+                  "id": "System.Numerics.Vectors",
+                  "range": "[4.4.0, )"
+                },
+                {
+                  "id": "System.Runtime.CompilerServices.Unsafe",
+                  "range": "[4.5.3, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "System.Numerics.Vectors",
+              "version": "4.4.0",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "System.Runtime.CompilerServices.Unsafe",
+              "version": "4.5.3",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "System.Threading.Tasks.Extensions",
+              "version": "4.5.4",
+              "dependencies": [
+                {
+                  "id": "System.Runtime.CompilerServices.Unsafe",
+                  "range": "[4.5.3, )"
+                }
+              ],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "netstandard2.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 9,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/Reporting/Reporting.csproj",
+        "to": "src/Shared/Shared.csproj",
+        "kind": "project"
+      }
+    ],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Billing/Billing.csproj",
+      "src/Customer.Api/Customer.Api.csproj",
+      "src/Modern.App/Modern.App.csproj",
+      "src/Shared/Shared.csproj",
+      "src/Reporting/Reporting.csproj"
+    ]
+  },
+  "packages": {
+    "Contoso.Legacy.Reports": {
+      "versions": {
+        "1.1.0": [
+          "src/Billing/Billing.csproj"
+        ]
+      }
+    },
+    "Contoso.Serialization": {
+      "versions": {
+        "2.0.0": [
+          "src/Reporting/Reporting.csproj"
+        ]
+      }
+    },
+    "Contoso.Windows.Controls": {
+      "versions": {
+        "1.0.0": [
+          "src/Shared/Shared.csproj"
+        ]
+      }
+    },
+    "EntityFramework": {
+      "versions": {
+        "6.2.0": [
+          "src/Billing/Billing.csproj"
+        ]
+      }
+    },
+    "Microsoft.AspNet.WebApi.Core": {
+      "versions": {
+        "5.2.3": [
+          "src/Customer.Api/Customer.Api.csproj"
+        ]
+      }
+    },
+    "Microsoft.Extensions.DependencyInjection.Abstractions": {
+      "versions": {
+        "6.0.0": [
+          "src/Modern.App/Modern.App.csproj"
+        ]
+      }
+    },
+    "Microsoft.Extensions.Logging.Abstractions": {
+      "versions": {
+        "6.0.0": [
+          "src/Billing/Billing.csproj",
+          "src/Modern.App/Modern.App.csproj"
+        ],
+        "8.0.0": [
+          "src/Shared/Shared.csproj"
+        ]
+      }
+    },
+    "Newtonsoft.Json": {
+      "versions": {
+        "11.0.2": [
+          "src/Billing/Billing.csproj"
+        ],
+        "12.0.3": [
+          "src/Modern.App/Modern.App.csproj"
+        ],
+        "13.0.1": [
+          "src/Shared/Shared.csproj"
+        ],
+        "9.0.1": [
+          "src/Customer.Api/Customer.Api.csproj"
+        ]
+      }
+    },
+    "System.Drawing.Common": {
+      "versions": {
+        "8.0.0": [
+          "src/Modern.App/Modern.App.csproj"
+        ]
+      }
+    },
+    "WindowsAzure.Storage": {
+      "versions": {
+        "9.3.3": [
+          "src/Reporting/Reporting.csproj"
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Versions.slnx",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Billing/Billing.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Customer.Api/Customer.Api.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Modern.App/Modern.App.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Reporting/Reporting.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Shared/Shared.csproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}

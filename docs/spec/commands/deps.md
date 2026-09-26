@@ -2,9 +2,11 @@
 
 All commands read the workspace model. Feed access goes through
 `NuGet.Protocol` using the repository's `nuget.config` (private feeds and
-credential providers included). Package inspection results are cached under
-`.offramp/cache/packages/<id>/<version>.json` and never expire unless
-`--no-cache` (a published version is immutable).
+credentials included), or exactly the sources in `deps.feeds`. A version already
+in the global packages folder is read from there. Package inspection results are
+cached under `.offramp/cache/packages/<id>/<version>.json` and never expire unless
+`--no-cache` (a published version is immutable); version lists, listing state, and
+deprecation are asked for on every run.
 
 ## Determining "supports target"
 
@@ -17,18 +19,26 @@ For a package version and a target framework:
    assets (meta-package) uses its dependency group frameworks.
 3. `supports(target)` = `DefaultCompatibilityProvider.Instance.IsCompatible(target, f)`
    for any collected `f`, via `NuGetFramework`. `netstandard2.0` is compatible
-   with `net10.0`; `net48` assets are not.
+   with `net10.0`; `net48` assets are not. Files directly under `lib/` count as
+   .NET Framework (NuGet's legacy rule); files directly under `build/` carry no
+   framework. A package with neither assets nor dependency groups supports every
+   target.
 4. **Windows-only detection**: for each managed assembly under a compatible
    folder, read `System.Reflection.Metadata` assembly references and the
    `SupportedOSPlatform` assembly attribute. Referencing `System.Windows.Forms`,
    `PresentationFramework`, `System.Web` (the Framework one), `System.Drawing`
    (Framework), `Microsoft.Win32.Registry`, or `System.DirectoryServices`
-   marks the version `windowsOnly: true`. This is a warning, not a fail.
+   marks the version `windowsOnly: true`. Only the assets NuGet would pick for
+   the target count (the nearest `lib/` folder, else `ref/`): System.Drawing.Common
+   8.0 is Windows-only for `net10.0` but not for `netstandard2.0` consumers. This is
+   a warning (`OFR1004`), not a fail.
 5. **Deprecated/unlisted**: read from the registration index; deprecation
    reasons and alternate packages are surfaced.
 
 Known-mapping table `rules/package-map.yml` (embedded, user-extendable in
-`offramp.yml`) lists Framework-era packages and their modern successors, e.g.
+`offramp.yml` with `deps.packageMap: [{ package | prefix, replacement }]`; an
+exact id beats any prefix, the longest prefix wins, configuration beats the
+built-in table) lists Framework-era packages and their modern successors, e.g.
 `Microsoft.AspNet.WebApi.Core → Microsoft.AspNetCore.Mvc (framework built-in)`,
 `Topshelf → Microsoft.Extensions.Hosting`, `System.Data.SqlClient → Microsoft.Data.SqlClient`,
 `Microsoft.Owin.* → ASP.NET Core middleware`, `Swashbuckle → Swashbuckle.AspNetCore`,
@@ -42,40 +52,58 @@ Known-mapping table `rules/package-map.yml` (embedded, user-extendable in
 offramp deps audit [--target N] [--package ID] [--project P] [--include-prerelease] [--format table|json|markdown]
 ```
 
-Result per package:
+Result (`schemas/v1/deps-audit.json`):
 
 ```jsonc
 {
+  "target": "net10.0",
+  "sources": ["nuget.org (https://api.nuget.org/v3/index.json)"],
   "packages": [
     {
       "id": "Newtonsoft.Json",
-      "inUse": [ { "version": "9.0.1", "projects": ["src/Customer.Api/Customer.Api.csproj"], "pinned": true },
-                 { "version": "13.0.3", "projects": ["src/Foo/Foo.csproj", "..."] } ],
+      "inUse": [ { "version": "9.0.1", "projects": ["src/Customer.Api/Customer.Api.csproj"], "pinned": true, "deprecated": null },
+                 { "version": "13.0.1", "projects": ["src/Shared/Shared.csproj"], "pinned": false, "deprecated": null } ],
       "target": "net10.0",
-      "supportsTarget": { "inUseVersions": { "9.0.1": true, "13.0.3": true } },
+      "supportsTarget": { "inUseVersions": { "9.0.1": true, "13.0.1": true } },   // null: the feeds could not provide it
       "lowestSupporting": "9.0.1",
       "newestSupporting": "13.0.3",
       "newest": "13.0.3",
       "noVersionSupports": false,
       "windowsOnly": false,
-      "deprecated": null,
-      "replacement": null,
-      "status": "ok|upgrade|replace|blocked"
+      "windowsOnlyEvidence": null,       // "8.0.0 lib/net8.0/System.Drawing.Common.dll: [SupportedOSPlatform(\"windows6.1\")]"
+      "deprecated": null,                // { reasons, message, alternateId, alternateRange } of the newest version
+      "replacement": null,               // { match, replacement, source } from the package map
+      "status": "ok|upgrade|replace|blocked|unknown"
     }
   ],
-  "assemblyReferences": [ ... see deps gac and resolve-dlls ... ],
-  "summary": { "ok": 120, "upgrade": 14, "replace": 3, "blocked": 2 }
+  "assemblyReferences": [ { "project": "...", "name": "System.Web", "kind": "framework|file", "hintPath": null,
+                            "mapping": { "kind": "none", "package": null, "windowsOnly": false, "note": "..." } } ],
+  "summary": { "ok": 120, "upgrade": 14, "replace": 3, "blocked": 2, "unknown": 0 },
+  "partial": false
 }
 ```
 
+Candidates are listed stable versions (prerelease with `--include-prerelease`
+or `deps.includePrerelease`) plus every in-use version. `newestSupporting` walks
+down from the newest candidate; `lowestSupporting` is found by binary search
+below it, assuming support, once added, is kept, so a package needs about
+log₂(versions) inspections rather than one per version. Every version it returns
+was inspected and supports the target. `newest` is the newest listed candidate.
+
 `status`: `ok` every in-use version supports the target; `upgrade` some
 version does; `replace` none does but a mapping exists; `blocked` none does and
-no mapping. Table view sorts blocked first, then by number of projects.
+no mapping; `unknown` no feed has the package, or the feeds could not be reached.
+`--format table` (the terminal view) sorts blocked first, then replace, upgrade,
+unknown, and ok, each by number of projects; `--format markdown` prints the same
+table as Markdown and `--format json` the result alone (`--json` gives the
+envelope). `assemblyReferences` lists the model's non-package references with
+the `deps gac` mapping for framework assemblies (file references are
+`deps resolve-dlls`' job).
 
-Diagnostics: `OFR1001` no version supports target, `OFR1002` in-use version
-does not support target, `OFR1003` package deprecated, `OFR1004` windows-only
-assets, `OFR1005` package not found on any feed, `OFR1006` feed unreachable
-(result marked partial).
+Diagnostics: `OFR1001` no version supports target (error), `OFR1002` in-use
+version does not support target, `OFR1003` package or in-use version deprecated,
+`OFR1004` windows-only assets, `OFR1005` package not found on any feed,
+`OFR1006` feed unreachable (result marked partial, exit 4).
 
 ## `deps consolidate`
 
@@ -168,10 +196,27 @@ one of: `builtin` (in the shared framework, remove the reference),
 `System.Drawing → System.Drawing.Common (Windows only on net6+)`),
 `compat-pack` (`Microsoft.Windows.Compatibility`), or `none`
 (`System.Web`, `System.Runtime.Remoting`, `System.EnterpriseServices`,
-`System.Workflow.*`) with the recommended direction. Result lists references
-by project with the mapping and a count of usages from the compilation when
-available (so an unused `System.Web` reference is distinguished from a real
-dependency).
+`System.Workflow.*`) with the recommended direction; names outside the table
+are `unknown`. A trailing `*` matches a prefix. Result (`schemas/v1/deps-gac.json`)
+lists references by project with the mapping and a count of usages from the
+compilation when available (so an unused `System.Web` reference is distinguished
+from a real dependency):
+
+```jsonc
+{
+  "target": "net10.0",
+  "projects": [ { "project": "src/Billing/Billing.csproj", "targetFrameworks": ["net48"],
+                  "references": [ { "name": "System.Drawing",
+                                    "mapping": { "kind": "package", "package": "System.Drawing.Common", "windowsOnly": true, "note": "..." },
+                                    "usages": 0 } ] } ],
+  "summary": { "builtin": 0, "package": 2, "compatPack": 0, "none": 1, "unknown": 0, "unused": 1 }
+}
+```
+
+`usages` counts the names in C# source that bind to a type or member defined in
+the assembly, in the compilation rebuilt from the compiler log for the project's
+.NET Framework target; `null` when there is no compiler log or the project is not
+C#.
 
 ## `redirects sync`
 

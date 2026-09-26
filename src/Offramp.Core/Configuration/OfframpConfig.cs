@@ -118,6 +118,9 @@ public sealed record DepsConfig
 
     public IReadOnlyList<string> Ignore { get; init; } = [];
 
+    /// <summary>Additions and overrides for the package successor table (rules/package-map.yml).</summary>
+    public IReadOnlyList<PackageMapEntry> PackageMap { get; init; } = [];
+
     public CpmConfig Cpm { get; init; } = new();
 
     public RedirectsConfig Redirects { get; init; } = new();
@@ -129,6 +132,16 @@ public sealed record PackageFamily
 
     /// <summary>The family this prefix joins, when it is not its own.</summary>
     public string? Family { get; init; }
+}
+
+public sealed record PackageMapEntry
+{
+    /// <summary>An exact package id; or use <see cref="Prefix"/>.</summary>
+    public string? Package { get; init; }
+
+    public string? Prefix { get; init; }
+
+    public string Replacement { get; init; } = "";
 }
 
 public sealed record PackagePin

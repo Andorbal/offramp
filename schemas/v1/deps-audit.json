@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/deps-audit.json",
+  "title": "offramp deps audit result",
+  "description": "The result of `offramp deps audit`. See docs/spec/commands/deps.md#deps-audit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["target", "sources", "packages", "assemblyReferences", "summary", "partial"],
+  "properties": {
+    "target": { "type": "string" },
+    "sources": { "type": "array", "items": { "type": "string" } },
+    "packages": { "type": "array", "items": { "$ref": "#/$defs/package" } },
+    "assemblyReferences": { "type": "array", "items": { "$ref": "#/$defs/assemblyReference" } },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "upgrade", "replace", "blocked", "unknown"],
+      "properties": {
+        "ok": { "type": "integer" }, "upgrade": { "type": "integer" }, "replace": { "type": "integer" },
+        "blocked": { "type": "integer" }, "unknown": { "type": "integer" }
+      }
+    },
+    "partial": { "type": "boolean" }
+  },
+  "$defs": {
+    "deprecation": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["reasons", "message", "alternateId", "alternateRange"],
+      "properties": {
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "message": { "type": ["string", "null"] },
+        "alternateId": { "type": ["string", "null"] },
+        "alternateRange": { "type": ["string", "null"] }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "inUse", "target", "supportsTarget", "lowestSupporting", "newestSupporting", "newest", "noVersionSupports",
+                   "windowsOnly", "windowsOnlyEvidence", "deprecated", "replacement", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "inUse": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["version", "projects", "pinned", "deprecated"],
+            "properties": {
+              "version": { "type": "string" },
+              "projects": { "$ref": "workspace.json#/$defs/pathList" },
+              "pinned": { "type": "boolean" },
+              "deprecated": { "$ref": "#/$defs/deprecation" }
+            }
+          }
+        },
+        "target": { "type": "string" },
+        "supportsTarget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["inUseVersions"],
+          "properties": { "inUseVersions": { "type": "object", "additionalProperties": { "type": ["boolean", "null"] } } }
+        },
+        "lowestSupporting": { "type": ["string", "null"] },
+        "newestSupporting": { "type": ["string", "null"] },
+        "newest": { "type": ["string", "null"] },
+        "noVersionSupports": { "type": "boolean" },
+        "windowsOnly": { "type": "boolean" },
+        "windowsOnlyEvidence": { "type": ["string", "null"] },
+        "deprecated": { "$ref": "#/$defs/deprecation" },
+        "replacement": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["match", "replacement", "source"],
+          "properties": { "match": { "type": "string" }, "replacement": { "type": "string" }, "source": { "type": "string" } }
+        },
+        "status": { "enum": ["ok", "upgrade", "replace", "blocked", "unknown"] }
+      }
+    },
+    "mapping": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["kind", "package", "windowsOnly", "note"],
+      "properties": {
+        "kind": { "enum": ["builtin", "package", "compat-pack", "none", "unknown"] },
+        "package": { "type": ["string", "null"] },
+        "windowsOnly": { "type": "boolean" },
+        "note": { "type": ["string", "null"] }
+      }
+    },
+    "assemblyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "name", "kind", "hintPath", "mapping"],
+      "properties": {
+        "project": { "$ref": "workspace.json#/$defs/relativePath" },
+        "name": { "type": "string" },
+        "kind": { "enum": ["framework", "file"] },
+        "hintPath": { "type": ["string", "null"] },
+        "mapping": { "$ref": "#/$defs/mapping" }
+      }
+    }
+  }
+}

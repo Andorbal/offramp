@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/deps-gac.json",
+  "title": "offramp deps gac result",
+  "description": "The result of `offramp deps gac`. See docs/spec/commands/deps.md#deps-gac.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["target", "projects", "summary"],
+  "properties": {
+    "target": { "type": "string" },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "targetFrameworks", "references"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "targetFrameworks": { "type": "array", "items": { "type": "string" } },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "mapping", "usages"],
+              "properties": {
+                "name": { "type": "string" },
+                "mapping": { "$ref": "deps-audit.json#/$defs/mapping" },
+                "usages": { "type": ["integer", "null"], "minimum": 0 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["builtin", "package", "compatPack", "none", "unknown", "unused"],
+      "properties": {
+        "builtin": { "type": "integer" }, "package": { "type": "integer" }, "compatPack": { "type": "integer" },
+        "none": { "type": "integer" }, "unknown": { "type": "integer" }, "unused": { "type": "integer" }
+      }
+    }
+  }
+}

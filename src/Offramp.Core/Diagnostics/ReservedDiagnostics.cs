@@ -12,11 +12,6 @@ public static class ReservedDiagnostics
 {
     public static IReadOnlyList<ReservedDiagnostic> All { get; } =
     [
-        new("OFR1001", "error", "no package version supports the target"),
-        new("OFR1002", "warning", "in-use version does not support the target"),
-        new("OFR1003", "warning", "package deprecated"),
-        new("OFR1004", "warning", "package assets are Windows-only"),
-        new("OFR1005", "warning", "package not found on any feed"),
         new("OFR1203", "warning", "pin kept a package below the otherwise-selected version"),
         new("OFR1210", "error", "pin conflicts with a transitive lower bound (chain attached)"),
         new("OFR1211", "error", "restore verification reported NU1605/NU1107/NU1608/NU1010"),

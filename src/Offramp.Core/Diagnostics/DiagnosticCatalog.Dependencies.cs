@@ -4,6 +4,46 @@ public static partial class DiagnosticCatalog
 {
     private const string DependenciesArea = "deps";
 
+    public static readonly DiagnosticDescriptor OFR1001 = new(
+        "OFR1001", Severity.Error,
+        "no package version supports the target",
+        "No published version of the package has assets compatible with the target framework, so the projects using it cannot move to the target with it.",
+        "A package that only ever shipped .NET Framework assets (for example Microsoft.AspNet.WebApi.Core).",
+        "Replace the package with its successor (the message names one when rules/package-map.yml or deps.packageMap knows it), or isolate the code that uses it behind a seam.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1002 = new(
+        "OFR1002", Severity.Warning,
+        "in-use version does not support the target",
+        "A version of the package in use has no assets for the target framework, but a newer version does.",
+        "An old version that predates the package's .NET Standard or modern .NET support.",
+        "Upgrade to the version the message names or later (`deps consolidate` picks one version for the solution).",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1003 = new(
+        "OFR1003", Severity.Warning,
+        "package deprecated",
+        "The feed marks the package, or the version in use, as deprecated; the message carries the reasons and the alternate the feed suggests.",
+        "A package its authors no longer maintain (reason Legacy), or one with critical bugs.",
+        "Move to the alternate the feed suggests, or record the decision to keep it.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1004 = new(
+        "OFR1004", Severity.Warning,
+        "package assets are Windows-only",
+        "The assets NuGet would pick for the target are marked [SupportedOSPlatform(\"windows\")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, the registry, directory services).",
+        "A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later.",
+        "Fine if the application stays on Windows; otherwise choose a cross-platform alternative before containerizing.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1005 = new(
+        "OFR1005", Severity.Warning,
+        "package not found on any feed",
+        "None of the configured feeds has the package, so its support for the target is unknown.",
+        "A private package on a feed missing from nuget.config, or a package removed from its feed.",
+        "Add the feed to nuget.config (or `deps.feeds`), or ignore the package with `deps.ignore`.",
+        DependenciesArea);
+
     public static readonly DiagnosticDescriptor OFR1006 = new(
         "OFR1006", Severity.Warning,
         "feed unreachable; result partial",

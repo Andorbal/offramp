@@ -57,6 +57,16 @@ catalog has no such test. Test stack: `docs/decisions/0005-test-stack.md`.
 | `Category=Corpus` | `corpus.yml` on manual dispatch: NHibernate 4.x, DotNetNuke 8.x tags cloned and scanned; asserts no crashes and records counts |
 | `Category=Slow` | > 60 s; nightly |
 
+## Recorded feeds
+
+Package commands are tested against recorded feeds, never live nuget.org
+(`docs/decisions/0015-recorded-feeds.md`): `eng/record-feed.cs` records real
+packages' structure (file paths, dependency groups, assembly identities and
+references, listing, deprecation) into a fixture's `feed.json`, and tests
+materialize it as a local folder feed of byte-identical `.nupkg` files with
+metadata-only stub assemblies. Fixture builds still restore real packages from
+nuget.org like every other fixture.
+
 ## Proving checks can fail
 
 For every verification path there is a test that feeds a deliberately broken

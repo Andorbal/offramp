@@ -1,0 +1,8 @@
+﻿3 framework references in 2 projects: 0 built in, 2 package, 0 compatibility pack, 1 none, 0 unknown; 0 unused.
+
+src/Billing/Billing.csproj (net48)
+  System.Configuration package System.Configuration.ConfigurationManager    ?
+  System.Drawing       package System.Drawing.Common (Windows only)         ?
+
+src/Customer.Api/Customer.Api.csproj (net48)
+  System.Web none          ?

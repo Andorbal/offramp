@@ -1,0 +1,383 @@
+﻿{
+  "target": "net10.0",
+  "sources": [
+    "{Feed}"
+  ],
+  "packages": [
+    {
+      "id": "Contoso.Legacy.Reports",
+      "inUse": [
+        {
+          "version": "1.1.0",
+          "projects": [
+            "src/Billing/Billing.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        }
+      ],
+      "target": "net10.0",
+      "supportsTarget": {
+        "inUseVersions": {
+          "1.1.0": false
+        }
+      },
+      "lowestSupporting": null,
+      "newestSupporting": null,
+      "newest": "1.1.0",
+      "noVersionSupports": true,
+      "windowsOnly": false,
+      "windowsOnlyEvidence": null,
+      "deprecated": null,
+      "replacement": null,
+      "status": "blocked"
+    },
+    {
+      "id": "Contoso.Serialization",
+      "inUse": [
+        {
+          "version": "2.0.0",
+          "projects": [
+            "src/Reporting/Reporting.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        }
+      ],
+      "target": "net10.0",
+      "supportsTarget": {
+        "inUseVersions": {
+          "2.0.0": true
+        }
+      },
+      "lowestSupporting": "2.0.0",
+      "newestSupporting": "2.0.0",
+      "newest": "2.0.0",
+      "noVersionSupports": false,
+      "windowsOnly": false,
+      "windowsOnlyEvidence": null,
+      "deprecated": null,
+      "replacement": null,
+      "status": "ok"
+    },
+    {
+      "id": "Contoso.Windows.Controls",
+      "inUse": [
+        {
+          "version": "1.0.0",
+          "projects": [
+            "src/Shared/Shared.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        }
+      ],
+      "target": "net10.0",
+      "supportsTarget": {
+        "inUseVersions": {
+          "1.0.0": true
+        }
+      },
+      "lowestSupporting": "1.0.0",
+      "newestSupporting": "1.0.0",
+      "newest": "1.0.0",
+      "noVersionSupports": false,
+      "windowsOnly": true,
+      "windowsOnlyEvidence": "1.0.0 lib/netstandard2.0/Contoso.Windows.Controls.dll: references System.Windows.Forms",
+      "deprecated": null,
+      "replacement": null,
+      "status": "ok"
+    },
+    {
+      "id": "EntityFramework",
+      "inUse": [
+        {
+          "version": "6.2.0",
+          "projects": [
+            "src/Billing/Billing.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        }
+      ],
+      "target": "net10.0",
+      "supportsTarget": {
+        "inUseVersions": {
+          "6.2.0": false
+        }
+      },
+      "lowestSupporting": "6.4.4",
+      "newestSupporting": "6.5.1",
+      "newest": "6.5.1",
+      "noVersionSupports": false,
+      "windowsOnly": false,
+      "windowsOnlyEvidence": null,
+      "deprecated": null,
+      "replacement": {
+        "match": "EntityFramework",
+        "replacement": "EntityFramework 6.4 or later (supports netstandard2.1), or Microsoft.EntityFrameworkCore",
+        "source": "rules/package-map.yml"
+      },
+      "status": "upgrade"
+    },
+    {
+      "id": "Microsoft.AspNet.WebApi.Core",
+      "inUse": [
+        {
+          "version": "5.2.3",
+          "projects": [
+            "src/Customer.Api/Customer.Api.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        }
+      ],
+      "target": "net10.0",
+      "supportsTarget": {
+        "inUseVersions": {
+          "5.2.3": false
+        }
+      },
+      "lowestSupporting": null,
+      "newestSupporting": null,
+      "newest": "5.2.9",
+      "noVersionSupports": true,
+      "windowsOnly": false,
+      "windowsOnlyEvidence": null,
+      "deprecated": null,
+      "replacement": {
+        "match": "Microsoft.AspNet.WebApi.Core",
+        "replacement": "ASP.NET Core MVC (Microsoft.AspNetCore.App, part of the shared framework)",
+        "source": "rules/package-map.yml"
+      },
+      "status": "replace"
+    },
+    {
+      "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+      "inUse": [
+        {
+          "version": "6.0.0",
+          "projects": [
+            "src/Modern.App/Modern.App.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        }
+      ],
+      "target": "net10.0",
+      "supportsTarget": {
+        "inUseVersions": {
+          "6.0.0": true
+        }
+      },
+      "lowestSupporting": "2.1.1",
+      "newestSupporting": "8.0.0",
+      "newest": "8.0.0",
+      "noVersionSupports": false,
+      "windowsOnly": false,
+      "windowsOnlyEvidence": null,
+      "deprecated": null,
+      "replacement": null,
+      "status": "ok"
+    },
+    {
+      "id": "Microsoft.Extensions.Logging.Abstractions",
+      "inUse": [
+        {
+          "version": "6.0.0",
+          "projects": [
+            "src/Billing/Billing.csproj",
+            "src/Modern.App/Modern.App.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        },
+        {
+          "version": "8.0.0",
+          "projects": [
+            "src/Shared/Shared.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        }
+      ],
+      "target": "net10.0",
+      "supportsTarget": {
+        "inUseVersions": {
+          "6.0.0": true,
+          "8.0.0": true
+        }
+      },
+      "lowestSupporting": "2.1.1",
+      "newestSupporting": "8.0.0",
+      "newest": "8.0.0",
+      "noVersionSupports": false,
+      "windowsOnly": false,
+      "windowsOnlyEvidence": null,
+      "deprecated": null,
+      "replacement": null,
+      "status": "ok"
+    },
+    {
+      "id": "Newtonsoft.Json",
+      "inUse": [
+        {
+          "version": "9.0.1",
+          "projects": [
+            "src/Customer.Api/Customer.Api.csproj"
+          ],
+          "pinned": true,
+          "deprecated": null
+        },
+        {
+          "version": "11.0.2",
+          "projects": [
+            "src/Billing/Billing.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        },
+        {
+          "version": "12.0.3",
+          "projects": [
+            "src/Modern.App/Modern.App.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        },
+        {
+          "version": "13.0.1",
+          "projects": [
+            "src/Shared/Shared.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        }
+      ],
+      "target": "net10.0",
+      "supportsTarget": {
+        "inUseVersions": {
+          "11.0.2": true,
+          "12.0.3": true,
+          "13.0.1": true,
+          "9.0.1": true
+        }
+      },
+      "lowestSupporting": "9.0.1",
+      "newestSupporting": "13.0.3",
+      "newest": "13.0.3",
+      "noVersionSupports": false,
+      "windowsOnly": false,
+      "windowsOnlyEvidence": null,
+      "deprecated": null,
+      "replacement": null,
+      "status": "ok"
+    },
+    {
+      "id": "System.Drawing.Common",
+      "inUse": [
+        {
+          "version": "8.0.0",
+          "projects": [
+            "src/Modern.App/Modern.App.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        }
+      ],
+      "target": "net10.0",
+      "supportsTarget": {
+        "inUseVersions": {
+          "8.0.0": true
+        }
+      },
+      "lowestSupporting": "8.0.0",
+      "newestSupporting": "8.0.0",
+      "newest": "8.0.0",
+      "noVersionSupports": false,
+      "windowsOnly": true,
+      "windowsOnlyEvidence": "8.0.0 lib/net8.0/System.Drawing.Common.dll: [SupportedOSPlatform(\"windows6.1\")]",
+      "deprecated": null,
+      "replacement": null,
+      "status": "ok"
+    },
+    {
+      "id": "WindowsAzure.Storage",
+      "inUse": [
+        {
+          "version": "9.3.3",
+          "projects": [
+            "src/Reporting/Reporting.csproj"
+          ],
+          "pinned": false,
+          "deprecated": null
+        }
+      ],
+      "target": "net10.0",
+      "supportsTarget": {
+        "inUseVersions": {
+          "9.3.3": true
+        }
+      },
+      "lowestSupporting": "9.3.3",
+      "newestSupporting": "9.3.3",
+      "newest": "9.3.3",
+      "noVersionSupports": false,
+      "windowsOnly": false,
+      "windowsOnlyEvidence": null,
+      "deprecated": null,
+      "replacement": {
+        "match": "WindowsAzure.Storage",
+        "replacement": "Azure.Storage.Blobs, Azure.Storage.Queues, Azure.Data.Tables",
+        "source": "rules/package-map.yml"
+      },
+      "status": "ok"
+    }
+  ],
+  "assemblyReferences": [
+    {
+      "project": "src/Billing/Billing.csproj",
+      "name": "System.Configuration",
+      "kind": "framework",
+      "hintPath": null,
+      "mapping": {
+        "kind": "package",
+        "package": "System.Configuration.ConfigurationManager",
+        "windowsOnly": false,
+        "note": null
+      }
+    },
+    {
+      "project": "src/Billing/Billing.csproj",
+      "name": "System.Drawing",
+      "kind": "framework",
+      "hintPath": null,
+      "mapping": {
+        "kind": "package",
+        "package": "System.Drawing.Common",
+        "windowsOnly": true,
+        "note": "System.Drawing.Common is Windows only on .NET 6 and later; ImageSharp or SkiaSharp work everywhere."
+      }
+    },
+    {
+      "project": "src/Customer.Api/Customer.Api.csproj",
+      "name": "System.Web",
+      "kind": "framework",
+      "hintPath": null,
+      "mapping": {
+        "kind": "none",
+        "package": null,
+        "windowsOnly": false,
+        "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+      }
+    }
+  ],
+  "summary": {
+    "ok": 7,
+    "upgrade": 1,
+    "replace": 1,
+    "blocked": 1,
+    "unknown": 0
+  },
+  "partial": false
+}
