@@ -187,6 +187,10 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4106](#ofr4106) | warning | service | generated worker does not compile |
 | [OFR4107](#ofr4107) | error | service | no service found |
 | [OFR4108](#ofr4108) | error | service | worker directory exists |
+| [OFR4301](#ofr4301) | warning | csproj | compile items kept explicit |
+| [OFR4302](#ofr4302) | info | csproj | build step converted for review |
+| [OFR4303](#ofr4303) | error | csproj | converted project compiles different inputs |
+| [OFR4304](#ofr4304) | warning | csproj | project not converted |
 | [OFR4501](#ofr4501) | info | codemod | codemod site skipped |
 | [OFR4502](#ofr4502) | error | codemod | unknown codemod |
 | [OFR4503](#ofr4503) | error | codemod | codemod is experimental |
@@ -1642,6 +1646,42 @@ The worker project (the generated code and the linked files it uses) was compile
 - **Typical cause:** Running `service` twice, or an --out that points at an existing project.
 - **Fix:** Pass another --out, or delete the earlier output.
 
+### OFR4301
+
+**compile items kept explicit** · warning · csproj
+
+The project's Compile items are not the files the SDK's `**/*.cs` glob would give (a file on disk the project leaves out, or one outside the glob), so the converted project keeps the list and sets EnableDefaultCompileItems to false.
+
+- **Typical cause:** Excluded or abandoned source files left in the folder, files included from elsewhere without a Link.
+- **Fix:** Delete or move the files the glob would add, then run the conversion again to get a globbed project; or keep the explicit list.
+
+### OFR4302
+
+**build step converted for review** · info · csproj
+
+A PreBuildEvent, PostBuildEvent, BeforeBuild, or AfterBuild became a target hooked to the same point in the build. The SDK's output layout (bin/<configuration>/<framework>/) can change what relative paths in the command mean.
+
+- **Typical cause:** Copy steps, signing, and code generation in legacy projects.
+- **Fix:** Read the target and check the paths it uses; better, replace it with MSBuild items or tasks.
+
+### OFR4303
+
+**converted project compiles different inputs** · error · csproj
+
+The converted project was built in a scratch copy, and its compiler inputs (source files, references, embedded resources) differ from the original build's, or it did not build. `--apply` is refused unless `--accept-diff`.
+
+- **Typical cause:** A glob that picks up a file the project left out, a package whose assemblies differ from the HintPath ones, a resource with a different manifest name.
+- **Fix:** Read the differences in the result's `verification`; fix the project or the files, or accept them with --accept-diff.
+
+### OFR4304
+
+**project not converted** · warning · csproj
+
+The project is not converted to SDK style: an ASP.NET web application project (the SDK has no System.Web project support), or a project that is not C#.
+
+- **Typical cause:** ASP.NET MVC and Web Forms applications.
+- **Fix:** Keep the project as it is and move its routes to ASP.NET Core with `offramp web scaffold`.
+
 ### OFR4501
 
 **codemod site skipped** · info · codemod
@@ -1778,6 +1818,5 @@ use these numbers; each moves to the table above in the pull request that first 
 | OFR2010 | error | move crosses a solution slice boundary |
 | OFR4030 | error | gRPC unavailable for net48 host |
 | OFR4201–4202 | varies | web scaffold notes |
-| OFR4301–4303 | varies | csproj modernize notes |
 | OFR4401–4404 | varies | config convert notes |
 | OFR9101 | error | MCP request outside allowed root |

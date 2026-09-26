@@ -35,6 +35,12 @@ public sealed record CodemodRequest
     public required DiagnosticBag Diagnostics { get; init; }
 
     public IProgressSink Progress { get; init; } = NullProgressSink.Instance;
+
+    /// <summary>
+    /// <c>build_property.*</c> values that replace what the driver derives: <c>csproj modernize</c>
+    /// runs <c>assemblyinfo</c> on a legacy project as the SDK-style project it is becoming.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> PropertyOverrides { get; init; } = new Dictionary<string, string>();
 }
 
 /// <summary>A dry run's result and the change set that applies it.</summary>
@@ -98,8 +104,14 @@ public static class CodemodRunner
             return null;
         }
 
+        var properties = CodemodWorkspace.Properties(project, compilation);
+        foreach (var (name, value) in request.PropertyOverrides)
+        {
+            properties[name] = value;
+        }
+
         using var workspace = CodemodWorkspace.Create(project.Name, RepoPaths.ToAbsolute(root, project.Id), compilation,
-            request.Codemods.Select(c => c.Codemod.Id), CodemodWorkspace.Properties(project, compilation), request.Loader.LoadGlobalOptions(project, target));
+            request.Codemods.Select(c => c.Codemod.Id), properties, request.Loader.LoadGlobalOptions(project, target));
 
         // Only the project's own compile items are rewritten: not generated code, not files outside the repository.
         var compile = project.Compile.ToHashSet(StringComparer.Ordinal);

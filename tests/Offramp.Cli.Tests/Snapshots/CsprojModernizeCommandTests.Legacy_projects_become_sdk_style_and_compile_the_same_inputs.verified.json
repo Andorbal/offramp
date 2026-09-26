@@ -1,0 +1,300 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "csproj modernize",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "LegacyCsproj.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "projects": [
+      {
+        "project": "src/Billing.Tool/Billing.Tool.csproj",
+        "style": "legacy",
+        "changed": true,
+        "skipped": null,
+        "targetFrameworks": [
+          "net48"
+        ],
+        "compileItems": "explicit",
+        "packages": [],
+        "properties": [
+          {
+            "name": "AssemblyTitle",
+            "value": "Billing command-line tool"
+          },
+          {
+            "name": "AssemblyVersion",
+            "value": "2.3.0.0"
+          }
+        ],
+        "dropped": [
+          "Reference System",
+          "Reference System.Core",
+          "Configuration",
+          "Platform",
+          "ProjectGuid",
+          "TargetFrameworkVersion",
+          "FileAlignment",
+          "AutoGenerateBindingRedirects",
+          "Deterministic",
+          "Import Microsoft.Common.props",
+          "Import Microsoft.CSharp.targets"
+        ],
+        "files": [
+          "src/Billing.Tool/Properties/AssemblyInfo.cs"
+        ],
+        "verification": {
+          "passed": true,
+          "targets": [
+            {
+              "targetFramework": "net48",
+              "sourcesAdded": [],
+              "sourcesRemoved": [],
+              "referencesAdded": [],
+              "referencesRemoved": [],
+              "implicitReferencesAdded": [
+                "System.Data",
+                "System.Drawing",
+                "System.IO.Compression.FileSystem",
+                "System.Numerics",
+                "System.Runtime.Serialization",
+                "System.Xml",
+                "System.Xml.Linq"
+              ],
+              "transitiveReferencesAdded": [
+                "Newtonsoft.Json"
+              ],
+              "resourcesAdded": [],
+              "resourcesRemoved": [],
+              "identical": true
+            }
+          ],
+          "addedTargets": [],
+          "buildErrors": []
+        }
+      },
+      {
+        "project": "src/Billing/Billing.csproj",
+        "style": "legacy",
+        "changed": true,
+        "skipped": null,
+        "targetFrameworks": [
+          "net48"
+        ],
+        "compileItems": "globbed",
+        "packages": [
+          {
+            "id": "Newtonsoft.Json",
+            "version": "13.0.3",
+            "developmentDependency": false
+          }
+        ],
+        "properties": [
+          {
+            "name": "AssemblyTitle",
+            "value": "Billing"
+          },
+          {
+            "name": "Company",
+            "value": "Contoso"
+          },
+          {
+            "name": "Product",
+            "value": "Contoso Billing"
+          },
+          {
+            "name": "AssemblyVersion",
+            "value": "2.3.0.0"
+          },
+          {
+            "name": "FileVersion",
+            "value": "2.3.1.0"
+          }
+        ],
+        "dropped": [
+          "Reference Newtonsoft.Json (packages.config)",
+          "Reference System",
+          "Reference System.Core",
+          "Reference System.Xml.Linq",
+          "Reference System.Data",
+          "Reference System.Xml",
+          "None packages.config",
+          "Configuration",
+          "Platform",
+          "ProjectGuid",
+          "OutputType",
+          "AppDesignerFolder",
+          "AssemblyName",
+          "TargetFrameworkVersion",
+          "FileAlignment",
+          "Deterministic",
+          "PostBuildEvent",
+          "Import Microsoft.Common.props",
+          "Import Microsoft.CSharp.targets"
+        ],
+        "files": [
+          "src/Billing/Properties/AssemblyInfo.cs",
+          "src/Billing/packages.config"
+        ],
+        "verification": {
+          "passed": true,
+          "targets": [
+            {
+              "targetFramework": "net48",
+              "sourcesAdded": [],
+              "sourcesRemoved": [],
+              "referencesAdded": [],
+              "referencesRemoved": [],
+              "implicitReferencesAdded": [
+                "System.Drawing",
+                "System.IO.Compression.FileSystem",
+                "System.Numerics",
+                "System.Runtime.Serialization"
+              ],
+              "transitiveReferencesAdded": [],
+              "resourcesAdded": [],
+              "resourcesRemoved": [],
+              "identical": true
+            }
+          ],
+          "addedTargets": [],
+          "buildErrors": []
+        }
+      }
+    ],
+    "applied": false,
+    "journal": null,
+    "preview": "--- a/src/Billing.Tool/Billing.Tool.csproj\n+++ b/src/Billing.Tool/Billing.Tool.csproj\n@@ -1,42 +1,15 @@\n-<?xml version=\"1.0\" encoding=\"utf-8\"?>\n-<Project ToolsVersion=\"15.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n-  <Import Project=\"$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props\" Condition=\"Exists('$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props')\" />\n+<Project Sdk=\"Microsoft.NET.Sdk\">\n+\n   <PropertyGroup>\n-    <Configuration Condition=\" '$(Configuration)' == '' \">Debug</Configuration>\n-    <Platform Condition=\" '$(Platform)' == '' \">AnyCPU</Platform>\n-    <ProjectGuid>{2F6B9C3D-8A1E-4D5F-9B2C-6E7A8D9F0B1C}</ProjectGuid>\n+    <TargetFramework>net48</TargetFramework>\n     <OutputType>Exe</OutputType>\n     <RootNamespace>Contoso.Billing.Tool</RootNamespace>\n     <AssemblyName>billing-tool</AssemblyName>\n-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>\n-    <FileAlignment>512</FileAlignment>\n-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>\n-    <Deterministic>true</Deterministic>\n-  </PropertyGroup>\n-  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' \">\n-    <PlatformTarget>AnyCPU</PlatformTarget>\n-    <DebugSymbols>true</DebugSymbols>\n-    <DebugType>full</DebugType>\n-    <Optimize>false</Optimize>\n-    <OutputPath>bin\\Debug\\</OutputPath>\n-    <DefineConstants>DEBUG;TRACE</DefineConstants>\n-    <ErrorReport>prompt</ErrorReport>\n-    <WarningLevel>4</WarningLevel>\n-  </PropertyGroup>\n-  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' \">\n-    <PlatformTarget>AnyCPU</PlatformTarget>\n-    <DebugType>pdbonly</DebugType>\n-    <Optimize>true</Optimize>\n-    <OutputPath>bin\\Release\\</OutputPath>\n-    <DefineConstants>TRACE</DefineConstants>\n-    <ErrorReport>prompt</ErrorReport>\n-    <WarningLevel>4</WarningLevel>\n+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>\n+    <AssemblyTitle>Billing command-line tool</AssemblyTitle>\n+    <AssemblyVersion>2.3.0.0</AssemblyVersion>\n   </PropertyGroup>\n-  <ItemGroup>\n-    <Reference Include=\"System\" />\n-    <Reference Include=\"System.Configuration\" />\n-    <Reference Include=\"System.Core\" />\n-  </ItemGroup>\n+\n   <ItemGroup>\n     <Compile Include=\"..\\Shared\\Version.cs\">\n       <Link>Properties\\Version.cs</Link>\n@@ -44,14 +17,13 @@\n     <Compile Include=\"Program.cs\" />\n     <Compile Include=\"Properties\\AssemblyInfo.cs\" />\n   </ItemGroup>\n+\n   <ItemGroup>\n-    <None Include=\"App.config\" />\n+    <Reference Include=\"System.Configuration\" />\n   </ItemGroup>\n+\n   <ItemGroup>\n-    <ProjectReference Include=\"..\\Billing\\Billing.csproj\">\n-      <Project>{7D3A2B1C-4E5F-4A6B-8C7D-9E0F1A2B3C4D}</Project>\n-      <Name>Billing</Name>\n-    </ProjectReference>\n+    <ProjectReference Include=\"..\\Billing\\Billing.csproj\" />\n   </ItemGroup>\n-  <Import Project=\"$(MSBuildToolsPath)\\Microsoft.CSharp.targets\" />\n+\n </Project>\n--- a/src/Billing.Tool/Properties/AssemblyInfo.cs\n+++ b/src/Billing.Tool/Properties/AssemblyInfo.cs\n@@ -1,4 +1,2 @@\n using System.Reflection;\n \n-[assembly: AssemblyTitle(\"Billing command-line tool\")]\n-[assembly: AssemblyVersion(\"2.3.0.0\")]\n--- a/src/Billing/Billing.csproj\n+++ b/src/Billing/Billing.csproj\n@@ -1,79 +1,44 @@\n-<?xml version=\"1.0\" encoding=\"utf-8\"?>\n-<Project ToolsVersion=\"15.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n-  <Import Project=\"$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props\" Condition=\"Exists('$(MSBuildExtensionsPath)\\$(MSBuildToolsVersion)\\Microsoft.Common.props')\" />\n+<Project Sdk=\"Microsoft.NET.Sdk\">\n+\n   <PropertyGroup>\n-    <Configuration Condition=\" '$(Configuration)' == '' \">Debug</Configuration>\n-    <Platform Condition=\" '$(Platform)' == '' \">AnyCPU</Platform>\n-    <ProjectGuid>{7D3A2B1C-4E5F-4A6B-8C7D-9E0F1A2B3C4D}</ProjectGuid>\n-    <OutputType>Library</OutputType>\n-    <AppDesignerFolder>Properties</AppDesignerFolder>\n+    <TargetFramework>net48</TargetFramework>\n     <RootNamespace>Contoso.Billing</RootNamespace>\n-    <AssemblyName>Billing</AssemblyName>\n-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>\n-    <FileAlignment>512</FileAlignment>\n-    <Deterministic>true</Deterministic>\n     <LangVersion>7.3</LangVersion>\n-  </PropertyGroup>\n-  <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' \">\n-    <DebugSymbols>true</DebugSymbols>\n-    <DebugType>full</DebugType>\n-    <Optimize>false</Optimize>\n-    <OutputPath>bin\\Debug\\</OutputPath>\n-    <DefineConstants>DEBUG;TRACE</DefineConstants>\n-    <ErrorReport>prompt</ErrorReport>\n-    <WarningLevel>4</WarningLevel>\n+    <AssemblyTitle>Billing</AssemblyTitle>\n+    <Company>Contoso</Company>\n+    <Product>Contoso Billing</Product>\n+    <AssemblyVersion>2.3.0.0</AssemblyVersion>\n+    <FileVersion>2.3.1.0</FileVersion>\n   </PropertyGroup>\n+\n   <PropertyGroup Condition=\" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' \">\n-    <DebugType>pdbonly</DebugType>\n-    <Optimize>true</Optimize>\n-    <OutputPath>bin\\Release\\</OutputPath>\n-    <DefineConstants>TRACE</DefineConstants>\n-    <ErrorReport>prompt</ErrorReport>\n-    <WarningLevel>4</WarningLevel>\n     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>\n   </PropertyGroup>\n-  <ItemGroup>\n-    <Reference Include=\"Microsoft.CSharp\" />\n-    <Reference Include=\"Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL\">\n-      <HintPath>..\\..\\packages\\Newtonsoft.Json.13.0.3\\lib\\net45\\Newtonsoft.Json.dll</HintPath>\n-      <Private>True</Private>\n-    </Reference>\n-    <Reference Include=\"System\" />\n-    <Reference Include=\"System.Configuration\" />\n-    <Reference Include=\"System.Core\" />\n-    <Reference Include=\"System.Xml.Linq\" />\n-    <Reference Include=\"System.Data.DataSetExtensions\" />\n-    <Reference Include=\"System.Data\" />\n-    <Reference Include=\"System.Xml\" />\n-  </ItemGroup>\n+\n   <ItemGroup>\n-    <Compile Include=\"BillingSection.cs\" />\n-    <Compile Include=\"Invoice.cs\" />\n-    <Compile Include=\"Properties\\AssemblyInfo.cs\" />\n-    <Compile Include=\"Strings.Designer.cs\">\n+    <Compile Update=\"Strings.Designer.cs\">\n       <AutoGen>True</AutoGen>\n       <DesignTime>True</DesignTime>\n       <DependentUpon>Strings.resx</DependentUpon>\n     </Compile>\n-  </ItemGroup>\n-  <ItemGroup>\n-    <EmbeddedResource Include=\"Strings.resx\">\n+    <EmbeddedResource Update=\"Strings.resx\">\n       <Generator>ResXFileCodeGenerator</Generator>\n       <LastGenOutput>Strings.Designer.cs</LastGenOutput>\n     </EmbeddedResource>\n   </ItemGroup>\n+\n   <ItemGroup>\n-    <None Include=\"packages.config\" />\n+    <Reference Include=\"Microsoft.CSharp\" />\n+    <Reference Include=\"System.Configuration\" />\n+    <Reference Include=\"System.Data.DataSetExtensions\" />\n   </ItemGroup>\n-  <Import Project=\"$(MSBuildToolsPath)\\Microsoft.CSharp.targets\" />\n-  <PropertyGroup>\n-    <PostBuildEvent>echo Built $(TargetFileName)</PostBuildEvent>\n-  </PropertyGroup>\n-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.\n-       Other similar extension points exist, see Microsoft.Common.targets.\n-  <Target Name=\"BeforeBuild\">\n-  </Target>\n-  <Target Name=\"AfterBuild\">\n+\n+  <ItemGroup>\n+    <PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.3\" />\n+  </ItemGroup>\n+\n+  <Target Name=\"PostBuild\" AfterTargets=\"PostBuildEvent\">\n+    <Exec Command=\"echo Built $(TargetFileName)\" />\n   </Target>\n-  -->\n+\n </Project>\n--- a/src/Billing/Properties/AssemblyInfo.cs\n+++ b/src/Billing/Properties/AssemblyInfo.cs\n@@ -5,11 +5,7 @@\n // General Information about an assembly is controlled through the following\n // set of attributes. Change these attribute values to modify the information\n // associated with an assembly.\n-[assembly: AssemblyTitle(\"Billing\")]\n [assembly: AssemblyDescription(\"Invoices and billing settings\")]\n-[assembly: AssemblyConfiguration(\"\")]\n-[assembly: AssemblyCompany(\"Contoso\")]\n-[assembly: AssemblyProduct(\"Contoso Billing\")]\n [assembly: AssemblyCopyright(\"Copyright © Contoso 2016\")]\n [assembly: AssemblyTrademark(\"\")]\n [assembly: AssemblyCulture(\"\")]\n@@ -21,6 +17,4 @@\n // The following GUID is for the ID of the typelib if this project is exposed to COM\n [assembly: Guid(\"7d3a2b1c-4e5f-4a6b-8c7d-9e0f1a2b3c4d\")]\n \n-[assembly: AssemblyVersion(\"2.3.0.0\")]\n-[assembly: AssemblyFileVersion(\"2.3.1.0\")]\n [assembly: InternalsVisibleTo(\"Billing.Tool\")]\ndeleted file src/Billing/packages.config\n"
+  },
+  "diagnostics": [
+    {
+      "code": "OFR4301",
+      "severity": "warning",
+      "message": "The Compile items are not what the SDK's glob gives (the glob adds src/Billing.Tool/Legacy/Old.cs); the explicit list is kept with EnableDefaultCompileItems=false.",
+      "project": "src/Billing.Tool/Billing.Tool.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4301"
+    },
+    {
+      "code": "OFR4302",
+      "severity": "info",
+      "message": "The PostBuildEvent is now the PostBuild target (AfterTargets=\"PostBuildEvent\"). Review it: macros such as $(TargetPath) keep their meaning, but paths relative to the output folder change with the SDK's bin/<configuration>/<framework>/ layout.",
+      "project": "src/Billing/Billing.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4302"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 1,
+    "info": 1
+  }
+}

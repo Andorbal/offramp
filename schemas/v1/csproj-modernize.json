@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/csproj-modernize.json",
+  "title": "offramp csproj modernize result",
+  "description": "The result of `offramp csproj modernize`. See docs/spec/commands/scaffold.md#csproj-modernize.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["projects", "applied", "journal", "preview"],
+  "properties": {
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "style", "changed", "skipped", "targetFrameworks", "compileItems", "packages", "properties", "dropped", "files", "verification"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "style": { "enum": ["legacy", "sdk"], "description": "The project's style before the command: legacy projects are converted to SDK style." },
+          "changed": { "type": "boolean", "description": "The project file changes." },
+          "skipped": { "type": ["string", "null"], "description": "Why a legacy project is not converted (OFR4304)." },
+          "targetFrameworks": { "type": "array", "items": { "type": "string" } },
+          "compileItems": { "enum": ["globbed", "explicit", null], "description": "explicit: the Compile list is kept (OFR4301); null for SDK-style projects." },
+          "packages": {
+            "type": "array",
+            "description": "packages.config entries that became PackageReference items.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "version", "developmentDependency"],
+              "properties": { "id": { "type": "string" }, "version": { "type": "string" }, "developmentDependency": { "type": "boolean" } }
+            }
+          },
+          "properties": {
+            "type": "array",
+            "description": "Project properties that replace the AssemblyInfo attributes the SDK generates.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "value"],
+              "properties": { "name": { "type": "string" }, "value": { "type": "string" } }
+            }
+          },
+          "dropped": { "type": "array", "items": { "type": "string" }, "description": "Properties, items, imports, and targets the SDK makes unnecessary." },
+          "files": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" }, "description": "Other files changed or deleted: AssemblyInfo files, packages.config, Directory.Packages.props." },
+          "verification": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["passed", "targets", "addedTargets", "buildErrors"],
+                "properties": {
+                  "passed": { "type": "boolean" },
+                  "targets": {
+                    "type": "array",
+                    "description": "One per target framework the original compiled: what differs in the converted build's compiler inputs.",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["targetFramework", "sourcesAdded", "sourcesRemoved", "referencesAdded", "referencesRemoved", "implicitReferencesAdded", "transitiveReferencesAdded", "resourcesAdded", "resourcesRemoved", "identical"],
+                      "properties": {
+                        "targetFramework": { "type": "string" },
+                        "sourcesAdded": { "type": "array", "items": { "type": "string" } },
+                        "sourcesRemoved": { "type": "array", "items": { "type": "string" } },
+                        "referencesAdded": { "type": "array", "items": { "type": "string" } },
+                        "referencesRemoved": { "type": "array", "items": { "type": "string" } },
+                        "implicitReferencesAdded": { "type": "array", "items": { "type": "string" }, "description": "The SDK's implicit .NET Framework references; allowed." },
+                        "transitiveReferencesAdded": { "type": "array", "items": { "type": "string" }, "description": "Assemblies of converted packages that now flow from referenced projects; allowed." },
+                        "resourcesAdded": { "type": "array", "items": { "type": "string" } },
+                        "resourcesRemoved": { "type": "array", "items": { "type": "string" } },
+                        "identical": { "type": "boolean" }
+                      }
+                    }
+                  },
+                  "addedTargets": { "type": "array", "items": { "type": "string" }, "description": "Target frameworks only the converted project has (not compared)." },
+                  "buildErrors": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  }
+}

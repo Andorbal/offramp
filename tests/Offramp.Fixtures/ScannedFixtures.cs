@@ -53,6 +53,9 @@ public static class ScannedFixtures
             request = request with { BinlogPath = Path.Combine(repository.Path, "msbuild.binlog") };
         }
 
+        // Legacy packages.config projects build against packages/, which nuget restore fills on Windows.
+        await PackagesConfigRestore.RestoreAsync(repository.Path);
+
         request = customize?.Invoke(repository.Path, request) ?? request;
         var outcome = await ScanRunner.RunAsync(request, CancellationToken.None);
         return new ScannedFixture(repository, outcome, diagnostics);

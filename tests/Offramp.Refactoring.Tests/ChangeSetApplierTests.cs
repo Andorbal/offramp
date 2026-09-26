@@ -48,6 +48,28 @@ public sealed class ChangeSetApplierTests
     }
 
     [Fact]
+    public async Task A_deleted_file_comes_back_on_rollback_and_blocks_it_when_recreated()
+    {
+        using var repository = await FixtureRepository.CreateAsync("netfx-only");
+        repository.Directory.Write("src/Legacy.App/packages.config", "<packages />\n");
+        var changeSet = new ChangeSet();
+        changeSet.Delete(repository.Path, "src/Legacy.App/packages.config");
+        var applier = new ChangeSetApplier(repository.Path, new GitService(ProcessRunner.Instance));
+
+        var journal = await applier.ApplyAsync(changeSet, "csproj modernize", Now, TestContext.Current.CancellationToken);
+
+        Assert.False(repository.Directory.Exists("src/Legacy.App/packages.config"));
+        Assert.Contains("deleted file src/Legacy.App/packages.config", changeSet.Preview(), StringComparison.Ordinal);
+        await applier.RollbackAsync(journal, TestContext.Current.CancellationToken);
+        Assert.Equal("<packages />\n", repository.Directory.Read("src/Legacy.App/packages.config"));
+
+        var again = await applier.ApplyAsync(changeSet, "csproj modernize", Now, TestContext.Current.CancellationToken);
+        repository.Directory.Write("src/Legacy.App/packages.config", "<packages>recreated</packages>\n");
+        var conflict = await Assert.ThrowsAsync<RollbackConflictException>(() => applier.RollbackAsync(again, TestContext.Current.CancellationToken));
+        Assert.Equal(["src/Legacy.App/packages.config"], conflict.Paths);
+    }
+
+    [Fact]
     public async Task Rollback_refuses_to_discard_later_changes()
     {
         using var repository = await FixtureRepository.CreateAsync("netfx-only");

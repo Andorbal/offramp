@@ -27,7 +27,7 @@ public sealed class JournalConflictException(IReadOnlyList<string> paths)
 /// <summary>
 /// Applies a change set through a journal (docs/spec/commands/move.md#move-apply): each
 /// step is written to the journal before it is performed. New files and edits come first,
-/// then renames with <c>git mv</c> (a plain move outside git), each checked to leave the
+/// then deletions, then renames with <c>git mv</c> (a plain move outside git), each checked to leave the
 /// file's bytes unchanged. Rollback undoes the completed steps in reverse.
 /// </summary>
 public sealed class ChangeSetApplier(string repositoryRoot, IGitService git)
@@ -62,6 +62,8 @@ public sealed class ChangeSetApplier(string repositoryRoot, IGitService git)
             {
                 Kind = JournalStepKind.Edit, Path = e.Path, Before = Convert.ToBase64String(e.Before), After = Convert.ToBase64String(e.After), Sha256 = ContentHash.Sha256(e.After),
             }));
+        steps.AddRange(changeSet.Deletes.OrderBy(d => d.Path, StringComparer.Ordinal)
+            .Select(d => new JournalStep { Kind = JournalStepKind.Delete, Path = d.Path, Before = Convert.ToBase64String(d.Before) }));
         steps.AddRange(changeSet.Renames.Select(r => new JournalStep { Kind = JournalStepKind.Rename, Path = r.To, From = r.From, Sha256 = r.Sha256 }));
 
         var stamp = now.UtcDateTime.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
@@ -120,8 +122,10 @@ public sealed class ChangeSetApplier(string repositoryRoot, IGitService git)
     {
         var journal = Read(journalPath);
         var changed = journal.Steps
-            .Where(s => s.Done && s.Sha256 is not null)
-            .Where(s => !File.Exists(Absolute(s.Path)) || ContentHash.Sha256File(Absolute(s.Path)) != s.Sha256)
+            .Where(s => s.Done)
+            .Where(s => s.Kind == JournalStepKind.Delete
+                ? File.Exists(Absolute(s.Path))
+                : s.Sha256 is not null && (!File.Exists(Absolute(s.Path)) || ContentHash.Sha256File(Absolute(s.Path)) != s.Sha256))
             .Select(s => s.Path)
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -184,6 +188,22 @@ public sealed class ChangeSetApplier(string repositoryRoot, IGitService git)
                 return [];
             }
 
+            case JournalStepKind.Delete:
+            {
+                if (current is null)
+                {
+                    return [];
+                }
+
+                if (!File.ReadAllBytes(path).AsSpan().SequenceEqual(Convert.FromBase64String(step.Before!)))
+                {
+                    throw new JournalConflictException([step.Path]);
+                }
+
+                File.Delete(path);
+                return [];
+            }
+
             default:
             {
                 var from = Absolute(step.From!);
@@ -221,7 +241,7 @@ public sealed class ChangeSetApplier(string repositoryRoot, IGitService git)
             case JournalStepKind.Create:
                 File.Delete(Absolute(step.Path));
                 break;
-            case JournalStepKind.Edit:
+            case JournalStepKind.Edit or JournalStepKind.Delete:
                 await File.WriteAllBytesAsync(Absolute(step.Path), Convert.FromBase64String(step.Before!), cancellationToken);
                 break;
             default:
