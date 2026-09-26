@@ -30,6 +30,9 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     environment: nuget
+    permissions:
+      contents: write # the GitHub Release
+      id-token: write # nuget.org trusted publishing
     outputs:
       version: ${{ steps.ver.outputs.version }}
       prerelease: ${{ steps.ver.outputs.prerelease }}
@@ -82,9 +85,17 @@ jobs:
           eng/changelog-section.sh "$VERSION" > release-notes.md
           cat release-notes.md
 
+      # nuget.org trusted publishing: GitHub's OIDC token for this workflow and environment is
+      # exchanged for an API key that lasts an hour, so nothing is stored (docs/RELEASING.md).
+      - name: Sign in to nuget.org
+        id: nuget
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
       - name: Push to NuGet
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
         run: |
           for pkg in artifacts/*.nupkg; do
             dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
