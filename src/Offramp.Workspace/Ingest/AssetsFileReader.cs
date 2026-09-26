@@ -48,6 +48,28 @@ public static class AssetsFileReader
     }
 
     /// <summary>
+    /// The project references restore saw declared (the assets file's restore metadata, every
+    /// target framework), as the paths it recorded; null when the file is missing or has none
+    /// recorded. The SDK adds a project's transitive references as ProjectReference items too
+    /// (<c>IncludeTransitiveProjectReferences</c>); restore lists only the declared ones.
+    /// </summary>
+    public static IReadOnlyList<string>? DeclaredProjectReferences(string? assetsFilePath)
+    {
+        if (assetsFilePath is null || !File.Exists(assetsFilePath))
+        {
+            return null;
+        }
+
+        var metadata = LockFileUtilities.GetLockFile(assetsFilePath, NullLogger.Instance)?.PackageSpec?.RestoreMetadata;
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        return [.. metadata.TargetFrameworks.SelectMany(t => t.ProjectReferences).Select(r => r.ProjectPath).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal)];
+    }
+
+    /// <summary>
     /// Packages reachable only from dependencies the SDK adds by itself (<c>autoReferenced</c>:
     /// NETStandard.Library, Microsoft.NETFramework.ReferenceAssemblies). They are toolchain,
     /// not the project's dependencies, and some depend on the machine: the reference-assembly

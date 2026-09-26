@@ -270,7 +270,8 @@ public static class CommandRunner
         return overlay;
     }
 
-    private static string? WorkspaceHash(string workspacePath) =>
+    /// <summary>The hash the envelope reports for a workspace model file, or null when there is none.</summary>
+    internal static string? WorkspaceHash(string workspacePath) =>
         File.Exists(workspacePath) ? "sha256:" + ContentHash.Sha256File(workspacePath) : null;
 
     /// <summary>The solution the workspace model was built from, when none is configured (auto-detected by scan).</summary>

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/move-apply.json",
+  "title": "offramp move apply result",
+  "description": "The result of `offramp move apply`. See docs/spec/commands/move.md#move-apply.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["plan", "applied", "journal", "moved", "skipped", "edited", "rolledBack", "resumed", "verifications"],
+  "properties": {
+    "plan": { "$ref": "workspace.json#/$defs/relativePath" },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"], "description": "The journal, repository-relative; `move rollback --journal` undoes the run." },
+    "moved": { "$ref": "workspace.json#/$defs/pathList" },
+    "skipped": { "$ref": "workspace.json#/$defs/pathList", "description": "Planned files left where they are (OFR2150)." },
+    "edited": { "$ref": "workspace.json#/$defs/pathList", "description": "Project files edited and left unstaged." },
+    "rolledBack": { "type": "boolean" },
+    "resumed": { "type": "boolean" },
+    "verifications": { "type": "array", "items": { "$ref": "verify.json" }, "description": "One entry per verification run, in order." }
+  }
+}

@@ -70,8 +70,9 @@ public sealed class ChangeSetApplierTests
         File.AppendAllText(repository.Directory.Combine("src", "Legacy.Core", "Thumbnails.cs"), "// edited\n");
         var applier = new ChangeSetApplier(repository.Path, new GitService(ProcessRunner.Instance));
 
-        await Assert.ThrowsAsync<PurityViolationException>(() => applier.ApplyAsync(changeSet, "move tests", Now, TestContext.Current.CancellationToken));
+        var conflict = await Assert.ThrowsAsync<JournalConflictException>(() => applier.ApplyAsync(changeSet, "move tests", Now, TestContext.Current.CancellationToken));
 
+        Assert.Equal(["src/Legacy.Core/Thumbnails.cs"], conflict.Paths);
         Assert.True(File.Exists(repository.Directory.Combine("src", "Legacy.Core", "Thumbnails.cs")));
     }
 

@@ -34,6 +34,15 @@ public interface IGitService
 
     /// <summary>Removes a work tree added by <see cref="AddWorktreeAsync"/>, discarding its changes.</summary>
     Task RemoveWorktreeAsync(string repositoryRoot, string path, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The files under a repository-relative folder at a revision (<c>git ls-tree -r --name-only</c>),
+    /// repository-relative and sorted; null when the revision does not exist.
+    /// </summary>
+    Task<IReadOnlyList<string>?> ListFilesAsync(string repositoryRoot, string revision, string folder, CancellationToken cancellationToken = default);
+
+    /// <summary>A file's text at a revision (<c>git show REV:PATH</c>), or null when it is not there.</summary>
+    Task<string?> ShowFileAsync(string repositoryRoot, string revision, string path, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Git through the command line.</summary>
@@ -129,6 +138,34 @@ public sealed class GitService(IProcessRunner runner) : IGitService
         {
             throw new GitCommandException($"git worktree remove failed: {result.StandardError.Trim()}");
         }
+    }
+
+    public async Task<IReadOnlyList<string>?> ListFilesAsync(string repositoryRoot, string revision, string folder, CancellationToken cancellationToken = default)
+    {
+        var verify = await runner.RunAsync(
+            new ProcessSpec("git", ["rev-parse", "--verify", "--quiet", revision + "^{commit}"]) { WorkingDirectory = repositoryRoot, Timeout = QuickTimeout },
+            cancellationToken);
+        if (!verify.Succeeded)
+        {
+            return null;
+        }
+
+        string[] arguments = folder.Length == 0 ? ["ls-tree", "-r", "-z", "--name-only", revision] : ["ls-tree", "-r", "-z", "--name-only", revision, "--", folder + "/"];
+        var result = await runner.RunAsync(new ProcessSpec("git", arguments) { WorkingDirectory = repositoryRoot, Timeout = QuickTimeout }, cancellationToken);
+        if (!result.Succeeded)
+        {
+            throw new GitCommandException($"git ls-tree failed: {result.StandardError.Trim()}");
+        }
+
+        return [.. result.StandardOutput.Split('\0', StringSplitOptions.RemoveEmptyEntries).Order(StringComparer.Ordinal)];
+    }
+
+    public async Task<string?> ShowFileAsync(string repositoryRoot, string revision, string path, CancellationToken cancellationToken = default)
+    {
+        var result = await runner.RunAsync(
+            new ProcessSpec("git", ["show", revision + ":" + path]) { WorkingDirectory = repositoryRoot, Timeout = QuickTimeout },
+            cancellationToken);
+        return result.Succeeded ? result.StandardOutput : null;
     }
 
     /// <summary>Parses <c>git status --porcelain=v1 -z</c> output.</summary>

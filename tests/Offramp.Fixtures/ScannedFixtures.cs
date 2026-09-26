@@ -36,9 +36,16 @@ public static class ScannedFixtures
     public static Task<ScannedFixture> GetAsync(string name) =>
         Cache.GetOrAdd(name, n => new Lazy<Task<ScannedFixture>>(() => ScanAsync(n))).Value;
 
-    public static async Task<ScannedFixture> ScanAsync(string name, Func<string, ScanRequest, ScanRequest>? customize = null)
+    public static async Task<ScannedFixture> ScanAsync(string name, Func<string, ScanRequest, ScanRequest>? customize = null) =>
+        await ScanAsync(await FixtureRepository.CreateAsync(name), customize);
+
+    /// <summary>Generates a fixture (see <see cref="GeneratedFixtures"/>), then builds and scans it.</summary>
+    public static async Task<ScannedFixture> ScanGeneratedAsync(string name, Action<string> generate) =>
+        await ScanAsync(await FixtureRepository.CreateAsync(name, generate), null);
+
+    private static async Task<ScannedFixture> ScanAsync(FixtureRepository repository, Func<string, ScanRequest, ScanRequest>? customize)
     {
-        var repository = await FixtureRepository.CreateAsync(name);
+        var name = repository.Name;
         var diagnostics = new DiagnosticBag();
         var request = Request(repository.Path, diagnostics);
         if (name == "windows-only-build-steps")

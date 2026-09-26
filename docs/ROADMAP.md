@@ -78,7 +78,7 @@ Acceptance: purity test passes (renames only, 100% similarity); helper used
 by production code is never moved; `Bar` gets a created `Bar.Tests` that
 builds; rollback restores the tree exactly.
 
-## M5 — Move files ☐
+## M5 — Move files ◐
 
 - `move plan` (symbol partitioning, co-move closure, trial compilation per
   target, cycle detection, package/project reference proposals, file-pair

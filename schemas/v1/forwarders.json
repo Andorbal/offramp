@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/forwarders.json",
+  "title": "offramp forwarders result",
+  "description": "The result of `offramp forwarders`. See docs/spec/commands/move.md#forwarders.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["from", "to", "since", "forwarded", "file", "projectEdits", "stringReferences", "applied", "journal", "preview"],
+  "properties": {
+    "from": { "$ref": "workspace.json#/$defs/relativePath" },
+    "to": { "$ref": "workspace.json#/$defs/relativePath" },
+    "since": { "type": ["string", "null"], "description": "The revision the source's former public types were read at; null for the last scan's compilation." },
+    "forwarded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "file"],
+        "properties": {
+          "type": { "type": "string", "description": "Metadata name (Ns.Name, with `N for generic arity)." },
+          "file": { "$ref": "workspace.json#/$defs/relativePath" }
+        }
+      }
+    },
+    "file": { "type": ["string", "null"], "description": "The generated TypeForwarders.cs; null when nothing is (or can be) forwarded." },
+    "projectEdits": { "type": "array", "items": { "$ref": "move-plan.json#/$defs/projectEdit" } },
+    "stringReferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "type", "text"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "line": { "type": "integer", "minimum": 1 },
+          "type": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      }
+    },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  }
+}

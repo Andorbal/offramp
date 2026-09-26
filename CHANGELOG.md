@@ -11,6 +11,49 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp move plan --from SRC --to DEST (--files GLOB... | --files-from LIST | --all)`: a
+  deterministic, reviewable plan for moving files between projects, with no repository
+  changes. It partitions what each file uses with the semantic model, brings along what it
+  needs (`--co-move closure`, or excludes it with `none`), and proposes project and package
+  references. Cycles are rejected with their path, and packages without assets for the
+  destination keep the file. Each file is proven to compile in every destination target
+  framework, the source to compile without it, and projects depending on the source to still
+  see moved types. Windows-only APIs are reported with the destination's own CA1416 analyzer.
+  Partial types and resource pairs move together, destination `Compile Remove` patterns are
+  respected, and namespace mismatches can warn or block. `--out` writes the plan
+  (`schemas/v1/move-plan.json`; result `schemas/v1/move-plan-result.json`).
+- `offramp move apply --plan PATH`: checks the workspace hash and every file's hash, journals
+  each step, performs project edits then pure renames (`git mv`), and verifies per the policy.
+  - Policies: `none`, `end`, `per-project`, or `batch:N`. Batches never split files that
+    need each other.
+  - On failure it rolls the whole run back, or with `--on-failure keep` leaves it for
+    `--resume`, which finishes an interrupted journal.
+  - `--force` applies a plan made from another workspace model.
+  - Result schema: `schemas/v1/move-apply.json`.
+- `offramp forwarders --from SRC --to DEST [--since REF] [--apply]`: writes `TypeForwarders.cs`
+  in the source for public types that now live in the destination (read from the last scan's
+  compilation, or from the source at a commit), and adds the source's reference to the
+  destination. It reports strings that name moved types with the old assembly, in C# string
+  literals and configuration or data files (`schemas/v1/forwarders.json`).
+- Diagnostics OFR2001, OFR2003–2005, OFR2101, OFR2102, OFR2105, OFR2110, OFR2111, OFR2120,
+  OFR2150, OFR2152, OFR2301, and OFR2302.
+- Fixture `move-cases` (one case per planning rule, also in the scan snapshots) and a generated
+  500-file `hollow` fixture for the overnight `--all` run.
+- ADR 0019 (needs and batches, whole-run rollback, resumable journals, dependents, forwarders
+  from the scan).
+
+### Changed
+- Journals (`schemas/v1/journal.json`) record the bytes each create or edit step writes
+  (`after`) and the plan they apply (`plan`), so an interrupted run can be finished.
+- A file changed between planning and applying now fails with a journal conflict instead of a
+  purity violation (the rename never happens either way).
+
+### Fixed
+- `scan` no longer records the ProjectReference items the SDK adds for transitive references
+  (which logs made on Windows keep with the evaluation) as a project's own references: only the
+  references restore saw declared (the assets file's restore metadata) are kept.
+
 ## [0.5.0] - 2026-09-26
 
 ### Added

@@ -84,12 +84,12 @@ Plan file:
   "from": "src/Foo/Foo.csproj", "to": "src/Foo.Core/Foo.Core.csproj", "target": "net10.0",
   "workspaceHash": "sha256:...",
   "moves": [
-    { "file": "src/Foo/Util/Clock.cs", "to": "src/Foo.Core/Util/Clock.cs", "coMoveOf": null, "sha256": "..." }
+    { "file": "src/Foo/Util/Clock.cs", "to": "src/Foo.Core/Util/Clock.cs", "coMoveOf": null, "sha256": "...", "needs": [] }
   ],
   "projectEdits": [
-    { "project": "src/Foo.Core/Foo.Core.csproj", "kind": "addPackageReference", "id": "System.Memory", "version": "4.5.5" },
-    { "project": "src/Foo.Core/Foo.Core.csproj", "kind": "addProjectReference", "path": "src/Bar/Bar.csproj" },
-    { "project": "src/Foo/Foo.csproj", "kind": "addInternalsVisibleTo", "assembly": "Foo.Core" }
+    { "project": "src/Foo.Core/Foo.Core.csproj", "kind": "addPackageReference", "value": "System.Memory", "version": "4.5.5" },
+    { "project": "src/Foo.Core/Foo.Core.csproj", "kind": "addProjectReference", "value": "src/Bar/Bar.csproj", "version": null },
+    { "project": "src/Foo.Core/Foo.Core.csproj", "kind": "addInternalsVisibleTo", "value": "Foo", "version": null }
   ],
   "excluded": [
     { "file": "src/Foo/Legacy/WebHelper.cs", "code": "OFR2103", "message": "...", "details": ["error CS0234: System.Web ..."] }
@@ -102,6 +102,47 @@ Plan file:
 The plan is deterministic and reviewable; agents can edit it (remove entries)
 before applying. `--all` plans every file in `SRC`, which is how a project is
 hollowed out into a destination in one overnight run.
+
+### Details (M5, `docs/decisions/0019-move-plan-and-apply.md`)
+
+- **Selecting files.** Exactly one of `--files`, `--files-from`, and `--all`.
+  `--files` takes paths or globs relative to the current directory, matched
+  against `SRC`'s compiled files and the `.resx` files in its folder.
+  `--files-from` reads one path per line (`#` starts a comment). A named file
+  that is not `SRC`'s is `OFR2004` (exit 2), as is a glob matching nothing.
+  `--co-move` and `--namespace-mismatch` default to `move.coMove` and
+  `move.namespaceMismatch`. A `frozen` source or destination is `OFR2003`.
+- **Plan file shape.** Each move carries `needs`: the other planned files that
+  must move no later than it (those it uses, or, when `DEST` already depends
+  on `SRC`, those that use it, plus its resource pair). Project edits have one
+  shape, `{ "project", "kind", "value", "version" }`: `value` is a project
+  path, package id, or assembly name; `version` a package version.
+  `keepResourceName` (value: the moved `.resx`, version: its manifest name)
+  keeps a moved resource's manifest name with an `EmbeddedResource Update ...
+  LogicalName` in `DEST`. Designer metadata (`DependentUpon`, `Generator`)
+  follows moved files as `Update` items. Schema: `schemas/v1/move-plan.json`.
+- **Trial compilation** runs for every `DEST` target framework against its
+  recorded compilation. The source check references the nearest `DEST` target
+  and adds `InternalsVisibleTo(SRC)` to `DEST` when remaining source code uses
+  moved internals.
+- **Dependents.** A project referencing `SRC` that uses moved types must still
+  see them. SDK-style dependents see them through `SRC`'s new reference to
+  `DEST`. Other dependents, and every dependent when `DEST` already depends on
+  `SRC`, get their own `addProjectReference`. A dependent that would close a
+  cycle keeps the files it uses (`OFR2001`); one with no compatible `DEST`
+  target keeps them too (`OFR2104`).
+- **Internals go the way the reference goes.** When `SRC` will reference
+  `DEST`, moved code cannot use `SRC` at all, so its needs co-move. Code that
+  stays in `SRC` and uses moved internals gets `addInternalsVisibleTo` on
+  `DEST` (value: `SRC`'s assembly). When `DEST` already depends on `SRC`, moved
+  code that uses `SRC`'s internals gets it on `SRC` (value: `DEST`'s assembly),
+  as item 7 says.
+- **Platform analyzers.** CA1416 comes from `DEST`'s own recorded analyzers,
+  with its recorded MSBuild properties (`build_property.*`) applied to every
+  tree, including the moved ones.
+- **Output.** The result (`schemas/v1/move-plan-result.json`) is `{ plan,
+  output, preview }`, where `preview` is the project-file diff plus the
+  renames. `--out PATH` writes the plan file, not the envelope.
 
 ## `move apply`
 
@@ -126,6 +167,43 @@ offramp move apply --plan plan.json [--verify none|per-project|batch:N|end] [--o
 
 `--resume` continues an interrupted journal. `move rollback --journal PATH`
 undoes a completed run.
+
+### Details (M5, `docs/decisions/0019-move-plan-and-apply.md`)
+
+- **Policies** (`--verify`, default: the plan's `verify`, from `move.verify`).
+  Verification builds `SRC`, `DEST`, and their direct dependents with
+  `offramp verify`'s machinery (`verify.mode`).
+  - `none`: no verification.
+  - `end`: one verification after every step.
+  - `per-project`: after every step, one verification per project, in
+    dependency order, stopping at the first failure.
+  - `batch:N`: moves are applied in batches of about N files, verifying after
+    each. A batch never separates files that need each other (strongly
+    connected under `needs`), and a file's needs are never in a later batch.
+    Project edits go with the first batch.
+- **Failure.** `--on-failure` defaults to `verify.onFailure`.
+  - `rollback` undoes the whole run from the journal, not just the failing
+    batch, and exits 1 with `OFR2050`.
+  - `keep` stops at the failing batch and exits 4. The journal stays
+    `applying`, so `--resume` continues the run once the cause is fixed.
+- **Stale plans and files.** A different `workspaceHash` is `OFR0002` and exits
+  3 unless `--force`. A planned file that changed, disappeared, or whose
+  destination exists is skipped (`OFR2150`), and so is every planned file that
+  needs it. Anything skipped makes the exit code 4.
+- **Journal.** Each create or edit step also records the bytes it writes
+  (`after`), and the journal records the plan (`plan`), so another process can
+  finish it.
+- **Resume.** `--resume` takes the newest `applying` journal of this plan
+  (`.offramp/journal/*-move-apply*.json`) and performs its pending steps. A
+  step that was performed before the interruption but not recorded is
+  recognized by its result and only marked done. A file that is neither as the
+  step expects nor as it leaves it stops the run (`OFR2152`), as does having
+  no journal to resume (exit 2). Then it verifies once (`batch:N` becomes
+  `end`).
+- **Result.** `schemas/v1/move-apply.json`: `plan`, `applied`, `journal`,
+  `moved`, `skipped`, `edited`, `rolledBack`, `resumed`, and `verifications`
+  (one `verify.json` result per run). A plan file that is missing or not a plan
+  is `OFR2005` (exit 2).
 
 ## `move tests`
 
@@ -266,12 +344,44 @@ offramp forwarders --from SRC.csproj --to DEST.csproj [--since GIT_REF] [--apply
   serialized data patterns) and reports them (`OFR2301`), since forwarders do
   not fix strings that name a type *and* assembly in data files.
 
+### Details (M5, `docs/decisions/0019-move-plan-and-apply.md`)
+
+- **Former surface.** Without `--since`, the former public surface is read from
+  the source's compilation in the last scan's compiler log. `move apply`'s
+  verification rebuilds `bin/`, so "the last built assembly" would already
+  lack the moved types; the scan's log still has them. With `--since REF`, it
+  is read from the source folder's C# files at that commit (`git ls-tree`,
+  `git show`). A ref that is not a commit is `OFR2302` (exit 2).
+- **What is forwarded.** Public top-level types (classes, structs, interfaces,
+  enums, records, delegates), found by syntax, that C# files under the
+  destination's folder declare now and no file under the source's folder
+  still declares. Nested types follow their containing type.
+- **Output.**
+  - `TypeForwarders.cs` in the source's folder holds one
+    `[assembly: global::System.Runtime.CompilerServices.TypeForwardedTo(typeof(global::Ns.T))]`
+    per type (generic arity as `<,>`), sorted, with the project file's line
+    endings. Forwarders an existing file already declares are kept.
+  - Non-SDK projects also get an `addCompile` edit.
+  - When the source does not reference the destination yet, an
+    `addProjectReference` is added. When the destination depends on the source,
+    nothing is written and `OFR2001` (a warning) says forwarding needs a third
+    assembly.
+- **Strings.** String literals in C# files (by syntax, so comments do not
+  count) and lines of `.config`, `.json`, `.resx`, `.settings`, `.xaml`,
+  `.xml`, and `.yml`/`.yaml` files are searched. A match is a forwarded
+  type's metadata name, then `,`, then the source assembly name.
+- **Dry run by default.** `--apply` writes through a journal, which `move
+  rollback` undoes. Result: `schemas/v1/forwarders.json`.
+
 ## Diagnostics summary
 
 | Code | Meaning |
 |---|---|
 | OFR2001 | move would create a project reference cycle (path included) |
 | OFR2002 | destination equals source |
+| OFR2003 | source or destination is frozen |
+| OFR2004 | file is not in the source project |
+| OFR2005 | move plan file missing or invalid |
 | OFR2010 | move crosses solution slice boundary |
 | OFR2050 | verification failed; rolled back |
 | OFR2101 | needs co-move (files listed) |
@@ -284,6 +394,7 @@ offramp forwarders --from SRC.csproj --to DEST.csproj [--since GIT_REF] [--apply
 | OFR2120 | namespace differs from destination root namespace |
 | OFR2150 | file changed since plan |
 | OFR2151 | file changed since the move; rollback stopped |
+| OFR2152 | interrupted move cannot be resumed |
 | OFR2201 | test code used by production code (or another project); not moved |
 | OFR2202 | multiple candidate test projects |
 | OFR2203 | no test project found; use `--to` or `--create` |
@@ -292,3 +403,4 @@ offramp forwarders --from SRC.csproj --to DEST.csproj [--since GIT_REF] [--apply
 | OFR2206 | file linked from outside the project folder |
 | OFR2210 | test-framework packages removable from source |
 | OFR2301 | string reference to moved type found |
+| OFR2302 | `--since` revision not found |

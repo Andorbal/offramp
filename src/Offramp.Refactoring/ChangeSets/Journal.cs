@@ -36,6 +36,9 @@ public sealed record JournalStep
     /// <summary>The edited file's original bytes (base64), so rollback restores them exactly; else null.</summary>
     public string? Before { get; init; }
 
+    /// <summary>What a created or edited file contains after the step (base64), so an interrupted run can be finished; else null.</summary>
+    public string? After { get; init; }
+
     /// <summary>The SHA-256 the file at <see cref="Path"/> has after the step (a renamed file's never changes); rollback checks it.</summary>
     public string? Sha256 { get; init; }
 
@@ -61,6 +64,9 @@ public sealed record Journal
     public required string Command { get; init; }
 
     public required string CreatedAt { get; init; }
+
+    /// <summary>The plan file applied (<c>move apply</c>), repository-relative; else null.</summary>
+    public string? Plan { get; init; }
 
     public required JournalState State { get; init; }
 

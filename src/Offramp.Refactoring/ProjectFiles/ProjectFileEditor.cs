@@ -71,6 +71,61 @@ public sealed class ProjectFileEditor
         return matches.Count;
     }
 
+    public void AddEmbeddedResource(string include) => AddItem("EmbeddedResource", include.Replace('/', '\\'), null);
+
+    /// <summary>
+    /// The metadata of every unconditioned <c>&lt;Type Update="path"&gt;</c> item for a path
+    /// (for example a Designer file's <c>DependentUpon</c>), in document order.
+    /// </summary>
+    public IReadOnlyList<(string ItemType, IReadOnlyList<KeyValuePair<string, string>> Metadata)> UpdatesFor(string path) =>
+        [.. _root.ItemGroups.Where(g => string.IsNullOrEmpty(g.Condition)).SelectMany(g => g.Items)
+            .Where(i => string.IsNullOrEmpty(i.Condition) && Same(i.Update, path))
+            .Select(i => (i.ItemType, (IReadOnlyList<KeyValuePair<string, string>>)[.. i.Metadata.Select(m => KeyValuePair.Create(m.Name, m.Value))]))];
+
+    /// <summary>Removes every unconditioned Update item for a path; returns how many.</summary>
+    public int RemoveUpdates(string path)
+    {
+        var matches = _root.ItemGroups.Where(g => string.IsNullOrEmpty(g.Condition)).SelectMany(g => g.Items)
+            .Where(i => string.IsNullOrEmpty(i.Condition) && Same(i.Update, path)).ToList();
+        foreach (var item in matches)
+        {
+            var group = item.Parent;
+            group.RemoveChild(item);
+            if (group.Count == 0 && group.Parent is not null)
+            {
+                group.Parent.RemoveChild(group);
+            }
+        }
+
+        return matches.Count;
+    }
+
+    /// <summary>Adds <c>&lt;Type Update="path"&gt;</c> with metadata as child elements (<c>LogicalName</c> as an attribute); an existing one gains the metadata it lacks.</summary>
+    public void AddUpdate(string itemType, string path, IReadOnlyList<KeyValuePair<string, string>> metadata)
+    {
+        path = path.Replace('/', '\\');
+        var item = Items(itemType, includeRemoves: true)
+            .FirstOrDefault(i => string.Equals(i.Update.Replace('/', '\\'), path, StringComparison.OrdinalIgnoreCase));
+        if (item is null)
+        {
+            var group = _root.ItemGroups.FirstOrDefault(g => string.IsNullOrEmpty(g.Condition) && g.Items.Any(i => !string.IsNullOrEmpty(i.Update)))
+                ?? _root.AddItemGroup();
+            item = _root.CreateItemElement(itemType);
+            item.Update = path;
+            group.AppendChild(item);
+        }
+
+        // An existing Update item keeps its metadata and gains what it lacks.
+        foreach (var (name, value) in metadata.Where(m => !item.Metadata.Any(e => string.Equals(e.Name, m.Key, StringComparison.OrdinalIgnoreCase))))
+        {
+            item.AddMetadata(name, value, expressAsAttribute: name == "LogicalName");
+        }
+    }
+
+    /// <summary>The <c>Remove</c> patterns of unconditioned items of a type (<c>&lt;Compile Remove="Legacy\**" /&gt;</c>).</summary>
+    public IReadOnlyList<string> RemovePatterns(string itemType) =>
+        [.. Items(itemType, includeRemoves: true).Where(i => !string.IsNullOrEmpty(i.Remove)).Select(i => i.Remove.Replace('\\', '/'))];
+
     public byte[] Save()
     {
         using var writer = new Utf8StringWriter();
@@ -85,11 +140,12 @@ public sealed class ProjectFileEditor
         return _bom ? [0xEF, 0xBB, 0xBF, .. body] : body;
     }
 
-    private IEnumerable<ProjectItemElement> Items(string itemType) =>
+    private IEnumerable<ProjectItemElement> Items(string itemType, bool includeRemoves = false) =>
         _root.ItemGroups
             .Where(g => string.IsNullOrEmpty(g.Condition))
             .SelectMany(g => g.Items)
-            .Where(i => string.Equals(i.ItemType, itemType, StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(i.Condition));
+            .Where(i => string.Equals(i.ItemType, itemType, StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(i.Condition))
+            .Where(i => includeRemoves || !string.IsNullOrEmpty(i.Include));
 
     private void AddItem(string itemType, string include, (string Name, string Value)[]? metadata)
     {
@@ -125,8 +181,8 @@ public sealed class ProjectFileEditor
         }
     }
 
-    private static bool Same(string a, string b) =>
-        string.Equals(a.Replace('/', '\\'), b.Replace('/', '\\'), StringComparison.OrdinalIgnoreCase);
+    private static bool Same(string? a, string? b) =>
+        a is not null && b is not null && string.Equals(a.Replace('/', '\\'), b.Replace('/', '\\'), StringComparison.OrdinalIgnoreCase);
 
     private sealed class Utf8StringWriter : StringWriter
     {

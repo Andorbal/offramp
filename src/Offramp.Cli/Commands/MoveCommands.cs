@@ -20,6 +20,8 @@ public static class MoveCommands
     public static Command Create(CliHost host, GlobalOptions globals)
     {
         var move = new Command("move", "Move code between projects without changing a byte of it: renames are staged with git mv, project edits left for review.");
+        move.Subcommands.Add(MovePlanCommand.Create(host, globals));
+        move.Subcommands.Add(MoveApplyCommand.Create(host, globals));
         move.Subcommands.Add(MoveTestsCommand.Create(host, globals));
         move.Subcommands.Add(MoveRollbackCommand.Create(host, globals));
         return move;
@@ -86,8 +88,8 @@ public sealed class MoveTestsCommand : ICommandHandler<MoveTestsOptions, MoveTes
             return CommandOutcome<MoveTestsResult>.Environment();
         }
 
-        var source = Resolve(options.Project, model, context);
-        var to = options.To is null ? null : Resolve(options.To, model, context);
+        var source = MoveCommandSupport.Resolve(options.Project, model, context);
+        var to = options.To is null ? null : MoveCommandSupport.Resolve(options.To, model, context);
         if (source is null || (options.To is not null && to is null))
         {
             return CommandOutcome<MoveTestsResult>.Usage();
@@ -175,12 +177,7 @@ public sealed class MoveTestsCommand : ICommandHandler<MoveTestsOptions, MoveTes
         if (result.Preview is { Length: > 0 } preview)
         {
             output.Line();
-            foreach (var line in preview.TrimEnd('\n').Split('\n'))
-            {
-                var style = line.StartsWith("+++", StringComparison.Ordinal) || line.StartsWith("---", StringComparison.Ordinal) ? "bold"
-                    : line.StartsWith('+') ? Theme.ReadyStyle : line.StartsWith('-') ? Theme.BlockingStyle : line.StartsWith("@@", StringComparison.Ordinal) ? "cyan" : "dim";
-                output.MarkupLine($"[{style}]{Markup.Escape(line)}[/]");
-            }
+            MoveCommandSupport.WriteDiff(preview, output);
 
             output.Line();
             output.MarkupLine("[dim]Dry run. Apply with[/] offramp move tests --project " + Markup.Escape(result.Project) + " --apply" + (result.Created ? " --create" : ""));
@@ -193,18 +190,6 @@ public sealed class MoveTestsCommand : ICommandHandler<MoveTestsOptions, MoveTes
             output.MarkupLine("[dim]Suggested commits: the project files first, then the renames (a pure-move commit).[/]");
             output.MarkupLine($"[dim]Undo with[/] offramp move rollback --journal {Markup.Escape(result.Journal!)}");
         }
-    }
-
-    private static string? Resolve(string value, Offramp.Core.Model.WorkspaceModel model, CommandContext context)
-    {
-        var id = ProjectLookup.Resolve(value, model, context);
-        if (id is null)
-        {
-            context.Diagnostics.Report(DiagnosticCatalog.OFR0021, $"'{value}' is not a project in the workspace model.",
-                data: [KeyValuePair.Create<string, JsonNode?>("project", value)]);
-        }
-
-        return id;
     }
 
     private static string Wire<T>(T value)
