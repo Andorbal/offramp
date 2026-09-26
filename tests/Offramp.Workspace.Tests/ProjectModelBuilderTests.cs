@@ -58,6 +58,48 @@ public sealed class ProjectModelBuilderTests : IDisposable
         Assert.Equal(AssemblyReferenceKind.File, project.AssemblyReferences.Single(r => r.Name == "Vendor.Thing").Kind);
     }
 
+    /// <summary>
+    /// Logs captured on Windows also record the ProjectReference items the SDK adds for
+    /// transitive references (IncludeTransitiveProjectReferences); only the references restore
+    /// saw declared are the project's.
+    /// </summary>
+    [Fact]
+    public void Transitive_project_references_the_sdk_adds_are_left_out()
+    {
+        var assets = Path.Combine(_repo.Path, "src", "Lib", "obj", "project.assets.json");
+        var declared = Path.Combine(_repo.Path, "src", "A", "A.csproj").Replace("\\", "\\\\");
+        _repo.Write("src/Lib/obj/project.assets.json", $$"""
+            {
+              "version": 3,
+              "targets": { ".NETFramework,Version=v4.8": {} },
+              "libraries": {},
+              "projectFileDependencyGroups": { ".NETFramework,Version=v4.8": [] },
+              "project": {
+                "version": "1.0.0",
+                "restore": {
+                  "projectUniqueName": "Lib",
+                  "projectName": "Lib",
+                  "projectStyle": "PackageReference",
+                  "frameworks": { "net48": { "targetAlias": "net48", "projectReferences": { "{{declared}}": { "projectPath": "{{declared}}" } } } }
+                },
+                "frameworks": { "net48": { "targetAlias": "net48" } }
+              }
+            }
+            """);
+        var evaluation = Evaluation(new() { ["ProjectAssetsFile"] = assets }, []);
+        evaluation = evaluation with
+        {
+            Items = new Dictionary<string, IReadOnlyList<EvaluatedItem>>(evaluation.Items)
+            {
+                ["ProjectReference"] = [new(@"..\A\A.csproj", new Dictionary<string, string>()), new(@"..\B\B.csproj", new Dictionary<string, string>())],
+            },
+        };
+        var withoutAssets = Build(Evaluation(new(), []) with { Items = evaluation.Items });
+
+        Assert.Equal(["src/A/A.csproj"], Build(evaluation).ProjectReferences);
+        Assert.Equal(["src/A/A.csproj", "src/B/B.csproj"], withoutAssets.ProjectReferences);
+    }
+
     private ProjectInfo Build(EvaluatedProject evaluation) =>
         ProjectModelBuilder.Build("src/Lib/Lib.csproj", [evaluation], new ProjectBuildContext
         {

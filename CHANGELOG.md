@@ -49,6 +49,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - A file changed between planning and applying now fails with a journal conflict instead of a
   purity violation (the rename never happens either way).
 
+### Fixed
+- `scan` no longer records the ProjectReference items the SDK adds for transitive references
+  (which logs made on Windows keep with the evaluation) as a project's own references: only the
+  references restore saw declared (the assets file's restore metadata) are kept.
+
 ## [0.5.0] - 2026-09-26
 
 ### Added

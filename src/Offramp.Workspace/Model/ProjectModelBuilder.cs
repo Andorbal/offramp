@@ -108,12 +108,7 @@ public static class ProjectModelBuilder
             Compile = compile,
             CompileExplicit = !first.IsTrue("UsingMicrosoftNETSdk")
                 || string.Equals(first.Property("EnableDefaultCompileItems"), "false", StringComparison.OrdinalIgnoreCase),
-            ProjectReferences = [.. all
-                .SelectMany(e => e.ItemsOf("ProjectReference"))
-                .Select(i => context.Paths.ToRelative(projectDirectory, i.Include))
-                .OfType<string>()
-                .Distinct(StringComparer.Ordinal)
-                .Order(StringComparer.Ordinal)],
+            ProjectReferences = ProjectReferences(all, projectDirectory, context),
             PackageReferences = packages,
             AssemblyReferences = assemblies,
             ComReferences = [.. all
@@ -343,6 +338,31 @@ public static class ProjectModelBuilder
         || include.Contains('\\', StringComparison.Ordinal)
         || include.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
         || include.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Declared project references. Items the SDK adds for transitive references are dropped by
+    /// keeping only what restore recorded as declared, when the assets file says.
+    /// </summary>
+    private static List<string> ProjectReferences(IReadOnlyList<EvaluatedProject> evaluations, string projectDirectory, ProjectBuildContext context)
+    {
+        var references = evaluations
+            .SelectMany(e => e.ItemsOf("ProjectReference"))
+            .Select(i => context.Paths.ToRelative(projectDirectory, i.Include))
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        var assetsFile = context.Paths.ToLocal(evaluations.Select(e => e.Property("ProjectAssetsFile")).FirstOrDefault(p => p is not null));
+        if (AssetsFileReader.DeclaredProjectReferences(assetsFile) is not { } declared)
+        {
+            return references;
+        }
+
+        // The assets file read is the local one, so its paths are local too.
+        var local = CapturePathMapper.Local(context.Paths.RepositoryRoot);
+        var kept = declared.Select(local.ToRelative).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return [.. references.Where(kept.Contains)];
+    }
 
     private static SortedDictionary<string, ResolvedFramework> Resolved(
         IReadOnlyList<EvaluatedProject> evaluations, IReadOnlyList<string> tfms, ProjectBuildContext context)
