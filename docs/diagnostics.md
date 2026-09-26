@@ -115,6 +115,53 @@ where a command reports a code at another severity, the entry says so.
 | [OFR2210](#ofr2210) | info | move | test-framework packages removable from source |
 | [OFR2301](#ofr2301) | warning | move | string reference to a moved type |
 | [OFR2302](#ofr2302) | error | move | revision not found |
+| [OFR3001](#ofr3001) | error | audit | API missing on target |
+| [OFR3002](#ofr3002) | warning | audit | API available only on Windows |
+| [OFR3003](#ofr3003) | error | audit | API throws on modern .NET |
+| [OFR3004](#ofr3004) | error | audit | ASP.NET Web Forms |
+| [OFR3005](#ofr3005) | error | audit | ASMX web services |
+| [OFR3006](#ofr3006) | error | audit | WCF service host |
+| [OFR3007](#ofr3007) | error | audit | .NET Remoting |
+| [OFR3008](#ofr3008) | error | audit | WF (Windows Workflow Foundation) |
+| [OFR3009](#ofr3009) | error | audit | COM+, Code Access Security, or AppDomain sandboxing |
+| [OFR3010](#ofr3010) | warning | audit | project not compiled against the target |
+| [OFR3011](#ofr3011) | info | audit | packages without target support left out |
+| [OFR3101](#ofr3101) | warning | audit | culture-sensitive string operation |
+| [OFR3102](#ofr3102) | warning | audit | non-Unicode code page |
+| [OFR3103](#ofr3103) | warning | audit | path assumes Windows separators or folders |
+| [OFR3104](#ofr3104) | warning | audit | time zone looked up by Windows ID |
+| [OFR3105](#ofr3105) | warning | audit | registry access |
+| [OFR3106](#ofr3106) | warning | audit | ambient ASP.NET context |
+| [OFR3107](#ofr3107) | warning | audit | shell execution through Process.Start |
+| [OFR3108](#ofr3108) | warning | audit | legacy SQL Server client (System.Data.SqlClient) |
+| [OFR3109](#ofr3109) | info | audit | floating-point ToString without a format |
+| [OFR3110](#ofr3110) | warning | audit | obsolete networking API |
+| [OFR3111](#ofr3111) | warning | audit | ambient principal |
+| [OFR3112](#ofr3112) | info | audit | settings read through ConfigurationManager |
+| [OFR3113](#ofr3113) | info | audit | regular expression without a timeout |
+| [OFR3114](#ofr3114) | warning | audit | TLS 1.0/1.1 or SSL pinned |
+| [OFR3115](#ofr3115) | warning | audit | assembly loading |
+| [OFR3116](#ofr3116) | info | audit | runtime settings in app.config |
+| [OFR3117](#ofr3117) | info | audit | URL encoding differences |
+| [OFR3118](#ofr3118) | warning | audit | machine key or Forms authentication |
+| [OFR3119](#ofr3119) | info | audit | timers and thread pool tuning |
+| [OFR3120](#ofr3120) | info | audit | operating system check |
+| [OFR3201](#ofr3201) | error | audit | insecure serializer |
+| [OFR3202](#ofr3202) | info | audit | transient binary serialization (deep clone) |
+| [OFR3203](#ofr3203) | error | audit | persisted or transported binary serialization |
+| [OFR3204](#ofr3204) | info | audit | type serialized with a binary formatter |
+| [OFR3205](#ofr3205) | info | audit | [Serializable] type never serialized |
+| [OFR3210](#ofr3210) | warning | audit | legacy JSON serializer |
+| [OFR3211](#ofr3211) | info | audit | XML serializer |
+| [OFR3301](#ofr3301) | info | audit | P/Invoke declaration |
+| [OFR3302](#ofr3302) | warning | audit | ANSI string marshalling by default |
+| [OFR3303](#ofr3303) | info | audit | candidate for [LibraryImport] |
+| [OFR3310](#ofr3310) | warning | audit | COM interop |
+| [OFR3320](#ofr3320) | info | audit | structured exception interop |
+| [OFR3601](#ofr3601) | warning | audit | member cannot be wrapped in `#if` |
+| [OFR3602](#ofr3602) | warning | audit | finding does not match the source |
+| [OFR3603](#ofr3603) | warning | audit | conditional region depends on other symbols |
+| [OFR3604](#ofr3604) | error | audit | findings file missing or invalid |
 | [OFR5001](#ofr5001) | error | verify | verification failed |
 | [OFR5002](#ofr5002) | error | verify | verification timed out |
 | [OFR5010](#ofr5010) | warning | verify | new error code relative to baseline |
@@ -913,6 +960,429 @@ A string names a type that moved together with the assembly it moved out of (`"N
 - **Typical cause:** A typo, a branch that exists only elsewhere, or a shallow clone without that history.
 - **Fix:** Pass a commit, branch, or tag that exists locally (`git fetch` it first), or omit `--since` to use the last scan's compilation.
 
+### OFR3001
+
+**API missing on target** · error · audit
+
+A type or member the project uses on .NET Framework does not exist in the target's reference assemblies (nor in the packages that support the target). The message names the API and its assembly's mapping from rules/framework-assemblies.yml.
+
+- **Typical cause:** APIs from assemblies with no modern equivalent (System.Web), or in assemblies that moved to packages (System.Drawing.Common, System.Configuration.ConfigurationManager).
+- **Fix:** See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.
+
+### OFR3002
+
+**API available only on Windows** · warning · audit
+
+The API exists on the target but is marked [SupportedOSPlatform("windows")], so it throws or is missing on Linux and macOS.
+
+- **Typical cause:** Registry access, Windows-only Console members, Windows event logs, and similar APIs that survived the port only for Windows.
+- **Fix:** Target netN-windows, guard the call with OperatingSystem.IsWindows(), or isolate it behind a seam.
+
+### OFR3003
+
+**API throws on modern .NET** · error · audit
+
+The API compiles on modern .NET but throws PlatformNotSupportedException at run time.
+
+- **Typical cause:** Thread.Abort, AppDomain.CreateDomain, CodeDom compilation, delegate BeginInvoke, and BinaryFormatter without the compatibility switch.
+- **Fix:** These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).
+
+### OFR3004
+
+**ASP.NET Web Forms** · error · audit
+
+The project uses ASP.NET Web Forms (System.Web.UI), which modern .NET does not have.
+
+- **Typical cause:** Pages, user controls, and master pages deriving from System.Web.UI types.
+- **Fix:** Web Forms has no port; rebuild pages in Razor Pages or Blazor (`offramp web inventory`), incrementally behind a YARP proxy.
+
+### OFR3005
+
+**ASMX web services** · error · audit
+
+The project hosts ASMX web services, which modern .NET does not have.
+
+- **Typical cause:** Classes deriving from WebService or marked [WebService]/[WebMethod].
+- **Fix:** Move to ASP.NET Core controllers, or CoreWCF for SOAP clients that cannot change.
+
+### OFR3006
+
+**WCF service host** · error · audit
+
+The project hosts WCF services, which modern .NET does not include (clients have packages; servers need CoreWCF).
+
+- **Typical cause:** ServiceHost, ServiceHostFactory, or [ServiceBehavior] in the project.
+- **Fix:** WCF clients have packages; servers move to CoreWCF, gRPC, or HTTP APIs.
+
+### OFR3007
+
+**.NET Remoting** · error · audit
+
+.NET Remoting is gone on modern .NET.
+
+- **Typical cause:** Types from System.Runtime.Remoting: MarshalByRefObject channels, RemotingConfiguration, remote activation.
+- **Fix:** Remoting has no port; use gRPC, HTTP, or named pipes (`offramp remote`).
+
+### OFR3008
+
+**WF (Windows Workflow Foundation)** · error · audit
+
+Windows Workflow Foundation is not part of modern .NET.
+
+- **Typical cause:** Types from System.Activities or System.Workflow.
+- **Fix:** Workflow Foundation has no port (CoreWF is a community option); isolate workflows behind a seam.
+
+### OFR3009
+
+**COM+, Code Access Security, or AppDomain sandboxing** · error · audit
+
+Enterprise Services (COM+), Code Access Security, and sandboxed AppDomains are gone on modern .NET.
+
+- **Typical cause:** System.EnterpriseServices components, CAS permission attributes, PermissionSet, AllowPartiallyTrustedCallers.
+- **Fix:** COM+ services, CAS permissions, and sandboxed AppDomains are gone; isolate the code in a separate process.
+
+### OFR3010
+
+**project not compiled against the target** · warning · audit
+
+The project could not be compiled against the target's reference assemblies, so audit api reports no missing (OFR3001) or Windows-only (OFR3002) APIs for it. The message carries NuGet's or MSBuild's error.
+
+- **Typical cause:** The target's reference packs could not be restored (no network, a feed that requires authentication, an SDK too old for the target).
+- **Fix:** Fix the restore error the message names (feeds, credentials, SDK version) and run the audit again.
+
+### OFR3011
+
+**packages without target support left out** · info · audit
+
+Some of the project's packages have no assets for the target, so the target compilation leaves them out and the APIs used from them show up as missing (OFR3001).
+
+- **Typical cause:** Packages that only ever shipped .NET Framework assemblies (for example Microsoft.AspNet.Mvc or Microsoft.Web.Infrastructure).
+- **Fix:** Run `offramp deps audit` for replacements; the APIs used from these packages are the ones to port.
+
+### OFR3101
+
+**culture-sensitive string operation** · warning · audit
+
+A string comparison, search, or case mapping uses the current culture implicitly; modern .NET uses ICU on every platform, which compares and matches differently from NLS on .NET Framework.
+
+- **Typical cause:** string.Compare, IndexOf(string), StartsWith(string), ToUpper(), or OrderBy over strings without a StringComparison, CultureInfo, or comparer.
+- **Fix:** Pass StringComparison.Ordinal (or a CultureInfo) explicitly; ICU on Linux and modern .NET compares and matches differently from NLS.
+
+### OFR3102
+
+**non-Unicode code page** · warning · audit
+
+Encoding.GetEncoding asks for a legacy code page, which modern .NET only provides after CodePagesEncodingProvider is registered.
+
+- **Typical cause:** Windows-1252, Shift-JIS, or other non-Unicode code pages requested by number or name.
+- **Fix:** Register CodePagesEncodingProvider.Instance (System.Text.Encoding.CodePages) at startup before asking for legacy code pages.
+
+### OFR3103
+
+**path assumes Windows separators or folders** · warning · audit
+
+A path uses Windows separators, drive letters, or a Windows-only special folder; other file systems use '/' and are case-sensitive.
+
+- **Typical cause:** Hard-coded backslashes or drive letters passed to System.IO, Environment.SpecialFolder members that exist only on Windows.
+- **Fix:** Use Path.Combine with relative segments and Path.DirectorySeparatorChar; file systems elsewhere are case-sensitive and use '/'.
+
+### OFR3104
+
+**time zone looked up by Windows ID** · warning · audit
+
+A time zone is looked up by a Windows ID; other platforms use IANA IDs.
+
+- **Typical cause:** TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time") or an ID read from data.
+- **Fix:** Use IANA IDs, or TimeZoneInfo.TryConvertWindowsIdToIanaId (.NET 6+) where Windows IDs come from data.
+
+### OFR3105
+
+**registry access** · warning · audit
+
+The code reads or writes the Windows registry.
+
+- **Typical cause:** Microsoft.Win32.Registry and RegistryKey.
+- **Fix:** Move settings to configuration; guard any remaining registry access with OperatingSystem.IsWindows().
+
+### OFR3106
+
+**ambient ASP.NET context** · warning · audit
+
+The code relies on ASP.NET's ambient request or hosting context, which ASP.NET Core does not have.
+
+- **Typical cause:** HttpContext.Current, HttpRuntime, HostingEnvironment.
+- **Fix:** ASP.NET Core has no ambient context; pass HttpContext (or IHttpContextAccessor) and IWebHostEnvironment explicitly.
+
+### OFR3107
+
+**shell execution through Process.Start** · warning · audit
+
+Process.Start with a file or URL relies on the shell; UseShellExecute defaults to false on modern .NET.
+
+- **Typical cause:** Process.Start("https://...") or Process.Start("report.pdf").
+- **Fix:** UseShellExecute defaults to false on modern .NET; open URLs and documents with new ProcessStartInfo(target) { UseShellExecute = true }.
+
+### OFR3108
+
+**legacy SQL Server client (System.Data.SqlClient)** · warning · audit
+
+System.Data.SqlClient is superseded by Microsoft.Data.SqlClient, whose defaults differ (Encrypt is true from 4.0).
+
+- **Typical cause:** SqlConnection, SqlCommand, and friends from System.Data.SqlClient.
+- **Fix:** Move to Microsoft.Data.SqlClient; Encrypt defaults to true from 4.0, so connection strings may need TrustServerCertificate.
+
+### OFR3109
+
+**floating-point ToString without a format** · info · audit
+
+double and float ToString() without a format give the shortest round-trippable string since .NET Core 3.0, so output can change.
+
+- **Typical cause:** Formatting floating-point values for display, storage, or comparison without a format string.
+- **Fix:** Since .NET Core 3.0, ToString() gives the shortest round-trippable string; pass a format ("G15", "R", "F2") where output is compared or stored.
+
+### OFR3110
+
+**obsolete networking API** · warning · audit
+
+WebRequest, WebClient, and ServicePointManager are obsolete on modern .NET.
+
+- **Typical cause:** HTTP calls through HttpWebRequest or WebClient, global settings through ServicePointManager.
+- **Fix:** Use HttpClient (with SocketsHttpHandler settings instead of ServicePointManager).
+
+### OFR3111
+
+**ambient principal** · warning · audit
+
+The ambient principal does not flow the same way on modern .NET.
+
+- **Typical cause:** Thread.CurrentPrincipal used for authorization, WindowsIdentity.
+- **Fix:** Thread.CurrentPrincipal does not flow the same way; ASP.NET Core uses HttpContext.User, services an explicit identity.
+
+### OFR3112
+
+**settings read through ConfigurationManager** · info · audit
+
+ConfigurationManager settings come from the host's app.config through a compatibility package, not from web.config or IConfiguration.
+
+- **Typical cause:** ConfigurationManager.AppSettings and ConnectionStrings.
+- **Fix:** The System.Configuration.ConfigurationManager package reads the host's app.config, not web.config; consider IConfiguration (`offramp config convert`).
+
+### OFR3113
+
+**regular expression without a timeout** · info · audit
+
+A regular expression runs without a match timeout.
+
+- **Typical cause:** new Regex(pattern) or Regex.IsMatch(input, pattern) without a TimeSpan.
+- **Fix:** Pass a match timeout (or RegexOptions.NonBacktracking) for patterns applied to request data.
+
+### OFR3114
+
+**TLS 1.0/1.1 or SSL pinned** · warning · audit
+
+The code pins SSL 3.0, TLS 1.0, or TLS 1.1, which modern defaults reject.
+
+- **Typical cause:** SslProtocols.Tls, SecurityProtocolType.Tls11, and similar values set explicitly.
+- **Fix:** Let the operating system choose (SslProtocols.None / SecurityProtocolType.SystemDefault); old protocols are rejected by modern defaults.
+
+### OFR3115
+
+**assembly loading** · warning · audit
+
+Assembly.LoadFrom, LoadFile, and AppDomain.AssemblyResolve follow AssemblyLoadContext rules on modern .NET.
+
+- **Typical cause:** Plug-in loading and custom assembly probing.
+- **Fix:** Assembly.LoadFrom/LoadFile and AppDomain.AssemblyResolve follow AssemblyLoadContext rules on modern .NET; review load contexts and probing.
+
+### OFR3116
+
+**runtime settings in app.config** · info · audit
+
+Garbage collector and threading settings in app.config or web.config are ignored on modern .NET; they belong in runtimeconfig.json.
+
+- **Typical cause:** <gcServer>, <gcConcurrent>, <GCCpuGroup>, and similar elements under <runtime>.
+- **Fix:** GC and runtime settings move to runtimeconfig.json (or MSBuild properties such as ServerGarbageCollection).
+
+### OFR3117
+
+**URL encoding differences** · info · audit
+
+HttpUtility and Uri.EscapeUriString escape differently from WebUtility and Uri.EscapeDataString.
+
+- **Typical cause:** URL encoding whose output is persisted, compared, or signed.
+- **Fix:** HttpUtility and Uri.EscapeUriString escape differently from WebUtility and Uri.EscapeDataString; compare outputs where they are persisted or signed.
+
+### OFR3118
+
+**machine key or Forms authentication** · warning · audit
+
+MachineKey and Forms authentication have no direct equivalent; ASP.NET Core uses Data Protection.
+
+- **Typical cause:** MachineKey.Protect/Unprotect, FormsAuthentication tickets and cookies.
+- **Fix:** ASP.NET Core Data Protection replaces MachineKey; sharing Forms authentication cookies needs a compatibility adapter.
+
+### OFR3119
+
+**timers and thread pool tuning** · info · audit
+
+Timers and thread pool tuning usually work, but services moving to containers should revisit them.
+
+- **Typical cause:** System.Timers.Timer in services, ThreadPool.SetMinThreads.
+- **Fix:** Usually fine; services heading to containers should prefer PeriodicTimer or hosted services, and revisit thread pool minimums.
+
+### OFR3120
+
+**operating system check** · info · audit
+
+An operating system check assumes Windows.
+
+- **Typical cause:** Environment.OSVersion or RuntimeInformation.IsOSPlatform branches.
+- **Fix:** Branches that assume Windows need review; prefer OperatingSystem.IsWindows() and friends.
+
+### OFR3201
+
+**insecure serializer** · error · audit
+
+BinaryFormatter and its relatives are insecure, and .NET 9 removed them (they throw).
+
+- **Typical cause:** BinaryFormatter, SoapFormatter, NetDataContractSerializer, ObjectStateFormatter, LosFormatter.
+- **Fix:** BinaryFormatter and its relatives are removed (throw) from .NET 9; migrate the data, using the System.Runtime.Serialization.Formatters compatibility package only while a dual-read migration runs.
+
+### OFR3202
+
+**transient binary serialization (deep clone)** · info · audit
+
+A binary formatter round-trips an object through a MemoryStream in one member (a deep clone); the data never leaves the process.
+
+- **Typical cause:** The Clone idiom: Serialize into a new MemoryStream, rewind, Deserialize.
+- **Fix:** The data never leaves the process; replace the round trip with a copy constructor, a record `with`, or a System.Text.Json round trip (`offramp codemod`).
+
+### OFR3203
+
+**persisted or transported binary serialization** · error · audit
+
+Binary-formatter data leaves the process: a file, a stream parameter or field, or a memory stream whose bytes are returned or stored.
+
+- **Typical cause:** Persisting objects to disk, sending them over a network, caching them, or storing them in session state.
+- **Fix:** Data written with BinaryFormatter outlives the process; plan a dual-read migration to a safe format before the target drops the formatter.
+
+### OFR3204
+
+**type serialized with a binary formatter** · info · audit
+
+A type is serialized with a binary formatter; the finding lists whether it implements ISerializable, has deserialization callbacks, or holds delegates.
+
+- **Typical cause:** Types passed to Serialize (followed through object parameters to call sites) or cast from Deserialize.
+- **Fix:** Each listed type needs a new serialized shape; ISerializable, OnDeserialized hooks, and delegate members need attention.
+
+### OFR3205
+
+**[Serializable] type never serialized** · info · audit
+
+A [Serializable] type is never passed to a binary formatter anywhere in the audited solution.
+
+- **Typical cause:** Attributes added by habit or left over from removed serialization.
+- **Fix:** No serializer in the solution receives it; the attribute can stay.
+
+### OFR3210
+
+**legacy JSON serializer** · warning · audit
+
+JavaScriptSerializer and DataContractJsonSerializer are legacy JSON serializers.
+
+- **Typical cause:** System.Web.Script.Serialization.JavaScriptSerializer, DataContractJsonSerializer.
+- **Fix:** Move to System.Text.Json (or Newtonsoft.Json where its behaviors are relied on).
+
+### OFR3211
+
+**XML serializer** · info · audit
+
+XmlSerializer works on modern .NET; pre-generated serializers (sgen) need Microsoft.XmlSerializer.Generator.
+
+- **Typical cause:** XmlSerializer usages, especially with GenerateSerializationAssemblies.
+- **Fix:** Works on the target; pre-generated serializers (sgen) need Microsoft.XmlSerializer.Generator or can be dropped.
+
+### OFR3301
+
+**P/Invoke declaration** · info · audit
+
+An inventory entry for a P/Invoke declaration: library, entry point, calling convention, character set, SetLastError, marshalled types, and whether the library exists only on Windows.
+
+- **Typical cause:** Any [DllImport] method.
+- **Fix:** Check each library exists on every target platform; Windows system libraries do not.
+
+### OFR3302
+
+**ANSI string marshalling by default** · warning · audit
+
+A P/Invoke marshals strings with the ANSI default (or CharSet.Auto, which is ANSI off Windows).
+
+- **Typical cause:** [DllImport] with string, char, or StringBuilder parameters and no CharSet.Unicode or [MarshalAs].
+- **Fix:** CharSet defaults to ANSI (Auto means Unicode only on Windows); declare CharSet.Unicode or marshal strings explicitly.
+
+### OFR3303
+
+**candidate for [LibraryImport]** · info · audit
+
+A P/Invoke has a blittable signature, so [LibraryImport] can generate its marshalling at compile time.
+
+- **Typical cause:** [DllImport] methods over integers, pointers, and handles only.
+- **Fix:** A blittable signature can use [LibraryImport] for source-generated marshalling on .NET 7+.
+
+### OFR3310
+
+**COM interop** · warning · audit
+
+The project uses COM, which exists only on Windows.
+
+- **Typical cause:** COMReference items, [ComImport] interfaces, Marshal.GetActiveObject.
+- **Fix:** COM works only on Windows; isolate it behind a seam or target netN-windows.
+
+### OFR3320
+
+**structured exception interop** · info · audit
+
+Structured exception and HRESULT interop differ across platforms.
+
+- **Typical cause:** Marshal.GetHRForException, catching SEHException.
+- **Fix:** SEHException and HRESULT mapping differ across platforms; review the handling.
+
+### OFR3601
+
+**member cannot be wrapped in `#if`** · warning · audit
+
+`ifdef wrap` left a finding unwrapped: code that also compiles on the target needs the member (it is referenced outside the wrapped code, overrides or implements a member, or shares its lines with other code), so it needs a real port rather than a conditional.
+
+- **Typical cause:** A helper with a missing API that callers on both targets use; an interface implementation that uses one.
+- **Fix:** Port the member (or put the missing API behind a seam), or wrap its callers first and run `ifdef wrap` again.
+
+### OFR3602
+
+**finding does not match the source** · warning · audit
+
+The location an audit finding names no longer holds the symbol it reports, so `ifdef wrap` does not touch it.
+
+- **Typical cause:** The file changed after the audit ran.
+- **Fix:** Run the audit again (`offramp scan`, then `offramp audit api --format json --out audit.json`) and wrap from the new findings.
+
+### OFR3603
+
+**conditional region depends on other symbols** · warning · audit
+
+`ifdef strip` left an `#if` chain alone: with the stripped symbol decided, which branch compiles still depends on other symbols.
+
+- **Typical cause:** Conditions such as `NETFRAMEWORK && DEBUG` or `#elif` branches on other symbols before the one that names the stripped symbol.
+- **Fix:** Simplify the condition by hand, or strip the other symbol first.
+
+### OFR3604
+
+**findings file missing or invalid** · error · audit
+
+`ifdef wrap --findings` could not read an audit result from the file.
+
+- **Typical cause:** A wrong path, or a file that is not the output of `offramp audit api --format json` (or its `--json` envelope).
+- **Fix:** Write the findings with `offramp audit api --format json --out audit.json` and pass that file.
+
 ### OFR5001
 
 **verification failed** · error · verify
@@ -966,16 +1436,8 @@ use these numbers; each moves to the table above in the pull request that first 
 | Code | Severity | Meaning |
 |---|---|---|
 | OFR2010 | error | move crosses a solution slice boundary |
-| OFR3001 | error | API missing on target |
-| OFR3002 | warning | Windows-only API |
-| OFR3003 | error | API throws on modern .NET |
-| OFR3004–3009 | error | removed technology (WebForms, ASMX, WCF server, Remoting, WF, CAS) |
-| OFR3101–3120 | varies | behavior rules (see `spec/commands/audit.md`) |
-| OFR3201–3211 | varies | serialization rules |
-| OFR3301–3320 | varies | native interop rules |
 | OFR3401–3402 | info | dead code candidates; test-only usage |
 | OFR3501–3502 | warning | public API differs between targets / from baseline |
-| OFR3601 | warning | member cannot be wrapped in `#if` |
 | OFR4001–4003 | varies | seams |
 | OFR4010 | warning | caller instantiates concrete type directly |
 | OFR4020 | warning | sync member over remote boundary |

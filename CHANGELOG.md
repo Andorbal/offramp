@@ -11,6 +11,44 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp audit api|behavior|serialization|native`: read-only code audits driven by rule packs
+  (`rules/audit-*.yml`: core, web, desktop, data, serialization, native).
+  - `audit api` compiles each .NET Framework project against the target's reference
+    assemblies, resolved by the SDK and NuGet in a scratch project, and reports missing APIs
+    with their assembly mapping (OFR3001), Windows-only APIs (OFR3002), APIs that throw
+    (OFR3003), and removed technologies (OFR3004–3009), plus a porting ledger per project and
+    the top namespaces. Packages without target support are left out and named (OFR3011); a
+    target that cannot be restored is OFR3010.
+  - `audit behavior`: OFR3101–3120 (culture, code pages, Windows paths and time zones, the
+    registry, ambient ASP.NET context, `Process.Start`, SqlClient, floating-point formatting,
+    legacy networking, `app.config` runtime settings, and more).
+  - `audit serialization`: BinaryFormatter and relatives (OFR3201, an error from .NET 9); each
+    use classified as a transient deep clone (OFR3202) or persisted/transported data with its
+    evidence (OFR3203); the types carried (OFR3204); `[Serializable]` types nothing serializes
+    (OFR3205); legacy JSON and XML serializers (OFR3210, OFR3211).
+  - `audit native`: P/Invoke inventory (OFR3301), ANSI string marshalling (OFR3302),
+    `LibraryImport` candidates (OFR3303), COM (OFR3310), SEH interop (OFR3320).
+  - `--format table|json|sarif|markdown` (SARIF 2.1.0 for code scanning), `--group-by`,
+    `--all-locations`, `--pack`, `--project`. Severity overrides from `offramp.yml` mark findings
+    `overridden`; each rule with findings in a project is one diagnostic, so `--fail-on` gates
+    on audits. Schema: `schemas/v1/audit.json`.
+- `offramp ifdef report|wrap|strip`.
+  - `report`: `#if` regions and guarded lines per symbol and project.
+  - `wrap --findings audit.json`: wraps the statement or member behind each `audit api`
+    finding in `#if NETFRAMEWORK` (or `--symbol`), inserting whole lines only; members that
+    code on every target needs are left for a real port (OFR3601), stale findings are skipped
+    (OFR3602).
+  - `strip --symbol S --keep true|false`: removes the regions a symbol decides, keeping the
+    selected branch; regions that also depend on other symbols stay (OFR3603).
+  - Dry run by default; `--apply` writes through a journal. Schemas: `ifdef-report.json`,
+    `ifdef-wrap.json`, `ifdef-strip.json`.
+- Fixture `behavior`: one class per audit rule with `Positive` and `Negative` members.
+
+### Changed
+- `rules/framework-assemblies.yml` maps `mscorlib` and `System.Activities`, so `deps gac` and
+  `deps audit` report a mapping for them instead of `unknown`.
+
 ## [0.7.0] - 2026-09-26
 
 ### Added
