@@ -12,6 +12,23 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- `offramp deps audit`: for every package in use, whether each in-use version supports
+  the target, the lowest and newest versions that do, the newest version, Windows-only
+  assets (with the assembly and the reason), deprecation, and a known successor, with a
+  status (ok, upgrade, replace, blocked, unknown) and OFR1001–1006. Feeds come from the
+  repository's `nuget.config` (or `deps.feeds`); nupkg inspections are cached under
+  `.offramp/cache/packages/`. `--package`, `--project`, `--include-prerelease`, and
+  `--format table|json|markdown` (`schemas/v1/deps-audit.json`).
+- `offramp deps gac`: .NET Framework assembly references and their modern equivalents
+  (built in, a package, the Windows compatibility pack, or none), with how often source
+  uses each, from compilations rebuilt from the compiler log (`schemas/v1/deps-gac.json`).
+- Rule tables `rules/package-map.yml` and `rules/framework-assemblies.yml`, and
+  `deps.packageMap` in `offramp.yml` to extend the first.
+- `Offramp.NuGet` and `Offramp.Analysis` projects.
+- Fixture `versions` (five projects, mixed package versions, a pin, `web.config` binding
+  redirects) with a recorded feed (`feed.json`, `eng/record-feed.cs`) so package tests
+  never depend on nuget.org.
+- ADRs 0014 (how `deps audit` searches versions) and 0015 (recorded feeds).
 - `offramp graph`: the project graph as data (`--format json`, `schemas/v1/graph-document.json`),
   Graphviz DOT, Mermaid, or a single self-contained interactive HTML page (layered layout,
   search, kind and framework-class filters, focus with a depth slider, clusters, cycle list,

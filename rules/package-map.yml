@@ -1,0 +1,53 @@
+# Framework-era NuGet packages and their modern successors, used by `deps audit`
+# (docs/spec/commands/deps.md). Extend or override from offramp.yml with
+# `deps.packageMap`. `package` matches one id; `prefix` matches ids starting
+# with it (the longest prefix wins; an exact `package` beats any prefix).
+packages:
+  - package: Microsoft.AspNet.WebApi.Core
+    replacement: ASP.NET Core MVC (Microsoft.AspNetCore.App, part of the shared framework)
+  - prefix: Microsoft.AspNet.WebApi.
+    replacement: ASP.NET Core MVC (Microsoft.AspNetCore.App, part of the shared framework)
+  - package: Microsoft.AspNet.Mvc
+    replacement: ASP.NET Core MVC (Microsoft.AspNetCore.App, part of the shared framework)
+  - package: Microsoft.AspNet.Razor
+    replacement: Razor in ASP.NET Core
+  - package: Microsoft.AspNet.WebPages
+    replacement: Razor Pages in ASP.NET Core
+  - prefix: Microsoft.AspNet.Identity.
+    replacement: Microsoft.AspNetCore.Identity
+  - prefix: Microsoft.AspNet.SignalR
+    replacement: ASP.NET Core SignalR (Microsoft.AspNetCore.SignalR)
+  - prefix: Microsoft.Owin
+    replacement: ASP.NET Core middleware
+  - package: Owin
+    replacement: ASP.NET Core middleware
+  - package: Microsoft.Web.Infrastructure
+    replacement: none; it is part of System.Web
+  - package: Topshelf
+    replacement: Microsoft.Extensions.Hosting (Windows service or systemd hosting)
+  - package: System.Data.SqlClient
+    replacement: Microsoft.Data.SqlClient
+  - package: Swashbuckle
+    replacement: Swashbuckle.AspNetCore
+  - package: Swashbuckle.Core
+    replacement: Swashbuckle.AspNetCore
+  - package: EntityFramework
+    replacement: EntityFramework 6.4 or later (supports netstandard2.1), or Microsoft.EntityFrameworkCore
+  - package: WindowsAzure.Storage
+    replacement: Azure.Storage.Blobs, Azure.Storage.Queues, Azure.Data.Tables
+  - package: Microsoft.WindowsAzure.ConfigurationManager
+    replacement: Microsoft.Extensions.Configuration
+  - package: System.Runtime.Serialization.Formatters
+    replacement: none supported; BinaryFormatter is removed, use another serializer
+  - package: Microsoft.ApplicationInsights.Web
+    replacement: Microsoft.ApplicationInsights.AspNetCore
+  - package: NLog.Web
+    replacement: NLog.Web.AspNetCore
+  - package: Autofac.WebApi2
+    replacement: Autofac.Extensions.DependencyInjection
+  - package: Autofac.Mvc5
+    replacement: Autofac.Extensions.DependencyInjection
+  - package: Microsoft.Net.Http
+    replacement: built in (System.Net.Http)
+  - prefix: Microsoft.Bcl
+    replacement: built in on modern .NET

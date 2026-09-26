@@ -60,6 +60,11 @@ deps:
       version: 2.0.15         # no project = pin everywhere
       reason: "Ops-approved version"
   ignore: [ "Our.Internal.BuildTools" ]   # never audit or consolidate
+  packageMap:                 # successors, added to rules/package-map.yml
+    - package: Contoso.Legacy.Reporting
+      replacement: "Contoso.Reporting (the rewrite)"
+    - prefix: "Contoso.Wcf."
+      replacement: "Contoso.Grpc.* clients"
   cpm:
     file: eng/Packages.props  # where consolidate writes; if not Directory.Packages.props, projects opt in via DirectoryPackagesPropsPath
     scope: solution           # solution | repo

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Semantic analysis over compilations rebuilt from the compiler log: symbol
+    usage, and (in later milestones) audits, test detection, seams, and dead code.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <RootNamespace>Offramp.Analysis</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Offramp.Core\Offramp.Core.csproj" />
+    <ProjectReference Include="..\Offramp.Workspace\Offramp.Workspace.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Offramp.Analysis.Tests" />
+  </ItemGroup>
+</Project>

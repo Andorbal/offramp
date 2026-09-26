@@ -1,0 +1,61 @@
+# .NET Framework assembly references and their modern equivalents, used by
+# `deps gac` and `deps audit` (docs/spec/commands/deps.md). kind:
+#   builtin      part of the shared framework; remove the reference
+#   package      reference the package instead
+#   compat-pack  Microsoft.Windows.Compatibility provides it
+#   none         no modern equivalent; the note says which way to go
+# windowsOnly marks equivalents that only work on Windows. A trailing `*`
+# matches every assembly with that prefix.
+assemblies:
+  Microsoft.CSharp: { kind: builtin }
+  Microsoft.VisualBasic: { kind: builtin, note: "Most of Microsoft.VisualBasic is available; My.* and some legacy helpers are not." }
+  PresentationCore: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWPF>true</UseWPF>." }
+  PresentationFramework: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWPF>true</UseWPF>." }
+  System: { kind: builtin }
+  System.ComponentModel.Composition: { kind: package, package: System.ComponentModel.Composition }
+  System.ComponentModel.DataAnnotations: { kind: builtin }
+  System.Configuration: { kind: package, package: System.Configuration.ConfigurationManager }
+  System.Configuration.Install: { kind: none, note: "Installer classes are gone; install services with sc.exe, the Windows Installer, or `offramp service`." }
+  System.Core: { kind: builtin }
+  System.Data: { kind: builtin, note: "System.Data.SqlClient moves to the Microsoft.Data.SqlClient package." }
+  System.Data.DataSetExtensions: { kind: builtin }
+  System.Data.Entity: { kind: none, note: "Use the EntityFramework 6.4+ package or move to Entity Framework Core." }
+  System.Data.Linq: { kind: none, note: "LINQ to SQL has no port; move to Entity Framework Core or Dapper." }
+  System.Data.OracleClient: { kind: none, note: "Use Oracle.ManagedDataAccess.Core." }
+  System.Deployment: { kind: none, note: "ClickOnce APIs are not available." }
+  System.Design: { kind: builtin, windowsOnly: true, note: "Windows Forms designer support; target net10.0-windows." }
+  System.DirectoryServices: { kind: package, package: System.DirectoryServices, windowsOnly: true }
+  System.DirectoryServices.AccountManagement: { kind: package, package: System.DirectoryServices.AccountManagement, windowsOnly: true }
+  System.DirectoryServices.Protocols: { kind: package, package: System.DirectoryServices.Protocols }
+  System.Drawing: { kind: package, package: System.Drawing.Common, windowsOnly: true, note: "System.Drawing.Common is Windows only on .NET 6 and later; ImageSharp or SkiaSharp work everywhere." }
+  System.Drawing.Design: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows." }
+  System.EnterpriseServices: { kind: none, note: "COM+ services have no port; isolate behind a seam (`offramp seams`)." }
+  System.IdentityModel: { kind: none, note: "Use System.IdentityModel.Tokens.Jwt or Microsoft.IdentityModel.*." }
+  System.IO.Compression: { kind: builtin }
+  System.IO.Compression.FileSystem: { kind: builtin }
+  System.Management: { kind: package, package: System.Management, windowsOnly: true }
+  System.Management.Instrumentation: { kind: compat-pack, windowsOnly: true }
+  System.Messaging: { kind: none, note: "MSMQ has no port; use a message broker client (Azure Service Bus, RabbitMQ)." }
+  System.Net: { kind: builtin }
+  System.Net.Http: { kind: builtin }
+  System.Net.Http.WebRequest: { kind: builtin }
+  System.Numerics: { kind: builtin }
+  System.Runtime.Caching: { kind: package, package: System.Runtime.Caching }
+  System.Runtime.Remoting: { kind: none, note: "Replace with gRPC or HTTP (`offramp remote`)." }
+  System.Runtime.Serialization: { kind: builtin }
+  System.Runtime.Serialization.Formatters.Soap: { kind: none, note: "SoapFormatter is gone; use another serializer." }
+  System.Security: { kind: package, package: System.Security.Cryptography.Xml, note: "Also System.Security.Cryptography.Pkcs for CMS and ProtectedData for DPAPI (Windows)." }
+  System.ServiceModel: { kind: package, package: System.ServiceModel.Http, note: "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF." }
+  System.ServiceModel.Web: { kind: none, note: "WCF WebHttp services move to ASP.NET Core." }
+  System.ServiceProcess: { kind: package, package: System.ServiceProcess.ServiceController, windowsOnly: true, note: "Hosting a service moves to Microsoft.Extensions.Hosting.WindowsServices (`offramp service`)." }
+  System.Speech: { kind: package, package: System.Speech, windowsOnly: true }
+  System.Transactions: { kind: builtin }
+  System.Web: { kind: none, note: "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)." }
+  System.Web.*: { kind: none, note: "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)." }
+  System.Windows.Forms: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWindowsForms>true</UseWindowsForms>." }
+  System.Workflow.*: { kind: none, note: "Windows Workflow Foundation has no port; CoreWF covers WF4 workflows." }
+  System.Xaml: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWPF>true</UseWPF>." }
+  System.Xml: { kind: builtin }
+  System.Xml.Linq: { kind: builtin }
+  System.Xml.Serialization: { kind: builtin }
+  WindowsBase: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWPF>true</UseWPF>." }

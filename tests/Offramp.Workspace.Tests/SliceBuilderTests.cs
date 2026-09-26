@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Offramp.Core.Model;
 using Offramp.Core.Processes;
 using Offramp.Workspace.Model;
+using Offramp.Fixtures;
 using Offramp.Workspace.Slicing;
 using static Offramp.Workspace.Tests.GraphBuilderTests;
 

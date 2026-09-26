@@ -90,6 +90,20 @@
           }
         },
         "ignore": { "$ref": "#/$defs/stringList" },
+        "packageMap": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["replacement"],
+            "oneOf": [ { "required": ["package"] }, { "required": ["prefix"] } ],
+            "properties": {
+              "package": { "type": "string", "minLength": 1 },
+              "prefix": { "type": "string", "minLength": 1 },
+              "replacement": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
         "cpm": {
           "type": "object",
           "additionalProperties": false,

@@ -2,11 +2,10 @@ using System.Collections.Concurrent;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Processes;
-using Offramp.Fixtures;
 using Offramp.Workspace.Scanning;
 using Offramp.Workspace.Store;
 
-namespace Offramp.Workspace.Tests;
+namespace Offramp.Fixtures;
 
 /// <summary>A fixture copied, built, and scanned once per test run.</summary>
 public sealed record ScannedFixture(FixtureRepository Repository, ScanOutcome Outcome, DiagnosticBag Diagnostics)

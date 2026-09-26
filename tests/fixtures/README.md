@@ -15,3 +15,4 @@ Offramp's own settings when a fixture is built in place.
 | `dual-target` | scan (including a Windows-captured compiler log), graph, move plan, ifdef |
 | `cycle` | graph cycles, move plan refusal |
 | `windows-only-build-steps` | doctor Windows-only build step detection from a committed binlog |
+| `versions` | deps audit and gac against a recorded feed; later consolidate, pins, families, redirects |

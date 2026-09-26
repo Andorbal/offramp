@@ -65,6 +65,11 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0131](#ofr0131) | error | scan | analysis build timed out |
 | [OFR0132](#ofr0132) | warning | scan | compiler calls unavailable for some projects |
 | [OFR0201](#ofr0201) | info | graph/report | graph too large for Mermaid |
+| [OFR1001](#ofr1001) | error | deps | no package version supports the target |
+| [OFR1002](#ofr1002) | warning | deps | in-use version does not support the target |
+| [OFR1003](#ofr1003) | warning | deps | package deprecated |
+| [OFR1004](#ofr1004) | warning | deps | package assets are Windows-only |
+| [OFR1005](#ofr1005) | warning | deps | package not found on any feed |
 | [OFR1006](#ofr1006) | warning | deps | feed unreachable; result partial |
 | [OFR1301](#ofr1301) | warning | deps | project outside the solution would inherit CPM |
 | [OFR1302](#ofr1302) | warning | deps | nested Directory.Packages.props shadows the root |
@@ -412,6 +417,51 @@ The Mermaid graph has more than 300 projects; Mermaid renderers become slow and 
 - **Typical cause:** `graph --format mermaid` on a large solution without a focus or kind filter.
 - **Fix:** Narrow the view with `--focus PROJECT --depth N` or `--exclude-kind test`, or use `--format html`.
 
+### OFR1001
+
+**no package version supports the target** · error · deps
+
+No published version of the package has assets compatible with the target framework, so the projects using it cannot move to the target with it.
+
+- **Typical cause:** A package that only ever shipped .NET Framework assets (for example Microsoft.AspNet.WebApi.Core).
+- **Fix:** Replace the package with its successor (the message names one when rules/package-map.yml or deps.packageMap knows it), or isolate the code that uses it behind a seam.
+
+### OFR1002
+
+**in-use version does not support the target** · warning · deps
+
+A version of the package in use has no assets for the target framework, but a newer version does.
+
+- **Typical cause:** An old version that predates the package's .NET Standard or modern .NET support.
+- **Fix:** Upgrade to the version the message names or later (`deps consolidate` picks one version for the solution).
+
+### OFR1003
+
+**package deprecated** · warning · deps
+
+The feed marks the package, or the version in use, as deprecated; the message carries the reasons and the alternate the feed suggests.
+
+- **Typical cause:** A package its authors no longer maintain (reason Legacy), or one with critical bugs.
+- **Fix:** Move to the alternate the feed suggests, or record the decision to keep it.
+
+### OFR1004
+
+**package assets are Windows-only** · warning · deps
+
+The assets NuGet would pick for the target are marked [SupportedOSPlatform("windows")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, the registry, directory services).
+
+- **Typical cause:** A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later.
+- **Fix:** Fine if the application stays on Windows; otherwise choose a cross-platform alternative before containerizing.
+
+### OFR1005
+
+**package not found on any feed** · warning · deps
+
+None of the configured feeds has the package, so its support for the target is unknown.
+
+- **Typical cause:** A private package on a feed missing from nuget.config, or a package removed from its feed.
+- **Fix:** Add the feed to nuget.config (or `deps.feeds`), or ignore the package with `deps.ignore`.
+
 ### OFR1006
 
 **feed unreachable; result partial** · warning · deps
@@ -455,11 +505,6 @@ use these numbers; each moves to the table above in the pull request that first 
 
 | Code | Severity | Meaning |
 |---|---|---|
-| OFR1001 | error | no package version supports the target |
-| OFR1002 | warning | in-use version does not support the target |
-| OFR1003 | warning | package deprecated |
-| OFR1004 | warning | package assets are Windows-only |
-| OFR1005 | warning | package not found on any feed |
 | OFR1203 | warning | pin kept a package below the otherwise-selected version |
 | OFR1210 | error | pin conflicts with a transitive lower bound (chain attached) |
 | OFR1211 | error | restore verification reported NU1605/NU1107/NU1608/NU1010 |

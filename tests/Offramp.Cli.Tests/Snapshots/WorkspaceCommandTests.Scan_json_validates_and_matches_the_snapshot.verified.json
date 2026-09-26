@@ -22,6 +22,7 @@
         "feeds": null,
         "ignore": [],
         "includePrerelease": false,
+        "packageMap": [],
         "pins": [],
         "preferNewest": false,
         "redirects": {

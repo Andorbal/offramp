@@ -1,0 +1,7 @@
+<Project>
+  <!-- Standalone fixture repository: nothing is inherited from above. -->
+  <PropertyGroup>
+    <!-- Advisories change over time; the fixture's old versions are the point. -->
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+</Project>

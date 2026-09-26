@@ -1,0 +1,29 @@
+﻿10 packages for net10.0: 7 ok, 1 upgrade, 1 replace, 1 blocked.
+
+  Package                                                 In use                   Lowest   Newest   Status
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Contoso.Legacy.Reports                                  1.1.0 ✗                  none     none     blocked
+  Microsoft.AspNet.WebApi.Core                            5.2.3 ✗                  none     none     replace
+  EntityFramework                                         6.2.0 ✗                  6.4.4    6.5.1    upgrade
+  Newtonsoft.Json                                         9.0.1 (pinned),          9.0.1    13.0.3   ok
+                                                          11.0.2, 12.0.3, 13.0.1
+  Microsoft.Extensions.Logging.Abstractions               6.0.0, 8.0.0             2.1.1    8.0.0    ok
+  Contoso.Serialization                                   2.0.0                    2.0.0    2.0.0    ok
+  Contoso.Windows.Controls                                1.0.0                    1.0.0    1.0.0    ok (Windows only)
+  Microsoft.Extensions.DependencyInjection.Abstractions   6.0.0                    2.1.1    8.0.0    ok
+  System.Drawing.Common                                   8.0.0                    8.0.0    8.0.0    ok (Windows only)
+  WindowsAzure.Storage                                    9.3.3                    9.3.3    9.3.3    ok
+
+  Microsoft.AspNet.WebApi.Core → ASP.NET Core MVC (Microsoft.AspNetCore.App, part of the shared framework)
+3 framework assembly references, 1 with no modern equivalent: see offramp deps gac
+
+✗ OFR1001 No version of Contoso.Legacy.Reports supports net10.0; there is no known successor.
+✗ OFR1001 No version of Microsoft.AspNet.WebApi.Core supports net10.0; replace it with ASP.NET Core MVC
+(Microsoft.AspNetCore.App, part of the shared framework).
+! OFR1002 src/Billing/Billing.csproj EntityFramework 6.2.0 does not support net10.0; 6.5.1 does.
+! OFR1004 Contoso.Windows.Controls only works on Windows on net10.0: 1.0.0
+lib/netstandard2.0/Contoso.Windows.Controls.dll: references System.Windows.Forms.
+! OFR1004 System.Drawing.Common only works on Windows on net10.0: 8.0.0 lib/net8.0/System.Drawing.Common.dll:
+[SupportedOSPlatform("windows6.1")].
+
+2 error(s), 3 warning(s)
