@@ -55,14 +55,14 @@ public sealed class AuditDeadCodeCommand(string format) : ICommandHandler<AuditD
         return command;
     }
 
-    public Task<CommandOutcome<DeadCodeResult>> ExecuteAsync(AuditDeadCodeOptions options, CommandContext context, CancellationToken cancellationToken)
+    public async Task<CommandOutcome<DeadCodeResult>> ExecuteAsync(AuditDeadCodeOptions options, CommandContext context, CancellationToken cancellationToken)
     {
         var root = context.Repository.Path;
         var config = context.Config.Config;
         var model = WorkspaceStore.LoadForCommand(context.WorkspacePath, root, config, context.Diagnostics, context.Settings.FailOnStale);
         if (model is null)
         {
-            return Task.FromResult(CommandOutcome<DeadCodeResult>.Environment());
+            return CommandOutcome<DeadCodeResult>.Environment();
         }
 
         var projects = new List<string>();
@@ -72,7 +72,7 @@ public sealed class AuditDeadCodeCommand(string format) : ICommandHandler<AuditD
             {
                 context.Diagnostics.Report(DiagnosticCatalog.OFR0021, $"'{value}' is not a project in the workspace model.",
                     data: [KeyValuePair.Create<string, JsonNode?>("project", value)]);
-                return Task.FromResult(CommandOutcome<DeadCodeResult>.Usage());
+                return CommandOutcome<DeadCodeResult>.Usage();
             }
 
             projects.Add(id);
@@ -90,7 +90,84 @@ public sealed class AuditDeadCodeCommand(string format) : ICommandHandler<AuditD
             Diagnostics = context.Diagnostics,
             Progress = context.Progress,
         });
-        return Task.FromResult(CommandOutcome<DeadCodeResult>.Completed(result));
+        if (LlmGate.For(context, LlmGate.Classifying) is { } llm)
+        {
+            result = await ClassifyAsync(llm, result, cancellationToken);
+        }
+
+        return CommandOutcome<DeadCodeResult>.Completed(result);
+    }
+
+    /// <summary>At most this many low-confidence candidates go to the model, in output order, in one request.</summary>
+    public const int MaxClassified = 50;
+
+    /// <summary>
+    /// <c>llm.uses: classifying</c>: asks whether each low-confidence candidate's name looks used
+    /// by convention (reflection, DI scanning, serializers, frameworks). The answer is added as
+    /// evidence and marks the candidate <c>source: llm</c>; it never changes the confidence.
+    /// </summary>
+    private static async Task<DeadCodeResult> ClassifyAsync(LlmGate llm, DeadCodeResult result, CancellationToken cancellationToken)
+    {
+        var low = result.Projects.SelectMany(p => p.Candidates).Where(c => c.Confidence == DeadCodeConfidence.Low).Take(MaxClassified).ToList();
+        if (low.Count == 0)
+        {
+            return result;
+        }
+
+        var schema = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["items"] = new JsonObject
+                {
+                    ["type"] = "array",
+                    ["items"] = new JsonObject
+                    {
+                        ["type"] = "object",
+                        ["properties"] = new JsonObject
+                        {
+                            ["symbol"] = new JsonObject { ["type"] = "string" },
+                            ["convention"] = new JsonObject { ["type"] = "boolean" },
+                            ["reason"] = new JsonObject { ["type"] = "string" },
+                        },
+                        ["required"] = new JsonArray("symbol", "convention", "reason"),
+                        ["additionalProperties"] = false,
+                    },
+                },
+            },
+            ["required"] = new JsonArray("items"),
+            ["additionalProperties"] = false,
+        };
+        var prompt = "Nothing in a .NET solution references these symbols by name in code. For each, is its name likely used by convention "
+            + "(reflection, dependency-injection scanning, serializers, ASP.NET or test framework conventions, configuration binding)? "
+            + "Give a short reason.\n\n" + string.Join("\n", low.Select(c => $"- {c.Symbol} ({c.Kind}, {c.Accessibility})"));
+        var answers = await llm.AskAsync(new Offramp.Llm.LlmRequest { Use = LlmGate.Classifying, Prompt = prompt, Schema = schema, MaxTokens = 4000 },
+            answer => answer["items"]?.AsArray()
+                .Select(i => (Symbol: i?["symbol"]?.GetValue<string>(), Convention: i?["convention"]?.GetValue<bool>(), Reason: i?["reason"]?.GetValue<string>()))
+                .Where(i => i.Symbol is not null && i.Convention is not null)
+                .GroupBy(i => i.Symbol!, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal),
+            $"{low.Count} low-confidence dead-code candidate{(low.Count == 1 ? "" : "s")}", cancellationToken);
+        if (answers is null)
+        {
+            return result;
+        }
+
+        var asked = low.ToHashSet();
+        DeadCodeCandidate Classify(DeadCodeCandidate candidate)
+        {
+            if (!asked.Contains(candidate) || !answers.TryGetValue(candidate.Symbol, out var answer))
+            {
+                return candidate;
+            }
+
+            var reason = string.IsNullOrWhiteSpace(answer.Reason) ? "" : ": " + answer.Reason!.Trim();
+            var evidence = answer.Convention == true ? "the model judges the name likely used by convention" + reason : "the model sees no convention that would use the name" + reason;
+            return candidate with { Evidence = [.. candidate.Evidence, evidence], Source = LlmGate.Source };
+        }
+
+        return result with { Projects = [.. result.Projects.Select(p => p with { Candidates = [.. p.Candidates.Select(Classify)] })] };
     }
 
     public string? RawOutput(DeadCodeResult result, CommandContext context) => format switch

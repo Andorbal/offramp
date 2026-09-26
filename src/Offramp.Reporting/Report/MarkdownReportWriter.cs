@@ -6,8 +6,11 @@ namespace Offramp.Reporting.Report;
 /// <summary>The report's tables as GitHub-flavored Markdown, for pasting into an issue or a wiki.</summary>
 public static class MarkdownReportWriter
 {
-    public static string Write(ReportData report)
+    /// <param name="report">The report.</param>
+    /// <param name="summary">The summary paragraph; null writes <see cref="ReportText.Summary"/>.</param>
+    public static string Write(ReportData report, ReportSummary? summary = null)
     {
+        summary ??= new ReportSummary { Text = ReportText.Summary(report) };
         var h = report.Headline;
         var md = new StringBuilder();
         md.Append("# ").Append(Cell(report.Title)).Append("\n\n");
@@ -18,6 +21,12 @@ public static class MarkdownReportWriter
         }
 
         md.Append(".\n\n");
+        md.Append(summary.Text.Trim()).Append("\n\n");
+        if (summary.Source is not null)
+        {
+            md.Append("_Summary written by a language model from the numbers below (`--llm`)._\n\n");
+        }
+
         md.Append("- **Portable:** ").Append(h.PortablePercent.ToString("0.#", CultureInfo.InvariantCulture)).Append("% of ")
             .Append(ReportText.Count(h.Loc, "line")).Append(" are in standard, modern, or dual projects.\n");
         md.Append("- **Framework-only:** ").Append(ReportText.Count(h.FrameworkLoc, "line")).Append(" in ")

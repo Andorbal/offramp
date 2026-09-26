@@ -122,4 +122,17 @@ public sealed record ReportResult
 
     /// <summary>The rendering when it was not written to a file, else null.</summary>
     public string? Content { get; init; }
+
+    /// <summary>The Markdown rendering's summary paragraph; absent for the other formats.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ReportSummary? Summary { get; init; }
+}
+
+/// <summary>The executive summary paragraph: a template sentence with the numbers, or the model's (<c>source: llm</c>).</summary>
+public sealed record ReportSummary
+{
+    public required string Text { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Source { get; init; }
 }

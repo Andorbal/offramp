@@ -76,14 +76,14 @@ public sealed class ReportCommand : ICommandHandler<ReportOptions, ReportResult>
         return command;
     }
 
-    public Task<CommandOutcome<ReportResult>> ExecuteAsync(ReportOptions options, CommandContext context, CancellationToken cancellationToken)
+    public async Task<CommandOutcome<ReportResult>> ExecuteAsync(ReportOptions options, CommandContext context, CancellationToken cancellationToken)
     {
         var root = context.Repository.Path;
         var config = context.Config.Config;
         var model = WorkspaceStore.LoadForCommand(context.WorkspacePath, root, config, context.Diagnostics, context.Settings.FailOnStale);
         if (model is null)
         {
-            return Task.FromResult(CommandOutcome<ReportResult>.Environment());
+            return CommandOutcome<ReportResult>.Environment();
         }
 
         var ledger = Ledger.ReadAll(Path.GetFullPath(config.Report.Ledger, root), root);
@@ -102,7 +102,8 @@ public sealed class ReportCommand : ICommandHandler<ReportOptions, ReportResult>
             graphHtml = HtmlGraphWriter.Write(GraphView.Build(model, view), title + " dependency graph");
         }
 
-        var content = options.Format is { } format ? ReportRenderer.Render(report, format, graphHtml) : null;
+        var summary = options.Format == ReportFormat.Markdown ? await SummaryAsync(report, context, cancellationToken) : null;
+        var content = options.Format is { } format ? ReportRenderer.Render(report, format, graphHtml, summary) : null;
         string? output = null;
         if (context.Settings.Out is not null && content is not null)
         {
@@ -113,13 +114,36 @@ public sealed class ReportCommand : ICommandHandler<ReportOptions, ReportResult>
             content = null;
         }
 
-        return Task.FromResult(CommandOutcome<ReportResult>.Completed(new ReportResult
+        return CommandOutcome<ReportResult>.Completed(new ReportResult
         {
             Format = options.Format,
             Output = output,
             Report = report,
             Content = content,
-        }));
+            Summary = summary,
+        });
+    }
+
+    /// <summary>The Markdown summary: the template sentence, or with <c>llm.uses: summarizing</c> the model's paragraph from the same numbers.</summary>
+    private static async Task<ReportSummary> SummaryAsync(ReportData report, CommandContext context, CancellationToken cancellationToken)
+    {
+        var template = new ReportSummary { Text = ReportText.Summary(report) };
+        if (LlmGate.For(context, LlmGate.Summarizing) is not { } llm)
+        {
+            return template;
+        }
+
+        var h = report.Headline;
+        var prompt = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"""
+            Write a two to four sentence executive summary of a .NET Framework to modern .NET migration, for managers. Plain text, no headings, no lists, no numbers that are not given here.
+
+            Codebase: {report.Title}. Projects: {h.Projects}. Lines of code: {h.Loc}. Portable (standard, modern, or dual-targeted): {h.PortablePercent:0.#}%.
+            Framework-only: {h.FrameworkProjects} projects, {h.FrameworkLoc} lines{ReportText.Change(report)}.
+            Applications: {h.ApplicationsDone} of {h.Applications} done. Projects ready to port today: {h.Ready}.
+            Largest areas: {string.Join(", ", report.Areas.OrderByDescending(a => a.Loc).Take(5).Select(a => a.Area))}.
+            """);
+        var text = await llm.AskTextAsync(new Offramp.Llm.LlmRequest { Use = LlmGate.Summarizing, Prompt = prompt, MaxTokens = 400 }, "the report summary", cancellationToken);
+        return text is { Length: > 0 and <= 2000 } && !text.Contains("\n#", StringComparison.Ordinal) ? new ReportSummary { Text = text, Source = LlmGate.Source } : template;
     }
 
     public string? RawOutput(ReportResult result, CommandContext context) => result.Content;

@@ -64,7 +64,8 @@
         "evidence": { "type": "array", "minItems": 1, "items": { "type": "string" } },
         "file": { "$ref": "workspace.json#/$defs/relativePath" },
         "line": { "type": "integer", "minimum": 1 },
-        "loc": { "type": "integer", "minimum": 1 }
+        "loc": { "type": "integer", "minimum": 1 },
+        "source": { "const": "llm", "description": "Present when a language model produced or annotated this (--llm)." }
       }
     },
     "testOnly": {

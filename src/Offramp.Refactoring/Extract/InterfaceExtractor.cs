@@ -72,6 +72,10 @@ public sealed record ExtractInterfaceResult
     public string? Journal { get; init; }
 
     public string? Preview { get; init; }
+
+    /// <summary><c>llm</c> when the model named the interface; absent otherwise.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Source { get; init; }
 }
 
 public sealed record ExtractInterfacePlan(ExtractInterfaceResult Result, ChangeSet ChangeSet);

@@ -12,45 +12,62 @@ public sealed record PackageReplacement(string Match, string Replacement, string
 /// </summary>
 public sealed class PackageMap
 {
-    private readonly Dictionary<string, PackageReplacement> _packages = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, PackageReplacement> _prefixes = new(StringComparer.OrdinalIgnoreCase);
+    // Per key, candidates in precedence order: configuration first, then the built-in table.
+    private readonly Dictionary<string, List<PackageReplacement>> _packages = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<PackageReplacement>> _prefixes = new(StringComparer.OrdinalIgnoreCase);
 
     public PackageMap(IEnumerable<PackageMapEntry> configured)
     {
         foreach (var entry in RuleFiles.Load("package-map.yml")["packages"]!.AsArray())
         {
-            Add(entry!["package"]?.GetValue<string>(), entry["prefix"]?.GetValue<string>(), entry["replacement"]!.GetValue<string>(), "rules/package-map.yml");
+            Add(entry!["package"]?.GetValue<string>(), entry["prefix"]?.GetValue<string>(), entry["replacement"]!.GetValue<string>(), "rules/package-map.yml", first: false);
         }
 
         foreach (var entry in configured)
         {
-            Add(entry.Package, entry.Prefix, entry.Replacement, "offramp.yml");
+            Add(entry.Package, entry.Prefix, entry.Replacement, "offramp.yml", first: true);
         }
     }
 
-    public PackageReplacement? Find(string packageId)
-    {
-        if (_packages.TryGetValue(packageId, out var exact))
-        {
-            return exact;
-        }
+    /// <summary>The replacement the rules choose: <see cref="Candidates"/>' first.</summary>
+    public PackageReplacement? Find(string packageId) => Candidates(packageId).FirstOrDefault();
 
-        return _prefixes
+    /// <summary>
+    /// Every entry that matches, in precedence order: exact ids before prefixes, longer prefixes
+    /// before shorter, configuration before the built-in table; one per distinct replacement.
+    /// </summary>
+    public IReadOnlyList<PackageReplacement> Candidates(string packageId)
+    {
+        var exact = _packages.TryGetValue(packageId, out var list) ? list : [];
+        var prefixes = _prefixes
             .Where(p => packageId.StartsWith(p.Key, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(p => p.Key.Length)
-            .Select(p => p.Value)
-            .FirstOrDefault();
+            .ThenBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(p => p.Value);
+        return [.. exact.Concat(prefixes).DistinctBy(r => r.Replacement, StringComparer.OrdinalIgnoreCase)];
     }
 
-    private void Add(string? package, string? prefix, string replacement, string source)
+    private void Add(string? package, string? prefix, string replacement, string source, bool first)
     {
-        if (package is not null)
+        var (table, key, match) = package is not null ? (_packages, package, package) : prefix is not null ? (_prefixes, prefix, prefix + "*") : (null, "", "");
+        if (table is null)
         {
-            _packages[package] = new PackageReplacement(package, replacement, source);
+            return;
         }
-        else if (prefix is not null)
+
+        if (!table.TryGetValue(key, out var list))
         {
-            _prefixes[prefix] = new PackageReplacement(prefix + "*", replacement, source);
+            table[key] = list = [];
+        }
+
+        var entry = new PackageReplacement(match, replacement, source);
+        if (first)
+        {
+            list.Insert(0, entry);
+        }
+        else
+        {
+            list.Add(entry);
         }
     }
 }

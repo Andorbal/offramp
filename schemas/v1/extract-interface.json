@@ -42,6 +42,7 @@
     "registration": { "type": ["string", "null"], "description": "The container registration to add; null for --di none." },
     "applied": { "type": "boolean" },
     "journal": { "type": ["string", "null"] },
-    "preview": { "type": ["string", "null"] }
+    "preview": { "type": ["string", "null"] },
+    "source": { "const": "llm", "description": "Present when a language model produced or annotated this (--llm)." }
   }
 }

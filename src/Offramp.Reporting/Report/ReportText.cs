@@ -23,6 +23,16 @@ public static class ReportText
         };
     }
 
+    /// <summary>The summary paragraph without a model: the headline numbers in one sentence.</summary>
+    public static string Summary(ReportData report)
+    {
+        var h = report.Headline;
+        return report.Title + ": " + h.PortablePercent.ToString("0.#", CultureInfo.InvariantCulture) + "% of " + Count(h.Loc, "line")
+            + " is portable, " + Count(h.FrameworkLoc, "framework-only line") + " remain" + (h.FrameworkLoc == 1 ? "s" : "") + " in "
+            + Count(h.FrameworkProjects, "project") + Change(report) + ", " + Count(h.Ready, "project") + (h.Ready == 1 ? " is" : " are")
+            + " ready to port today, and " + Fraction(h.ApplicationsDone, h.Applications) + " applications are done.";
+    }
+
     public static string Fraction(int part, int whole) =>
         part.ToString(CultureInfo.InvariantCulture) + " of " + whole.ToString(CultureInfo.InvariantCulture);
 

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The optional LLM layer: ILlm and its adapters (any OpenAI-compatible endpoint, the
+    Anthropic Messages API). A leaf: it references nothing in Offramp, and only
+    Offramp.Cli references it, at the permitted call sites (docs/spec/commands/mcp-and-llm.md).
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <RootNamespace>Offramp.Llm</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Offramp.Llm.Tests" />
+  </ItemGroup>
+</Project>

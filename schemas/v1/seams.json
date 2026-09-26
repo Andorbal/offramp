@@ -62,7 +62,8 @@
           },
           "proposedInterface": { "type": "string" },
           "score": { "type": "number", "minimum": 0, "maximum": 1 },
-          "articulationPoint": { "type": "boolean" }
+          "articulationPoint": { "type": "boolean" },
+          "source": { "const": "llm", "description": "Present when a language model produced or annotated this (--llm)." }
         }
       }
     },

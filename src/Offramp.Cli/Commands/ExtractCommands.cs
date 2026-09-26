@@ -104,12 +104,22 @@ public sealed class ExtractInterfaceCommand : ICommandHandler<ExtractInterfaceOp
             return CommandOutcome<ExtractInterfaceResult>.Environment();
         }
 
+        var type = options.Type ?? seam!.BoundaryType;
+        var name = options.Name ?? seam?.ProposedInterface;
+        var named = options.Name is null && seam?.Source == LlmGate.Source;
+        if (options.Name is null && !named && LlmGate.For(context, LlmGate.Naming) is { } llm
+            && await LlmNaming.NameAsync(llm, type, options.Members.Count > 0 ? options.Members : seam?.Members.Select(m => m.Signature) ?? PublicMembers(compilation, type),
+                seam?.Callers ?? [], new HashSet<string>(StringComparer.Ordinal), cancellationToken) is { } suggested)
+        {
+            (name, named) = (suggested, true);
+        }
+
         var plan = InterfaceExtractor.Plan(new ExtractInterfaceRequest
         {
             RepositoryRoot = root,
             Project = project,
-            Type = options.Type ?? seam!.BoundaryType,
-            Name = options.Name ?? seam?.ProposedInterface,
+            Type = type,
+            Name = name,
             Members = options.Members,
             SeamMembers = options.Members.Count == 0 && seam is not null ? [.. seam.Members.Select(m => m.Signature)] : [],
             Callers = seam?.Callers ?? [],
@@ -121,6 +131,11 @@ public sealed class ExtractInterfaceCommand : ICommandHandler<ExtractInterfaceOp
             return CommandOutcome<ExtractInterfaceResult>.Usage();
         }
 
+        if (named)
+        {
+            plan = plan with { Result = plan.Result with { Source = LlmGate.Source } };
+        }
+
         if (!context.Settings.Apply || context.Settings.DryRun)
         {
             return CommandOutcome<ExtractInterfaceResult>.Completed(plan.Result);
@@ -129,6 +144,14 @@ public sealed class ExtractInterfaceCommand : ICommandHandler<ExtractInterfaceOp
         var journal = await new ChangeSetApplier(root, context.Host.GitService).ApplyAsync(plan.ChangeSet, "extract interface", context.Host.Time.GetUtcNow(), cancellationToken);
         return CommandOutcome<ExtractInterfaceResult>.Completed(plan.Result with { Applied = true, Journal = journal, Preview = null });
     }
+
+    /// <summary>The type's public instance members as C# declares them, for the model's prompt.</summary>
+    private static IEnumerable<string> PublicMembers(Microsoft.CodeAnalysis.Compilation compilation, string type) =>
+        compilation.GetTypeByMetadataName(type)?.GetMembers()
+            .Where(m => m.DeclaredAccessibility == Microsoft.CodeAnalysis.Accessibility.Public && !m.IsStatic && !m.IsImplicitlyDeclared
+                && m is Microsoft.CodeAnalysis.IMethodSymbol { MethodKind: Microsoft.CodeAnalysis.MethodKind.Ordinary } or Microsoft.CodeAnalysis.IPropertySymbol)
+            .Select(m => m.ToDisplayString())
+            .Order(StringComparer.Ordinal) ?? Enumerable.Empty<string>();
 
     /// <summary>Reads <c>FILE#ID</c>: a <c>seams</c> result (or its <c>--json</c> envelope) and one of its seams.</summary>
     private static async Task<Seam?> ReadSeamAsync(string reference, CommandContext context, CancellationToken cancellationToken)

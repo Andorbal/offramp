@@ -124,6 +124,10 @@ public sealed class SeamsCommand(string format) : ICommandHandler<SeamsOptions, 
             MaxCut = options.MaxCut,
             Diagnostics = context.Diagnostics,
         }, compilation)!;
+        if (LlmGate.For(context, LlmGate.Naming) is { } llm)
+        {
+            result = await LlmNaming.NameSeamsAsync(llm, result, cancellationToken);
+        }
 
         if (context.Settings.Out is not null && format != "table")
         {
