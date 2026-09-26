@@ -344,7 +344,7 @@ public static class McpToolCatalog
     /// <summary>Progress events as MCP notifications: every event advances the count by one, with the phase and item as the message.</summary>
     private sealed class McpProgressSink(IProgress<McpProgress> progress) : IProgressSink
     {
-        private readonly Lock _gate = new();
+        private readonly object _gate = new();
         private int _count;
 
         public IProgressPhase BeginPhase(string name, int index, int of)
