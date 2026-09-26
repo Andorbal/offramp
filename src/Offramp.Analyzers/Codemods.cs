@@ -145,9 +145,13 @@ public static class Codemods
         "OFRM013", "assemblyinfo", "Remove assembly attributes the SDK generates",
         "SDK-style projects generate AssemblyTitle, AssemblyVersion, AssemblyCompany, and the like; the same attributes in AssemblyInfo.cs are duplicates (CS0579) and go.");
 
+    public static readonly Codemod ConfigManagerShim = new(
+        "OFRM014", "config-manager-shim", "Read settings through ConfigurationManagerShim",
+        "Where the project has the ConfigurationManagerShim that `offramp config convert --shim` writes, ConfigurationManager.AppSettings and ConnectionStrings become the shim's, which read IConfiguration: the sites config-manager cannot inject into (static members, classes created with new).");
+
     public static readonly ImmutableArray<Codemod> All = ImmutableArray.Create(
         SqlClient, ConfigManager, HttpContext, WebClient, JavaScriptSerializer, BinaryFormatterClone, ThreadAbort,
-        ProcessStartUrl, StringComparison, CodePages, TimeZoneIds, ServiceController, AssemblyInfo);
+        ProcessStartUrl, StringComparison, CodePages, TimeZoneIds, ServiceController, AssemblyInfo, ConfigManagerShim);
 
     public static Codemod? ByName(string name) => All.FirstOrDefault(c => c.Name == name || c.Id == name);
 

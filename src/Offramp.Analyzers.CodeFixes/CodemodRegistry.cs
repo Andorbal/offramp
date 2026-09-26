@@ -36,7 +36,8 @@ public static class CodemodRegistry
         new CodemodImplementation(new CodePagesAnalyzer(), new CodePagesFixer()),
         new CodemodImplementation(new TimeZoneIdsAnalyzer(), new TimeZoneIdsFixer()),
         new CodemodImplementation(new ServiceControllerAnalyzer(), null),
-        new CodemodImplementation(new AssemblyInfoAnalyzer(), new AssemblyInfoFixer()));
+        new CodemodImplementation(new AssemblyInfoAnalyzer(), new AssemblyInfoFixer()),
+        new CodemodImplementation(new ConfigManagerShimAnalyzer(), new ConfigManagerShimFixer()));
 
     public static CodemodImplementation For(Codemod codemod) => All.First(i => i.Codemod.Id == codemod.Id);
 }

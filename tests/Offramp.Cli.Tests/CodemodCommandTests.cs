@@ -17,7 +17,7 @@ public sealed class CodemodCommandTests
         Assert.Equal(0, run.ExitCode);
         SchemaAssert.ValidEnvelope(run.Out, "codemod-list");
         var codemods = JsonNode.Parse(run.Out)!["result"]!["codemods"]!.AsArray();
-        Assert.Equal([.. Enumerable.Range(1, 13).Select(i => $"OFRM{i:000}")], codemods.Select(c => c!["id"]!.GetValue<string>()));
+        Assert.Equal([.. Enumerable.Range(1, 14).Select(i => $"OFRM{i:000}")], codemods.Select(c => c!["id"]!.GetValue<string>()));
         await Verify(Scrub.Envelope(run.Out, cli.Repo.Path), extension: "json");
     }
 

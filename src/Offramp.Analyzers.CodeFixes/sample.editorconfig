@@ -15,3 +15,4 @@ dotnet_diagnostic.OFRM010.severity = suggestion
 dotnet_diagnostic.OFRM011.severity = suggestion
 dotnet_diagnostic.OFRM012.severity = suggestion
 dotnet_diagnostic.OFRM013.severity = suggestion
+dotnet_diagnostic.OFRM014.severity = suggestion
