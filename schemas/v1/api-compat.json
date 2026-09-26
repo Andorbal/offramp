@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/api-compat.json",
+  "title": "offramp audit api-compat result",
+  "description": "The result of `offramp audit api-compat`. See docs/spec/commands/audit.md#audit-api-compat-ofr3500-3599.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "mode", "left", "right", "tool", "differences"],
+  "properties": {
+    "project": { "$ref": "workspace.json#/$defs/relativePath" },
+    "mode": { "enum": ["targets", "baseline"] },
+    "left": { "$ref": "#/$defs/side" },
+    "right": { "$ref": "#/$defs/side" },
+    "tool": { "type": ["string", "null"], "description": "The Microsoft.DotNet.ApiCompat.Tool version: the SDK's, or latest." },
+    "differences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "member", "onlyOn", "message"],
+        "properties": {
+          "code": { "type": "string", "pattern": "^CP[0-9]{4}$", "description": "ApiCompat's rule: CP0001 type missing, CP0002 member missing, ..." },
+          "member": { "type": "string" },
+          "onlyOn": { "type": ["string", "null"], "description": "The side label that has it." },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "side": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["label", "targetFramework"],
+      "properties": {
+        "label": { "type": "string", "description": "A target framework, a revision, or `working tree`." },
+        "targetFramework": { "type": "string" }
+      }
+    }
+  }
+}

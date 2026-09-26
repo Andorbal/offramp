@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/dead-code.json",
+  "title": "offramp audit dead-code result",
+  "description": "The result of `offramp audit dead-code`. See docs/spec/commands/audit.md#audit-dead-code-ofr3400-3499.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["scope", "minConfidence", "includeTests", "projects", "summary", "skipped"],
+  "properties": {
+    "scope": { "enum": ["public", "all"] },
+    "minConfidence": { "$ref": "#/$defs/confidence" },
+    "includeTests": { "type": "boolean" },
+    "projects": {
+      "type": "array",
+      "description": "Projects with candidates or test-only symbols, by id.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "candidates", "testOnly", "loc"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "candidates": { "type": "array", "items": { "$ref": "#/$defs/candidate" } },
+          "testOnly": { "type": "array", "items": { "$ref": "#/$defs/testOnly" } },
+          "loc": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["high", "medium", "low"],
+            "properties": {
+              "high": { "type": "integer", "minimum": 0 },
+              "medium": { "type": "integer", "minimum": 0 },
+              "low": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidates", "high", "medium", "low", "testOnly", "removableLoc"],
+      "properties": {
+        "candidates": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 },
+        "low": { "type": "integer", "minimum": 0 },
+        "testOnly": { "type": "integer", "minimum": 0 },
+        "removableLoc": { "type": "integer", "minimum": 0, "description": "Lines removable at high confidence." }
+      }
+    },
+    "skipped": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "confidence": { "enum": ["low", "medium", "high"] },
+    "kind": { "enum": ["class", "struct", "interface", "enum", "delegate", "method", "property", "field", "event", "member"] },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbol", "kind", "accessibility", "confidence", "evidence", "file", "line", "loc"],
+      "properties": {
+        "symbol": { "type": "string" },
+        "kind": { "$ref": "#/$defs/kind" },
+        "accessibility": { "enum": ["public", "internal", "private"] },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "evidence": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "file": { "$ref": "workspace.json#/$defs/relativePath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "loc": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "testOnly": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbol", "kind", "file", "line", "loc", "tests"],
+      "properties": {
+        "symbol": { "type": "string" },
+        "kind": { "$ref": "#/$defs/kind" },
+        "file": { "$ref": "workspace.json#/$defs/relativePath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "loc": { "type": "integer", "minimum": 1 },
+        "tests": { "$ref": "workspace.json#/$defs/pathList" }
+      }
+    }
+  }
+}

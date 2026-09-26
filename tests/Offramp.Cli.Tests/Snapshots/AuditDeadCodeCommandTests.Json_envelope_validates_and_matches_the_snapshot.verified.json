@@ -1,0 +1,330 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "audit dead-code",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "DeadCode.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "scope": "all",
+    "minConfidence": "low",
+    "includeTests": true,
+    "projects": [
+      {
+        "project": "src/App/App.csproj",
+        "candidates": [
+          {
+            "symbol": "DeadCode.App.Program",
+            "kind": "class",
+            "accessibility": "internal",
+            "confidence": "low",
+            "evidence": [
+              "internal",
+              "entry point"
+            ],
+            "file": "src/App/Program.cs",
+            "line": 7,
+            "loc": 13
+          }
+        ],
+        "testOnly": [],
+        "loc": {
+          "high": 0,
+          "medium": 0,
+          "low": 13
+        }
+      },
+      {
+        "project": "src/Contracts/Contracts.csproj",
+        "candidates": [
+          {
+            "symbol": "DeadCode.Contracts.LegacyDto",
+            "kind": "class",
+            "accessibility": "public",
+            "confidence": "medium",
+            "evidence": [
+              "public in a packable assembly (IsPackable): other repositories may use it"
+            ],
+            "file": "src/Contracts/Dtos.cs",
+            "line": 9,
+            "loc": 5
+          }
+        ],
+        "testOnly": [],
+        "loc": {
+          "high": 0,
+          "medium": 5,
+          "low": 0
+        }
+      },
+      {
+        "project": "src/Core/Core.csproj",
+        "candidates": [
+          {
+            "symbol": "DeadCode.Core.InvoiceHandler",
+            "kind": "class",
+            "accessibility": "public",
+            "confidence": "low",
+            "evidence": [
+              "public, and the assembly is not packed",
+              "implements DeadCode.Core.IHandler, and the solution registers types by convention (Registry.Scan at src/App/Program.cs:17)"
+            ],
+            "file": "src/Core/Handlers.cs",
+            "line": 9,
+            "loc": 8
+          },
+          {
+            "symbol": "DeadCode.Core.InternalCache",
+            "kind": "class",
+            "accessibility": "internal",
+            "confidence": "high",
+            "evidence": [
+              "internal"
+            ],
+            "file": "src/Core/InternalCache.cs",
+            "line": 5,
+            "loc": 9
+          },
+          {
+            "symbol": "DeadCode.Core.LegacyExporter",
+            "kind": "class",
+            "accessibility": "public",
+            "confidence": "high",
+            "evidence": [
+              "public, and the assembly is not packed"
+            ],
+            "file": "src/Core/LegacyExporter.cs",
+            "line": 7,
+            "loc": 14
+          },
+          {
+            "symbol": "DeadCode.Core.OrderService.Archive(int)",
+            "kind": "method",
+            "accessibility": "public",
+            "confidence": "high",
+            "evidence": [
+              "public, and the assembly is not packed"
+            ],
+            "file": "src/Core/OrderService.cs",
+            "line": 11,
+            "loc": 5
+          },
+          {
+            "symbol": "DeadCode.Core.ReportPlugin",
+            "kind": "class",
+            "accessibility": "public",
+            "confidence": "low",
+            "evidence": [
+              "public, and the assembly is not packed",
+              "the name appears in a string or resource at src/App/Program.cs:14"
+            ],
+            "file": "src/Core/ReportPlugin.cs",
+            "line": 4,
+            "loc": 8
+          },
+          {
+            "symbol": "DeadCode.Core.Snapshot",
+            "kind": "class",
+            "accessibility": "public",
+            "confidence": "low",
+            "evidence": [
+              "public, and the assembly is not packed",
+              "[Serializable]: serializers use it by reflection"
+            ],
+            "file": "src/Core/Snapshot.cs",
+            "line": 7,
+            "loc": 8
+          }
+        ],
+        "testOnly": [
+          {
+            "symbol": "DeadCode.Core.FixedClock",
+            "kind": "class",
+            "file": "src/Core/FixedClock.cs",
+            "line": 6,
+            "loc": 15,
+            "tests": [
+              "src/Core.Tests/Core.Tests.csproj"
+            ]
+          }
+        ],
+        "loc": {
+          "high": 28,
+          "medium": 0,
+          "low": 24
+        }
+      }
+    ],
+    "summary": {
+      "candidates": 8,
+      "high": 3,
+      "medium": 1,
+      "low": 4,
+      "testOnly": 1,
+      "removableLoc": 28
+    },
+    "skipped": []
+  },
+  "diagnostics": [
+    {
+      "code": "OFR3401",
+      "severity": "info",
+      "message": "1 dead-code candidate, 0 at high confidence (0 lines removable).",
+      "project": "src/App/App.csproj",
+      "file": "src/App/Program.cs",
+      "line": 7,
+      "column": null,
+      "data": {
+        "candidates": 1,
+        "removableLoc": 0
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3401"
+    },
+    {
+      "code": "OFR3401",
+      "severity": "info",
+      "message": "1 dead-code candidate, 0 at high confidence (0 lines removable).",
+      "project": "src/Contracts/Contracts.csproj",
+      "file": "src/Contracts/Dtos.cs",
+      "line": 9,
+      "column": null,
+      "data": {
+        "candidates": 1,
+        "removableLoc": 0
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3401"
+    },
+    {
+      "code": "OFR3401",
+      "severity": "info",
+      "message": "6 dead-code candidates, 3 at high confidence (28 lines removable).",
+      "project": "src/Core/Core.csproj",
+      "file": "src/Core/Handlers.cs",
+      "line": 9,
+      "column": null,
+      "data": {
+        "candidates": 6,
+        "removableLoc": 28
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3401"
+    },
+    {
+      "code": "OFR3402",
+      "severity": "info",
+      "message": "DeadCode.Core.FixedClock is used only by src/Core.Tests/Core.Tests.csproj: move it to the tests or delete it with them.",
+      "project": "src/Core/Core.csproj",
+      "file": "src/Core/FixedClock.cs",
+      "line": 6,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR3402"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 4
+  }
+}

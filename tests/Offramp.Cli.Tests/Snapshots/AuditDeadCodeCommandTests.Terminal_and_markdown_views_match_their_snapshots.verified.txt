@@ -1,0 +1,49 @@
+﻿8 dead-code candidates (3 high, 1 medium, 4 low confidence); 28 lines removable at high confidence.
+src/App/App.csproj (0 lines at high confidence)
+
+  Symbol                 Kind    Confidence   Lines   Where
+────────────────────────────────────────────────────────────────────────────
+  DeadCode.App.Program   class   low             13   src/App/Program.cs:7
+
+src/Contracts/Contracts.csproj (0 lines at high confidence)
+
+  Symbol                         Kind    Confidence   Lines   Where
+───────────────────────────────────────────────────────────────────────────────────────
+  DeadCode.Contracts.LegacyDto   class   medium           5   src/Contracts/Dtos.cs:9
+
+src/Core/Core.csproj (28 lines at high confidence)
+
+  Symbol                                    Kind     Confidence   Lines   Where
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+  DeadCode.Core.InvoiceHandler              class    low              8   src/Core/Handlers.cs:9
+  DeadCode.Core.InternalCache               class    high             9   src/Core/InternalCache.cs:5
+  DeadCode.Core.LegacyExporter              class    high            14   src/Core/LegacyExporter.cs:7
+  DeadCode.Core.OrderService.Archive(int)   method   high             5   src/Core/OrderService.cs:11
+  DeadCode.Core.ReportPlugin                class    low              8   src/Core/ReportPlugin.cs:4
+  DeadCode.Core.Snapshot                    class    low              8   src/Core/Snapshot.cs:7
+
+
+· OFR3401 src/App/Program.cs:7 1 dead-code candidate, 0 at high confidence (0 lines removable).
+· OFR3401 src/Contracts/Dtos.cs:9 1 dead-code candidate, 0 at high confidence (0 lines removable).
+· OFR3401 src/Core/Handlers.cs:9 6 dead-code candidates, 3 at high confidence (28 lines removable).
+
+3 info
+
+---
+# Dead code
+
+4 candidates: 3 high, 1 medium, 0 low confidence. **28 lines removable at high confidence.**
+
+## src/Contracts/Contracts.csproj
+
+| Symbol | Kind | Confidence | Lines | Where | Evidence |
+|---|---|---|---:|---|---|
+| `DeadCode.Contracts.LegacyDto` | class | medium | 5 | `src/Contracts/Dtos.cs:9` | public in a packable assembly (IsPackable): other repositories may use it |
+
+## src/Core/Core.csproj
+
+| Symbol | Kind | Confidence | Lines | Where | Evidence |
+|---|---|---|---:|---|---|
+| `DeadCode.Core.InternalCache` | class | high | 9 | `src/Core/InternalCache.cs:5` | internal |
+| `DeadCode.Core.LegacyExporter` | class | high | 14 | `src/Core/LegacyExporter.cs:7` | public, and the assembly is not packed |
+| `DeadCode.Core.OrderService.Archive(int)` | method | high | 5 | `src/Core/OrderService.cs:11` | public, and the assembly is not packed |

@@ -41,6 +41,16 @@ public sealed class CliHarness : IDisposable
         return this;
     }
 
+    /// <summary>Lets the SDK's version query, tool installation, and installed tools (ApiCompat) run for real.</summary>
+    public CliHarness WithRealTools()
+    {
+        Machine.Setup.Add(r => r
+            .On("dotnet", ["--version"], spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult())
+            .On("dotnet", ["tool"], spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult())
+            .On(spec => Path.GetFileNameWithoutExtension(spec.FileName) == "apicompat", spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult()));
+        return this;
+    }
+
     public ScratchDirectory Repo { get; }
 
     public FakeMachine Machine { get; }

@@ -379,4 +379,52 @@ public static partial class DiagnosticCatalog
         "A wrong path, or a file that is not the output of `offramp audit api --format json` (or its `--json` envelope).",
         "Write the findings with `offramp audit api --format json --out audit.json` and pass that file.",
         AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3401 = new(
+        "OFR3401", Severity.Info,
+        "dead-code candidates",
+        "Types or members that nothing in the solution references, summarized per project; the result lists each with its confidence and the evidence for it.",
+        "Code left behind by removed features, public helpers nobody calls, types only reflection or configuration reach.",
+        "Delete the high-confidence candidates (the summary gives the lines that go away); check the evidence on medium and low ones first.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3402 = new(
+        "OFR3402", Severity.Info,
+        "production code used only by tests",
+        "With `--include-tests`: a production type or member that only test projects reference.",
+        "Test helpers and fakes kept in production assemblies, or features whose production callers were removed.",
+        "Move it to the test project (`offramp move tests`) or delete it with its tests.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3501 = new(
+        "OFR3501", Severity.Warning,
+        "public API differs between targets",
+        "ApiCompat found a type or member in one target framework's build of the project that the other target does not have, usually from an `#if`.",
+        "Members wrapped in `#if NETFRAMEWORK` (or the modern equivalent) while callers expect them on every target.",
+        "Give the member an implementation on both targets, or confirm no caller outside the one target needs it.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3502 = new(
+        "OFR3502", Severity.Warning,
+        "public API differs from the baseline",
+        "ApiCompat found a type or member that the build at the baseline revision has and the working tree does not (or the reverse).",
+        "A move or refactoring that changed a namespace, removed a member, or changed a signature.",
+        "Restore the surface, add a type forwarder (`offramp forwarders`), or accept the break deliberately.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3503 = new(
+        "OFR3503", Severity.Error,
+        "nothing to compare",
+        "`audit api-compat` needs two target frameworks of one project, or a baseline revision.",
+        "A single-target project without --baseline, or --left and --right naming the same target.",
+        "Pass --baseline REVISION, or --left and --right with two of the project's targets.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3504 = new(
+        "OFR3504", Severity.Error,
+        "API comparison could not run",
+        "A side of the comparison did not build, the baseline could not be checked out, or the ApiCompat tool could not be installed or run. The message carries the tool's own words.",
+        "A build error, a revision that does not exist, or no access to the NuGet feed that hosts Microsoft.DotNet.ApiCompat.Tool.",
+        "Fix the build or the revision the message names, or make the tool's feed reachable, and run again.",
+        AuditArea);
 }

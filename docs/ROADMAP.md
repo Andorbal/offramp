@@ -113,7 +113,7 @@ Acceptance: each rule has a positive and a negative test; `audit api` on
 correct mapping; serialization classification distinguishes the clone idiom
 from file persistence.
 
-## M8 — Dead code and API compat ☐
+## M8 — Dead code and API compat ◐
 
 - `audit dead-code` with confidence levels; `audit api-compat` (ApiCompat
   wrapper).

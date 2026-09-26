@@ -8,7 +8,7 @@ namespace Offramp.Fixtures;
 /// </summary>
 public sealed class FakeProcessRunner : IProcessRunner
 {
-    private readonly List<(string FileName, string[] Prefix, Func<ProcessSpec, ProcessResult> Handler)> _handlers = [];
+    private readonly List<(Func<ProcessSpec, bool> Matches, Func<ProcessSpec, ProcessResult> Handler)> _handlers = [];
     private readonly List<ProcessSpec> _calls = [];
 
     public IReadOnlyList<ProcessSpec> Calls
@@ -23,9 +23,13 @@ public sealed class FakeProcessRunner : IProcessRunner
     }
 
     /// <summary>Registers a handler for <paramref name="fileName"/> whose arguments start with <paramref name="argumentPrefix"/>. Later registrations win.</summary>
-    public FakeProcessRunner On(string fileName, string[] argumentPrefix, Func<ProcessSpec, ProcessResult> handler)
+    public FakeProcessRunner On(string fileName, string[] argumentPrefix, Func<ProcessSpec, ProcessResult> handler) =>
+        On(spec => spec.FileName == fileName && spec.Arguments.Take(argumentPrefix.Length).SequenceEqual(argumentPrefix), handler);
+
+    /// <summary>Registers a handler for any invocation <paramref name="matches"/> accepts. Later registrations win.</summary>
+    public FakeProcessRunner On(Func<ProcessSpec, bool> matches, Func<ProcessSpec, ProcessResult> handler)
     {
-        _handlers.Insert(0, (fileName, argumentPrefix, handler));
+        _handlers.Insert(0, (matches, handler));
         return this;
     }
 
@@ -40,9 +44,9 @@ public sealed class FakeProcessRunner : IProcessRunner
             _calls.Add(spec);
         }
 
-        foreach (var (fileName, prefix, handler) in _handlers)
+        foreach (var (matches, handler) in _handlers)
         {
-            if (fileName == spec.FileName && spec.Arguments.Take(prefix.Length).SequenceEqual(prefix))
+            if (matches(spec))
             {
                 return Task.FromResult(handler(spec));
             }

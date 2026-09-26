@@ -80,6 +80,8 @@ jobs:
       - name: Test
         env:
           OFFRAMP_WINDOWS_CAPTURE: ${{ github.workspace }}/artifacts/windows-capture
+          # Seconds the test host waits for the data collector (default 90; slow Windows runners miss it).
+          VSTEST_CONNECTION_TIMEOUT: "300"
         run: >-
           dotnet test --no-build -c Release
           --filter "Category!=Corpus&Category!=Slow"

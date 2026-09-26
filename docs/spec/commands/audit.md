@@ -283,6 +283,79 @@ offramp audit api-compat --project P [--left net48 --right net10.0] | [--baselin
 - Wraps `Microsoft.DotNet.ApiCompat.Tool`; requires built assemblies (runs
   `verify`-style builds if missing).
 
+### Details: `audit dead-code` and `audit api-compat`
+
+Decisions behind the two commands (ADR 0022).
+
+**`audit dead-code`.**
+- **References.** Every project's recorded compilation is read, and every name the
+  semantic model binds counts, matched by documentation ID across compilations. So do
+  the members the compiler calls for `foreach`, `await`, collection initializers,
+  deconstruction, and query clauses.
+  - A member's use also counts for the types containing it, since extension methods are
+    called without naming their class.
+  - Uses inside a symbol's own declaration do not count.
+- **Candidates.** Types, methods, properties, fields, and events declared in non-test C#
+  projects, generated files aside. Never candidates:
+  - overrides, abstract and virtual members
+  - interface members and implementations (explicit or implicit)
+  - constructors, operators, and conversions
+  - enum members
+  - members of an unused type (the type is reported once)
+- **Confidence.** The base level is:
+  - `high` for `private` and `internal` symbols, unless `InternalsVisibleTo` names an
+    assembly outside the solution (`medium`)
+  - `high` for public symbols, unless the project is packable (`IsPackable`, true by
+    default for SDK-style libraries) or listed in `deadCode.externalConsumers`
+    (`medium`)
+- **`low` overrides the base level** when any of these holds:
+  - the name appears as a word in a string literal, or in a `.resx`, `.config`, `.xaml`,
+    `.xml`, or `.json` file in a project folder
+  - the type implements an interface declared in the solution, and the solution calls a
+    convention registration (`Scan`, `RegisterAssemblyTypes`, `AddMediatR`,
+    `AddControllers`, `AddMvc`, `AddClasses`, `FromAssemblyOf`, ...)
+  - the type derives from `Controller`, `ControllerBase`, `ApiController`, or `Hub`, or
+    implements a handler interface (`IRequestHandler`, `INotificationHandler`,
+    `IConsumer`, `IHostedService`)
+  - it carries `[Serializable]`, `[DataContract]`, `[DataMember]`, or an XML
+    serialization attribute, or any attribute outside `System.Diagnostics`,
+    `System.Runtime.CompilerServices`, `Obsolete`, `EditorBrowsable`, and `CLSCompliant`
+  - it is `Main`, a type with a static `Main`, or `Program`
+  - it is a public property or field (serializers, ORMs, and data binding use them)
+- Every candidate lists this evidence.
+- **Lines.** Each declaration counts from its documentation comment (plain `///` comments
+  too) through its closing line. Partial types add up their declarations. The summary's
+  `removableLoc` is the high-confidence total.
+- **Tests.** Test projects (`IsTestProject`) are never scanned for candidates, but their
+  uses count. With `--include-tests`, a symbol only test projects use is listed under
+  `testOnly` (OFR3402) instead.
+- **Diagnostics:** one OFR3401 per project with candidates (the count and the lines at
+  high confidence), and one OFR3402 per test-only symbol.
+- Schema: `schemas/v1/dead-code.json`. `--format table|json|markdown`.
+
+**`audit api-compat`.**
+- **Sides:**
+  - With two targets (default: the first .NET Framework target and the newest other
+    one), the working tree is built for each.
+  - With `--baseline REF`, the revision is checked out in a scratch work tree and built
+    for the project's newest target, and the working tree is built for the same target.
+- Builds are `dotnet build -c Release -f TFM -p:OutDir=...` into
+  `.offramp/cache/api-compat/`, removed afterwards. Building the working tree updates the
+  project's `obj/` folder, as any build does.
+- **ApiCompat** (`Microsoft.DotNet.ApiCompat.Tool`) is installed under
+  `.offramp/tools/apicompat/` at the SDK's version (`dotnet --version`), else the newest.
+  It runs in strict mode, which reports what either side lacks.
+- **Differences.** Each `CPnnnn` line is a difference with ApiCompat's rule, the member,
+  and the side that has it (OFR3501 between targets, OFR3502 against the baseline).
+  Reference-resolution notices (`CP1nnn`) are dropped.
+- **Errors:**
+  - A single-target project without `--baseline`, or a `--left`/`--right` the project
+    does not target, is OFR3503 (exit 2).
+  - A build that fails, a revision that cannot be checked out, or a tool that cannot be
+    installed is OFR3504 (exit 3), with the tool's own words and repository-relative
+    paths.
+- Schema: `schemas/v1/api-compat.json`.
+
 ## `ifdef` (OFR3600–3699)
 
 Manage conditional compilation used to bridge targets.

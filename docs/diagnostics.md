@@ -158,6 +158,12 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3303](#ofr3303) | info | audit | candidate for [LibraryImport] |
 | [OFR3310](#ofr3310) | warning | audit | COM interop |
 | [OFR3320](#ofr3320) | info | audit | structured exception interop |
+| [OFR3401](#ofr3401) | info | audit | dead-code candidates |
+| [OFR3402](#ofr3402) | info | audit | production code used only by tests |
+| [OFR3501](#ofr3501) | warning | audit | public API differs between targets |
+| [OFR3502](#ofr3502) | warning | audit | public API differs from the baseline |
+| [OFR3503](#ofr3503) | error | audit | nothing to compare |
+| [OFR3504](#ofr3504) | error | audit | API comparison could not run |
 | [OFR3601](#ofr3601) | warning | audit | member cannot be wrapped in `#if` |
 | [OFR3602](#ofr3602) | warning | audit | finding does not match the source |
 | [OFR3603](#ofr3603) | warning | audit | conditional region depends on other symbols |
@@ -1347,6 +1353,60 @@ Structured exception and HRESULT interop differ across platforms.
 - **Typical cause:** Marshal.GetHRForException, catching SEHException.
 - **Fix:** SEHException and HRESULT mapping differ across platforms; review the handling.
 
+### OFR3401
+
+**dead-code candidates** · info · audit
+
+Types or members that nothing in the solution references, summarized per project; the result lists each with its confidence and the evidence for it.
+
+- **Typical cause:** Code left behind by removed features, public helpers nobody calls, types only reflection or configuration reach.
+- **Fix:** Delete the high-confidence candidates (the summary gives the lines that go away); check the evidence on medium and low ones first.
+
+### OFR3402
+
+**production code used only by tests** · info · audit
+
+With `--include-tests`: a production type or member that only test projects reference.
+
+- **Typical cause:** Test helpers and fakes kept in production assemblies, or features whose production callers were removed.
+- **Fix:** Move it to the test project (`offramp move tests`) or delete it with its tests.
+
+### OFR3501
+
+**public API differs between targets** · warning · audit
+
+ApiCompat found a type or member in one target framework's build of the project that the other target does not have, usually from an `#if`.
+
+- **Typical cause:** Members wrapped in `#if NETFRAMEWORK` (or the modern equivalent) while callers expect them on every target.
+- **Fix:** Give the member an implementation on both targets, or confirm no caller outside the one target needs it.
+
+### OFR3502
+
+**public API differs from the baseline** · warning · audit
+
+ApiCompat found a type or member that the build at the baseline revision has and the working tree does not (or the reverse).
+
+- **Typical cause:** A move or refactoring that changed a namespace, removed a member, or changed a signature.
+- **Fix:** Restore the surface, add a type forwarder (`offramp forwarders`), or accept the break deliberately.
+
+### OFR3503
+
+**nothing to compare** · error · audit
+
+`audit api-compat` needs two target frameworks of one project, or a baseline revision.
+
+- **Typical cause:** A single-target project without --baseline, or --left and --right naming the same target.
+- **Fix:** Pass --baseline REVISION, or --left and --right with two of the project's targets.
+
+### OFR3504
+
+**API comparison could not run** · error · audit
+
+A side of the comparison did not build, the baseline could not be checked out, or the ApiCompat tool could not be installed or run. The message carries the tool's own words.
+
+- **Typical cause:** A build error, a revision that does not exist, or no access to the NuGet feed that hosts Microsoft.DotNet.ApiCompat.Tool.
+- **Fix:** Fix the build or the revision the message names, or make the tool's feed reachable, and run again.
+
 ### OFR3601
 
 **member cannot be wrapped in `#if`** · warning · audit
@@ -1436,8 +1496,6 @@ use these numbers; each moves to the table above in the pull request that first 
 | Code | Severity | Meaning |
 |---|---|---|
 | OFR2010 | error | move crosses a solution slice boundary |
-| OFR3401–3402 | info | dead code candidates; test-only usage |
-| OFR3501–3502 | warning | public API differs between targets / from baseline |
 | OFR4001–4003 | varies | seams |
 | OFR4010 | warning | caller instantiates concrete type directly |
 | OFR4020 | warning | sync member over remote boundary |
