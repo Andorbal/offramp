@@ -33,6 +33,7 @@ Groups: `deps`, `move`, `audit`, `extract`, `csproj`, `config`, `codemod`,
 | `--no-llm` | on unless `config.llm.enabled` | never call an LLM |
 | `--llm` | off | allow LLM garnish for this run |
 | `--fail-on LEVEL` | `error` | exit non-zero if any diagnostic at or above `LEVEL` (`info`, `warning`, `error`, `never`) |
+| `--fail-on-stale` | off | report a stale workspace model (`OFR0002`) as an error instead of a warning |
 
 ## Exit codes
 

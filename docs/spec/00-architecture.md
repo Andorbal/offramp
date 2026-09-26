@@ -45,11 +45,12 @@ that every command is built the same way.
   (target frameworks, output type, package references, project references,
   compile items) without a second evaluation.
 
-Costs: the first `scan` builds the solution. Subsequent scans can reuse a
-binlog (`--binlog`) or a complog (`--complog`). The optimization
-`-p:SkipCompilerExecution=true -p:ProvideCommandLineArgs=true` (record compiler
-arguments without compiling) is worth investigating in M1; if the compiler log
-tooling supports it, `scan --fast` uses it.
+Costs: the first `scan` builds the solution. Subsequent scans can reuse the
+previous binlog (`--no-build`) or a log captured elsewhere (`--binlog`,
+`--complog`). Skipping compiler execution
+(`-p:SkipCompilerExecution=true -p:ProvideCommandLineArgs=true`) was evaluated
+in M1 and rejected: dependents lose their compiler calls
+(`docs/decisions/0008-no-fast-scan.md`).
 
 Project files are **edited** with `Microsoft.Build.Construction.ProjectRootElement`,
 which manipulates XML with full fidelity (whitespace, comments, conditions) and
