@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/ide-check.json",
+  "title": "offramp ide check result",
+  "description": "The result of `offramp ide check`: what the editor integration shows in each file. See docs/spec/commands/ide.md#offramp-ide-check.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["base", "enablement", "counterparts", "files", "summary"],
+  "properties": {
+    "base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "commit", "scope"],
+      "properties": {
+        "ref": { "type": "string", "description": "The ref new code is compared with: origin/HEAD, HEAD, or the one configured." },
+        "commit": { "type": ["string", "null"], "description": "Its merge base with HEAD; null outside git (every line is new)." },
+        "scope": { "enum": ["lines", "files", "all"] }
+      }
+    },
+    "enablement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "enabled", "reason"],
+      "properties": {
+        "mode": { "enum": ["auto", "on", "off"] },
+        "enabled": { "type": "boolean" },
+        "reason": { "enum": ["setting-on", "setting-off", "state-directory", "no-state-directory"] }
+      }
+    },
+    "counterparts": {
+      "type": "array",
+      "description": "Every .NET Framework-only project and where its portable code can live.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "counterparts", "source"],
+        "properties": {
+          "project": { "type": "string" },
+          "counterparts": { "type": "array", "items": { "type": "string" } },
+          "source": { "enum": ["map", "referenced", "none"] }
+        }
+      }
+    },
+    "files": { "type": "array", "items": { "$ref": "#/$defs/fileReport" } },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "newLines", "findings", "newMovableTypes", "movableFiles"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "newLines": { "type": "integer", "minimum": 0 },
+        "findings": { "type": "integer", "minimum": 0 },
+        "newMovableTypes": { "type": "integer", "minimum": 0 },
+        "movableFiles": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "fileReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "project", "applies", "newLines", "findings", "types", "moves", "scan"],
+      "properties": {
+        "file": { "type": "string" },
+        "project": { "type": ["string", "null"], "description": "The project that compiles the file; null when none does (OFR6006)." },
+        "applies": { "type": "boolean", "description": "True for a C# file of a .NET Framework-only project." },
+        "newLines": {
+          "type": "array",
+          "description": "Inclusive 1-based [start, end] ranges.",
+          "items": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 2, "maxItems": 2 }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "severity", "line", "column", "endLine", "endColumn", "symbol", "message", "recommendation", "details"],
+            "properties": {
+              "code": { "type": "string", "pattern": "^OFR[0-9]{4}$" },
+              "severity": { "enum": ["info", "warning", "error"] },
+              "line": { "type": "integer", "minimum": 1 },
+              "column": { "type": "integer", "minimum": 1 },
+              "endLine": { "type": "integer", "minimum": 1 },
+              "endColumn": { "type": "integer", "minimum": 1 },
+              "symbol": { "type": "string" },
+              "message": { "type": "string" },
+              "recommendation": { "type": "string" },
+              "details": { "type": "object", "additionalProperties": { "type": "string" } }
+            }
+          }
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "kind", "line", "column", "endLine", "endColumn", "new"],
+            "properties": {
+              "name": { "type": "string" },
+              "kind": { "enum": ["class", "record", "struct", "interface", "enum", "delegate"] },
+              "line": { "type": "integer", "minimum": 1 },
+              "column": { "type": "integer", "minimum": 1 },
+              "endLine": { "type": "integer", "minimum": 1 },
+              "endColumn": { "type": "integer", "minimum": 1 },
+              "new": { "type": "boolean" }
+            }
+          }
+        },
+        "moves": {
+          "type": "array",
+          "description": "One entry per counterpart: whether the file moves there as it is, and if not, why.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["to", "movable", "destination", "referenced", "code", "message", "details"],
+            "properties": {
+              "to": { "type": "string" },
+              "movable": { "type": "boolean" },
+              "destination": { "type": ["string", "null"] },
+              "referenced": { "type": "boolean", "description": "True when the project already references the counterpart." },
+              "code": { "type": ["string", "null"], "pattern": "^OFR[0-9]{4}$" },
+              "message": { "type": ["string", "null"] },
+              "details": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "scan": {
+          "description": "Why the file cannot be checked as it should until the next scan; null when nothing is missing.",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["reason", "project", "message"],
+              "properties": {
+                "reason": { "enum": ["new-project", "no-compilation", "project-changed"] },
+                "project": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

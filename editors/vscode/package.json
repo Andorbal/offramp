@@ -1,0 +1,206 @@
+{
+  "name": "offramp",
+  "displayName": "Offramp: modern .NET friendly code",
+  "description": "Keeps new code in .NET Framework projects ready for .NET 8/10: flags APIs modern .NET lacks, and moves classes that need nothing from .NET Framework to a portable project.",
+  "version": "0.1.0",
+  "publisher": "AndrewBenz",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Andorbal/offramp",
+    "directory": "editors/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/Andorbal/offramp/issues"
+  },
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "dotnet",
+    "csharp",
+    ".NET Framework",
+    "netstandard",
+    "migration"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/*.csproj",
+    "workspaceContains:.offramp",
+    "onLanguage:csharp"
+  ],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Offramp",
+      "properties": {
+        "offramp.enabled": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
+          "enumDescriptions": [
+            "On when the repository has an .offramp folder (a migration is under way), off otherwise.",
+            "On in this repository, with or without an .offramp folder.",
+            "Off."
+          ],
+          "default": "auto",
+          "scope": "resource",
+          "markdownDescription": "Whether Offramp checks new code. `auto` turns it on in repositories with an `.offramp` folder. Set it per user or per workspace."
+        },
+        "offramp.projectMap": {
+          "type": "array",
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "Where a .NET Framework project's portable code lives, consulted before `projectMap` in `offramp.yml`. `from` and `to` are project names or repository-relative paths; `*` and `?` match in `from`, and `{name}` in `to` is the matched project's name.",
+          "items": {
+            "type": "object",
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "string",
+                "description": "The .NET Framework project (name or path; * and ? match)."
+              },
+              "to": {
+                "type": "string",
+                "description": "The portable project its code can move to ({name} is the matched project's name)."
+              }
+            }
+          }
+        },
+        "offramp.newCode.base": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "The git ref new code is compared with (its merge base with `HEAD`), for example `origin/main`. Unset: `ide.newCode.base` from `offramp.yml` (`auto`: `origin/HEAD`, else `HEAD`)."
+        },
+        "offramp.newCode.scope": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "lines",
+            "files",
+            "all",
+            null
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "What counts as new: `lines` that changed, every line of a changed file (`files`), or `all` code. Unset: `ide.newCode.scope` from `offramp.yml` (`lines`)."
+        },
+        "offramp.implicitCounterparts": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Without a project map entry, suggest the portable projects a project already references. Unset: `ide.implicitCounterparts` from `offramp.yml` (`true`)."
+        },
+        "offramp.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "markdownDescription": "Show a **Move to \u2026** lens on classes that can move to a portable project as they are."
+        },
+        "offramp.server.path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "scope": "machine-overridable",
+          "markdownDescription": "The `offramp` executable (or `offramp.dll`). Unset: the repository's local tool (`.config/dotnet-tools.json`), else `offramp` on `PATH`."
+        },
+        "offramp.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "scope": "window",
+          "description": "Traces the messages between VS Code and the Offramp language server."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "offramp.enableInWorkspace",
+        "title": "Enable in this workspace",
+        "category": "Offramp"
+      },
+      {
+        "command": "offramp.disableInWorkspace",
+        "title": "Disable in this workspace",
+        "category": "Offramp"
+      },
+      {
+        "command": "offramp.scan",
+        "title": "Scan the solution",
+        "category": "Offramp"
+      },
+      {
+        "command": "offramp.refresh",
+        "title": "Refresh",
+        "category": "Offramp"
+      },
+      {
+        "command": "offramp.restart",
+        "title": "Restart the language server",
+        "category": "Offramp"
+      },
+      {
+        "command": "offramp.showOutput",
+        "title": "Show output",
+        "category": "Offramp"
+      },
+      {
+        "command": "offramp.move",
+        "title": "Move file to a portable project",
+        "category": "Offramp"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "offramp.move",
+          "when": "false"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "test": "npm run compile && node --test \"out/test/*.test.js\"",
+    "package": "vsce package --out offramp.vsix",
+    "test:integration": "npm run compile && node out/test/integration/runTest.js"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^10.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "@types/vscode": "~1.91.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.2",
+    "typescript": "~5.9.3"
+  }
+}

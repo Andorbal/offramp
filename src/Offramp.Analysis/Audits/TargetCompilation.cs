@@ -13,10 +13,11 @@ public sealed class TargetCompilation
 {
     private readonly Dictionary<string, SyntaxTree> _byPath;
 
-    private TargetCompilation(CSharpCompilation compilation, string targetFramework)
+    private TargetCompilation(CSharpCompilation compilation, string targetFramework, int major)
     {
         Compilation = compilation;
         TargetFramework = targetFramework;
+        Major = major;
         _byPath = compilation.SyntaxTrees.GroupBy(t => t.FilePath, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
     }
 
@@ -26,6 +27,9 @@ public sealed class TargetCompilation
     public string TargetFramework { get; }
 
     public bool Windows => TargetFramework.EndsWith("-windows", StringComparison.Ordinal);
+
+    /// <summary>The target's major version (10 for <c>net10.0</c>).</summary>
+    public int Major { get; }
 
     /// <summary>The target tree for a recorded tree, or null.</summary>
     public SyntaxTree? TreeFor(SyntaxTree recorded) => _byPath.GetValueOrDefault(recorded.FilePath);
@@ -37,7 +41,43 @@ public sealed class TargetCompilation
             .Select(t => CSharpSyntaxTree.ParseText(t.GetText(), Options((CSharpParseOptions)t.Options, major, windows), t.FilePath))
             .ToList();
         var compilation = CSharpCompilation.Create(recorded.AssemblyName, trees, references, recorded.Options);
-        return new TargetCompilation(compilation, targetFramework);
+        return new TargetCompilation(compilation, targetFramework, major);
+    }
+
+    /// <summary>
+    /// The same target compilation with the sources of <paramref name="source"/> (a recorded
+    /// compilation with newer text laid over it): trees whose text changed are parsed again, new
+    /// ones are added, and those it no longer has are removed. Unchanged trees are kept as they are.
+    /// </summary>
+    public TargetCompilation WithSources(CSharpCompilation source)
+    {
+        var options = (Func<CSharpParseOptions, CSharpParseOptions>)(o => Options(o, Major, Windows));
+        var wanted = source.SyntaxTrees.GroupBy(t => t.FilePath, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var compilation = Compilation;
+        foreach (var (path, tree) in _byPath)
+        {
+            if (!wanted.ContainsKey(path))
+            {
+                compilation = compilation.RemoveSyntaxTrees(tree);
+            }
+        }
+
+        foreach (var (path, tree) in wanted)
+        {
+            if (_byPath.TryGetValue(path, out var existing))
+            {
+                if (!ReferenceEquals(existing.GetText(), tree.GetText()) && !existing.GetText().ContentEquals(tree.GetText()))
+                {
+                    compilation = compilation.ReplaceSyntaxTree(existing, CSharpSyntaxTree.ParseText(tree.GetText(), options((CSharpParseOptions)tree.Options), path));
+                }
+            }
+            else
+            {
+                compilation = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(tree.GetText(), options((CSharpParseOptions)tree.Options), path));
+            }
+        }
+
+        return ReferenceEquals(compilation, Compilation) ? this : new TargetCompilation(compilation, TargetFramework, Major);
     }
 
     /// <summary>The recorded parse options with the target's framework symbols instead of .NET Framework's.</summary>

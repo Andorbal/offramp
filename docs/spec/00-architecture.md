@@ -65,6 +65,8 @@ Offramp.Cli ──► Offramp.Reporting ──┐
             ──► Offramp.Scaffolding ─┤
             ──► Offramp.Refactoring ─┼──► Offramp.Analysis ──► Offramp.Workspace ──► Offramp.Core
             ──► Offramp.NuGet ───────┘                                  ▲
+            ──► Offramp.Ide ──► Refactoring, Analysis, Workspace, Core (the editor integration's
+                                  engine and its LSP server; editors/ holds the IDE extensions)
             ──► Offramp.Llm  (leaf, optional)                            │
             ──► Offramp.Mcp  (leaf: the MCP server; Cli hands it tools built from its own
                               command tree, so calls run the terminal's handlers) ─┘
@@ -92,6 +94,10 @@ Offramp.Refactoring ──► Offramp.Analyzers.CodeFixes ──► Offramp.Anal
   and the Anthropic Messages API. Configured in `offramp.yml` or env vars
   `OFFRAMP_LLM_URL`, `OFFRAMP_LLM_MODEL`, `OFFRAMP_LLM_API_KEY`,
   `OFFRAMP_LLM_PROVIDER=openai|anthropic`.
+- `Ide`: the editor integration (`commands/ide.md`): file reports over the recorded
+  compilations with the editor's text laid over them, moves through the move planner, and the
+  Language Server Protocol server the VS Code, Visual Studio, and Rider extensions (`editors/`)
+  talk to. Like the analysis libraries, it never references `Llm`.
 - `Mcp`: exposes each command as an MCP tool whose input schema is generated
   from the command's options and whose output is the command's JSON result. It
   references no Offramp project; `Cli` builds the catalog (ADR 0027).

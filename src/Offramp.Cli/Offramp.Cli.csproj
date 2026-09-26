@@ -33,6 +33,7 @@
     <ProjectReference Include="..\Offramp.Scaffolding\Offramp.Scaffolding.csproj" />
     <ProjectReference Include="..\Offramp.Llm\Offramp.Llm.csproj" />
     <ProjectReference Include="..\Offramp.Mcp\Offramp.Mcp.csproj" />
+    <ProjectReference Include="..\Offramp.Ide\Offramp.Ide.csproj" />
   </ItemGroup>
 
   <ItemGroup>

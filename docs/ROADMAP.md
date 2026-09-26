@@ -181,9 +181,56 @@ changes the repository is a dry run without `--apply` and applies with it; a
 stale model brings `scan` back; every step's command parses as a command line
 (and a broken one does not).
 
+## M15 — Editor integration and VS Code ◐
+
+Keep new code in .NET Framework-only projects migration-friendly, for developers who are not
+on the migration (`commands/ide.md`, ADR 0029).
+
+- `Offramp.Ide`: file reports (new code since the merge base, `audit api` findings on new lines,
+  whether each file moves as it is to each counterpart); counterparts from `projectMap` or the
+  portable projects already referenced; the recorded compilations with the editor's text laid
+  over them; moves through `move plan` + `move apply`.
+- `offramp ide check` (JSON contract, CI gate) and `offramp ide serve` (LSP: diagnostics, move
+  lenses, quick fixes and refactorings, `offramp.move` with confirmation and progress,
+  `offramp/status`, `offramp/fileReport`).
+- `editors/vscode`: the VS Code extension (enablement `auto`/`on`/`off`, server discovery
+  through the repository's local tool, the global tool, or a setting, status bar, commands),
+  built into a `.vsix` in CI.
+- Fixtures: `ide-counterpart`.
+
+Acceptance: `ide check` on `ide-counterpart` reports every movability rule's outcome and only new
+lines' findings (snapshot, schema); a new class in `Foo` gets OFR6001, a lens, and a quick fix
+over the LSP, and the fix moves it with a staged rename (or a plain move when untracked) that
+builds; a second move needs no scan, including after a move that edited a project file; an edit
+by someone else to a project file blocks the next move (OFR0002); a file in a project added,
+changed, or left uncompiled since the scan says it needs a scan (report, status bar, one prompt
+on edit); the extension's unit tests pass, it works in a real VS Code, and the `.vsix` packages.
+
+## M16 — Visual Studio ☐
+
+- Spike: `offramp ide serve` through VisualStudio.Extensibility's `LanguageServerProvider` on C#
+  documents next to Roslyn (diagnostics, code actions, commands).
+- The extension: the same enablement and settings, an `ICodeLensProvider` for move lenses backed
+  by `offramp/fileReport` (the VS LSP client does not render `textDocument/codeLens`), and a
+  Windows CI job that builds the VSIX.
+
+Acceptance: on `ide-counterpart`, a new class gets the diagnostic, lens, and quick fix, and the
+move works, in Visual Studio 2022 17.9+ (manual test script checked in with the results).
+
+## M17 — Rider ☐
+
+- Spike: the IntelliJ LSP API (code lens from 2026.1) on `.cs` files, which Rider serves from its
+  ReSharper backend; fallback: a ReSharper backend plugin (`JetBrains/resharper-rider-plugin`)
+  that talks to `offramp ide serve` and renders highlightings, quick fixes, and Code Vision.
+- The plugin: enablement and settings like the other shells; a Gradle build in CI.
+
+Acceptance: as for M16, in Rider.
+
 ## Later
 
 - Desktop rule pack (WinForms/WPF), VB.NET projects, F# projects.
 - `offramp watch` for continuous re-scan in an IDE terminal.
 - Corpus expansion (Orchard 1.x, Umbraco 7, ServiceStack v4-era apps).
-- Visual Studio / Rider integration via the analyzer package.
+- Editor integration after M17 (`commands/ide.md#later`): portability regressions, SARIF for pull
+  requests, codemod quick fixes, member-level moves, the rest of the CLI in the editor, and a
+  project-scoped scan.

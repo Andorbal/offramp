@@ -1,0 +1,62 @@
+name: Marketplace identity
+
+# Run by hand while setting up Marketplace publishing (docs/RELEASING.md). It signs in
+# exactly as the release's publish-vscode job does, prints the ID the AndrewBenz
+# publisher's Members page takes for that identity, and checks whether the identity can
+# publish there yet. It publishes nothing.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  identity:
+    name: Show the identity and check its publish rights
+    runs-on: ubuntu-latest
+    environment: vscode-marketplace
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the pinned vsce
+        working-directory: editors/vscode
+        run: npm ci
+
+      - name: Sign in to Microsoft Entra ID
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true
+
+      - name: Print the Marketplace member ID
+        run: |
+          id=$(az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me \
+            --resource 499b84ac-1321-427f-aa17-267ca6975798 --query id -o tsv)
+          echo "Marketplace member ID: $id"
+          {
+            echo "### Marketplace member ID"
+            echo
+            echo "\`$id\`"
+            echo
+            echo "Add it at https://marketplace.visualstudio.com/manage/publishers/AndrewBenz (Members, role Contributor)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check publish rights for AndrewBenz
+        working-directory: editors/vscode
+        run: |
+          if npx vsce verify-pat --azure-credential AndrewBenz; then
+            echo "### The identity can publish as AndrewBenz" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Not a member of AndrewBenz yet: add the ID above, then run this again" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

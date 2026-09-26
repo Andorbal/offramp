@@ -25,8 +25,8 @@ built on Roslyn, MSBuild binary logs, and the NuGet client libraries. See
    restore` verifies version choices. Do not write a NuGet resolver or a
    type checker.
 4. **LLM is optional.** Nothing in `Offramp.Core`, `Offramp.Workspace`,
-   `Offramp.NuGet`, `Offramp.Analysis`, or `Offramp.Refactoring` may depend on
-   `Offramp.Llm`. Every command works with `--no-llm` and in CI with no network
+   `Offramp.NuGet`, `Offramp.Analysis`, `Offramp.Refactoring`, or `Offramp.Ide`
+   may depend on `Offramp.Llm`. Every command works with `--no-llm` and in CI with no network
    beyond NuGet feeds.
 5. **Every command has a JSON contract.** Defined in its spec file, emitted
    with `--json`, validated by a snapshot test. Human rendering is a view over
@@ -53,8 +53,11 @@ src/
   Offramp.Analyzers/      Roslyn analyzers + code fixes used by `codemod` (netstandard2.0)
   Offramp.Scaffolding/    templates + generators: service, web, remote, config convert, csproj modernize
   Offramp.Reporting/      graph exporters (json/dot/mermaid/html), progress dashboard
+  Offramp.Ide/            editor integration engine + LSP server (`offramp ide check|serve`)
   Offramp.Llm/            ILlm + OpenAI-compatible and Anthropic adapters
   Offramp.Mcp/            MCP server exposing the CLI surface
+editors/
+  vscode/                 VS Code extension (TypeScript, a thin client of `offramp ide serve`)
 tests/
   Offramp.*.Tests/        one test project per src project (xunit + Verify)
   Offramp.Fixtures/       fixture generator + checked-in fixture solutions (tests/fixtures/)
@@ -99,6 +102,7 @@ dotnet test                       # unit + fixture tests, all platforms
 dotnet test --filter Category=Corpus   # opt-in, slow, needs network
 dotnet run --project src/Offramp.Cli -- doctor
 dotnet pack src/Offramp.Cli -c Release -o artifacts/   # produces the tool package
+(cd editors/vscode && npm ci && npm test)               # the VS Code extension
 ```
 
 Fixture solutions under `tests/fixtures/` are real, tiny solutions. Tests build

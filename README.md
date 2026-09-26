@@ -24,6 +24,7 @@ machine-readable output so the next tool, a CI job, or an AI agent can use it.
 | Isolate the unportable | `seams`, `extract interface`, `remote` | The smallest interface that fences off unportable code, and a generated HTTP boundary for it |
 | Scaffold | `service`, `web`, `csproj modernize`, `config convert`, `codemod` | Hosted console apps for Linux containers, strangler-fig web setups, and bulk Roslyn rewrites |
 | Automate | `verify`, `slice`, `mcp serve` | Configurable build verification, fast sub-solution builds, and an MCP server for agents |
+| Stop adding debt | `ide check`, `ide serve`, the VS Code extension | New code in .NET Framework projects checked as it is written: APIs modern .NET lacks, and classes that could live in a portable project, moved there in one click |
 
 Every command takes `--target N` (8, 9, 10, ...), `--json`, and `--dry-run`
 where it makes sense. The default target is .NET 10.
@@ -78,6 +79,24 @@ offramp audit behavior --target 10 --json > behavior.json
 ```
 
 Add `--json` to any command and pipe it into whatever comes next.
+
+## In your editor
+
+Most people in a large codebase are not working on the migration, but every class they add to a
+.NET Framework-only project is one more to migrate. The VS Code extension (`editors/vscode`;
+Visual Studio and Rider are next on the roadmap) runs `offramp ide serve` next to the C#
+extension and, on the lines you add or change:
+
+- flags APIs modern .NET does not have, with what to use instead;
+- notices a new class that needs nothing from .NET Framework and offers to move it to the
+  project's portable counterpart, a `git mv` that leaves the file's contents alone;
+- puts a **Move to …** lens on existing classes that can move there as they are.
+
+It is on by default in repositories with an `.offramp` folder and off elsewhere
+(`offramp.enabled`). Tell it where each project's portable code lives with `projectMap` in
+`offramp.yml`, or let it use the portable projects a project already references. The same checks
+run in CI with `offramp ide check --base origin/main --fail-on error`. See
+[docs/spec/commands/ide.md](docs/spec/commands/ide.md).
 
 ## Compiling .NET Framework code on macOS and Linux
 

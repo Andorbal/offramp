@@ -42,6 +42,11 @@ public sealed record OfframpConfig
 
     public DeadCodeConfig DeadCode { get; init; } = new();
 
+    /// <summary>Where a .NET Framework project's portable code lives (docs/spec/commands/ide.md#counterparts-and-the-project-map).</summary>
+    public IReadOnlyList<ProjectMapEntry> ProjectMap { get; init; } = [];
+
+    public IdeConfig Ide { get; init; } = new();
+
     /// <summary>The target framework moniker for <see cref="Target"/>.</summary>
     [JsonIgnore]
     public string TargetFramework => TargetMoniker(Target);
@@ -307,4 +312,32 @@ public sealed record DeadCodeConfig
 {
     /// <summary>Assembly names other repositories consume; their public symbols are never above <c>medium</c>.</summary>
     public IReadOnlyList<string> ExternalConsumers { get; init; } = [];
+}
+
+/// <summary>One <c>projectMap:</c> entry: the projects <see cref="From"/> matches keep their portable code in <see cref="To"/>.</summary>
+public sealed record ProjectMapEntry
+{
+    /// <summary>A project path (repository-relative) or name; <c>*</c> and <c>?</c> match any characters.</summary>
+    public string From { get; init; } = "";
+
+    /// <summary>A project path or name; <c>{name}</c> is the name of the project <see cref="From"/> matched.</summary>
+    public string To { get; init; } = "";
+}
+
+/// <summary><c>ide:</c>, what the editor integration shows (docs/spec/commands/ide.md).</summary>
+public sealed record IdeConfig
+{
+    public IdeNewCodeConfig NewCode { get; init; } = new();
+
+    /// <summary>Without a <c>projectMap</c> entry, use the portable projects a project already references.</summary>
+    public bool ImplicitCounterparts { get; init; } = true;
+}
+
+public sealed record IdeNewCodeConfig
+{
+    /// <summary><c>auto</c> (<c>origin/HEAD</c>, else <c>HEAD</c>) or a git ref; new code is what changed since its merge base with <c>HEAD</c>.</summary>
+    public string Base { get; init; } = "auto";
+
+    /// <summary><c>lines</c>, <c>files</c>, or <c>all</c>.</summary>
+    public string Scope { get; init; } = "lines";
 }

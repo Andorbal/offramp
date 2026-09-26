@@ -73,7 +73,7 @@ public static class McpToolCatalog
         var tree = OfframpCli.BuildRoot(host);
         var globals = tree.Options.Where(o => ToolGlobals.Contains(o.Name)).ToList();
         var tools = Commands(tree, [])
-            .Where(c => c.Path[0] != "mcp")
+            .Where(c => c.Path[0] != "mcp" && !(c.Path[0] == "ide" && c.Path[^1] == "serve"))
             .Select(c => Tool(host, root, allowApply, c.Path, c.Command, globals))
             .OrderBy(t => t.Name, StringComparer.Ordinal)
             .ToList();

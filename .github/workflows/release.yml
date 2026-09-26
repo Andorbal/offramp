@@ -30,6 +30,9 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     environment: nuget
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      prerelease: ${{ steps.ver.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,6 +48,22 @@ jobs:
           # The Offramp.Analyzers package (analyzers and code fixes) is packed by the CodeFixes project.
           dotnet pack src/Offramp.Analyzers.CodeFixes -c Release -o artifacts
           ls -l artifacts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Package the VS Code extension
+        working-directory: editors/vscode
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          # Extension versions are major.minor.patch; a prerelease tag keeps only that part.
+          VERSION="${REF_NAME#v}"
+          npm ci
+          npm version --no-git-tag-version --allow-same-version "${VERSION%%-*}"
+          npm test
+          npx vsce package --out "../../artifacts/offramp-vscode-${VERSION}.vsix"
 
       - name: Derive version from tag
         id: ver
@@ -79,3 +98,73 @@ jobs:
           prerelease: ${{ steps.ver.outputs.prerelease }}
           files: |
             artifacts/*.nupkg
+            artifacts/*.vsix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offramp-vscode
+          path: artifacts/*.vsix
+          if-no-files-found: error
+
+  # The VS Code extension, after the tool it needs is on NuGet. Stable tags only: a prerelease tag
+  # would take the stable version number on the Marketplace. The Marketplace login is Microsoft
+  # Entra ID through GitHub's OIDC token, so nothing is stored (Azure DevOps retired PATs for this);
+  # docs/RELEASING.md has the one-time setup. Open VSX keeps its own token.
+  publish-vscode:
+    name: Publish the VS Code extension
+    needs: publish
+    if: needs.publish.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    environment: vscode-marketplace
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the pinned vsce
+        working-directory: editors/vscode
+        run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: offramp-vscode
+          path: artifacts
+
+      - name: Sign in to Microsoft Entra ID
+        if: vars.AZURE_CLIENT_ID != ''
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          # Unset unless the identity has an Azure role (docs/RELEASING.md).
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true
+
+      - name: Publish to the Visual Studio Marketplace
+        working-directory: editors/vscode
+        env:
+          CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          if [ -z "$CLIENT_ID" ]; then
+            echo "::warning::AZURE_CLIENT_ID is not set, so the extension was not published to the Visual Studio Marketplace (docs/RELEASING.md)."
+            exit 0
+          fi
+          npx vsce publish --azure-credential --packagePath "../../artifacts/offramp-vscode-${VERSION}.vsix"
+
+      - name: Publish to Open VSX
+        working-directory: editors/vscode
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then
+            echo "OVSX_PAT is not set; skipping Open VSX."
+            exit 0
+          fi
+          npx --yes ovsx@1.2.0 publish "../../artifacts/offramp-vscode-${VERSION}.vsix" --pat "$OVSX_PAT"

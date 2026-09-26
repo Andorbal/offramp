@@ -9,11 +9,31 @@ using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 namespace Offramp.Analysis.Compilations;
 
 /// <summary>
+/// Where analyses get a project's compilations: the compiler log as recorded
+/// (<see cref="CompilationLoader"/>), or the same with newer text laid over it (the editor).
+/// </summary>
+public interface ICompilationSource
+{
+    /// <summary>The compilation of a project for one target framework, or null when there is none.</summary>
+    Compilation? LoadForProject(ProjectInfo project, string targetFramework);
+
+    /// <summary>The analyzers and analyzer options recorded for a project's compilation, or null.</summary>
+    (ImmutableArray<DiagnosticAnalyzer> Analyzers, AnalyzerOptions Options)? LoadAnalyzers(ProjectInfo project, string targetFramework);
+}
+
+public static class CompilationSourceExtensions
+{
+    /// <summary>The compilation of a project for its first .NET Framework target (or its first target), or null.</summary>
+    public static Compilation? LoadPreferred(this ICompilationSource source, ProjectInfo project) =>
+        CompilationLoader.PreferredTarget(project) is { } target ? source.LoadForProject(project, target) : null;
+}
+
+/// <summary>
 /// Rebuilds the Roslyn compilations recorded in the workspace's compiler log
 /// (docs/spec/02-workspace-model.md): the exact sources, references, and options
 /// the compiler saw, without MSBuild.
 /// </summary>
-public sealed class CompilationLoader : IDisposable
+public sealed class CompilationLoader : ICompilationSource, IDisposable
 {
     private readonly string _repositoryRoot;
     private readonly Dictionary<string, CompilerLogReader> _readers = new(StringComparer.Ordinal);
