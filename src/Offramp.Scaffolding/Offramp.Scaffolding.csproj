@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Generators that write new projects next to the user's code: the remote
+    boundary (contracts, Windows host, HTTP client), and later services, web
+    front ends, and configuration conversions. Templates are C# raw string
+    literals (docs/decisions/0023-seams-extract-and-remote.md); package versions
+    for generated projects come from rules/scaffold-packages.yml.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <RootNamespace>Offramp.Scaffolding</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Offramp.Core\Offramp.Core.csproj" />
+    <ProjectReference Include="..\Offramp.Workspace\Offramp.Workspace.csproj" />
+    <ProjectReference Include="..\Offramp.Analysis\Offramp.Analysis.csproj" />
+    <ProjectReference Include="..\Offramp.Refactoring\Offramp.Refactoring.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\rules\scaffold-packages.yml" LogicalName="Offramp.Scaffolding.Rules.scaffold-packages.yml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Offramp.Scaffolding.Tests" />
+  </ItemGroup>
+</Project>

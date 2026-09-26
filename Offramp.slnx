@@ -6,6 +6,7 @@
     <Project Path="src/Offramp.NuGet/Offramp.NuGet.csproj" />
     <Project Path="src/Offramp.Refactoring/Offramp.Refactoring.csproj" />
     <Project Path="src/Offramp.Reporting/Offramp.Reporting.csproj" />
+    <Project Path="src/Offramp.Scaffolding/Offramp.Scaffolding.csproj" />
     <Project Path="src/Offramp.Workspace/Offramp.Workspace.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -16,6 +17,7 @@
     <Project Path="tests/Offramp.NuGet.Tests/Offramp.NuGet.Tests.csproj" />
     <Project Path="tests/Offramp.Refactoring.Tests/Offramp.Refactoring.Tests.csproj" />
     <Project Path="tests/Offramp.Reporting.Tests/Offramp.Reporting.Tests.csproj" />
+    <Project Path="tests/Offramp.Scaffolding.Tests/Offramp.Scaffolding.Tests.csproj" />
     <Project Path="tests/Offramp.Workspace.Tests/Offramp.Workspace.Tests.csproj" />
   </Folder>
   <Folder Name="/solution-items/">

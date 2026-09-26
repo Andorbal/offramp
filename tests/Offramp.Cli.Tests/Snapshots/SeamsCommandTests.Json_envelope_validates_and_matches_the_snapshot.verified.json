@@ -1,0 +1,309 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "seams",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "Seams.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "list"
+        ],
+        "unportableSymbols": [
+          "System.DirectoryServices"
+        ]
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "project": "src/Accounts/Accounts.csproj",
+    "unportableFrom": "list",
+    "tainted": [
+      {
+        "type": "Accounts.Directory.CachedDirectoryLookup",
+        "reason": [
+          "inherits Accounts.Directory.DirectoryLookup"
+        ],
+        "loc": 4
+      },
+      {
+        "type": "Accounts.Directory.DirectoryCache",
+        "reason": [
+          "System.DirectoryServices.DirectoryEntry"
+        ],
+        "loc": 11
+      },
+      {
+        "type": "Accounts.Directory.DirectoryLookup",
+        "reason": [
+          "System.DirectoryServices.DirectorySearcher",
+          "System.DirectoryServices.SearchResult"
+        ],
+        "loc": 44
+      }
+    ],
+    "partitions": [
+      {
+        "id": 1,
+        "types": [
+          "Accounts.Directory.CachedDirectoryLookup"
+        ],
+        "loc": 4
+      },
+      {
+        "id": 2,
+        "types": [
+          "Accounts.Directory.DirectoryCache"
+        ],
+        "loc": 11
+      },
+      {
+        "id": 3,
+        "types": [
+          "Accounts.Directory.DirectoryLookup"
+        ],
+        "loc": 44
+      }
+    ],
+    "seams": [
+      {
+        "id": "seam-1",
+        "boundaryType": "Accounts.Directory.DirectoryLookup",
+        "callers": [
+          "Accounts.Auth.LoginHandler",
+          "Accounts.Users.UserService"
+        ],
+        "members": [
+          {
+            "signature": "Accounts.Directory.DirectoryEntryInfo FindUser(string samAccountName)",
+            "callSites": 2,
+            "wireFriendly": true,
+            "static": false,
+            "problems": []
+          },
+          {
+            "signature": "System.Collections.Generic.List<string> GroupsOf(string samAccountName)",
+            "callSites": 1,
+            "wireFriendly": true,
+            "static": false,
+            "problems": []
+          },
+          {
+            "signature": "static bool IsAvailable()",
+            "callSites": 1,
+            "wireFriendly": true,
+            "static": true,
+            "problems": []
+          },
+          {
+            "signature": "void Watch(System.Action<string> onChange)",
+            "callSites": 1,
+            "wireFriendly": false,
+            "static": false,
+            "problems": [
+              "'onChange': System.Action<string> is a delegate"
+            ]
+          }
+        ],
+        "proposedInterface": "IDirectoryLookup",
+        "score": 0.38,
+        "articulationPoint": true
+      }
+    ],
+    "extraction": {
+      "moveToProject": "Accounts.Windows",
+      "types": [
+        "Accounts.Directory.CachedDirectoryLookup",
+        "Accounts.Directory.DirectoryCache",
+        "Accounts.Directory.DirectoryLookup"
+      ],
+      "estimatedLoc": 59
+    },
+    "types": [
+      "Accounts.Auth.LoginHandler",
+      "Accounts.Directory.CachedDirectoryLookup",
+      "Accounts.Directory.DirectoryCache",
+      "Accounts.Directory.DirectoryEntryInfo",
+      "Accounts.Directory.DirectoryLookup",
+      "Accounts.Reports.ReportService",
+      "Accounts.Users.UserService"
+    ],
+    "edges": [
+      {
+        "from": "Accounts.Auth.LoginHandler",
+        "to": "Accounts.Directory.DirectoryLookup",
+        "weight": 1,
+        "cut": true
+      },
+      {
+        "from": "Accounts.Directory.CachedDirectoryLookup",
+        "to": "Accounts.Directory.DirectoryLookup",
+        "weight": 1,
+        "cut": false
+      },
+      {
+        "from": "Accounts.Directory.DirectoryCache",
+        "to": "Accounts.Directory.DirectoryEntryInfo",
+        "weight": 2,
+        "cut": false
+      },
+      {
+        "from": "Accounts.Directory.DirectoryLookup",
+        "to": "Accounts.Directory.DirectoryCache",
+        "weight": 2,
+        "cut": false
+      },
+      {
+        "from": "Accounts.Directory.DirectoryLookup",
+        "to": "Accounts.Directory.DirectoryEntryInfo",
+        "weight": 1,
+        "cut": false
+      },
+      {
+        "from": "Accounts.Reports.ReportService",
+        "to": "Accounts.Directory.DirectoryEntryInfo",
+        "weight": 1,
+        "cut": false
+      },
+      {
+        "from": "Accounts.Users.UserService",
+        "to": "Accounts.Directory.DirectoryEntryInfo",
+        "weight": 1,
+        "cut": false
+      },
+      {
+        "from": "Accounts.Users.UserService",
+        "to": "Accounts.Directory.DirectoryLookup",
+        "weight": 5,
+        "cut": true
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "code": "OFR4002",
+      "severity": "warning",
+      "message": "Accounts.Directory.DirectoryLookup: void Watch(System.Action<string> onChange) is not wire-friendly ('onChange': System.Action<string> is a delegate).",
+      "project": "src/Accounts/Accounts.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "member": "void Watch(System.Action<string> onChange)"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR4002"
+    },
+    {
+      "code": "OFR4003",
+      "severity": "warning",
+      "message": "Accounts.Directory.DirectoryLookup: static bool IsAvailable() is static; an interface needs an instance wrapper for it.",
+      "project": "src/Accounts/Accounts.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "member": "static bool IsAvailable()"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR4003"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 2,
+    "info": 0
+  }
+}

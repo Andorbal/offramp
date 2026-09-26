@@ -1,0 +1,245 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "remote",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "Seams.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "project": "src/Accounts/Accounts.csproj",
+    "interface": "Accounts.Directory.IDirectoryLookup",
+    "implementation": "Accounts.Directory.DirectoryLookup",
+    "hostFramework": "net10.0-windows",
+    "hostFrameworkReason": "the implementation and the 4 files it uses compile for net10.0-windows with Microsoft.Windows.Compatibility",
+    "transport": "http-json",
+    "serializer": "stj",
+    "members": [
+      {
+        "name": "FindUser",
+        "signature": "Accounts.Directory.DirectoryEntryInfo FindUser(string samAccountName)",
+        "route": "/IDirectoryLookup/FindUser",
+        "status": "remote",
+        "sync": true,
+        "problems": []
+      },
+      {
+        "name": "GroupsOf",
+        "signature": "System.Collections.Generic.List<string> GroupsOf(string samAccountName)",
+        "route": "/IDirectoryLookup/GroupsOf",
+        "status": "remote",
+        "sync": true,
+        "problems": []
+      },
+      {
+        "name": "Watch",
+        "signature": "void Watch(System.Action<string> onChange)",
+        "route": null,
+        "status": "skipped",
+        "sync": true,
+        "problems": [
+          "'onChange': System.Action<string> is a delegate"
+        ]
+      }
+    ],
+    "dtos": [
+      {
+        "type": "Accounts.Directory.DirectoryEntryInfo",
+        "dto": "Accounts.Remote.Contracts.DirectoryEntryInfoDto"
+      }
+    ],
+    "projects": [
+      {
+        "role": "contracts",
+        "path": "src/Accounts.Remote.Contracts/Accounts.Remote.Contracts.csproj",
+        "targetFrameworks": [
+          "netstandard2.0"
+        ]
+      },
+      {
+        "role": "client",
+        "path": "src/Accounts.Remote/Accounts.Remote.csproj",
+        "targetFrameworks": [
+          "net48"
+        ]
+      },
+      {
+        "role": "host",
+        "path": "src/Accounts.Windows.Host/Accounts.Windows.Host.csproj",
+        "targetFrameworks": [
+          "net10.0-windows"
+        ]
+      }
+    ],
+    "linkedSources": [
+      "src/Accounts/Directory/DirectoryCache.cs",
+      "src/Accounts/Directory/DirectoryEntryInfo.cs",
+      "src/Accounts/Directory/DirectoryLookup.cs",
+      "src/Accounts/Directory/IDirectoryLookup.cs"
+    ],
+    "files": [
+      "src/Accounts.Remote.Contracts/Accounts.Remote.Contracts.csproj",
+      "src/Accounts.Remote.Contracts/DirectoryLookupDtos.cs",
+      "src/Accounts.Remote.Contracts/DirectoryLookupRequests.cs",
+      "src/Accounts.Remote.Contracts/DirectoryLookupRoutes.cs",
+      "src/Accounts.Remote.Contracts/RemoteInvocationException.cs",
+      "src/Accounts.Remote/Accounts.Remote.csproj",
+      "src/Accounts.Remote/DirectoryLookupMapping.cs",
+      "src/Accounts.Remote/DirectoryLookupRegistration.cs",
+      "src/Accounts.Remote/IDirectoryLookupAsync.cs",
+      "src/Accounts.Remote/RemoteCall.cs",
+      "src/Accounts.Remote/RemoteDirectoryLookup.cs",
+      "src/Accounts.Windows.Host/Accounts.Windows.Host.csproj",
+      "src/Accounts.Windows.Host/DirectoryLookupEndpoints.cs",
+      "src/Accounts.Windows.Host/DirectoryLookupMapping.cs",
+      "src/Accounts.Windows.Host/Dockerfile",
+      "src/Accounts.Windows.Host/Program.cs",
+      "src/Accounts.Windows.Host/appsettings.json",
+      "src/Accounts.Windows.Host/kubernetes.yaml"
+    ],
+    "registration": "services.AddDirectoryLookup(configuration, provider => new Accounts.Directory.DirectoryLookup());",
+    "nextSteps": [
+      "dotnet sln Seams.sln add src/Accounts.Remote.Contracts/Accounts.Remote.Contracts.csproj src/Accounts.Remote/Accounts.Remote.csproj src/Accounts.Windows.Host/Accounts.Windows.Host.csproj",
+      "Reference src/Accounts.Remote/Accounts.Remote.csproj from the application that registers services and call services.AddDirectoryLookup(configuration, provider => new Accounts.Directory.DirectoryLookup());",
+      "Set Remote:DirectoryLookup:Mode to remote and Remote:DirectoryLookup:Url to the host's address to call the host; anything else keeps the local implementation.",
+      "docker build -f src/Accounts.Windows.Host/Dockerfile -t accounts-windows-host . (on a Windows container host), then kubectl apply -f src/Accounts.Windows.Host/kubernetes.yaml"
+    ],
+    "applied": false,
+    "journal": null,
+    "preview": "--- /dev/null\n+++ b/src/Accounts.Remote.Contracts/Accounts.Remote.Contracts.csproj\n@@ -0,0 +1,9 @@\n+<Project Sdk=\"Microsoft.NET.Sdk\">\n+  <!-- Generated by offramp remote: the wire contract of Accounts.Directory.IDirectoryLookup (routes, requests, DTOs). -->\n+  <PropertyGroup>\n+    <TargetFramework>netstandard2.0</TargetFramework>\n+    <LangVersion>latest</LangVersion>\n+    <Nullable>disable</Nullable>\n+    <RootNamespace>Accounts.Remote.Contracts</RootNamespace>\n+  </PropertyGroup>\n+</Project>\n--- /dev/null\n+++ b/src/Accounts.Remote.Contracts/DirectoryLookupDtos.cs\n@@ -0,0 +1,13 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Remote.Contracts\n+{\n+    /// <summary>The wire form of <c>Accounts.Directory.DirectoryEntryInfo</c>.</summary>\n+    public sealed class DirectoryEntryInfoDto\n+    {\n+        public string SamAccountName { get; set; }\n+\n+        public string DisplayName { get; set; }\n+\n+        public string Email { get; set; }\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Remote.Contracts/DirectoryLookupRequests.cs\n@@ -0,0 +1,15 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Remote.Contracts\n+{\n+    /// <summary>The arguments of <c>IDirectoryLookup.FindUser</c>.</summary>\n+    public sealed class FindUserRequest\n+    {\n+        public string SamAccountName { get; set; }\n+    }\n+\n+    /// <summary>The arguments of <c>IDirectoryLookup.GroupsOf</c>.</summary>\n+    public sealed class GroupsOfRequest\n+    {\n+        public string SamAccountName { get; set; }\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Remote.Contracts/DirectoryLookupRoutes.cs\n@@ -0,0 +1,13 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Remote.Contracts\n+{\n+    /// <summary>The HTTP routes of <c>Accounts.Directory.IDirectoryLookup</c>: one POST per member, relative to the host's base address.</summary>\n+    public static class DirectoryLookupRoutes\n+    {\n+        /// <summary><c>Accounts.Directory.DirectoryEntryInfo FindUser(string samAccountName)</c></summary>\n+        public const string FindUser = \"IDirectoryLookup/FindUser\";\n+\n+        /// <summary><c>System.Collections.Generic.List&lt;string&gt; GroupsOf(string samAccountName)</c></summary>\n+        public const string GroupsOf = \"IDirectoryLookup/GroupsOf\";\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Remote.Contracts/RemoteInvocationException.cs\n@@ -0,0 +1,24 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Remote.Contracts\n+{\n+    /// <summary>The host answered a remote call with an error status; carries its problem details when it sent them.</summary>\n+    public sealed class RemoteInvocationException : System.Exception\n+    {\n+        public RemoteInvocationException(string route, int statusCode, string title, string detail)\n+            : base(route + \" failed with \" + statusCode + (string.IsNullOrEmpty(title) ? \"\" : \": \" + title) + (string.IsNullOrEmpty(detail) ? \"\" : \" (\" + detail + \")\"))\n+        {\n+            Route = route;\n+            StatusCode = statusCode;\n+            Title = title;\n+            Detail = detail;\n+        }\n+\n+        public string Route { get; }\n+\n+        public int StatusCode { get; }\n+\n+        public string Title { get; }\n+\n+        public string Detail { get; }\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Remote/Accounts.Remote.csproj\n@@ -0,0 +1,26 @@\n+<Project Sdk=\"Microsoft.NET.Sdk\">\n+  <!-- Generated by offramp remote: Accounts.Directory.IDirectoryLookup over HTTP, for the projects that call it. -->\n+  <PropertyGroup>\n+    <TargetFramework>net48</TargetFramework>\n+    <LangVersion>latest</LangVersion>\n+    <Nullable>disable</Nullable>\n+    <ImplicitUsings>disable</ImplicitUsings>\n+    <RootNamespace>Accounts.Remote</RootNamespace>\n+  </PropertyGroup>\n+\n+  <ItemGroup>\n+    <PackageReference Include=\"Microsoft.Extensions.Configuration.Abstractions\" Version=\"10.0.12\" />\n+    <PackageReference Include=\"Microsoft.Extensions.Http\" Version=\"10.0.12\" />\n+  </ItemGroup>\n+\n+  <!-- .NET Framework needs HttpClient referenced and System.Text.Json from NuGet; modern .NET has them. -->\n+  <ItemGroup Condition=\"'$(TargetFrameworkIdentifier)' == '.NETFramework'\">\n+    <Reference Include=\"System.Net.Http\" />\n+    <PackageReference Include=\"System.Text.Json\" Version=\"10.0.12\" />\n+  </ItemGroup>\n+\n+  <ItemGroup>\n+    <ProjectReference Include=\"..\\Accounts\\Accounts.csproj\" />\n+    <ProjectReference Include=\"..\\Accounts.Remote.Contracts\\Accounts.Remote.Contracts.csproj\" />\n+  </ItemGroup>\n+</Project>\n--- /dev/null\n+++ b/src/Accounts.Remote/DirectoryLookupMapping.cs\n@@ -0,0 +1,61 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Remote\n+{\n+    using System;\n+    using System.Collections.Generic;\n+    using System.Linq;\n+\n+    /// <summary>Converts between the types of <c>Accounts.Directory.IDirectoryLookup</c> and their copies in Accounts.Remote.Contracts.</summary>\n+    internal static class DirectoryLookupMapping\n+    {\n+        public static Accounts.Remote.Contracts.DirectoryEntryInfoDto ToWire(Accounts.Directory.DirectoryEntryInfo value)\n+        {\n+            if (value == null)\n+            {\n+                return null;\n+            }\n+\n+            return new Accounts.Remote.Contracts.DirectoryEntryInfoDto\n+            {\n+                SamAccountName = value.SamAccountName,\n+                DisplayName = value.DisplayName,\n+                Email = value.Email,\n+            };\n+        }\n+\n+        public static Accounts.Directory.DirectoryEntryInfo FromWire(Accounts.Remote.Contracts.DirectoryEntryInfoDto value)\n+        {\n+            if (value == null)\n+            {\n+                return null;\n+            }\n+\n+            return new Accounts.Directory.DirectoryEntryInfo\n+            {\n+                SamAccountName = value.SamAccountName,\n+                DisplayName = value.DisplayName,\n+                Email = value.Email,\n+            };\n+        }\n+\n+        public static List<TOut> MapList<TIn, TOut>(IEnumerable<TIn> source, Func<TIn, TOut> map)\n+        {\n+            return source == null ? null : source.Select(map).ToList();\n+        }\n+\n+        public static TOut[] MapArray<TIn, TOut>(IEnumerable<TIn> source, Func<TIn, TOut> map)\n+        {\n+            return source == null ? null : source.Select(map).ToArray();\n+        }\n+\n+        public static HashSet<TOut> MapSet<TIn, TOut>(IEnumerable<TIn> source, Func<TIn, TOut> map)\n+        {\n+            return source == null ? null : new HashSet<TOut>(source.Select(map));\n+        }\n+\n+        public static Dictionary<string, TOut> MapDictionary<TIn, TOut>(IEnumerable<KeyValuePair<string, TIn>> source, Func<TIn, TOut> map)\n+        {\n+            return source == null ? null : source.ToDictionary(pair => pair.Key, pair => map(pair.Value));\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Remote/DirectoryLookupRegistration.cs\n@@ -0,0 +1,60 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Remote\n+{\n+    using System;\n+    using Microsoft.Extensions.Configuration;\n+    using Microsoft.Extensions.DependencyInjection;\n+\n+    /// <summary>Registers <c>Accounts.Directory.IDirectoryLookup</c>: the local implementation, or the Windows host over HTTP.</summary>\n+    public static class DirectoryLookupRegistration\n+    {\n+        /// <summary>The configuration section of the switch: <c>Mode</c> (<c>local</c> or <c>remote</c>) and <c>Url</c>.</summary>\n+        public const string Section = \"Remote:DirectoryLookup\";\n+\n+        /// <summary>The interface over HTTP, calling the host at <paramref name=\"baseAddress\"/>.</summary>\n+        public static IServiceCollection AddRemoteDirectoryLookup(this IServiceCollection services, Uri baseAddress)\n+        {\n+            if (services == null)\n+            {\n+                throw new ArgumentNullException(nameof(services));\n+            }\n+\n+            if (baseAddress == null)\n+            {\n+                throw new ArgumentNullException(nameof(baseAddress));\n+            }\n+\n+            var root = baseAddress.AbsoluteUri.EndsWith(\"/\", StringComparison.Ordinal) ? baseAddress : new Uri(baseAddress.AbsoluteUri + \"/\");\n+            services.AddHttpClient<Accounts.Directory.IDirectoryLookup, RemoteDirectoryLookup>(client => client.BaseAddress = root);\n+            services.AddTransient<IDirectoryLookupAsync>(provider => (RemoteDirectoryLookup)provider.GetRequiredService<Accounts.Directory.IDirectoryLookup>());\n+            return services;\n+        }\n+\n+        /// <summary>\n+        /// The switch, flipped per environment: <c>Remote:DirectoryLookup:Mode</c> = <c>remote</c> calls the host at\n+        /// <c>Remote:DirectoryLookup:Url</c>; anything else registers <paramref name=\"local\"/>.\n+        /// </summary>\n+        public static IServiceCollection AddDirectoryLookup(this IServiceCollection services, IConfiguration configuration, Func<IServiceProvider, Accounts.Directory.IDirectoryLookup> local)\n+        {\n+            if (configuration == null)\n+            {\n+                throw new ArgumentNullException(nameof(configuration));\n+            }\n+\n+            var section = configuration.GetSection(Section);\n+            if (string.Equals(section[\"Mode\"], \"remote\", StringComparison.OrdinalIgnoreCase))\n+            {\n+                var url = section[\"Url\"];\n+                if (string.IsNullOrEmpty(url))\n+                {\n+                    throw new InvalidOperationException(Section + \":Url is required when \" + Section + \":Mode is remote.\");\n+                }\n+\n+                return services.AddRemoteDirectoryLookup(new Uri(url, UriKind.Absolute));\n+            }\n+\n+            services.AddTransient(local);\n+            return services;\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Remote/IDirectoryLookupAsync.cs\n@@ -0,0 +1,14 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Remote\n+{\n+    using System.Threading;\n+    using System.Threading.Tasks;\n+\n+    /// <summary>The asynchronous form of <c>Accounts.Directory.IDirectoryLookup</c>: its calls cross the network, so callers should not block on them.</summary>\n+    public interface IDirectoryLookupAsync\n+    {\n+        Task<Accounts.Directory.DirectoryEntryInfo> FindUserAsync(string samAccountName, CancellationToken cancellationToken = default(CancellationToken));\n+\n+        Task<System.Collections.Generic.List<string>> GroupsOfAsync(string samAccountName, CancellationToken cancellationToken = default(CancellationToken));\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Remote/RemoteCall.cs\n@@ -0,0 +1,74 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Remote\n+{\n+    using System.Net.Http;\n+    using System.Text;\n+    using System.Text.Json;\n+    using System.Threading;\n+    using System.Threading.Tasks;\n+    using Accounts.Remote.Contracts;\n+\n+    /// <summary>POSTs a request as JSON (System.Text.Json, web defaults) and reads the answer; error statuses become <see cref=\"RemoteInvocationException\"/>.</summary>\n+    internal static class RemoteCall\n+    {\n+        private static readonly JsonSerializerOptions Options = new JsonSerializerOptions(JsonSerializerDefaults.Web);\n+\n+        public static async Task<TResponse> PostAsync<TRequest, TResponse>(HttpClient http, string route, TRequest request, CancellationToken cancellationToken)\n+        {\n+            var body = await SendAsync(http, route, request, cancellationToken).ConfigureAwait(false);\n+            return body.Length == 0 ? default(TResponse) : JsonSerializer.Deserialize<TResponse>(body, Options);\n+        }\n+\n+        public static async Task PostAsync<TRequest>(HttpClient http, string route, TRequest request, CancellationToken cancellationToken)\n+        {\n+            await SendAsync(http, route, request, cancellationToken).ConfigureAwait(false);\n+        }\n+\n+        private static async Task<string> SendAsync<TRequest>(HttpClient http, string route, TRequest request, CancellationToken cancellationToken)\n+        {\n+            using (var content = new StringContent(JsonSerializer.Serialize(request, Options), Encoding.UTF8, \"application/json\"))\n+            using (var response = await http.PostAsync(route, content, cancellationToken).ConfigureAwait(false))\n+            {\n+                var body = response.Content == null ? \"\" : await response.Content.ReadAsStringAsync().ConfigureAwait(false);\n+                if (!response.IsSuccessStatusCode)\n+                {\n+                    string title;\n+                    string detail;\n+                    Problem(body, out title, out detail);\n+                    throw new RemoteInvocationException(route, (int)response.StatusCode, title ?? response.ReasonPhrase, detail);\n+                }\n+\n+                return body;\n+            }\n+        }\n+\n+        /// <summary>The title and detail of a problem details body (or the message of an ASP.NET Web API error).</summary>\n+        private static void Problem(string body, out string title, out string detail)\n+        {\n+            title = null;\n+            detail = null;\n+            try\n+            {\n+                using (var document = JsonDocument.Parse(body))\n+                {\n+                    if (document.RootElement.ValueKind != JsonValueKind.Object)\n+                    {\n+                        return;\n+                    }\n+\n+                    title = Text(document.RootElement, \"title\") ?? Text(document.RootElement, \"message\") ?? Text(document.RootElement, \"Message\");\n+                    detail = Text(document.RootElement, \"detail\");\n+                }\n+            }\n+            catch (JsonException)\n+            {\n+            }\n+        }\n+\n+        private static string Text(JsonElement element, string name)\n+        {\n+            JsonElement value;\n+            return element.TryGetProperty(name, out value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Remote/RemoteDirectoryLookup.cs\n@@ -0,0 +1,51 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Remote\n+{\n+    using System;\n+    using System.Net.Http;\n+    using System.Threading;\n+    using System.Threading.Tasks;\n+\n+    /// <summary><c>Accounts.Directory.IDirectoryLookup</c> over HTTP: every call is a POST to the Windows host.</summary>\n+    public sealed class RemoteDirectoryLookup : Accounts.Directory.IDirectoryLookup, IDirectoryLookupAsync\n+    {\n+        private readonly HttpClient _http;\n+\n+        /// <param name=\"http\">A client whose base address is the host's (registered by <see cref=\"DirectoryLookupRegistration\"/>).</param>\n+        public RemoteDirectoryLookup(HttpClient http)\n+        {\n+            _http = http ?? throw new ArgumentNullException(nameof(http));\n+        }\n+\n+        /// <remarks>Blocks until the host answers (OFR4020); <see cref=\"FindUserAsync\"/> does not.</remarks>\n+        public Accounts.Directory.DirectoryEntryInfo FindUser(string samAccountName)\n+        {\n+            return FindUserAsync(samAccountName, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();\n+        }\n+\n+        public async Task<Accounts.Directory.DirectoryEntryInfo> FindUserAsync(string samAccountName, CancellationToken cancellationToken = default(CancellationToken))\n+        {\n+            var request = new Accounts.Remote.Contracts.FindUserRequest { SamAccountName = samAccountName };\n+            var response = await RemoteCall.PostAsync<Accounts.Remote.Contracts.FindUserRequest, Accounts.Remote.Contracts.DirectoryEntryInfoDto>(_http, Accounts.Remote.Contracts.DirectoryLookupRoutes.FindUser, request, cancellationToken).ConfigureAwait(false);\n+            return DirectoryLookupMapping.FromWire(response);\n+        }\n+\n+        /// <remarks>Blocks until the host answers (OFR4020); <see cref=\"GroupsOfAsync\"/> does not.</remarks>\n+        public System.Collections.Generic.List<string> GroupsOf(string samAccountName)\n+        {\n+            return GroupsOfAsync(samAccountName, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();\n+        }\n+\n+        public async Task<System.Collections.Generic.List<string>> GroupsOfAsync(string samAccountName, CancellationToken cancellationToken = default(CancellationToken))\n+        {\n+            var request = new Accounts.Remote.Contracts.GroupsOfRequest { SamAccountName = samAccountName };\n+            var response = await RemoteCall.PostAsync<Accounts.Remote.Contracts.GroupsOfRequest, System.Collections.Generic.List<string>>(_http, Accounts.Remote.Contracts.DirectoryLookupRoutes.GroupsOf, request, cancellationToken).ConfigureAwait(false);\n+            return DirectoryLookupMapping.MapList(response, e0 => e0);\n+        }\n+\n+        public void Watch(System.Action<string> onChange)\n+        {\n+            throw new NotSupportedException(\"Watch does not cross the remote boundary (offramp remote --skip-member Watch).\");\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Windows.Host/Accounts.Windows.Host.csproj\n@@ -0,0 +1,27 @@\n+<Project Sdk=\"Microsoft.NET.Sdk.Web\">\n+  <!-- Generated by offramp remote: runs Accounts.Directory.DirectoryLookup on Windows behind Accounts.Directory.IDirectoryLookup over HTTP. -->\n+  <PropertyGroup>\n+    <TargetFramework>net10.0-windows</TargetFramework>\n+    <!-- Builds on Linux and macOS too; it runs on Windows. -->\n+    <EnableWindowsTargeting>true</EnableWindowsTargeting>\n+    <Nullable>disable</Nullable>\n+    <ImplicitUsings>disable</ImplicitUsings>\n+    <RootNamespace>Accounts.Windows.Host</RootNamespace>\n+  </PropertyGroup>\n+\n+  <ItemGroup>\n+    <PackageReference Include=\"Microsoft.Windows.Compatibility\" Version=\"10.0.12\" />\n+  </ItemGroup>\n+\n+  <ItemGroup>\n+    <ProjectReference Include=\"..\\Accounts.Remote.Contracts\\Accounts.Remote.Contracts.csproj\" />\n+  </ItemGroup>\n+\n+  <!-- The implementation and the files it uses, compiled from src/Accounts/Accounts.csproj until they move to a project of their own. -->\n+  <ItemGroup>\n+    <Compile Include=\"..\\Accounts\\Directory\\DirectoryCache.cs\" Link=\"Implementation\\Directory\\DirectoryCache.cs\" />\n+    <Compile Include=\"..\\Accounts\\Directory\\DirectoryEntryInfo.cs\" Link=\"Implementation\\Directory\\DirectoryEntryInfo.cs\" />\n+    <Compile Include=\"..\\Accounts\\Directory\\DirectoryLookup.cs\" Link=\"Implementation\\Directory\\DirectoryLookup.cs\" />\n+    <Compile Include=\"..\\Accounts\\Directory\\IDirectoryLookup.cs\" Link=\"Implementation\\Directory\\IDirectoryLookup.cs\" />\n+  </ItemGroup>\n+</Project>\n--- /dev/null\n+++ b/src/Accounts.Windows.Host/DirectoryLookupEndpoints.cs\n@@ -0,0 +1,22 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Windows.Host\n+{\n+    using System.Threading;\n+    using Microsoft.AspNetCore.Builder;\n+    using Microsoft.AspNetCore.Http;\n+    using Microsoft.AspNetCore.Mvc;\n+    using Microsoft.AspNetCore.Routing;\n+\n+    /// <summary>The routes of <c>Accounts.Directory.IDirectoryLookup</c>: each POST calls the implementation.</summary>\n+    public static class DirectoryLookupEndpoints\n+    {\n+        public static IEndpointRouteBuilder Map(IEndpointRouteBuilder endpoints)\n+        {\n+            endpoints.MapPost(Accounts.Remote.Contracts.DirectoryLookupRoutes.FindUser, ([FromBody] Accounts.Remote.Contracts.FindUserRequest request, [FromServices] Accounts.Directory.IDirectoryLookup service) =>\n+                Results.Json(DirectoryLookupMapping.ToWire(service.FindUser(request.SamAccountName))));\n+            endpoints.MapPost(Accounts.Remote.Contracts.DirectoryLookupRoutes.GroupsOf, ([FromBody] Accounts.Remote.Contracts.GroupsOfRequest request, [FromServices] Accounts.Directory.IDirectoryLookup service) =>\n+                Results.Json(DirectoryLookupMapping.MapList(service.GroupsOf(request.SamAccountName), e0 => e0)));\n+            return endpoints;\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Windows.Host/DirectoryLookupMapping.cs\n@@ -0,0 +1,61 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+namespace Accounts.Windows.Host\n+{\n+    using System;\n+    using System.Collections.Generic;\n+    using System.Linq;\n+\n+    /// <summary>Converts between the types of <c>Accounts.Directory.IDirectoryLookup</c> and their copies in Accounts.Remote.Contracts.</summary>\n+    internal static class DirectoryLookupMapping\n+    {\n+        public static Accounts.Remote.Contracts.DirectoryEntryInfoDto ToWire(Accounts.Directory.DirectoryEntryInfo value)\n+        {\n+            if (value == null)\n+            {\n+                return null;\n+            }\n+\n+            return new Accounts.Remote.Contracts.DirectoryEntryInfoDto\n+            {\n+                SamAccountName = value.SamAccountName,\n+                DisplayName = value.DisplayName,\n+                Email = value.Email,\n+            };\n+        }\n+\n+        public static Accounts.Directory.DirectoryEntryInfo FromWire(Accounts.Remote.Contracts.DirectoryEntryInfoDto value)\n+        {\n+            if (value == null)\n+            {\n+                return null;\n+            }\n+\n+            return new Accounts.Directory.DirectoryEntryInfo\n+            {\n+                SamAccountName = value.SamAccountName,\n+                DisplayName = value.DisplayName,\n+                Email = value.Email,\n+            };\n+        }\n+\n+        public static List<TOut> MapList<TIn, TOut>(IEnumerable<TIn> source, Func<TIn, TOut> map)\n+        {\n+            return source == null ? null : source.Select(map).ToList();\n+        }\n+\n+        public static TOut[] MapArray<TIn, TOut>(IEnumerable<TIn> source, Func<TIn, TOut> map)\n+        {\n+            return source == null ? null : source.Select(map).ToArray();\n+        }\n+\n+        public static HashSet<TOut> MapSet<TIn, TOut>(IEnumerable<TIn> source, Func<TIn, TOut> map)\n+        {\n+            return source == null ? null : new HashSet<TOut>(source.Select(map));\n+        }\n+\n+        public static Dictionary<string, TOut> MapDictionary<TIn, TOut>(IEnumerable<KeyValuePair<string, TIn>> source, Func<TIn, TOut> map)\n+        {\n+            return source == null ? null : source.ToDictionary(pair => pair.Key, pair => map(pair.Value));\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Accounts.Windows.Host/Dockerfile\n@@ -0,0 +1,15 @@\n+# Generated by offramp remote. Build from the repository root on a Windows container host:\n+#   docker build -f src/Accounts.Windows.Host/Dockerfile -t accounts-windows-host .\n+# Nano Server lacks some Windows components (the Active Directory client, GDI+, COM servers);\n+# if the implementation needs them, use the windowsservercore-ltsc2022 tags for both images.\n+FROM mcr.microsoft.com/dotnet/sdk:10.0-nanoserver-ltsc2022 AS build\n+WORKDIR /src\n+COPY . .\n+RUN dotnet publish src/Accounts.Windows.Host/Accounts.Windows.Host.csproj -c Release -o /app\n+\n+FROM mcr.microsoft.com/dotnet/aspnet:10.0-nanoserver-ltsc2022\n+WORKDIR /app\n+COPY --from=build /app .\n+ENV ASPNETCORE_HTTP_PORTS=8080\n+EXPOSE 8080\n+ENTRYPOINT [\"dotnet\", \"Accounts.Windows.Host.dll\"]\n--- /dev/null\n+++ b/src/Accounts.Windows.Host/Program.cs\n@@ -0,0 +1,24 @@\n+// <auto-generated>Generated by offramp remote. Regenerate instead of editing, or delete this header to take ownership.</auto-generated>\n+using Microsoft.AspNetCore.Builder;\n+using Microsoft.AspNetCore.Http;\n+using Microsoft.Extensions.DependencyInjection;\n+using Microsoft.Extensions.Logging;\n+\n+var builder = WebApplication.CreateBuilder(args);\n+builder.Logging.ClearProviders();\n+builder.Logging.AddJsonConsole();\n+builder.Services.AddProblemDetails();\n+\n+// A new implementation per request, as callers that create it with new get one.\n+builder.Services.AddScoped<Accounts.Directory.IDirectoryLookup, Accounts.Directory.DirectoryLookup>();\n+\n+var app = builder.Build();\n+app.UseExceptionHandler();\n+app.MapGet(\"/health\", () => Results.Ok(new { status = \"healthy\" }));\n+Accounts.Windows.Host.DirectoryLookupEndpoints.Map(app);\n+app.Run();\n+\n+/// <summary>The entry point; public so that tests can host it with WebApplicationFactory.</summary>\n+public partial class Program\n+{\n+}\n--- /dev/null\n+++ b/src/Accounts.Windows.Host/appsettings.json\n@@ -0,0 +1,9 @@\n+{\n+  \"Logging\": {\n+    \"LogLevel\": {\n+      \"Default\": \"Information\",\n+      \"Microsoft.AspNetCore\": \"Warning\"\n+    }\n+  },\n+  \"AllowedHosts\": \"*\"\n+}\n--- /dev/null\n+++ b/src/Accounts.Windows.Host/kubernetes.yaml\n@@ -0,0 +1,47 @@\n+# Generated by offramp remote: Accounts.Windows.Host on Windows nodes, behind a Service the clients call.\n+apiVersion: apps/v1\n+kind: Deployment\n+metadata:\n+  name: accounts-windows-host\n+  labels:\n+    app: accounts-windows-host\n+spec:\n+  replicas: 1\n+  selector:\n+    matchLabels:\n+      app: accounts-windows-host\n+  template:\n+    metadata:\n+      labels:\n+        app: accounts-windows-host\n+    spec:\n+      nodeSelector:\n+        kubernetes.io/os: windows\n+      containers:\n+        - name: host\n+          image: accounts-windows-host:latest\n+          ports:\n+            - containerPort: 8080\n+          resources:\n+            requests:\n+              cpu: 250m\n+              memory: 256Mi\n+            limits:\n+              memory: 1Gi\n+          readinessProbe:\n+            httpGet:\n+              path: /health\n+              port: 8080\n+            initialDelaySeconds: 10\n+            periodSeconds: 10\n+---\n+apiVersion: v1\n+kind: Service\n+metadata:\n+  name: accounts-windows-host\n+spec:\n+  selector:\n+    app: accounts-windows-host\n+  ports:\n+    - port: 80\n+      targetPort: 8080\n"
+  },
+  "diagnostics": [
+    {
+      "code": "OFR4020",
+      "severity": "warning",
+      "message": "IDirectoryLookup.FindUser is synchronous: the client blocks on the HTTP call. IDirectoryLookupAsync.FindUserAsync does not.",
+      "project": "src/Accounts/Accounts.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "member": "FindUser"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR4020"
+    },
+    {
+      "code": "OFR4020",
+      "severity": "warning",
+      "message": "IDirectoryLookup.GroupsOf is synchronous: the client blocks on the HTTP call. IDirectoryLookupAsync.GroupsOfAsync does not.",
+      "project": "src/Accounts/Accounts.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "member": "GroupsOf"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR4020"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 2,
+    "info": 0
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/extract-interface.json",
+  "title": "offramp extract interface result",
+  "description": "The result of `offramp extract interface`. See docs/spec/commands/seams.md#extract-interface.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "type", "interface", "file", "members", "callers", "directInstantiations", "registration", "applied", "journal", "preview"],
+  "properties": {
+    "project": { "type": "string" },
+    "type": { "type": "string", "description": "The concrete type, fully qualified." },
+    "interface": { "type": "string", "description": "The generated interface, fully qualified." },
+    "file": { "$ref": "workspace.json#/$defs/relativePath", "description": "The new interface file, next to the type." },
+    "members": { "type": "array", "items": { "type": "string" }, "description": "The members on the interface, as C# declares them." },
+    "callers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "file", "changes"],
+        "properties": {
+          "type": { "type": "string" },
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "changes": { "type": "array", "items": { "type": "string" }, "description": "Constructor parameters, fields, and properties retyped to the interface." }
+        }
+      }
+    },
+    "directInstantiations": {
+      "type": "array",
+      "description": "Callers that create the concrete type with new (OFR4010); left as they are.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "file", "line"],
+        "properties": {
+          "type": { "type": "string" },
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "line": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "registration": { "type": ["string", "null"], "description": "The container registration to add; null for --di none." },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/remote.json",
+  "title": "offramp remote result",
+  "description": "The result of `offramp remote`. See docs/spec/commands/seams.md#remote.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "interface", "implementation", "hostFramework", "hostFrameworkReason", "transport", "serializer", "members", "dtos", "projects", "linkedSources", "files", "registration", "nextSteps", "applied", "journal", "preview"],
+  "properties": {
+    "project": { "type": "string", "description": "The project that declares the interface and the implementation." },
+    "interface": { "type": "string" },
+    "implementation": { "type": ["string", "null"] },
+    "hostFramework": { "enum": ["net10.0-windows", "net48", null], "description": "Null when nothing was generated." },
+    "hostFrameworkReason": { "type": ["string", "null"], "description": "The choice, or what the net10.0-windows trial compilation found." },
+    "transport": { "const": "http-json" },
+    "serializer": { "enum": ["stj", "newtonsoft"] },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "signature", "route", "status", "sync", "problems"],
+        "properties": {
+          "name": { "type": "string" },
+          "signature": { "type": "string" },
+          "route": { "type": ["string", "null"], "description": "/Interface/Member; null for members that do not cross." },
+          "status": { "enum": ["remote", "skipped", "blocked"] },
+          "sync": { "type": "boolean", "description": "Synchronous: the client blocks on the call (OFR4020)." },
+          "problems": { "type": "array", "items": { "type": "string" }, "description": "Why the member cannot cross the wire (OFR4002)." }
+        }
+      }
+    },
+    "dtos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "dto"],
+        "properties": {
+          "type": { "type": "string" },
+          "dto": { "type": "string" }
+        }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "path", "targetFrameworks"],
+        "properties": {
+          "role": { "enum": ["contracts", "client", "host"] },
+          "path": { "$ref": "workspace.json#/$defs/relativePath" },
+          "targetFrameworks": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "linkedSources": { "$ref": "workspace.json#/$defs/pathList" },
+    "files": { "$ref": "workspace.json#/$defs/pathList" },
+    "registration": { "type": ["string", "null"], "description": "The DI switch to call where the application registers services." },
+    "nextSteps": { "type": "array", "items": { "type": "string" } },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  }
+}

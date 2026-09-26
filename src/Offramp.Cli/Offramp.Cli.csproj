@@ -30,6 +30,7 @@
     <ProjectReference Include="..\Offramp.NuGet\Offramp.NuGet.csproj" />
     <ProjectReference Include="..\Offramp.Analysis\Offramp.Analysis.csproj" />
     <ProjectReference Include="..\Offramp.Refactoring\Offramp.Refactoring.csproj" />
+    <ProjectReference Include="..\Offramp.Scaffolding\Offramp.Scaffolding.csproj" />
   </ItemGroup>
 
   <ItemGroup>

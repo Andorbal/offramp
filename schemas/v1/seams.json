@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/seams.json",
+  "title": "offramp seams result",
+  "description": "The result of `offramp seams`. See docs/spec/commands/seams.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "unportableFrom", "tainted", "partitions", "seams", "extraction", "types", "edges"],
+  "properties": {
+    "project": { "$ref": "workspace.json#/$defs/relativePath" },
+    "unportableFrom": { "enum": ["audit", "list"] },
+    "tainted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "reason", "loc"],
+        "properties": {
+          "type": { "type": "string" },
+          "reason": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "loc": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "partitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "types", "loc"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "types": { "type": "array", "items": { "type": "string" } },
+          "loc": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "seams": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "boundaryType", "callers", "members", "proposedInterface", "score", "articulationPoint"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^seam-[0-9]+$" },
+          "boundaryType": { "type": "string" },
+          "callers": { "type": "array", "items": { "type": "string" } },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["signature", "callSites", "wireFriendly", "static", "problems"],
+              "properties": {
+                "signature": { "type": "string" },
+                "callSites": { "type": "integer", "minimum": 1 },
+                "wireFriendly": { "type": "boolean" },
+                "static": { "type": "boolean" },
+                "problems": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "proposedInterface": { "type": "string" },
+          "score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "articulationPoint": { "type": "boolean" }
+        }
+      }
+    },
+    "extraction": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["moveToProject", "types", "estimatedLoc"],
+      "properties": {
+        "moveToProject": { "type": "string" },
+        "types": { "type": "array", "items": { "type": "string" } },
+        "estimatedLoc": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "types": { "type": "array", "items": { "type": "string" }, "description": "Every type of the project." },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "weight", "cut"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "weight": { "type": "integer", "minimum": 1, "description": "Members of `from` that reference `to`." },
+          "cut": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

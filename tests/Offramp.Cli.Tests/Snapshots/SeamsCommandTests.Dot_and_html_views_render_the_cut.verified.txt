@@ -1,0 +1,20 @@
+﻿src/Accounts/Accounts.csproj: 3 types cannot port (59 lines); 1 seam.
+  ✗ Accounts.Directory.CachedDirectoryLookup (inherits Accounts.Directory.DirectoryLookup)
+  ✗ Accounts.Directory.DirectoryCache (System.DirectoryServices.DirectoryEntry)
+  ✗ Accounts.Directory.DirectoryLookup (System.DirectoryServices.DirectorySearcher;
+System.DirectoryServices.SearchResult)
+seam-1 IDirectoryLookup on Accounts.Directory.DirectoryLookup (score 0.38, articulation point; callers
+Accounts.Auth.LoginHandler, Accounts.Users.UserService)
+    Accounts.Directory.DirectoryEntryInfo FindUser(string samAccountName) ×2
+    System.Collections.Generic.List<string> GroupsOf(string samAccountName) ×1
+    static bool IsAvailable() ×1 static
+    void Watch(System.Action<string> onChange) ×1 not wire-friendly
+Extract to Accounts.Windows: Accounts.Directory.CachedDirectoryLookup, Accounts.Directory.DirectoryCache,
+Accounts.Directory.DirectoryLookup
+
+! OFR4002 src/Accounts/Accounts.csproj Accounts.Directory.DirectoryLookup: void Watch(System.Action<string> onChange) is
+not wire-friendly ('onChange': System.Action<string> is a delegate).
+! OFR4003 src/Accounts/Accounts.csproj Accounts.Directory.DirectoryLookup: static bool IsAvailable() is static; an
+interface needs an instance wrapper for it.
+
+2 warning(s)

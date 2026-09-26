@@ -1,0 +1,173 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "extract interface",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "Seams.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "list"
+        ],
+        "unportableSymbols": [
+          "System.DirectoryServices"
+        ]
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "project": "src/Accounts/Accounts.csproj",
+    "type": "Accounts.Directory.DirectoryLookup",
+    "interface": "Accounts.Directory.IDirectoryLookup",
+    "file": "src/Accounts/Directory/IDirectoryLookup.cs",
+    "members": [
+      "Accounts.Directory.DirectoryEntryInfo FindUser(string samAccountName)",
+      "System.Collections.Generic.List<string> GroupsOf(string samAccountName)",
+      "void Watch(System.Action<string> onChange)"
+    ],
+    "callers": [
+      {
+        "type": "Accounts.Users.UserService",
+        "file": "src/Accounts/Users/UserService.cs",
+        "changes": [
+          "field '_lookup': DirectoryLookup → IDirectoryLookup",
+          "constructor parameter 'lookup': DirectoryLookup → IDirectoryLookup"
+        ]
+      }
+    ],
+    "directInstantiations": [
+      {
+        "type": "Accounts.Auth.LoginHandler",
+        "file": "src/Accounts/Auth/LoginHandler.cs",
+        "line": 15
+      }
+    ],
+    "registration": "services.AddSingleton<Accounts.Directory.IDirectoryLookup, Accounts.Directory.DirectoryLookup>();",
+    "applied": false,
+    "journal": null,
+    "preview": "--- /dev/null\n+++ b/src/Accounts/Directory/IDirectoryLookup.cs\n@@ -0,0 +1,12 @@\n+namespace Accounts.Directory\n+{\n+    /// <summary>The members of <see cref=\"DirectoryLookup\"/> its callers use (offramp extract interface).</summary>\n+    public interface IDirectoryLookup\n+    {\n+        Accounts.Directory.DirectoryEntryInfo FindUser(string samAccountName);\n+\n+        System.Collections.Generic.List<string> GroupsOf(string samAccountName);\n+\n+        void Watch(System.Action<string> onChange);\n+    }\n+}\n--- a/src/Accounts/Directory/DirectoryLookup.cs\n+++ b/src/Accounts/Directory/DirectoryLookup.cs\n@@ -5,7 +5,7 @@\n namespace Accounts.Directory\n {\n     /// <summary>Active Directory access: the part that stays on Windows.</summary>\n-    public class DirectoryLookup\n+    public class DirectoryLookup : IDirectoryLookup\n     {\n         private readonly DirectoryCache _cache = new DirectoryCache();\n \n--- a/src/Accounts/Users/UserService.cs\n+++ b/src/Accounts/Users/UserService.cs\n@@ -6,9 +6,9 @@\n     /// <summary>Takes its directory through the constructor.</summary>\n     public sealed class UserService\n     {\n-        private readonly DirectoryLookup _lookup;\n+        private readonly IDirectoryLookup _lookup;\n \n-        public UserService(DirectoryLookup lookup)\n+        public UserService(IDirectoryLookup lookup)\n         {\n             _lookup = lookup;\n         }\n"
+  },
+  "diagnostics": [
+    {
+      "code": "OFR4003",
+      "severity": "warning",
+      "message": "static bool IsAvailable() stays on DirectoryLookup: an interface cannot declare a static member used this way.",
+      "project": "src/Accounts/Accounts.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4003"
+    },
+    {
+      "code": "OFR4010",
+      "severity": "warning",
+      "message": "Accounts.Auth.LoginHandler creates DirectoryLookup with new; inject IDirectoryLookup instead so the implementation can change.",
+      "project": "src/Accounts/Accounts.csproj",
+      "file": "src/Accounts/Auth/LoginHandler.cs",
+      "line": 15,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4010"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 2,
+    "info": 0
+  }
+}
