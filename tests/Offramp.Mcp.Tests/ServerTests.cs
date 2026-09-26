@@ -43,17 +43,13 @@ public sealed class ServerTests
             Assert.Equal("echo", tool.Name);
             Assert.Equal("string", tool.JsonSchema.GetProperty("properties").GetProperty("word").GetProperty("type").GetString());
 
-            var progress = new List<ProgressNotificationValue>();
-            var result = await client.CallToolAsync("echo", new Dictionary<string, object?> { ["word"] = "hello" }, new Collect(progress), cancellationToken: TestContext.Current.CancellationToken);
+            await using var listener = new ProgressListener(client);
+            var result = await client.CallToolAsync("echo", new Dictionary<string, object?> { ["word"] = "hello" }, listener, cancellationToken: TestContext.Current.CancellationToken);
             var unknown = await client.CallToolAsync("nope", cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.NotEqual(true, result.IsError);
             Assert.Equal(["hello", "second block"], result.Content.OfType<TextContentBlock>().Select(c => c.Text));
-            for (var i = 0; i < 50 && progress.Count < 2; i++)
-            {
-                await Task.Delay(20, TestContext.Current.CancellationToken);
-            }
-
+            var progress = await listener.WaitAsync(p => p.Count >= 2, TestContext.Current.CancellationToken);
             Assert.Equal(["done", "half"], progress.Select(p => p.Message).Order(StringComparer.Ordinal));
             Assert.True(unknown.IsError);
             Assert.Contains("offramp_help", unknown.Content.OfType<TextContentBlock>().Single().Text, StringComparison.Ordinal);
@@ -73,17 +69,6 @@ public sealed class ServerTests
         }
         catch (OperationCanceledException)
         {
-        }
-    }
-
-    private sealed class Collect(List<ProgressNotificationValue> values) : IProgress<ProgressNotificationValue>
-    {
-        public void Report(ProgressNotificationValue value)
-        {
-            lock (values)
-            {
-                values.Add(value);
-            }
         }
     }
 }

@@ -65,14 +65,15 @@ public sealed class McpServeTests
         var help = await client.CallToolAsync("offramp_help", cancellationToken: TestContext.Current.CancellationToken);
         Assert.Contains("offramp_scan", Text(help), StringComparison.Ordinal);
 
-        var progress = new List<ProgressNotificationValue>();
-        var result = await client.CallToolAsync("offramp_deps_audit", new Dictionary<string, object?>(), new SyncProgress(progress), cancellationToken: TestContext.Current.CancellationToken);
+        await using var listener = new ProgressListener(client);
+        var result = await client.CallToolAsync("offramp_deps_audit", new Dictionary<string, object?>(), listener, cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(result.IsError != true, Text(result) + string.Join('\n', stderr));
         var envelope = Text(result);
         SchemaAssert.ValidEnvelope(envelope, "deps-audit");
         Assert.Equal("deps audit", JsonNode.Parse(envelope)!["offramp"]!["command"]!.GetValue<string>());
+        var progress = await listener.WaitAsync(p => p.Count > 0 && p.Max(v => v.Progress) == p.Count, TestContext.Current.CancellationToken);
         Assert.NotEmpty(progress);
-        // Numbered 1..n without gaps or repeats (the client may deliver notifications concurrently, so arrival order is not checked).
+        // Numbered 1..n without gaps or repeats (the client handles notifications concurrently, so arrival order is not checked).
         Assert.Equal(Enumerable.Range(1, progress.Count).Select(i => (float)i), progress.Select(p => p.Progress).Order());
 
         var init = await client.CallToolAsync("offramp_init", new Dictionary<string, object?> { ["defaults"] = true, ["force"] = true, ["apply"] = true },
@@ -108,16 +109,4 @@ public sealed class McpServeTests
     }
 
     private static string Text(CallToolResult result) => result.Content.OfType<TextContentBlock>().First().Text;
-
-    /// <summary>Records reports on the calling thread, in order (Progress&lt;T&gt; posts to the thread pool).</summary>
-    private sealed class SyncProgress(List<ProgressNotificationValue> values) : IProgress<ProgressNotificationValue>
-    {
-        public void Report(ProgressNotificationValue value)
-        {
-            lock (values)
-            {
-                values.Add(value);
-            }
-        }
-    }
 }
