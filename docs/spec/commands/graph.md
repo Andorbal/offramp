@@ -13,18 +13,41 @@ offramp graph [--format json|dot|mermaid|html] [--out PATH]
 
 ## Data (`--format json`)
 
+The graph document (`schemas/v1/graph-document.json`); the HTML page embeds the
+same JSON in `<script type="application/json" id="offramp-graph">`.
+
 ```jsonc
 {
   "nodes": [
     { "id": "src/Foo/Foo.csproj", "name": "Foo", "kind": "library", "frameworkClass": "dual",
       "targetFrameworks": ["net48","net10.0"], "loc": 18234, "packageCount": 12,
-      "readiness": "ready|blocked|done", "blockers": ["src/Legacy/Legacy.csproj"], "directory": "src" }
+      "readiness": "ready|blocked|done", "blockers": ["src/Legacy/Legacy.csproj"],
+      "dependents": 7,                  // transitive, in the whole model
+      "directory": "src",               // parent of the project's folder; "." near the root
+      "cluster": null,                  // directory or kind with --cluster, else null
+      "inCycle": false }
   ],
   "edges": [ { "from": "src/Foo/Foo.csproj", "to": "src/Bar/Bar.csproj", "kind": "project|assembly" } ],
   "cycles": [ ["src/A/A.csproj","src/B/B.csproj"] ],
-  "legend": { "frameworkClass": { "framework": "#E07A1F", "standard": "#2B6CB0", "modern": "#2F855A", "dual": "#2C7A7B" } }
+  "legend": { "frameworkClass": { "framework": "#E07A1F", "standard": "#2B6CB0", "modern": "#2F855A", "dual": "#2C7A7B" },
+              "kind": { "library": "rounded box", ... }, "edge": { ... }, "cycle": "#C53030" },
+  "highlight": { "mode": "cycles|frontier|blockers|none", "nodes": [ ... ] },
+  "view": { "includeKinds": [], "excludeKinds": ["test"], "focus": null, "depth": null,
+            "direction": "both", "cluster": "none", "highlight": "cycles", "edges": "all" }
 }
 ```
+
+Readiness: `done` for standard, modern, and dual projects; a framework-only
+project is `blocked` by every framework-only project it depends on, directly or
+transitively, and `ready` when there is none. Readiness, blockers, and
+dependents always come from the whole model, so a filtered view never hides why
+a project is blocked, and cycles stay listed even when `--edges project` hides
+the edges that form them (`docs/decisions/0013-graph-views.md`).
+
+The command's envelope result (`schemas/v1/graph.json`) is
+`{ format, output, graph, content }`: the format (null when none was asked for),
+the file written, the document above, and the rendering when it was not written
+to a file.
 
 `kind: assembly` edges are references by `HintPath` to another project's
 output; they are how cycles hide in legacy solutions. `--edges project` omits
@@ -58,12 +81,23 @@ them.
 
 ## Options
 
-- `--focus PROJECT --depth N --direction`: subgraph around a project.
+- `--format` is inferred from `--out`'s extension (`.json`, `.dot`/`.gv`,
+  `.mmd`, `.html`) when omitted; an unknown extension is a usage error. With a
+  format and no `--out`, stdout carries exactly the document (diagnostics go to
+  stderr), so `offramp graph --format dot | dot -Tsvg` works. `--out` receives
+  the rendering itself, not the envelope; `--json` puts the rendering in the
+  envelope's `content` when there is no `--out`. Without a format, the human view
+  is a summary by framework class with the projects blocking the most dependents.
+- `--focus PROJECT --depth N --direction`: subgraph around a project (a path or
+  a unique name; unknown is `OFR0021`). `--depth` needs `--focus`; without it the
+  walk is unlimited.
 - `--exclude-kind test` is the common stakeholder view; `--include-kind`
-  is the inverse whitelist.
-- `--highlight frontier` marks projects portable today; `blockers` marks the
-  `framework`-only projects with the most dependents (the ones whose porting
-  unlocks the most).
+  is the inverse whitelist; when both are given, exclusion wins.
+- `--highlight frontier` marks projects portable today (`ready`); `blockers`
+  marks the ten framework-only projects that block the most others (the ones
+  whose porting unlocks the most); `cycles` (the default) marks cycle members.
+- `--cluster directory|kind` groups nodes (DOT clusters, Mermaid subgraphs, HTML
+  bands).
 
 ## Acceptance
 
