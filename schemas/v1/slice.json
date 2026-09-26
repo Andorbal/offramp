@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/slice.json",
+  "title": "offramp slice result",
+  "description": "The result of `offramp slice`. See docs/spec/commands/workspace.md#slice.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["for", "solution", "projects", "counts", "format", "output", "content"],
+  "properties": {
+    "for": { "type": "array", "items": { "type": "string" } },
+    "solution": { "type": "string" },
+    "projects": { "type": "array", "items": { "type": "string" } },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested", "dependencies", "dependents", "tests", "total"],
+      "properties": {
+        "requested": { "type": "integer" }, "dependencies": { "type": "integer" }, "dependents": { "type": "integer" },
+        "tests": { "type": "integer" }, "total": { "type": "integer" }
+      }
+    },
+    "format": { "enum": ["slnf", "slngen"] },
+    "output": { "type": ["string", "null"] },
+    "content": { "type": "string" }
+  }
+}

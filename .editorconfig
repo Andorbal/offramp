@@ -94,6 +94,7 @@ dotnet_diagnostic.CA1055.severity = none       # URI return values as string
 dotnet_diagnostic.CA1308.severity = none       # ToLowerInvariant is intended for identifiers
 dotnet_diagnostic.CA1720.severity = none       # identifiers like Pointer/Guid describe JSON fields
 dotnet_diagnostic.CA1000.severity = none       # static factories on generic result types read well
+dotnet_diagnostic.CA1826.severity = none       # FirstOrDefault on lists reads better than index checks
 
 [tests/**.cs]
 dotnet_diagnostic.CA1707.severity = none       # underscores in test names

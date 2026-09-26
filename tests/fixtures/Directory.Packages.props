@@ -1,0 +1,6 @@
+<Project>
+  <!-- Fixtures manage package versions in their own project files unless a fixture opts in. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

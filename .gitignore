@@ -46,6 +46,8 @@ CodeCoverage/
 
 # MSBuild Binary and Structured Log
 *.binlog
+# ...except logs committed as test fixtures (captured once, scanned by tests)
+!tests/fixtures/**/*.binlog
 
 # MSTest test Results
 [Tt]est[Rr]esult*/

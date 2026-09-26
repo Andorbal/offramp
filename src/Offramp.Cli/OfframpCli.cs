@@ -18,6 +18,8 @@ public static class OfframpCli
 
         root.Subcommands.Add(DoctorCommand.Create(host, globals));
         root.Subcommands.Add(InitCommand.Create(host, globals));
+        root.Subcommands.Add(ScanCommand.Create(host, globals));
+        root.Subcommands.Add(SliceCommand.Create(host, globals));
         globals.AddValidators(root);
 
         var version = root.Options.OfType<VersionOption>().Single();

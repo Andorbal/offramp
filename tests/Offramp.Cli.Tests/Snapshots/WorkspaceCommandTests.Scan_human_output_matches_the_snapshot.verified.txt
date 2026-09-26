@@ -1,0 +1,39 @@
+﻿Scanned 2 projects (18 lines): 2 framework, 0 standard, 0 modern, 0 dual.
+
+■ framework        2
+■ standard         0
+■ modern           0
+■ dual             0
+Kinds: 2 library
+
+Windows-only build steps:
+  src/Database/Database.sqlproj: ssdt
+  src/Office/Office.csproj: com
+  src/Soap/Soap.csproj: sgen, entity-deploy, t4, fakes, build-event
+
+Model: .offramp/workspace.json  Ledger: .offramp/ledger/2026-09-25-bd7acf72.json
+
+✗ OFR0130 The build failed with 2 error(s); the model is partial. First: Microsoft.Common.CurrentVersion.targets(3084):
+MSB4803: The task "ResolveComReference" is not supported on the .NET Core version of MSBuild. Please use the .NET
+Framework version of MSBuild. See https://aka.ms/msbuild/MSB4803 for further details.;
+Microsoft.Common.CurrentVersion.targets(3983): MSB3474: The task "SGen" is not supported on the .NET Core version of
+MSBuild. Use the Microsoft XML Serializer Generator package instead. See https://go.microsoft.com/fwlink/?linkid=858594
+for more information.
+! OFR0101 src/Database/Database.sqlproj Not loaded: unsupported project type (.sqlproj).
+! OFR0104 src/Office/Office.csproj src/Office/obj/project.assets.json does not exist; restore the solution to include
+resolved packages.
+! OFR0104 src/Soap/Soap.csproj src/Soap/obj/project.assets.json does not exist; restore the solution to include resolved
+packages.
+! OFR0110 src/Soap/Soap.csproj Needs Windows to build: GenerateSerializationAssemblies=On.
+! OFR0111 src/Office/Office.csproj Needs Windows to build: COMReference Scripting.
+! OFR0112 src/Soap/Soap.csproj Needs Windows to build: EntityDeploy Model.edmx.
+! OFR0113 src/Soap/Soap.csproj Needs Windows to build: Fakes Fakes/System.fakes.
+! OFR0113 src/Soap/Soap.csproj Needs Windows to build: TransformOnBuild=true.
+! OFR0114 src/Database/Database.sqlproj Needs Windows to build: SQL Server Database Project (.sqlproj).
+! OFR0115 src/Soap/Soap.csproj Needs Windows to build: PostBuildEvent: signtool.exe sign /a "".
+! OFR0132 The binary log was captured in another location, so it cannot be converted to a compiler log here. Create the
+compiler log where the log was built (`complog create`) and pass it with --complog.
+· OFR0016 No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.
+
+1 error(s), 11 warning(s), 1 info
+Next: offramp doctor --fix

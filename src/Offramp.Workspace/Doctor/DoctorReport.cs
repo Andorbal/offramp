@@ -63,4 +63,7 @@ public sealed record DoctorReport
     public required DoctorEnvironment Environment { get; init; }
 
     public required DoctorSummary Summary { get; init; }
+
+    /// <summary>The compile-only fix with <c>--fix</c>; null otherwise.</summary>
+    public CompileOnlyFix? Fix { get; init; }
 }

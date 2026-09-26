@@ -1,8 +1,14 @@
 using System.Text.Json.Nodes;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
+using Offramp.Core.Model;
+using Offramp.Core.Output;
 using Offramp.Core.Paths;
+using Offramp.Workspace.Cpm;
 using Offramp.Workspace.Environment;
+using Offramp.Workspace.Ingest;
+using Offramp.Workspace.Init;
+using Offramp.Workspace.Store;
 
 namespace Offramp.Workspace.Doctor;
 
@@ -45,10 +51,14 @@ public static class DoctorRunner
         checks.Add(CheckGit(context, gitVersion));
         checks.Add(CheckRepository(context, gitVersion));
         checks.Add(CheckConfig(context));
-        checks.Add(CheckWorkspace(context));
+        var model = TryReadModel(context);
+        checks.Add(CheckWorkspace(context, model));
+        checks.Add(CheckWindowsOnlySteps(context, model));
+        checks.Add(await CheckCpmAsync(context, model, cancellationToken));
 
         return new DoctorReport
         {
+            Fix = context.Fix ? PlanFix(context.Repository.Path) : null,
             Checks = checks,
             Environment = new DoctorEnvironment
             {
@@ -258,20 +268,175 @@ public static class DoctorRunner
         };
     }
 
-    private static DoctorCheck CheckWorkspace(DoctorContext context)
+    private static WorkspaceModel? TryReadModel(DoctorContext context)
+    {
+        if (!File.Exists(context.WorkspacePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            return WorkspaceStore.Read(context.WorkspacePath);
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidDataException or IOException)
+        {
+            return null;
+        }
+    }
+
+    private static DoctorCheck CheckWorkspace(DoctorContext context, WorkspaceModel? model)
     {
         const string id = "workspace";
         const string title = "Workspace model";
         var relative = RepoPaths.ToRepositoryRelative(context.Repository.Path, context.WorkspacePath);
-        if (!File.Exists(context.WorkspacePath))
+        if (model is null)
         {
-            var message = $"{relative} does not exist yet.";
+            var message = File.Exists(context.WorkspacePath)
+                ? $"{relative} is unreadable (written by another Offramp version?)."
+                : $"{relative} does not exist yet.";
             Report(context, DiagnosticCatalog.OFR0001, message, severity: Severity.Warning,
                 data: [KeyValuePair.Create<string, JsonNode?>("path", relative)]);
             return Warn(id, title, message, "Run `offramp scan`.", DiagnosticCatalog.OFR0001);
         }
 
-        return Pass(id, title, $"{relative} exists.");
+        var state = WorkspaceStore.StateDirectory(context.Repository.Path, context.Config.Config);
+        var staleness = WorkspaceInputs.Compare(model, context.Repository.Path, state);
+        if (staleness.IsStale)
+        {
+            var message = $"{relative} is stale: {staleness.Describe()}.";
+            Report(context, DiagnosticCatalog.OFR0002, message);
+            return Warn(id, title, message, "Run `offramp scan` (or `offramp scan --if-stale`).", DiagnosticCatalog.OFR0002);
+        }
+
+        return Pass(id, title, $"{relative} is up to date ({model.Projects.Count} projects, scanned {model.CreatedAt}).");
+    }
+
+    private static DoctorCheck CheckWindowsOnlySteps(DoctorContext context, WorkspaceModel? model)
+    {
+        const string id = "windows-only-build-steps";
+        const string title = "Windows-only build steps";
+        if (model is null)
+        {
+            return Skip(id, title, "Skipped: run `offramp scan` to detect them.");
+        }
+
+        var stepDiagnostics = model.Diagnostics
+            .Where(d => string.CompareOrdinal(d.Code, "OFR0110") >= 0 && string.CompareOrdinal(d.Code, "OFR0115") <= 0)
+            .ToList();
+        var byProject = stepDiagnostics
+            .Where(d => d.Project is not null)
+            .GroupBy(d => d.Project!, StringComparer.Ordinal)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => $"{g.Key} ({string.Join(", ", g.Select(d => d.Data.TryGetValue("step", out var s) ? s?.ToString() : d.Code).Distinct())})")
+            .ToList();
+        if (byProject.Count == 0)
+        {
+            return Pass(id, title, "No project needs Windows to build.");
+        }
+
+        foreach (var diagnostic in stepDiagnostics)
+        {
+            context.Diagnostics.Add(diagnostic);
+        }
+
+        var hasBlock = File.Exists(Path.Combine(context.Repository.Path, CompileOnlyConditional.FileName))
+            && File.ReadAllText(Path.Combine(context.Repository.Path, CompileOnlyConditional.FileName)).Contains(CompileOnlyConditional.Marker, StringComparison.Ordinal);
+        var remedy = hasBlock
+            ? "The compile-only block is present; guard the remaining steps with Condition=\"'$(OfframpCompileOnly)' != 'true'\", or scan a compiler log captured on Windows."
+            : "Run `offramp doctor --fix --apply` to add the compile-only block to Directory.Build.props, then guard the remaining steps with $(OfframpCompileOnly), or scan a compiler log captured on Windows.";
+        return new DoctorCheck
+        {
+            Id = id,
+            Title = title,
+            Status = CheckStatus.Warn,
+            Message = $"{byProject.Count} project(s) need Windows to build: {string.Join("; ", byProject)}.",
+            Remedy = remedy,
+            Codes = [.. stepDiagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
+        };
+    }
+
+    private static async Task<DoctorCheck> CheckCpmAsync(DoctorContext context, WorkspaceModel? model, CancellationToken cancellationToken)
+    {
+        const string id = "cpm";
+        const string title = "Central package management";
+        var root = context.Repository.Path;
+        IReadOnlyCollection<string>? projects = model?.Projects.Select(p => p.Id).ToList();
+        if (projects is null)
+        {
+            var solution = context.Config.Config.Solution ?? InitPlanner.ChooseSolution(InitPlanner.FindSolutions(root));
+            var solutionPath = solution is null ? null : RepoPaths.ToAbsolute(root, solution);
+            if (solutionPath is null || !File.Exists(solutionPath))
+            {
+                return Skip(id, title, "Skipped: no workspace model or solution to compare against.");
+            }
+
+            try
+            {
+                var listed = await SolutionReader.ReadAsync(solutionPath, cancellationToken);
+                projects = [.. listed.ProjectPaths.Select(p => RepoPaths.ToRepositoryRelative(root, p))];
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or System.Text.Json.JsonException)
+            {
+                return Skip(id, title, $"Skipped: {solution} could not be read.");
+            }
+        }
+
+        var hazards = CpmHazards.Find(root, projects);
+        if (hazards.Count == 0)
+        {
+            return Pass(id, title, "No central package management hazards.");
+        }
+
+        foreach (var hazard in hazards)
+        {
+            context.Diagnostics.Report(hazard.Descriptor, hazard.Message,
+                hazard.Descriptor == DiagnosticCatalog.OFR1302 ? new DiagnosticLocation(File: hazard.Path) : new DiagnosticLocation(Project: hazard.Path));
+        }
+
+        return new DoctorCheck
+        {
+            Id = id,
+            Title = title,
+            Status = CheckStatus.Warn,
+            Message = $"{hazards.Count} hazard(s): " + string.Join("; ", hazards.Take(5).Select(h => $"{h.Descriptor.Code} {h.Path}")) + (hazards.Count > 5 ? "; …" : "") + ".",
+            Remedy = "Keep central versions in a non-default file (deps.cpm.file) with per-project opt-in, fix nested props files to import the root one, and migrate packages.config projects.",
+            Codes = [.. hazards.Select(h => h.Descriptor.Code).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
+        };
+    }
+
+    /// <summary>What <c>--fix</c> would change in the root Directory.Build.props.</summary>
+    public static CompileOnlyFix PlanFix(string repositoryRoot)
+    {
+        var path = Path.Combine(repositoryRoot, CompileOnlyConditional.FileName);
+        var current = File.Exists(path) ? File.ReadAllText(path) : null;
+        var updated = CompileOnlyConditional.Apply(current);
+        return new CompileOnlyFix
+        {
+            File = CompileOnlyConditional.FileName,
+            AlreadyPresent = updated is null,
+            Applied = false,
+            Diff = updated is null
+                ? null
+                : UnifiedDiff.Create(current is null ? null : CompileOnlyConditional.FileName, CompileOnlyConditional.FileName, current ?? "", updated),
+        };
+    }
+
+    /// <summary>Writes the compile-only block; returns the fix with <c>Applied</c> set.</summary>
+    public static CompileOnlyFix ApplyFix(string repositoryRoot)
+    {
+        var plan = PlanFix(repositoryRoot);
+        if (plan.AlreadyPresent)
+        {
+            return plan;
+        }
+
+        var path = Path.Combine(repositoryRoot, CompileOnlyConditional.FileName);
+        var bytes = File.Exists(path) ? File.ReadAllBytes(path) : null;
+        var hasBom = bytes is [0xEF, 0xBB, 0xBF, ..];
+        var current = bytes is null ? null : new System.Text.UTF8Encoding(false).GetString(bytes, hasBom ? 3 : 0, bytes.Length - (hasBom ? 3 : 0));
+        File.WriteAllText(path, CompileOnlyConditional.Apply(current)!, new System.Text.UTF8Encoding(hasBom));
+        return plan with { Applied = true };
     }
 
     private static void Report(

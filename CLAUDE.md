@@ -81,7 +81,7 @@ nothing else references, and `Core` references nothing else in `src/`.
 - `global.json` pins the SDK used to build Offramp itself. Bump deliberately.
 - CLI framework: `System.CommandLine`. Terminal rendering: `Spectre.Console`.
 - Roslyn: `Microsoft.CodeAnalysis.CSharp.Workspaces`. Binary logs:
-  `Microsoft.Build.Logging.StructuredLogger` and `Basic.CompilerLog.Util`.
+  `MSBuild.StructuredLogger` (the reader's current package id) and `Basic.CompilerLog.Util`.
   Project file editing: `Microsoft.Build` (`ProjectRootElement`, no evaluation).
 - NuGet: `NuGet.Protocol`, `NuGet.Frameworks`, `NuGet.Versioning`,
   `NuGet.ProjectModel`, `NuGet.Configuration`.

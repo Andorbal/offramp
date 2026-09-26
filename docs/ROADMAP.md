@@ -31,7 +31,7 @@ Scaffold the solution and everything a release needs, with one working command.
 Acceptance: `dotnet tool install -g offramp --version 0.1.0` works;
 `offramp doctor --json` validates against its schema.
 
-## M1 — Workspace ☐
+## M1 — Workspace ◐
 
 - `scan` from solution, `--binlog`, `--complog`; complog generation; assets
   file parsing; project kind detection; graph with cycles and topological

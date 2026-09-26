@@ -35,6 +35,9 @@ public sealed record GlobalSettings
     public bool? Llm { get; init; }
 
     public FailOn FailOn { get; init; } = FailOn.Error;
+
+    /// <summary>Treat a stale workspace model (OFR0002) as an error.</summary>
+    public bool FailOnStale { get; init; }
 }
 
 /// <summary>
@@ -140,6 +143,12 @@ public sealed class GlobalOptions
         Recursive = true,
     };
 
+    public Option<bool> FailOnStale { get; } = new("--fail-on-stale")
+    {
+        Description = "Treat a stale workspace model (OFR0002) as an error.",
+        Recursive = true,
+    };
+
     public GlobalOptions()
     {
         Target.Validators.Add(result =>
@@ -158,7 +167,7 @@ public sealed class GlobalOptions
 
     public IEnumerable<Option> All =>
     [
-        Target, Solution, Workspace, Config, Json, Out, DryRun, Apply, Yes, Quiet, Verbose, NoCache, NoLlm, Llm, FailOn,
+        Target, Solution, Workspace, Config, Json, Out, DryRun, Apply, Yes, Quiet, Verbose, NoCache, NoLlm, Llm, FailOn, FailOnStale,
     ];
 
     public void AddTo(Command root)
@@ -208,6 +217,7 @@ public sealed class GlobalOptions
         Verbose = parse.GetValue(Verbose),
         NoCache = parse.GetValue(NoCache),
         Llm = parse.GetValue(Llm) ? true : parse.GetValue(NoLlm) ? false : null,
+        FailOnStale = parse.GetValue(FailOnStale),
         FailOn = (parse.GetValue(FailOn) ?? "error") switch
         {
             "info" => Core.Diagnostics.FailOn.Info,

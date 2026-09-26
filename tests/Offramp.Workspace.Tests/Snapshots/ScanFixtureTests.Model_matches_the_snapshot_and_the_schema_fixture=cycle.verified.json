@@ -1,0 +1,248 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "Cycle.sln",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Alpha/Alpha.csproj",
+      "name": "Alpha",
+      "assemblyName": "Alpha",
+      "rootNamespace": "Alpha",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Alpha/Service.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [
+        "src/Beta/Beta.csproj"
+      ],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 7,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Beta/Beta.csproj",
+      "name": "Beta",
+      "assemblyName": "Beta",
+      "rootNamespace": "Beta",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Beta/Repository.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [
+        {
+          "name": "Alpha",
+          "hintPath": "src/Alpha/bin/Debug/net48/Alpha.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "1.0.0.0",
+            "targetFramework": ".NETFramework,Version=v4.8",
+            "publicKeyToken": null
+          }
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 7,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/Alpha/Alpha.csproj",
+        "to": "src/Beta/Beta.csproj",
+        "kind": "project"
+      },
+      {
+        "from": "src/Beta/Beta.csproj",
+        "to": "src/Alpha/Alpha.csproj",
+        "kind": "assembly"
+      }
+    ],
+    "cycles": [
+      [
+        "src/Alpha/Alpha.csproj",
+        "src/Beta/Beta.csproj"
+      ]
+    ],
+    "topologicalOrder": [
+      "src/Alpha/Alpha.csproj",
+      "src/Beta/Beta.csproj"
+    ]
+  },
+  "packages": {},
+  "inputs": [
+    {
+      "path": "Cycle.sln",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Alpha/Alpha.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Beta/Beta.csproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "OFR0120",
+      "severity": "warning",
+      "message": "Project reference cycle: src/Alpha/Alpha.csproj → src/Beta/Beta.csproj → src/Alpha/Alpha.csproj.",
+      "project": "src/Alpha/Alpha.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "path": [
+          "src/Alpha/Alpha.csproj",
+          "src/Beta/Beta.csproj",
+          "src/Alpha/Alpha.csproj"
+        ]
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0120"
+    }
+  ]
+}

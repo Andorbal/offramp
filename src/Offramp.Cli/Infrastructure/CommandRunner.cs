@@ -95,7 +95,7 @@ public static class CommandRunner
             Command = handler.CommandPath,
             Target = config.Config.TargetFramework,
             RepositoryRoot = repository.Path,
-            Solution = config.Config.Solution,
+            Solution = config.Config.Solution ?? ModelSolution(workspacePath),
             WorkspaceHash = WorkspaceHash(workspacePath),
             StartedAt = EnvelopeHeader.FormatTimestamp(startedAt),
             DurationMs = (long)duration.TotalMilliseconds,
@@ -104,16 +104,17 @@ public static class CommandRunner
 
         var sorted = diagnostics.ToSortedList();
         var envelope = EnvelopeWriter.Write(header, outcome.Result, handler.ResultType, sorted);
+        var envelopeSettings = handler.WritesOwnOutput ? settings with { Out = null } : settings;
         if (settings.Json)
         {
-            await WritePrimaryAsync(settings, host, envelope, host.Out);
+            await WritePrimaryAsync(envelopeSettings, host, envelope, host.Out);
         }
         else
         {
             RenderHuman(handler, outcome, context, sorted, diagnostics.Summary());
-            if (settings.Out is not null)
+            if (envelopeSettings.Out is not null)
             {
-                await WritePrimaryAsync(settings, host, envelope, host.Out);
+                await WritePrimaryAsync(envelopeSettings, host, envelope, host.Out);
             }
         }
 
@@ -256,6 +257,28 @@ public static class CommandRunner
 
     private static string? WorkspaceHash(string workspacePath) =>
         File.Exists(workspacePath) ? "sha256:" + ContentHash.Sha256File(workspacePath) : null;
+
+    /// <summary>The solution the workspace model was built from, when none is configured (auto-detected by scan).</summary>
+    private static string? ModelSolution(string workspacePath)
+    {
+        if (!File.Exists(workspacePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var stream = File.OpenRead(workspacePath);
+            using var document = System.Text.Json.JsonDocument.Parse(stream);
+            return document.RootElement.TryGetProperty("solution", out var solution) && solution.ValueKind == System.Text.Json.JsonValueKind.String
+                ? solution.GetString()
+                : null;
+        }
+        catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
 }
 
 /// <summary>Commands that prompt; they never run under the live progress display.</summary>

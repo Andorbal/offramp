@@ -1,0 +1,6 @@
+# Fixture solutions are user code under test, not Offramp code.
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true

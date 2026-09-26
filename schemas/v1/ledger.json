@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/ledger.json",
+  "title": "Offramp ledger snapshot",
+  "description": "One point in .offramp/ledger/, written by every scan and read by `report`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "createdAt", "solution", "totals", "projects"],
+  "properties": {
+    "$schema": { "const": "https://offramp.dev/schemas/v1/ledger.json" },
+    "version": { "const": 1 },
+    "createdAt": { "type": "string" },
+    "solution": { "type": ["string", "null"] },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projects", "loc", "byFrameworkClass", "byKind"],
+      "properties": {
+        "projects": { "type": "integer" },
+        "loc": { "type": "integer" },
+        "byFrameworkClass": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["projects", "loc"],
+            "properties": { "projects": { "type": "integer" }, "loc": { "type": "integer" } }
+          }
+        },
+        "byKind": { "type": "object", "additionalProperties": { "type": "integer" } }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "frameworkClass", "loc", "packages"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "$ref": "workspace.json#/$defs/kind" },
+          "frameworkClass": { "$ref": "workspace.json#/$defs/frameworkClass" },
+          "loc": { "type": "integer" },
+          "packages": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

@@ -28,6 +28,9 @@ public sealed record DoctorContext
 
     public IProgressSink Progress { get; init; } = NullProgressSink.Instance;
 
+    /// <summary>True for <c>doctor --fix</c>: plan the compile-only block (the CLI applies it after confirmation).</summary>
+    public bool Fix { get; init; }
+
     /// <summary>Runtime identifier reported in the result.</summary>
     public string Os { get; init; } = System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier;
 }

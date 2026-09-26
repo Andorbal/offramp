@@ -11,6 +11,45 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp scan`: builds the solution with a binary log (or reads `--binlog`,
+  `--binlog` with `--complog`, or `--complog` alone), converts it to a compiler
+  log, and writes the workspace model (`.offramp/workspace.json`,
+  `schemas/v1/workspace.json`) and a ledger snapshot (`schemas/v1/ledger.json`).
+  The model has project kinds with evidence, framework classes, packages and
+  the resolved package graph from `project.assets.json`, assembly and COM
+  references, define constants per target, Windows-only build steps, and the
+  project graph with cycles and a leaf-first order. `--no-build` reuses the last
+  log; `--if-stale` rescans only when needed (`schemas/v1/scan.json`).
+- Logs captured on another machine or checkout (for example a Windows agent)
+  are mapped onto the local checkout; CI proves a model built from Windows logs
+  of `dual-target` equals the native one on ubuntu, macOS, and Windows.
+- `offramp slice`: writes a solution filter (`.slnf`) or a SlnGen command for a
+  project closure, with `--include-dependents` and `--include-tests`
+  (`schemas/v1/slice.json`).
+- `offramp doctor`: checks for model freshness, Windows-only build steps, and
+  central package management hazards; `--fix` previews and `--fix --apply`
+  writes the compile-only block to `Directory.Build.props`. `init` offers the
+  same block on a terminal when the model shows Windows-only steps.
+- `--fail-on-stale` global option: a stale model is an error instead of a warning.
+- Diagnostics OFR0002–0004, OFR0021, OFR0022, OFR0101–0104, OFR0110–0115,
+  OFR0120, OFR0130–0132, and OFR1301–1303.
+- Fixtures `netfx-only`, `dual-target`, `cycle`, and `windows-only-build-steps`
+  (with a committed binary log), each snapshot-tested.
+- ADRs 0007–0012: log-reading libraries, no `scan --fast`, staleness by content
+  hash, scanning logs from elsewhere, machine-independent model rules, and
+  `doctor --fix`/`slice` behavior.
+
+### Changed
+- `doctor` reports two more checks (`windows-only-build-steps`, `cpm`) and a
+  `fix` field; `init` results carry `compileOnlyFix`. Consumers that assert on
+  the exact check list need the two new ids.
+- The envelope's `solution` shows the solution the model was built from when
+  none is configured.
+- The workspace model schema adds `inputs`, `source.complog`, and per project
+  `language`, `defineConstants`, `packagesConfig`, and `partial`
+  (`docs/spec/02-workspace-model.md`).
+
 ## [0.1.0] - 2026-09-25
 
 ### Added

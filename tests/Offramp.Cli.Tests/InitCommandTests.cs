@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Offramp.Cli.Commands;
 using Offramp.Core.Configuration;
 using Offramp.Fixtures;
+using Offramp.Workspace.Doctor;
 using Offramp.Workspace.Init;
 
 namespace Offramp.Cli.Tests;
@@ -101,6 +102,45 @@ public sealed class InitCommandTests : IDisposable
         Assert.Equal("log4net", loaded.Config.Deps.Pins.Single().Package);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task With_windows_only_steps_init_offers_the_compile_only_block(bool accept)
+    {
+        FixtureRepository.CopyDirectory(FixtureRepository.SourcePath("windows-only-build-steps"), _cli.Repo.Path);
+        await _cli.RunAsync("scan", "--binlog", "msbuild.binlog");
+        var before = _cli.Repo.Read("Directory.Build.props");
+        _cli.InputIsTerminal = true;
+        _cli.OutputIsTerminal = true;
+        var prompter = new ScriptedPrompter(new InitValues { Target = 10, Solution = "WindowsOnly.sln", VerifyMode = "build" })
+        {
+            AcceptCompileOnly = accept,
+        };
+        _cli.InitPrompter = _ => prompter;
+
+        var run = await _cli.RunAsync("init");
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.Contains("+  <PropertyGroup Condition=", prompter.Offered!.Diff, StringComparison.Ordinal);
+        var props = _cli.Repo.Read("Directory.Build.props");
+        Assert.Equal(accept, props.Contains("<OfframpCompileOnly>true</OfframpCompileOnly>", StringComparison.Ordinal));
+        Assert.Equal(accept, props != before);
+    }
+
+    [Fact]
+    public async Task Defaults_never_add_the_compile_only_block()
+    {
+        FixtureRepository.CopyDirectory(FixtureRepository.SourcePath("windows-only-build-steps"), _cli.Repo.Path);
+        await _cli.RunAsync("scan", "--binlog", "msbuild.binlog");
+        var before = _cli.Repo.Read("Directory.Build.props");
+
+        var run = await _cli.RunAsync("init", "--defaults", "--json");
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.Null(JsonNode.Parse(run.Out)!["result"]!["compileOnlyFix"]);
+        Assert.Equal(before, _cli.Repo.Read("Directory.Build.props"));
+    }
+
     [Fact]
     public async Task Defaults_flag_skips_the_interview_even_on_a_terminal()
     {
@@ -117,10 +157,20 @@ public sealed class InitCommandTests : IDisposable
     {
         public InitDetection? Seen { get; private set; }
 
+        public CompileOnlyFix? Offered { get; private set; }
+
+        public bool AcceptCompileOnly { get; init; }
+
         public InitValues Ask(InitDetection detection)
         {
             Seen = detection;
             return answers;
+        }
+
+        public bool OfferCompileOnlyBlock(CompileOnlyFix plan)
+        {
+            Offered = plan;
+            return AcceptCompileOnly;
         }
     }
 }

@@ -37,8 +37,17 @@ public sealed record WorkspaceModel
 
     public SortedDictionary<string, PackageUsage> Packages { get; init; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Content hashes of the files that shape the model (project files,
+    /// Directory.*.props/targets, solutions, packages.config), for staleness checks.
+    /// </summary>
+    public IReadOnlyList<InputFile> Inputs { get; init; } = [];
+
     public IReadOnlyList<Diagnostic> Diagnostics { get; init; } = [];
 }
+
+/// <summary>A file the model depends on, with its SHA-256 at scan time.</summary>
+public sealed record InputFile(string Path, string Sha256);
 
 [JsonConverter(typeof(CamelCaseEnumConverter<WorkspaceSourceKind>))]
 public enum WorkspaceSourceKind
@@ -48,7 +57,16 @@ public enum WorkspaceSourceKind
     Build,
 }
 
-public sealed record WorkspaceSource(WorkspaceSourceKind Kind, string Path, string Sha256);
+/// <summary>
+/// Where the model came from. <see cref="Complog"/> is the compiler log supplied
+/// alongside a binlog (<c>scan --binlog X --complog Y</c>), otherwise null.
+/// </summary>
+public sealed record WorkspaceSource(WorkspaceSourceKind Kind, string Path, string Sha256)
+{
+    public LogFile? Complog { get; init; }
+}
+
+public sealed record LogFile(string Path, string Sha256);
 
 public sealed record SdkInfo(string Version, string Os);
 
@@ -86,6 +104,9 @@ public sealed record ProjectInfo
 
     public string? RootNamespace { get; init; }
 
+    /// <summary><c>csharp</c>, <c>vb</c>, <c>fsharp</c>, or <c>other</c>, from the project file extension.</summary>
+    public string Language { get; init; } = "csharp";
+
     public ProjectKind Kind { get; init; } = ProjectKind.Unknown;
 
     public string? KindEvidence { get; init; }
@@ -104,7 +125,13 @@ public sealed record ProjectInfo
 
     public SortedDictionary<string, string> Properties { get; init; } = new(StringComparer.Ordinal);
 
+    /// <summary>Preprocessor symbols per target framework (they differ by target, so they are not in <see cref="Properties"/>).</summary>
+    public SortedDictionary<string, IReadOnlyList<string>> DefineConstants { get; init; } = new(StringComparer.Ordinal);
+
     public IReadOnlyList<string> WindowsOnlyBuildSteps { get; init; } = [];
+
+    /// <summary>True when a packages.config sits next to the project file.</summary>
+    public bool PackagesConfig { get; init; }
 
     public IReadOnlyList<string> Compile { get; init; } = [];
 

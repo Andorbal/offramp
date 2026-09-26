@@ -15,6 +15,13 @@
   <ItemGroup>
     <PackageReference Include="NuGet.Configuration" />
     <PackageReference Include="NuGet.Protocol" />
+    <PackageReference Include="NuGet.ProjectModel" />
+    <PackageReference Include="MSBuild.StructuredLogger" />
+    <PackageReference Include="Basic.CompilerLog.Util" />
+    <!-- The meta-package lifts every Roslyn assembly Basic.CompilerLog pulls in to one version. -->
+    <PackageReference Include="Microsoft.CodeAnalysis" />
+    <PackageReference Include="Microsoft.VisualStudio.SolutionPersistence" />
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
   </ItemGroup>
 
   <ItemGroup>

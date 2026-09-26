@@ -44,10 +44,10 @@ first (`offramp csproj modernize`) or use the compiler-log route below.
 ## The compile-only conditional
 
 Put this in the repository's root `Directory.Build.props` (`offramp doctor
---fix` writes it after showing you the diff):
+--fix` shows you the diff; `offramp doctor --fix --apply` writes it):
 
 ```xml
-<!-- Compile-only builds on macOS/Linux: skip steps that need Windows. -->
+<!-- Compile-only builds on macOS/Linux: skip steps that need Windows (added by offramp doctor). -->
 <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
   <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
   <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -76,11 +76,18 @@ dotnet build Monolith.sln -bl:msbuild.binlog
 complog create msbuild.binlog -o monolith.complog
 ```
 
-On the Mac:
+On the Mac, with both logs (restore first so the package graph is complete):
 
 ```bash
-offramp scan --complog monolith.complog
+dotnet restore Monolith.sln
+offramp scan --binlog msbuild.binlog --complog monolith.complog
 ```
+
+The binary log gives the evaluation (packages, SDK, kinds, Windows-only steps)
+and the compiler log the compilations; paths from the Windows machine are
+mapped onto your checkout. `offramp scan --complog monolith.complog` alone
+also works but gives a reduced model without packages and project metadata
+(`OFR0103`).
 
 Everything that reads the workspace model, including `move plan`'s trial
 compilations, then works from that snapshot. Remember that a snapshot goes

@@ -10,6 +10,8 @@
 ✓ offramp.yml                         No offramp.yml; built-in defaults are in effect.
 ! Workspace model                     .offramp/workspace.json does not exist yet.
                                       → Run `offramp scan`.
+- Windows-only build steps            Skipped: run `offramp scan` to detect them.
+- Central package management          Skipped: no workspace model or solution to compare against.
 
 1 warning(s), 1 info
 Next: offramp init

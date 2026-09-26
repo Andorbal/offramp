@@ -175,6 +175,22 @@
         "codes": [
           "OFR0001"
         ]
+      },
+      {
+        "id": "windows-only-build-steps",
+        "title": "Windows-only build steps",
+        "status": "skip",
+        "message": "Skipped: run `offramp scan` to detect them.",
+        "remedy": null,
+        "codes": []
+      },
+      {
+        "id": "cpm",
+        "title": "Central package management",
+        "status": "skip",
+        "message": "Skipped: no workspace model or solution to compare against.",
+        "remedy": null,
+        "codes": []
       }
     ],
     "environment": {
@@ -195,8 +211,9 @@
       "pass": 7,
       "warn": 1,
       "fail": 0,
-      "skip": 0
-    }
+      "skip": 2
+    },
+    "fix": null
   },
   "diagnostics": [
     {

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/scan.json",
+  "title": "offramp scan result",
+  "description": "The result of `offramp scan`. The model itself is schemas/v1/workspace.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["model", "upToDate", "source", "solution", "buildSucceeded", "projects", "loc", "byFrameworkClass", "byKind", "cycles",
+    "windowsOnlyBuildSteps", "unrecognized", "notLoaded", "partial", "ledgerSnapshot"],
+  "properties": {
+    "model": { "type": "string" },
+    "upToDate": { "type": "boolean" },
+    "source": { "$ref": "workspace.json#/$defs/source" },
+    "solution": { "type": ["string", "null"] },
+    "buildSucceeded": { "type": ["boolean", "null"] },
+    "projects": { "type": "integer", "minimum": 0 },
+    "loc": { "type": "integer", "minimum": 0 },
+    "byFrameworkClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dual", "framework", "modern", "standard"],
+      "properties": {
+        "dual": { "type": "integer" }, "framework": { "type": "integer" }, "modern": { "type": "integer" }, "standard": { "type": "integer" }
+      }
+    },
+    "byKind": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "cycles": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+    "windowsOnlyBuildSteps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "steps"],
+        "properties": { "project": { "type": "string" }, "steps": { "type": "array", "items": { "type": "string" } } }
+      }
+    },
+    "unrecognized": { "type": "array", "items": { "type": "string" } },
+    "notLoaded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "reason"],
+        "properties": { "project": { "type": "string" }, "reason": { "type": "string" } }
+      }
+    },
+    "partial": { "type": "array", "items": { "type": "string" } },
+    "ledgerSnapshot": { "type": ["string", "null"] }
+  }
+}

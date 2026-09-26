@@ -1,6 +1,8 @@
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Git;
+using Offramp.Core.Model;
+using Offramp.Workspace.Store;
 using Offramp.Core.Paths;
 using Offramp.Fixtures;
 using Offramp.Workspace.Doctor;
@@ -44,11 +46,30 @@ public sealed class DoctorRunnerTests : IDisposable
 
     private static CheckStatus Status(DoctorReport report, string id) => report.Checks.Single(c => c.Id == id).Status;
 
+    private static ProjectInfo Project(string id) => new() { Id = id, Name = Path.GetFileNameWithoutExtension(id) };
+
+    private void WriteFreshModel(params ProjectInfo[] projects) => WriteFreshModel(projects, []);
+
+    private void WriteFreshModel(ProjectInfo[] projects, Diagnostic[] diagnostics)
+    {
+        var model = new WorkspaceModel
+        {
+            CreatedAt = "2026-09-25T20:11:04Z",
+            RepositoryRoot = _repo.Path,
+            Source = new WorkspaceSource(WorkspaceSourceKind.Build, ".offramp/msbuild.binlog", new string('0', 64)),
+            Sdk = new SdkInfo("10.0.100", "linux-x64"),
+            Projects = projects,
+            Inputs = WorkspaceInputs.Collect(_repo.Path, Path.Combine(_repo.Path, ".offramp")),
+            Diagnostics = diagnostics,
+        };
+        WorkspaceStore.Save(Path.Combine(_repo.Path, ".offramp", "workspace.json"), model);
+    }
+
     [Fact]
     public async Task A_healthy_machine_passes_every_environment_check()
     {
         _repo.Write("offramp.yml", "target: 10\n");
-        _repo.Write(".offramp/workspace.json", "{}");
+        WriteFreshModel();
 
         var (report, bag) = await RunAsync(Healthy());
 
@@ -206,12 +227,89 @@ public sealed class DoctorRunnerTests : IDisposable
     }
 
     [Fact]
+    [ProducesDiagnostic("OFR0002")]
+    public async Task A_stale_model_is_a_warning_naming_what_changed()
+    {
+        _repo.Write("src/A/A.csproj", "<Project />");
+        WriteFreshModel(Project("src/A/A.csproj"));
+        var (fresh, _) = await RunAsync(Healthy());
+        Assert.Equal(CheckStatus.Pass, Status(fresh, "workspace"));
+
+        _repo.Write("src/A/A.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        _repo.Write("Directory.Build.props", "<Project />");
+        var (stale, bag) = await RunAsync(Healthy());
+
+        Assert.Equal(CheckStatus.Warn, Status(stale, "workspace"));
+        var diagnostic = bag.ToSortedList().Single(d => d.Code == "OFR0002");
+        Assert.Contains("1 changed (src/A/A.csproj)", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("1 added (Directory.Build.props)", diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Windows_only_steps_from_the_model_warn_until_the_block_is_added()
+    {
+        WriteFreshModel([Project("src/Soap/Soap.csproj")], diagnostics:
+        [
+            new Diagnostic
+            {
+                Code = "OFR0110",
+                Severity = Severity.Warning,
+                Message = "Needs Windows to build: GenerateSerializationAssemblies=On.",
+                Project = "src/Soap/Soap.csproj",
+                Help = "https://offramp.dev/diagnostics/OFR0110",
+                Data = new SortedDictionary<string, System.Text.Json.Nodes.JsonNode?>(StringComparer.Ordinal) { ["step"] = "sgen" },
+            },
+        ]);
+
+        var (report, bag) = await RunAsync(Healthy());
+
+        var check = report.Checks.Single(c => c.Id == "windows-only-build-steps");
+        Assert.Equal(CheckStatus.Warn, check.Status);
+        Assert.Equal("1 project(s) need Windows to build: src/Soap/Soap.csproj (sgen).", check.Message);
+        Assert.Contains("offramp doctor --fix --apply", check.Remedy, StringComparison.Ordinal);
+        Assert.Contains(bag.ToSortedList(), d => d.Code == "OFR0110");
+
+        DoctorRunner.ApplyFix(_repo.Path);
+        WriteFreshModel([Project("src/Soap/Soap.csproj")], diagnostics: [.. bag.ToSortedList().Where(d => d.Code == "OFR0110")]);
+        var (after, _) = await RunAsync(Healthy());
+        Assert.StartsWith("The compile-only block is present", after.Checks.Single(c => c.Id == "windows-only-build-steps").Remedy, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_model_without_windows_only_steps_passes()
+    {
+        WriteFreshModel(Project("src/A/A.csproj"));
+
+        var (report, _) = await RunAsync(Healthy());
+
+        Assert.Equal(CheckStatus.Pass, Status(report, "windows-only-build-steps"));
+        Assert.Equal(CheckStatus.Pass, Status(report, "cpm"));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR1301")]
+    public async Task Cpm_hazards_are_checked_against_the_solution_without_a_model()
+    {
+        _repo.Write("Directory.Packages.props", "<Project />");
+        _repo.Write("src/A/A.csproj", "<Project />");
+        _repo.Write("tools/B/B.csproj", "<Project />");
+        _repo.Write("App.slnx", "<Solution>\n  <Project Path=\"src/A/A.csproj\" />\n</Solution>\n");
+
+        var (report, bag) = await RunAsync(Healthy());
+
+        var check = report.Checks.Single(c => c.Id == "cpm");
+        Assert.Equal(CheckStatus.Warn, check.Status);
+        Assert.Equal(["OFR1301"], check.Codes);
+        Assert.Equal("tools/B/B.csproj", bag.ToSortedList().Single(d => d.Code == "OFR1301").Project);
+    }
+
+    [Fact]
     public async Task Checks_always_appear_in_the_same_order()
     {
         var (report, _) = await RunAsync(new FakeMachine { DotnetInstalled = false, GitVersion = null });
 
         Assert.Equal(
-            ["dotnet-sdk", "global-json", "target", "reference-assemblies", "git", "git-repository", "config", "workspace"],
+            ["dotnet-sdk", "global-json", "target", "reference-assemblies", "git", "git-repository", "config", "workspace", "windows-only-build-steps", "cpm"],
             report.Checks.Select(c => c.Id));
         Assert.Equal(report.Checks.Count, report.Summary.Pass + report.Summary.Warn + report.Summary.Fail + report.Summary.Skip);
     }
