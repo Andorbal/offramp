@@ -11,6 +11,48 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp csproj modernize --project P|--all [--tfm] [--nullable] [--accept-diff]`: legacy
+  (non-SDK) C# projects become SDK-style without `try-convert`: properties the SDK sets are
+  dropped, Compile/resource/None items become globs when those give the same files (else the
+  list stays, OFR4301), packages.config becomes PackageReference, build events become targets
+  (OFR4302), and AssemblyInfo attributes the SDK generates are removed. Every run builds the
+  converted projects in a scratch copy and compares each target's compiler inputs (sources,
+  references, resources) with the original build; a difference is OFR4303 and blocks
+  `--apply` unless `--accept-diff`. Web application projects are left alone (OFR4304).
+  Schema: `schemas/v1/csproj-modernize.json`.
+- `offramp config convert --project P [--out] [--sections] [--shim]`: App.config or
+  Web.config to `appsettings.json` (appSettings as root keys, ConnectionStrings, custom
+  sections shaped by their section classes) with an options class per section, transforms
+  to `appsettings.{Environment}.json`, and with `--shim` a `ConfigurationManagerShim`.
+  OFR4401–4406. Schema: `schemas/v1/config-convert.json`.
+- Codemod `config-manager-shim` (OFRM014, opt-in): points the ConfigurationManager call
+  sites `config-manager` cannot inject into at the shim.
+- `offramp web inventory --project P [--format table|json|markdown]`: controllers, actions,
+  verbs, attribute and convention routes, filters, areas, modules, handlers, Global.asax,
+  bundles, Web Forms, session and output-cache use, web.config settings, and the System.Web
+  API surface per file. Schema: `schemas/v1/web-inventory.json`.
+- `offramp web scaffold --project P --new DIR [--proxy yarp|none] [--adapters] [--legacy-url]`:
+  a strangler-fig ASP.NET Core project. Controller actions that port are copied with mapped
+  names; the project is compiled in memory and actions the compiler rejects stay with the
+  legacy application, with reasons. Convention routes become `MapControllerRoute`; YARP
+  forwards everything else to the legacy application (or `--proxy none` lists the paths for
+  an ingress); `--adapters` shares session and authentication through the System.Web
+  adapters. Modules become middleware stubs, handlers endpoint stubs (OFR4202), Web Forms
+  stay behind the proxy (OFR4201); OFR4203 when the project does not compile, OFR4204 when
+  the folder has files. Schema: `schemas/v1/web-scaffold.json`.
+- `offramp move extract --from P --types T1,T2 | --files GLOB --new NAME [--tfm] [--dir]`:
+  creates a project from a template (the source's language settings, analyzers, and framework
+  references), plans the move into it with `move plan`'s rules against an in-memory
+  compilation, and with `--apply` creates, moves, and verifies in one journal that
+  `move rollback` undoes. OFR2006–2008. Schema: `schemas/v1/move-extract.json`.
+- Fixtures `legacy-csproj` and `mvc5`, which build on every OS.
+
+### Fixed
+- Legacy projects now get their compiler call in the workspace model, so commands that load
+  their compilation (`web inventory`, `csproj modernize`, `config convert`) find it.
+- Journals record deleted files, so `move rollback` restores them.
+
 ## [0.12.0] - 2026-09-26
 
 ### Added
