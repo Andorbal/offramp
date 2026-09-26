@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/move-tests.json",
+  "title": "offramp move tests result",
+  "description": "The result of `offramp move tests`. See docs/spec/commands/move.md#move-tests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "to", "created", "framework", "moves", "skipped", "candidates", "projectEdits", "prunable", "applied", "journal", "rolledBack", "preview", "verify"],
+  "properties": {
+    "project": { "$ref": "workspace.json#/$defs/relativePath" },
+    "to": { "oneOf": [{ "$ref": "workspace.json#/$defs/relativePath" }, { "type": "null" }] },
+    "created": { "type": "boolean" },
+    "framework": { "enum": ["xunit", "xunit.v3", "nunit", "mstest", "tunit", null] },
+    "moves": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "to", "kind", "confidence", "reasons"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "to": { "$ref": "workspace.json#/$defs/relativePath" },
+          "kind": { "enum": ["test", "helper"] },
+          "confidence": { "$ref": "#/$defs/confidence" },
+          "reasons": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "code", "message", "details"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "code": { "type": "string", "pattern": "^OFR[0-9]{4}$" },
+          "message": { "type": "string" },
+          "details": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "confidence", "reasons"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "confidence": { "$ref": "#/$defs/confidence" },
+          "reasons": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "projectEdits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "kind", "value", "version"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "kind": { "enum": ["createProject", "addToSolution", "addProjectReference", "addPackageReference", "addPackageVersion", "removePackageReference", "addInternalsVisibleTo", "addCompile", "removeCompile"] },
+          "value": { "type": ["string", "null"] },
+          "version": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "prunable": { "type": "array", "items": { "type": "string" } },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "rolledBack": { "type": "boolean" },
+    "preview": { "type": ["string", "null"], "description": "The dry run's unified diff of project files, then the renames." },
+    "verify": { "oneOf": [{ "type": "null" }, { "$ref": "verify.json" }] }
+  },
+  "$defs": {
+    "confidence": { "enum": ["certain", "high", "medium", "low"] }
+  }
+}

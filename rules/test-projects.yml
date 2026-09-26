@@ -1,0 +1,30 @@
+# Packages a new test project gets per test framework (`move tests --create`).
+# The framework package's version comes from the source project when it
+# references it (tests moved out of production code compile against it);
+# otherwise the version here is used. Every version listed supports net462+
+# and modern .NET, except TUnit, which needs net8.0 or later.
+frameworks:
+  xunit:
+    packages:
+      - { id: xunit, version: 2.9.3, framework: true }
+      - { id: xunit.runner.visualstudio, version: 2.8.2 }
+      - { id: Microsoft.NET.Test.Sdk, version: 17.12.0 }
+  xunit.v3:
+    packages:
+      - { id: xunit.v3, version: 3.2.2, framework: true }
+      - { id: xunit.runner.visualstudio, version: 3.1.5 }
+      - { id: Microsoft.NET.Test.Sdk, version: 17.12.0 }
+  nunit:
+    packages:
+      - { id: NUnit, version: 3.14.0, framework: true }
+      - { id: NUnit3TestAdapter, version: 4.6.0 }
+      - { id: Microsoft.NET.Test.Sdk, version: 17.12.0 }
+  mstest:
+    packages:
+      - { id: MSTest.TestFramework, version: 3.6.4, framework: true }
+      - { id: MSTest.TestAdapter, version: 3.6.4 }
+      - { id: Microsoft.NET.Test.Sdk, version: 17.12.0 }
+  tunit:
+    modernOnly: true
+    packages:
+      - { id: TUnit, version: 1.69.16, framework: true }

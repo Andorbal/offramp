@@ -1,0 +1,102 @@
+﻿{
+  "nodes": [
+    {
+      "id": "src/Bar/Bar.csproj",
+      "name": "Bar",
+      "kind": "test",
+      "frameworkClass": "framework",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "loc": 18,
+      "packageCount": 1,
+      "readiness": "ready",
+      "blockers": [],
+      "dependents": 0,
+      "directory": "src",
+      "cluster": null,
+      "inCycle": false
+    },
+    {
+      "id": "src/Foo.Tests/Foo.Tests.csproj",
+      "name": "Foo.Tests",
+      "kind": "test",
+      "frameworkClass": "framework",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "loc": 10,
+      "packageCount": 3,
+      "readiness": "blocked",
+      "blockers": [
+        "src/Foo/Foo.csproj"
+      ],
+      "dependents": 0,
+      "directory": "src",
+      "cluster": null,
+      "inCycle": false
+    },
+    {
+      "id": "src/Foo/Foo.csproj",
+      "name": "Foo",
+      "kind": "test",
+      "frameworkClass": "framework",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "loc": 157,
+      "packageCount": 1,
+      "readiness": "ready",
+      "blockers": [],
+      "dependents": 1,
+      "directory": "src",
+      "cluster": null,
+      "inCycle": false
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/Foo.Tests/Foo.Tests.csproj",
+      "to": "src/Foo/Foo.csproj",
+      "kind": "project"
+    }
+  ],
+  "cycles": [],
+  "legend": {
+    "frameworkClass": {
+      "dual": "#2C7A7B",
+      "framework": "#E07A1F",
+      "modern": "#2F855A",
+      "standard": "#2B6CB0"
+    },
+    "kind": {
+      "console": "box",
+      "library": "rounded box",
+      "service": "hexagon",
+      "test": "dashed rounded box",
+      "unknown": "ellipse",
+      "web": "tab",
+      "winforms": "double box",
+      "wpf": "double box"
+    },
+    "edge": {
+      "assembly": "dashed: HintPath reference to another project's output",
+      "project": "solid: ProjectReference"
+    },
+    "cycle": "#C53030"
+  },
+  "highlight": {
+    "mode": "cycles",
+    "nodes": []
+  },
+  "view": {
+    "includeKinds": [],
+    "excludeKinds": [],
+    "focus": null,
+    "depth": null,
+    "direction": "both",
+    "cluster": "none",
+    "highlight": "cycles",
+    "edges": "all"
+  }
+}

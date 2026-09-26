@@ -37,15 +37,19 @@ public sealed class CompilationLoader : IDisposable
     }
 
     /// <summary>The compilation of a project for its first .NET Framework target (or its first target), or null.</summary>
-    public Compilation? LoadForProject(ProjectInfo project)
-    {
-        var call = project.CompilerCalls
-            .OrderBy(c => c.Key.StartsWith("net4", StringComparison.Ordinal) ? 0 : 1)
-            .ThenBy(c => c.Key, StringComparer.Ordinal)
-            .Select(c => c.Value)
+    public Compilation? LoadForProject(ProjectInfo project) =>
+        PreferredTarget(project) is { } target ? LoadForProject(project, target) : null;
+
+    /// <summary>The compilation of a project for one target framework, or null when it has no compiler call for it.</summary>
+    public Compilation? LoadForProject(ProjectInfo project, string targetFramework) =>
+        project.CompilerCalls.TryGetValue(targetFramework, out var call) ? Load(call) : null;
+
+    /// <summary>The target framework analyses use by default: the first .NET Framework one, else the first.</summary>
+    public static string? PreferredTarget(ProjectInfo project) =>
+        project.CompilerCalls.Keys
+            .OrderBy(k => k.StartsWith("net4", StringComparison.Ordinal) ? 0 : 1)
+            .ThenBy(k => k, StringComparer.Ordinal)
             .FirstOrDefault();
-        return call is null ? null : Load(call);
-    }
 
     public void Dispose()
     {

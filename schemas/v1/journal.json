@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/journal.json",
+  "title": "Offramp change journal",
+  "description": "`.offramp/journal/<time>-<command>.json`: every step of an applied change set, written before the step runs. `move rollback` reads it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "command", "createdAt", "state", "steps"],
+  "properties": {
+    "$schema": { "const": "https://offramp.dev/schemas/v1/journal.json" },
+    "version": { "const": 1 },
+    "command": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "state": { "enum": ["applying", "applied", "rolledBack"] },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "path", "from", "before", "sha256", "createdDirectories", "done"],
+        "properties": {
+          "kind": { "enum": ["create", "edit", "rename"] },
+          "path": { "$ref": "workspace.json#/$defs/relativePath" },
+          "from": { "type": ["string", "null"] },
+          "before": { "type": ["string", "null"], "description": "An edited file's original bytes, base64." },
+          "sha256": { "type": ["string", "null"] },
+          "createdDirectories": { "$ref": "workspace.json#/$defs/pathList" },
+          "done": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

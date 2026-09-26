@@ -1,5 +1,6 @@
 using Offramp.Cli.Commands;
 using Offramp.Cli.Infrastructure;
+using Offramp.Core.Processes;
 using Offramp.Fixtures;
 using Spectre.Console;
 
@@ -13,10 +14,29 @@ public sealed record CliRun(int ExitCode, string Out, string Error)
 /// <summary>Runs the CLI in-process against a scratch repository and a fake machine.</summary>
 public sealed class CliHarness : IDisposable
 {
+    private readonly bool _ownsRepo = true;
+
     public CliHarness(bool gitRepository = true)
     {
         Repo = new ScratchDirectory("cli");
         Machine = new FakeMachine { RepositoryRoot = gitRepository ? Repo.Path : null };
+    }
+
+    /// <summary>Runs in an existing repository (a scanned fixture), which the caller disposes.</summary>
+    public CliHarness(ScratchDirectory repository)
+    {
+        Repo = repository;
+        _ownsRepo = false;
+        Machine = new FakeMachine { RepositoryRoot = repository.Path };
+    }
+
+    /// <summary>Lets git and dotnet builds run for real, for commands that move files and verify.</summary>
+    public CliHarness WithRealGitAndBuilds()
+    {
+        Machine.Setup.Add(r => r
+            .On("git", [], spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult())
+            .On("dotnet", ["build"], spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult()));
+        return this;
     }
 
     public ScratchDirectory Repo { get; }
@@ -60,5 +80,11 @@ public sealed class CliHarness : IDisposable
         return new CliRun(exit, output.ToString(), error.ToString());
     }
 
-    public void Dispose() => Repo.Dispose();
+    public void Dispose()
+    {
+        if (_ownsRepo)
+        {
+            Repo.Dispose();
+        }
+    }
 }

@@ -1,0 +1,596 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "TestsInProd.slnx",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Bar/Bar.csproj",
+      "name": "Bar",
+      "assemblyName": "Bar",
+      "rootNamespace": "Bar",
+      "language": "csharp",
+      "kind": "test",
+      "kindEvidence": "PackageReference NUnit",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "latest",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Bar/Calculator.cs",
+        "src/Bar/CalculatorTests.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "NUnit",
+          "version": "3.14.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "NUnit",
+              "version": "3.14.0",
+              "dependencies": [],
+              "direct": true
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 18,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Foo.Tests/Foo.Tests.csproj",
+      "name": "Foo.Tests",
+      "assemblyName": "Foo.Tests",
+      "rootNamespace": "Foo.Tests",
+      "language": "csharp",
+      "kind": "test",
+      "kindEvidence": "IsTestProject=true",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": true,
+      "properties": {
+        "IsPackable": "false",
+        "IsTestProject": "true",
+        "LangVersion": "latest",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Foo.Tests/SmokeTests.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [
+        "src/Foo/Foo.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NET.Test.Sdk",
+          "version": "17.12.0",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        },
+        {
+          "id": "xunit",
+          "version": "2.9.3",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        },
+        {
+          "id": "xunit.runner.visualstudio",
+          "version": "2.8.2",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.CodeCoverage",
+              "version": "17.12.0",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "Microsoft.NET.Test.Sdk",
+              "version": "17.12.0",
+              "dependencies": [
+                {
+                  "id": "Microsoft.CodeCoverage",
+                  "range": "[17.12.0, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.TestPlatform.ObjectModel",
+              "version": "17.10.0",
+              "dependencies": [
+                {
+                  "id": "System.Reflection.Metadata",
+                  "range": "[1.6.0, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "System.Collections.Immutable",
+              "version": "1.5.0",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "System.Reflection.Metadata",
+              "version": "1.6.0",
+              "dependencies": [
+                {
+                  "id": "System.Collections.Immutable",
+                  "range": "[1.5.0, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "xunit",
+              "version": "2.9.3",
+              "dependencies": [
+                {
+                  "id": "xunit.analyzers",
+                  "range": "[1.18.0, )"
+                },
+                {
+                  "id": "xunit.assert",
+                  "range": "[2.9.3, )"
+                },
+                {
+                  "id": "xunit.core",
+                  "range": "[2.9.3, 2.9.3]"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "xunit.abstractions",
+              "version": "2.0.3",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "xunit.analyzers",
+              "version": "1.18.0",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "xunit.assert",
+              "version": "2.9.3",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "xunit.core",
+              "version": "2.9.3",
+              "dependencies": [
+                {
+                  "id": "xunit.extensibility.core",
+                  "range": "[2.9.3, 2.9.3]"
+                },
+                {
+                  "id": "xunit.extensibility.execution",
+                  "range": "[2.9.3, 2.9.3]"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "xunit.extensibility.core",
+              "version": "2.9.3",
+              "dependencies": [
+                {
+                  "id": "xunit.abstractions",
+                  "range": "[2.0.3, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "xunit.extensibility.execution",
+              "version": "2.9.3",
+              "dependencies": [
+                {
+                  "id": "xunit.extensibility.core",
+                  "range": "[2.9.3, 2.9.3]"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "xunit.runner.visualstudio",
+              "version": "2.8.2",
+              "dependencies": [
+                {
+                  "id": "Microsoft.TestPlatform.ObjectModel",
+                  "range": "[17.10.0, )"
+                }
+              ],
+              "direct": true
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 10,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Foo/Foo.csproj",
+      "name": "Foo",
+      "assemblyName": "Foo",
+      "rootNamespace": "Foo",
+      "language": "csharp",
+      "kind": "test",
+      "kindEvidence": "IsTestProject=true",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": true,
+      "properties": {
+        "IsPackable": "false",
+        "IsTestProject": "true",
+        "LangVersion": "latest",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Common/SharedTests.cs",
+        "src/Foo/Health/StartupChecks.cs",
+        "src/Foo/Service/OrderService.cs",
+        "src/Foo/Service/Startup.cs",
+        "src/Foo/Service/Tests/OrderServiceTests.cs",
+        "src/Foo/Shared/Clock.cs",
+        "src/Foo/TestData/Builders.cs",
+        "src/Foo/Testing/FakeClock.cs",
+        "src/Foo/Web/Tests/UrlTests.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "xunit",
+          "version": "2.9.3",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "xunit",
+              "version": "2.9.3",
+              "dependencies": [
+                {
+                  "id": "xunit.analyzers",
+                  "range": "[1.18.0, )"
+                },
+                {
+                  "id": "xunit.assert",
+                  "range": "[2.9.3, )"
+                },
+                {
+                  "id": "xunit.core",
+                  "range": "[2.9.3, 2.9.3]"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "xunit.abstractions",
+              "version": "2.0.3",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "xunit.analyzers",
+              "version": "1.18.0",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "xunit.assert",
+              "version": "2.9.3",
+              "dependencies": [],
+              "direct": false
+            },
+            {
+              "id": "xunit.core",
+              "version": "2.9.3",
+              "dependencies": [
+                {
+                  "id": "xunit.extensibility.core",
+                  "range": "[2.9.3, 2.9.3]"
+                },
+                {
+                  "id": "xunit.extensibility.execution",
+                  "range": "[2.9.3, 2.9.3]"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "xunit.extensibility.core",
+              "version": "2.9.3",
+              "dependencies": [
+                {
+                  "id": "xunit.abstractions",
+                  "range": "[2.0.3, )"
+                }
+              ],
+              "direct": false
+            },
+            {
+              "id": "xunit.extensibility.execution",
+              "version": "2.9.3",
+              "dependencies": [
+                {
+                  "id": "xunit.extensibility.core",
+                  "range": "[2.9.3, 2.9.3]"
+                }
+              ],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 157,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/Foo.Tests/Foo.Tests.csproj",
+        "to": "src/Foo/Foo.csproj",
+        "kind": "project"
+      }
+    ],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Bar/Bar.csproj",
+      "src/Foo/Foo.csproj",
+      "src/Foo.Tests/Foo.Tests.csproj"
+    ]
+  },
+  "packages": {
+    "Microsoft.NET.Test.Sdk": {
+      "versions": {
+        "17.12.0": [
+          "src/Foo.Tests/Foo.Tests.csproj"
+        ]
+      }
+    },
+    "NUnit": {
+      "versions": {
+        "3.14.0": [
+          "src/Bar/Bar.csproj"
+        ]
+      }
+    },
+    "xunit": {
+      "versions": {
+        "2.9.3": [
+          "src/Foo.Tests/Foo.Tests.csproj",
+          "src/Foo/Foo.csproj"
+        ]
+      }
+    },
+    "xunit.runner.visualstudio": {
+      "versions": {
+        "2.8.2": [
+          "src/Foo.Tests/Foo.Tests.csproj"
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "TestsInProd.slnx",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Bar/Bar.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Foo.Tests/Foo.Tests.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Foo/Foo.csproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}

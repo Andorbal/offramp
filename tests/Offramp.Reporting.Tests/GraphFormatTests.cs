@@ -12,7 +12,7 @@ public sealed partial class GraphFormatTests
     public static TheoryData<string, GraphFormat> Cases()
     {
         var data = new TheoryData<string, GraphFormat>();
-        foreach (var fixture in new[] { "dual-target", "cycle", "netfx-only" })
+        foreach (var fixture in new[] { "dual-target", "cycle", "netfx-only", "tests-in-prod" })
         {
             foreach (var format in new[] { GraphFormat.Json, GraphFormat.Dot, GraphFormat.Mermaid })
             {

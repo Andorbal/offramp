@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/move-rollback.json",
+  "title": "offramp move rollback result",
+  "description": "The result of `offramp move rollback`. See docs/spec/commands/move.md#move-apply.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["journal", "command", "undone", "changed"],
+  "properties": {
+    "journal": { "$ref": "workspace.json#/$defs/relativePath" },
+    "command": { "type": "string" },
+    "undone": { "type": "integer", "minimum": 0 },
+    "changed": { "$ref": "workspace.json#/$defs/pathList" }
+  }
+}

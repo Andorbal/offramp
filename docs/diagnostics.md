@@ -75,6 +75,18 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1301](#ofr1301) | warning | deps | project outside the solution would inherit CPM |
 | [OFR1302](#ofr1302) | warning | deps | nested Directory.Packages.props shadows the root |
 | [OFR1303](#ofr1303) | warning | deps | packages.config project cannot use CPM |
+| [OFR2002](#ofr2002) | error | move | destination equals source |
+| [OFR2050](#ofr2050) | error | move | verification failed; changes rolled back |
+| [OFR2103](#ofr2103) | warning | move | file does not compile in the destination |
+| [OFR2104](#ofr2104) | error | move | source still depends on moved code |
+| [OFR2151](#ofr2151) | error | move | file changed since the move; rollback stopped |
+| [OFR2201](#ofr2201) | warning | move | test code used by production code |
+| [OFR2202](#ofr2202) | error | move | multiple candidate test projects |
+| [OFR2203](#ofr2203) | error | move | no test project found |
+| [OFR2204](#ofr2204) | warning | move | destination path collision |
+| [OFR2205](#ofr2205) | error | move | project language not supported |
+| [OFR2206](#ofr2206) | warning | move | file outside the project folder |
+| [OFR2210](#ofr2210) | info | move | test-framework packages removable from source |
 | [OFR5001](#ofr5001) | error | verify | verification failed |
 | [OFR5002](#ofr5002) | error | verify | verification timed out |
 | [OFR5010](#ofr5010) | warning | verify | new error code relative to baseline |
@@ -513,6 +525,114 @@ The project still uses `packages.config`, which central package management does 
 - **Typical cause:** A legacy project not yet migrated to `PackageReference`.
 - **Fix:** Migrate the project to `PackageReference` (`offramp csproj modernize`, or Visual Studio's migration).
 
+### OFR2002
+
+**destination equals source** · error · move
+
+The move's destination project is the source project itself.
+
+- **Typical cause:** `--to` naming the source project, or a naming rule that resolves to it.
+- **Fix:** Name a different destination with `--to`.
+
+### OFR2050
+
+**verification failed; changes rolled back** · error · move
+
+The build (or verification command) failed after the move, and `verify.onFailure: rollback` undid it from the journal: renames reversed, project files restored byte for byte, new files deleted.
+
+- **Typical cause:** Moved code that compiles in isolation but breaks the solution build, a test project that does not restore, or an unrelated broken build.
+- **Fix:** Read the verification errors in the result; fix them or narrow the move, then run it again. `verify.onFailure: keep` leaves a failed move in place for inspection.
+
+### OFR2103
+
+**file does not compile in the destination** · warning · move
+
+A trial compilation of the file in the destination project, with the references the move would add, reports errors, so the file stays where it is.
+
+- **Typical cause:** The file uses an assembly the destination does not reference and Offramp cannot add (a .NET Framework reference), different preprocessor symbols or implicit usings, or code that would stay behind.
+- **Fix:** Add the missing reference to the destination (a project file change in its own pull request), then plan the move again.
+
+### OFR2104
+
+**source still depends on moved code** · error · move
+
+Without the moved files the source project no longer compiles, and it cannot reference the destination (that would be a cycle), so nothing moves.
+
+- **Typical cause:** Production code using a test or helper in a way the analysis could not see, such as through a generated file.
+- **Fix:** Look at the source errors in the details, move the used code out of the test files, and plan again.
+
+### OFR2151
+
+**file changed since the move; rollback stopped** · error · move
+
+A file the move wrote (a moved file, an edited project file, or a new file) changed after the move, so undoing it would lose that change. Nothing was rolled back.
+
+- **Typical cause:** Edits made after `move tests --apply`, or a second move over the same files.
+- **Fix:** Undo the later changes first (for example `git stash`), then roll back; or leave the move in place.
+
+### OFR2201
+
+**test code used by production code** · warning · move
+
+A test or helper file is used by production code (in the project, or in a project other than the destination), so moving it would break that code.
+
+- **Typical cause:** A test class with a method production code calls, a builder shared with production, or a helper another project uses.
+- **Fix:** Split the production part out of the file, or leave it; the referrers are listed.
+
+### OFR2202
+
+**multiple candidate test projects** · error · move
+
+More than one project is named after the source project plus `move.tests.targetSuffix`, so the destination is ambiguous.
+
+- **Typical cause:** Test projects with the same name in different folders.
+- **Fix:** Name the destination with `--to`.
+
+### OFR2203
+
+**no test project found** · error · move
+
+No project is named after the source project plus `move.tests.targetSuffix`, and `--create` was not given.
+
+- **Typical cause:** A production project whose tests never had a project of their own.
+- **Fix:** Name an existing destination with `--to`, or pass `--create` to create `<Name>.Tests` next to the source.
+
+### OFR2204
+
+**destination path collision** · warning · move
+
+The file's destination path already exists, or another moved file maps to it, so the file stays.
+
+- **Typical cause:** A test file with the same relative path in both projects, or two files that differ only by a stripped `Tests` folder.
+- **Fix:** Rename one of the files in a separate change, or set `move.tests.stripTestsSegment: false`.
+
+### OFR2205
+
+**project language not supported** · error · move
+
+`move tests` analyzes C# projects; the source project is in another language.
+
+- **Typical cause:** A Visual Basic or F# project.
+- **Fix:** Move the tests by hand.
+
+### OFR2206
+
+**file outside the project folder** · warning · move
+
+The file is compiled into the project through a link but lives outside the project's folder, so it has no place under the destination and stays.
+
+- **Typical cause:** `<Compile Include="..\Common\X.cs" />` sharing a file between projects.
+- **Fix:** Move the shared file by hand, or stop sharing it.
+
+### OFR2210
+
+**test-framework packages removable from source** · info · move
+
+After the move, nothing left in the source project uses the test framework, so its test-framework package references can go.
+
+- **Typical cause:** The last tests moved out of a production project.
+- **Fix:** Run again with `--prune-packages`, or remove the references by hand.
+
 ### OFR5001
 
 **verification failed** · error · verify
@@ -575,23 +695,14 @@ use these numbers; each moves to the table above in the pull request that first 
 | OFR1404 | error | loose Framework-only DLL with no replacement |
 | OFR1501–1504 | info/warning | binding redirect added/changed/pruned/stale |
 | OFR2001 | error | move would create a project reference cycle |
-| OFR2002 | error | destination equals source |
 | OFR2010 | error | move crosses a solution slice boundary |
-| OFR2050 | error | verification failed; changes rolled back |
 | OFR2101 | warning | file needs co-move |
 | OFR2102 | error | required package unavailable for destination |
-| OFR2103 | error | file does not compile in destination |
-| OFR2104 | error | source still depends on moved code |
 | OFR2105 | warning | Windows-only API in moved file |
 | OFR2110 | info | partial type co-moved |
 | OFR2111 | warning | destination excludes the file path |
 | OFR2120 | warning | namespace differs from destination root namespace |
 | OFR2150 | warning | file changed since plan |
-| OFR2201 | warning | candidate referenced by production code; not moved |
-| OFR2202 | error | multiple candidate test projects |
-| OFR2203 | error | no test project found; use `--to` or `--create` |
-| OFR2204 | warning | destination path collision |
-| OFR2210 | info | test-framework packages removable from source |
 | OFR2301 | warning | string reference to a moved type |
 | OFR3001 | error | API missing on target |
 | OFR3002 | warning | Windows-only API |
