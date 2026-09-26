@@ -38,6 +38,7 @@ public static class OfframpCli
         root.Subcommands.Add(CsprojCommands.Create(host, globals));
         root.Subcommands.Add(ConfigCommands.Create(host, globals));
         root.Subcommands.Add(WebCommands.Create(host, globals));
+        root.Subcommands.Add(McpCommands.Create(host, globals));
         globals.AddValidators(root);
 
         var version = root.Options.OfType<VersionOption>().Single();

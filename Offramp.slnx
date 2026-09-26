@@ -6,6 +6,7 @@
     <Project Path="src/Offramp.Cli/Offramp.Cli.csproj" />
     <Project Path="src/Offramp.Core/Offramp.Core.csproj" />
     <Project Path="src/Offramp.Llm/Offramp.Llm.csproj" />
+    <Project Path="src/Offramp.Mcp/Offramp.Mcp.csproj" />
     <Project Path="src/Offramp.NuGet/Offramp.NuGet.csproj" />
     <Project Path="src/Offramp.Refactoring/Offramp.Refactoring.csproj" />
     <Project Path="src/Offramp.Reporting/Offramp.Reporting.csproj" />
@@ -19,6 +20,7 @@
     <Project Path="tests/Offramp.Core.Tests/Offramp.Core.Tests.csproj" />
     <Project Path="tests/Offramp.Fixtures/Offramp.Fixtures.csproj" />
     <Project Path="tests/Offramp.Llm.Tests/Offramp.Llm.Tests.csproj" />
+    <Project Path="tests/Offramp.Mcp.Tests/Offramp.Mcp.Tests.csproj" />
     <Project Path="tests/Offramp.NuGet.Tests/Offramp.NuGet.Tests.csproj" />
     <Project Path="tests/Offramp.Refactoring.Tests/Offramp.Refactoring.Tests.csproj" />
     <Project Path="tests/Offramp.Reporting.Tests/Offramp.Reporting.Tests.csproj" />

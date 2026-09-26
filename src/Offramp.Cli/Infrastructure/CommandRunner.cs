@@ -144,6 +144,11 @@ public static class CommandRunner
     {
         var settings = context.Settings;
         var host = context.Host;
+        if (host.Progress is { } sink)
+        {
+            return await handler.ExecuteAsync(options, context with { Progress = sink }, cancellationToken);
+        }
+
         if (settings.Quiet)
         {
             return await handler.ExecuteAsync(options, context, cancellationToken);
