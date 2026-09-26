@@ -25,7 +25,7 @@ macos, and windows GitHub runners.
 | `windows-service` | `ServiceBase` service with `OnStart`/`OnStop`/`Timer`, `ProjectInstaller`, `EventLog`; a Topshelf service | service scaffold, kind detection |
 | `windows-only-build-steps` | project with `GenerateSerializationAssemblies=On` and a COM reference; **excluded from default builds**, built only by tests that verify `doctor` detection using a hand-written binlog fixture | doctor, OFR0110–0119 |
 | `behavior` | code hitting each behavior rule: culture compare, code pages, `Path` separators, `Registry`, `HttpContext.Current`, `Process.Start(url)`, `SqlClient`, `double.ToString`, `BinaryFormatter`, `Thread.Abort`, `AppDomain.CreateDomain`, `DllImport` | audit behavior/serialization/native/api |
-| `seams` | a library where 3 of 12 types touch `System.DirectoryServices`; graph has an articulation point at `IDirectoryLookup` | seams, extract interface, remote |
+| `seams` | a library where 3 of 7 types are tainted by `System.DirectoryServices` (one uses it, one holds a `DirectoryEntry`, one inherits); the articulation point is `DirectoryLookup`, extracted as `IDirectoryLookup` | seams, extract interface, remote |
 | `dead-code` | public types unused anywhere, types used only via `Type.GetType("...")` string, types used by DI convention (`services.Scan`) | audit dead-code confidence levels |
 | `mvc5` | ASP.NET MVC 5 + Web API 2 app with filters, routes, an `HttpModule`, `Global.asax` | web inventory/scaffold |
 | `legacy-csproj` | old-style csproj with packages.config, `AssemblyInfo.cs`, explicit `Compile` items | csproj modernize (built only on windows runner or via committed binlog) |

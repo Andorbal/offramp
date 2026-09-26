@@ -30,6 +30,9 @@ public static class OfframpCli
         root.Subcommands.Add(RedirectsCommands.Create(host, globals));
         root.Subcommands.Add(AuditCommands.Create(host, globals));
         root.Subcommands.Add(IfdefCommands.Create(host, globals));
+        root.Subcommands.Add(SeamsCommand.Create(host, globals));
+        root.Subcommands.Add(ExtractCommands.Create(host, globals));
+        root.Subcommands.Add(RemoteCommand.Create(host, globals));
         globals.AddValidators(root);
 
         var version = root.Options.OfType<VersionOption>().Single();

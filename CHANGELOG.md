@@ -11,6 +11,51 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp seams --project P`: the smallest boundary around code that cannot port.
+  - Unportable symbols come from `audit api` findings (`--unportable-from audit`) or from
+    `--symbols` and `seams.unportableSymbols`.
+  - Taint spreads through inheritance and public signatures, never through calls.
+    Reference cycles move together.
+  - The minimum cut closest to the taint gives the seams. Each seam lists its callers and
+    the members they call (call sites, wire-friendliness, static), a proposed interface
+    name, a score, and whether it is an articulation point.
+  - OFR4001 no seam, OFR4002 member not wire-friendly, OFR4003 static member on the
+    boundary.
+  - `--format table|json|dot|html` (the graph with taint and cut edges), `--max-cut`.
+    Schema: `schemas/v1/seams.json`.
+- `offramp extract interface --project P --type T` (or `--from-seams seams.json#seam-1`).
+  - Writes `IName.cs` next to the type and adds the interface to the type.
+  - Retypes callers' injected constructor parameters, fields, and properties when
+    everything they do goes through the interface.
+  - Reports callers that create the type with `new` (OFR4010).
+  - The edit is compiled in memory before anything is written: OFR4011 type not found,
+    OFR4012 would not compile, OFR4013 seam not found.
+  - `--di microsoft|autofac|none` prints the registration. Dry run until `--apply`
+    (journal, `move rollback`). Schema: `schemas/v1/extract-interface.json`.
+- `offramp remote --interface I`: an HTTP boundary for a seam interface.
+  - Boundary audit: OFR4002 errors unless `--skip-member`; OFR4020 per synchronous member.
+  - A netstandard2.0 contracts project with routes, requests, DTOs, and
+    `RemoteInvocationException`.
+  - A Windows host: net10.0-windows minimal API when the implementation's files compile
+    for it with Microsoft.Windows.Compatibility (checked by trial compilation, linked
+    sources, `/health`, problem details). Otherwise the net48 OWIN/Web API 2 fallback
+    (OFR4022).
+  - A client with a typed `HttpClient`, the local/remote DI switch, `--async-variant`,
+    and `--serializer stj|newtonsoft`.
+  - `--container` adds a Windows Dockerfile and a Kubernetes Deployment and Service.
+  - Only new files are written (OFR4021 when a target directory exists); OFR4023 when the
+    interface or implementation is not found. Package versions are pinned in
+    `rules/scaffold-packages.yml`. Schema: `schemas/v1/remote.json`.
+- `Offramp.Scaffolding`: generators built from raw string templates.
+- Fixture `seams`. ADR 0023.
+
+### Changed
+- `docs/spec/commands/seams.md`: `--transport grpc` is planned, not in v1 (OFR4030 stays
+  reserved), and `extract interface --rewrite-new` is deferred. New options:
+  `--from-seams` for extract; `--project`, `--contracts-dir`, `--skip-member`, and
+  `--async-variant` for remote.
+
 ## [0.9.0] - 2026-09-26
 
 ### Added

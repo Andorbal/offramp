@@ -1,0 +1,15 @@
+# Package versions written into projects that offramp generates (`remote`, and
+# later `service` and `web scaffold`). Pinned so that generation is
+# deterministic: the same inputs produce the same project files. Bumped
+# deliberately with the tool, like global.json.
+packages:
+  Microsoft.AspNet.WebApi.OwinSelfHost: 5.3.0
+  Microsoft.AspNetCore.Mvc.Testing: 10.0.12
+  Microsoft.Extensions.Configuration.Abstractions: 10.0.12
+  Microsoft.Extensions.Http: 10.0.12
+  Microsoft.NET.Test.Sdk: 18.10.1
+  Microsoft.Windows.Compatibility: 10.0.12
+  Newtonsoft.Json: 13.0.4
+  System.Text.Json: 10.0.12
+  xunit.runner.visualstudio: 3.1.5
+  xunit.v3: 3.2.2

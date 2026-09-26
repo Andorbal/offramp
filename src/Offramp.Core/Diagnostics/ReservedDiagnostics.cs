@@ -13,9 +13,6 @@ public static class ReservedDiagnostics
     public static IReadOnlyList<ReservedDiagnostic> All { get; } =
     [
         new("OFR2010", "error", "move crosses a solution slice boundary"),
-        new("OFR4001–4003", "varies", "seams"),
-        new("OFR4010", "warning", "caller instantiates concrete type directly"),
-        new("OFR4020", "warning", "sync member over remote boundary"),
         new("OFR4030", "error", "gRPC unavailable for net48 host"),
         new("OFR4101–4105", "varies", "service conversion notes"),
         new("OFR4201–4202", "varies", "web scaffold notes"),

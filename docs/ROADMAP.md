@@ -122,7 +122,7 @@ from file persistence.
 Acceptance: string-referenced and convention-registered types are never above
 `low`; the LOC-removable summary is correct for the fixture.
 
-## M9 — Seams and remote ☐
+## M9 — Seams and remote ◐
 
 - `seams` (taint, SCC, min-cut, articulation points, dot/html), `extract
   interface`, `remote` (boundary audit, contracts, host with auto framework
