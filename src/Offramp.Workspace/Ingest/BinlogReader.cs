@@ -36,7 +36,7 @@ public static class BinlogReader
         "TreatWarningsAsErrors", "NoWarn", "DefineConstants", "ProjectAssetsFile", "PreBuildEvent", "PostBuildEvent",
         "TransformOnBuild", "EnableDefaultCompileItems", "NETCoreSdkVersion", "NETCoreSdkRuntimeIdentifier",
         "SolutionPath", "SqlServerVerification", "DSP", "ImplicitUsings", "ExcludeRestorePackageImports", "MSBuildRestoreSessionId",
-        "EnableWindowsTargeting", "OfframpCompileOnly",
+        "EnableWindowsTargeting", "OfframpCompileOnly", "BaseIntermediateOutputPath", "IntermediateOutputPath", "BaseOutputPath", "OutputPath",
     };
 
     /// <summary>Item types copied from each evaluation.</summary>

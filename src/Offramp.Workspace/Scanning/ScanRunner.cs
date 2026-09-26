@@ -128,10 +128,13 @@ public static class ScanRunner
         IReadOnlyList<NotLoadedProject> notLoaded;
         using (request.Progress.BeginPhase("Building the workspace model", ++phase, plan))
         {
-            var callMap = MapCalls(calls, mapper, RepoPaths.ToRepositoryRelative(root, complog));
+            // Compiler-log paths get their own mapping: Basic.CompilerLog rewrites the paths of a
+            // log from another OS (D:\a\repo on Linux reads as /code/a/repo).
+            var callMapper = calls.Count == 0 ? mapper : CapturePathMapper.Infer(root, calls.Select(c => c.ProjectFile));
+            var callMap = MapCalls(calls, callMapper, RepoPaths.ToRepositoryRelative(root, complog));
             var defines = calls
-                .Where(c => mapper.ToRelative(c.ProjectFile) is not null && c.TargetFramework is not null)
-                .GroupBy(c => (mapper.ToRelative(c.ProjectFile)!, c.TargetFramework!))
+                .Where(c => callMapper.ToRelative(c.ProjectFile) is not null && c.TargetFramework is not null)
+                .GroupBy(c => (callMapper.ToRelative(c.ProjectFile)!, c.TargetFramework!))
                 .ToDictionary(g => g.Key, g => g.First().Defines);
             var source = new WorkspaceSource(kind, Display(root, binlog), ContentHash.Sha256File(binlog))
             {

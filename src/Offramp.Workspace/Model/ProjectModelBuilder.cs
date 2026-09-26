@@ -67,10 +67,12 @@ public static class ProjectModelBuilder
             string.Equals(RepoPaths.Normalize(p.Path), projectId, StringComparison.OrdinalIgnoreCase));
         ProjectKind? kindOverride = Enum.TryParse<ProjectKind>(projectConfig?.Kind, ignoreCase: true, out var parsed) ? parsed : null;
 
+        var outputDirectories = OutputDirectories(all, projectDirectory, context);
         var compile = all
             .SelectMany(e => e.ItemsOf("Compile"))
             .Select(i => context.Paths.ToRelative(projectDirectory, i.Include))
             .OfType<string>()
+            .Where(path => !outputDirectories.Any(d => path.StartsWith(d, StringComparison.OrdinalIgnoreCase)))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -295,6 +297,29 @@ public static class ProjectModelBuilder
         }
 
         return [.. byName.Values];
+    }
+
+    /// <summary>
+    /// The project's intermediate and output directories ("src/Foo/obj/", "src/Foo/bin/"), as
+    /// repository-relative prefixes. Compile items there are generated during the build
+    /// (AssemblyInfo, global usings); some logs record them with the evaluation's items.
+    /// </summary>
+    private static List<string> OutputDirectories(IReadOnlyList<EvaluatedProject> evaluations, string projectDirectory, ProjectBuildContext context)
+    {
+        var names = new[] { "BaseIntermediateOutputPath", "IntermediateOutputPath", "BaseOutputPath", "OutputPath" };
+        var values = evaluations.SelectMany(e => names.Select(e.Property)).OfType<string>()
+            .Concat(["obj/", "bin/"]);
+        var project = (context.Paths.ToRelative(projectDirectory) ?? "") + "/";
+        return
+        [
+            .. values
+                .Select(v => context.Paths.ToRelative(projectDirectory, v))
+                .OfType<string>()
+                .Select(v => v.TrimEnd('/') + "/")
+                // A directory that holds the project itself is not an output directory to filter by.
+                .Where(v => v != "/" && !project.StartsWith(v, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase),
+        ];
     }
 
     /// <summary>
