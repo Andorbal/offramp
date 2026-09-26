@@ -168,6 +168,17 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3602](#ofr3602) | warning | audit | finding does not match the source |
 | [OFR3603](#ofr3603) | warning | audit | conditional region depends on other symbols |
 | [OFR3604](#ofr3604) | error | audit | findings file missing or invalid |
+| [OFR4001](#ofr4001) | warning | seams | no seam found |
+| [OFR4002](#ofr4002) | warning | seams | seam member not wire-friendly |
+| [OFR4003](#ofr4003) | warning | seams | static member on the boundary |
+| [OFR4010](#ofr4010) | warning | seams | caller instantiates concrete type directly |
+| [OFR4011](#ofr4011) | error | seams | extract type not found |
+| [OFR4012](#ofr4012) | error | seams | extraction would not compile |
+| [OFR4013](#ofr4013) | error | seams | seam not found |
+| [OFR4020](#ofr4020) | warning | seams | sync member over remote boundary |
+| [OFR4021](#ofr4021) | error | seams | generated project directory exists |
+| [OFR4022](#ofr4022) | info | seams | host falls back to net48 |
+| [OFR4023](#ofr4023) | error | seams | remote interface not found |
 | [OFR5001](#ofr5001) | error | verify | verification failed |
 | [OFR5002](#ofr5002) | error | verify | verification timed out |
 | [OFR5010](#ofr5010) | warning | verify | new error code relative to baseline |
@@ -1443,6 +1454,105 @@ The location an audit finding names no longer holds the symbol it reports, so `i
 - **Typical cause:** A wrong path, or a file that is not the output of `offramp audit api --format json` (or its `--json` envelope).
 - **Fix:** Write the findings with `offramp audit api --format json --out audit.json` and pass that file.
 
+### OFR4001
+
+**no seam found** · warning · seams
+
+`seams` found no boundary to put an interface on: nothing uses the unportable symbols, the taint reaches the project's entry points directly, or the smallest boundary crosses more references than --max-cut allows.
+
+- **Typical cause:** Unportable types in the project's public API, or an unportable base type every class derives from.
+- **Fix:** Check the unportable symbols (--symbols, seams.unportableSymbols); split the project first, or raise --max-cut.
+
+### OFR4002
+
+**seam member not wire-friendly** · warning · seams
+
+A member the clean side calls on the boundary type takes or returns something that cannot cross a network boundary as data (a delegate, event, stream, pointer, `ref`/`out` parameter, `object`, interface, or a type without public settable properties).
+
+- **Typical cause:** Callbacks, streams, and domain objects with behavior in the boundary's signatures.
+- **Fix:** Change the member to exchange data (DTOs), or keep it local with `remote --skip-member`.
+
+### OFR4003
+
+**static member on the boundary** · warning · seams
+
+The clean side calls a static member of the boundary type; an interface cannot declare it, so it needs an instance wrapper.
+
+- **Typical cause:** Static helpers and availability checks on the unportable class.
+- **Fix:** Add an instance member that calls the static one and use it through the interface.
+
+### OFR4010
+
+**caller instantiates concrete type directly** · warning · seams
+
+`extract interface` left a caller depending on the concrete type because it creates the instance itself with `new`; the interface cannot be swapped for that caller until the instance is injected.
+
+- **Typical cause:** Service locator style code and classes that build their own dependencies.
+- **Fix:** Take the interface as a constructor parameter (or resolve it from the container) and remove the `new`.
+
+### OFR4011
+
+**extract type not found** · error · seams
+
+`extract interface --type` names no class or struct declared in the project's recorded compilation.
+
+- **Typical cause:** A typo, a nested type written with `.` instead of `+`, or a type from another project.
+- **Fix:** Pass the fully qualified name of a class declared in --project (as `seams` prints it).
+
+### OFR4012
+
+**extraction would not compile** · error · seams
+
+The edited project was compiled in memory before anything was written, and the extraction introduced errors (or a source file changed since the last scan), so nothing was written.
+
+- **Typical cause:** Members with signatures an interface cannot express, callers that pass the retyped dependency on as the concrete type, stale scans.
+- **Fix:** Narrow the members with --members, run `offramp scan` again, or extract by hand; the message lists the first errors.
+
+### OFR4013
+
+**seam not found** · error · seams
+
+`extract interface --from-seams FILE#ID` could not read the seams document, or it has no seam with that id.
+
+- **Typical cause:** A path to something other than `seams --out seams.json` output, or an id from an older run.
+- **Fix:** Run `offramp seams --project P --out seams.json` and pass one of its ids (seam-1, seam-2, ...).
+
+### OFR4020
+
+**sync member over remote boundary** · warning · seams
+
+A synchronous interface member now makes an HTTP call: the generated client blocks on it, which ties up a thread for the network round trip and can deadlock under a synchronization context.
+
+- **Typical cause:** Interfaces designed for in-process calls.
+- **Fix:** Generate the asynchronous variant with `remote --async-variant` and move callers to it.
+
+### OFR4021
+
+**generated project directory exists** · error · seams
+
+`remote` writes new projects only: a directory it would generate (contracts, client, or host) already exists and is not empty, so nothing was generated.
+
+- **Typical cause:** Running `remote` twice, or a name that collides with an existing project.
+- **Fix:** Choose other places with --contracts-dir, --client-dir, and --host-dir, or delete the earlier output.
+
+### OFR4022
+
+**host falls back to net48** · info · seams
+
+The implementation and the files it uses did not compile for net10.0-windows with Microsoft.Windows.Compatibility (or the check could not run), so the host is the legacy net48 fallback: OWIN self-host with ASP.NET Web API 2.
+
+- **Typical cause:** Implementations that use APIs missing from modern .NET even on Windows (WCF server, Remoting, System.Web), or types from other projects.
+- **Fix:** Port what the message lists, then generate again with --host-framework net10-windows.
+
+### OFR4023
+
+**remote interface not found** · error · seams
+
+`remote --interface` names no interface declared in the project, the implementation is missing or ambiguous, or `--skip-member` names no member of the interface.
+
+- **Typical cause:** A type from another project, several classes implementing the interface, a typo.
+- **Fix:** Pass --project, and --implementation when more than one class implements the interface.
+
 ### OFR5001
 
 **verification failed** · error · verify
@@ -1496,9 +1606,6 @@ use these numbers; each moves to the table above in the pull request that first 
 | Code | Severity | Meaning |
 |---|---|---|
 | OFR2010 | error | move crosses a solution slice boundary |
-| OFR4001–4003 | varies | seams |
-| OFR4010 | warning | caller instantiates concrete type directly |
-| OFR4020 | warning | sync member over remote boundary |
 | OFR4030 | error | gRPC unavailable for net48 host |
 | OFR4101–4105 | varies | service conversion notes |
 | OFR4201–4202 | varies | web scaffold notes |

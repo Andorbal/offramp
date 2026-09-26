@@ -93,8 +93,9 @@ calling the host.
 
 ```
 offramp remote --interface Foo.Directory.IAdLookup --implementation Foo.Directory.AdLookup
-               [--host-framework auto|net10-windows|net48] [--transport http-json|grpc]
+               [--project P] [--host-framework auto|net10-windows|net48] [--transport http-json]
                [--serializer stj|newtonsoft] [--host-dir src/Foo.Windows.Host] [--client-dir src/Foo.Remote]
+               [--contracts-dir src/Foo.Remote.Contracts] [--skip-member M ...] [--async-variant]
                [--container] [--apply]
 ```
 
@@ -131,9 +132,10 @@ Generated pieces:
 6. **DI switch**: registration snippet choosing local vs remote implementation
    by configuration, so the boundary can be flipped per environment.
 
-`--transport grpc` generates a `.proto` from the contracts and uses
-`Grpc.AspNetCore` on the host and `Grpc.Net.Client` on the client; it is not
-available for the `net48` host fallback (`OFR4030`).
+`--transport grpc` (planned, not in v1; see ADR 0023) will generate a `.proto`
+from the contracts and use `Grpc.AspNetCore` on the host and `Grpc.Net.Client`
+on the client; it will not be available for the `net48` host fallback
+(`OFR4030`).
 
 Acceptance: on the `seams` fixture, `seams` finds the `IDirectoryLookup`
 articulation point; `extract interface` compiles; `remote --host-framework net10-windows`
@@ -141,3 +143,91 @@ produces host, contracts, and client projects that build on all three OSes
 (the host builds with `EnableWindowsTargeting=true`; running it is not tested
 on non-Windows), and a round-trip test with the host running in-process
 (`WebApplicationFactory`) on the windows runner.
+
+## Details: seams, extract interface, and remote (M9)
+
+Decisions in `docs/decisions/0023-seams-extract-and-remote.md`.
+
+### seams
+
+- Unportable symbols: `--unportable-from audit` (default from
+  `seams.unportableSources`) runs `audit api` on the project and takes the error-level
+  OFR3001 and OFR3004–3009 findings, plus OFR3002. `list` uses `--symbols` and
+  `seams.unportableSymbols`: namespace or type prefixes of fully qualified names.
+- Taint: types that use an unportable symbol, then types that inherit from a tainted
+  type or expose one in a public or protected field, property, method parameter, or
+  return (constructor parameters excepted), and every type in a reference cycle with a
+  tainted type. `tainted[].reason` lists the symbols used, `inherits T`,
+  `exposes T in M`, or `in a reference cycle with ...`.
+- The cut: clean entry points are clean types nothing in the project references; among
+  minimum cuts the one closest to the taint is reported. `--max-cut N` turns a larger
+  cut into OFR4001.
+- `score` = (share of members that are wire-friendly and not static) / (1 + 0.1 ×
+  (members − 1)), × 0.8 unless an articulation point, rounded to 0.01. Seams are ranked
+  by member count, then callers, then wire-friendly members, then name, and numbered
+  `seam-1`, `seam-2`, ...
+- `members[]` also carry `static` (OFR4003) and `problems` (OFR4002). The result adds
+  `unportableFrom`, `types` (every type of the project), and `edges` (`from`, `to`,
+  `weight`, `cut`) for the graph views.
+- `--format json|dot|html` prints the document, or writes it to `--out` (the format is
+  inferred from the extension). Schema: `schemas/v1/seams.json`.
+
+### extract interface
+
+- Also `--from-seams FILE#ID` (default id `seam-1`), which reads the `seams` document or
+  its `--json` envelope and supplies the type, name, members, and callers. An unknown
+  file or id is OFR4013.
+- The interface file is `NAME.cs` next to the type, with fully qualified types and a
+  block namespace. The type gains the interface in its base list; nothing else in it
+  changes.
+- Callers (all types in the project, or the seam's callers): constructor parameters,
+  fields, and properties of the concrete type become the interface when everything done
+  through them is on the interface. A parameter stored in a field is retyped only with
+  that field. The caller's spelling is kept: `DirectoryLookup` becomes
+  `IDirectoryLookup`, a qualified name keeps its qualifier.
+- `new` of the concrete type: OFR4010 per site; `--rewrite-new` is deferred (ADR 0023).
+- The edit is compiled in memory first; new errors, a changed source file, or an
+  existing interface file are OFR4012, and nothing is written. A type that is not a
+  class or struct in the project is OFR4011.
+- `--di microsoft|autofac|none` prints the registration in `registration`. A dry run
+  until `--apply`, which writes through a journal (`move rollback --journal`). Schema:
+  `schemas/v1/extract-interface.json`.
+
+### remote
+
+- `--interface` must be declared in the project (`--project`, or the first project
+  whose sources declare it); `--implementation` defaults to the one class that
+  implements it. Otherwise, and for a `--skip-member` that names no member: OFR4023.
+- Members: methods cross; properties, events, and generic methods do not. A member that
+  cannot cross is an OFR4002 error and nothing is generated unless it is skipped.
+  Skipped members throw `NotSupportedException` in the client. Each synchronous member
+  that crosses is OFR4020.
+- Routes: `Interface/Member` (numbered for overloads), relative to the host's base
+  address, POST with a `MemberRequest` body. Results are JSON bodies; `void` and `Task`
+  answer 204. Errors are problem details; the client throws `RemoteInvocationException`
+  (in the contracts) with the status, title, and detail.
+- DTOs: enums and POCOs (public parameterless constructor, public settable properties,
+  inherited ones included; generic types do not cross) get `NameDto` copies;
+  sequences cross as `List<T>` and string-keyed maps as `Dictionary<string, T>`. The
+  host and the client each have a `StemMapping` class.
+- Host framework: `auto` compiles the implementation's file closure for
+  net10.0-windows with Microsoft.Windows.Compatibility and the project's packages. If it
+  compiles, the host (`Microsoft.NET.Sdk.Web`, `EnableWindowsTargeting`) compiles those
+  files as links, with a `/health` endpoint, JSON console logging, problem details,
+  `appsettings.json`, and a `public partial class Program` for `WebApplicationFactory`.
+  Otherwise, or with `net48`, the host is an OWIN self-host with ASP.NET Web API 2 that
+  references the project (OFR4022 for the `auto` fallback).
+- Client: targets the project's frameworks and references it and the contracts.
+  `RemoteStem` implements the interface with a typed `HttpClient`; `--async-variant`
+  adds `IStemAsync` (Task-returning members with a `CancellationToken`) implemented by
+  the same class. `StemRegistration` has `AddRemoteStem(services, baseAddress)` and the
+  switch `AddStem(services, configuration, local)`, which reads `Remote:Stem:Mode`
+  (`remote` or anything else) and `Remote:Stem:Url`.
+- `--container`: `Dockerfile` (Nano Server for net10.0-windows, the .NET Framework
+  ASP.NET image for net48; build from the repository root) and `kubernetes.yaml`
+  (Deployment on `kubernetes.io/os: windows` with requests, a readiness probe on
+  `/health`, and a Service).
+- Package versions are pinned in `rules/scaffold-packages.yml`. Under central package
+  management the generated projects opt out. Only new files are written; a non-empty
+  target directory is OFR4021. `nextSteps` lists `dotnet sln add` and the registration
+  call. A dry run until `--apply`. Schema: `schemas/v1/remote.json`.
