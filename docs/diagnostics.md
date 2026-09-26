@@ -75,6 +75,11 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1301](#ofr1301) | warning | deps | project outside the solution would inherit CPM |
 | [OFR1302](#ofr1302) | warning | deps | nested Directory.Packages.props shadows the root |
 | [OFR1303](#ofr1303) | warning | deps | packages.config project cannot use CPM |
+| [OFR5001](#ofr5001) | error | verify | verification failed |
+| [OFR5002](#ofr5002) | error | verify | verification timed out |
+| [OFR5010](#ofr5010) | warning | verify | new error code relative to baseline |
+| [OFR5020](#ofr5020) | warning | verify | finding from the verification command |
+| [OFR5090](#ofr5090) | info | verify | verification skipped by configuration |
 
 ### OFR0001
 
@@ -508,6 +513,51 @@ The project still uses `packages.config`, which central package management does 
 - **Typical cause:** A legacy project not yet migrated to `PackageReference`.
 - **Fix:** Migrate the project to `PackageReference` (`offramp csproj modernize`, or Visual Studio's migration).
 
+### OFR5001
+
+**verification failed** · error · verify
+
+The verification build (or `verify.command`) failed. With a baseline, only errors the baseline does not list count.
+
+- **Typical cause:** A compile error in the selected projects, a broken change, or a verification command that exited non-zero.
+- **Fix:** Read the grouped errors in the result (the first occurrence of each code is shown) and the binary log under `.offramp/verify/`; fix them or record the current state with `verify --baseline`.
+
+### OFR5002
+
+**verification timed out** · error · verify
+
+The verification build or command ran longer than `verify.timeoutSeconds` and was stopped.
+
+- **Typical cause:** A large build, a hung process, or a timeout set too low for this repository.
+- **Fix:** Raise `verify.timeoutSeconds`, narrow the build with `--projects` or `verify.projects`, or verify a slice.
+
+### OFR5010
+
+**new error code relative to baseline** · warning · verify
+
+The build reports an error code that the recorded baseline does not contain.
+
+- **Typical cause:** A change introduced a new kind of failure in a repository that was already failing to build in known ways.
+- **Fix:** Fix the new errors, or record a new baseline with `verify --baseline` if they are expected.
+
+### OFR5020
+
+**finding from the verification command** · warning · verify
+
+`verify.command` printed a JSON envelope with a finding whose code is not an Offramp code; it is reported under this code at its own severity, with the original code in `data.code`.
+
+- **Typical cause:** A verification script that runs linters, tests, or other tools and reports their findings as an envelope.
+- **Fix:** See the tool that reported `data.code`. Offramp codes in the envelope are merged unchanged.
+
+### OFR5090
+
+**verification skipped by configuration** · info · verify
+
+`verify.mode` (or `--mode`) is `none`, so nothing was built or run.
+
+- **Typical cause:** Verification turned off in `offramp.yml`, for example while iterating on a plan.
+- **Fix:** Set `verify.mode` to `build` or `command` to verify changes.
+
 ## Reserved codes
 
 Codes the specification assigns to commands that have not shipped yet. Implementations
@@ -562,8 +612,4 @@ use these numbers; each moves to the table above in the pull request that first 
 | OFR4301–4303 | varies | csproj modernize notes |
 | OFR4401–4404 | varies | config convert notes |
 | OFR4501, OFR4510 | varies | codemod skipped site; SqlClient encrypt default |
-| OFR5001 | error | verification build failed |
-| OFR5002 | error | verification timed out |
-| OFR5010 | warning | new error code relative to baseline |
-| OFR5090 | info | verification skipped by configuration |
 | OFR9101 | error | MCP request outside allowed root |

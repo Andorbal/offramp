@@ -59,10 +59,6 @@ public static class ReservedDiagnostics
         new("OFR4301–4303", "varies", "csproj modernize notes"),
         new("OFR4401–4404", "varies", "config convert notes"),
         new("OFR4501, OFR4510", "varies", "codemod skipped site; SqlClient encrypt default"),
-        new("OFR5001", "error", "verification build failed"),
-        new("OFR5002", "error", "verification timed out"),
-        new("OFR5010", "warning", "new error code relative to baseline"),
-        new("OFR5090", "info", "verification skipped by configuration"),
         new("OFR9101", "error", "MCP request outside allowed root"),
     ];
 }

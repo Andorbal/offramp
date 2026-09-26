@@ -1,0 +1,28 @@
+﻿3 projects to port in 1 wave; 3 ready today.
+
+  Wave   Project                                Class         Status   Dependents   Waits on
+──────────────────────────────────────────────────────────────────────────────────────────────
+     0   src/Shared/Shared.csproj               ■ standard    done              1
+     0   src/Modern.App/Modern.App.csproj       ■ modern      done              0
+     1   src/Billing/Billing.csproj             ■ framework   ready             0
+     1   src/Customer.Api/Customer.Api.csproj   ■ framework   ready             0
+     1   src/Reporting/Reporting.csproj         ■ framework   ready             0
+
+
+--- --waves
+3 projects to port in 1 wave; 3 ready today.
+Already portable
+
+  Wave   Project                            Class        Status   Dependents   Waits on
+─────────────────────────────────────────────────────────────────────────────────────────
+     0   src/Shared/Shared.csproj           ■ standard   done              1
+     0   src/Modern.App/Modern.App.csproj   ■ modern     done              0
+
+Wave 1
+
+  Wave   Project                                Class         Status   Dependents   Waits on
+──────────────────────────────────────────────────────────────────────────────────────────────
+     1   src/Billing/Billing.csproj             ■ framework   ready             0
+     1   src/Customer.Api/Customer.Api.csproj   ■ framework   ready             0
+     1   src/Reporting/Reporting.csproj         ■ framework   ready             0
+

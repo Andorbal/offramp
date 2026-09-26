@@ -20,6 +20,9 @@ public sealed class FakeMachine
 
     public ReferenceAssembliesResult ReferenceAssemblies { get; set; } = new(ReferenceAssembliesState.Cached, "1.0.3");
 
+    /// <summary>Extra handlers applied to every runner this machine creates, after the built-in ones.</summary>
+    public List<Action<FakeProcessRunner>> Setup { get; } = [];
+
     public FakeProcessRunner CreateRunner()
     {
         var runner = new FakeProcessRunner();
@@ -37,6 +40,11 @@ public sealed class FakeMachine
             runner.On("git", ["rev-parse", "--show-toplevel"], _ => RepositoryRoot is null
                 ? new ProcessResult(128, "", "fatal: not a git repository (or any of the parent directories): .git\n")
                 : new ProcessResult(0, RepositoryRoot.Replace('\\', '/') + "\n", ""));
+        }
+
+        foreach (var setup in Setup)
+        {
+            setup(runner);
         }
 
         return runner;

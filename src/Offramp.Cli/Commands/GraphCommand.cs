@@ -205,7 +205,7 @@ public sealed class GraphCommand : ICommandHandler<GraphOptions, GraphResult>, I
     private static string Title(WorkspaceModel model) =>
         model.Solution is null ? "Project graph" : Path.GetFileNameWithoutExtension(model.Solution) + " project graph";
 
-    private static Option<string[]> KindsOption(string name, string description)
+    internal static Option<string[]> KindsOption(string name, string description)
     {
         var option = new Option<string[]>(name) { Description = description + " Comma-separated or repeated.", HelpName = "KIND[,KIND...]", AllowMultipleArgumentsPerToken = true };
         option.Validators.Add(r =>
@@ -221,7 +221,7 @@ public sealed class GraphCommand : ICommandHandler<GraphOptions, GraphResult>, I
         return option;
     }
 
-    private static IReadOnlyList<ProjectKind> ParseKinds(string[]? values) =>
+    internal static IReadOnlyList<ProjectKind> ParseKinds(string[]? values) =>
         [.. Split(values).Select(Parse<ProjectKind>).Distinct()];
 
     private static IEnumerable<string> Split(string[]? values) =>

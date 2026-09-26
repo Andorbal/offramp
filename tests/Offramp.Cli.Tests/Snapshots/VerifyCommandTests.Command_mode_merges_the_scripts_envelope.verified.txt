@@ -1,0 +1,13 @@
+﻿Verification failed: 1 error.
+Scope: 1 project named with --projects
+
+  Code      Count   First occurrence
+────────────────────────────────────────────
+  LINT042       1   src/Shared/Clock.cs(7)
+                    Banned API
+
+
+✗ OFR5001 Verification failed: 1 error (LINT042).
+✗ OFR5020 src/Shared/Clock.cs:7 LINT042: Banned API
+
+2 error(s)
