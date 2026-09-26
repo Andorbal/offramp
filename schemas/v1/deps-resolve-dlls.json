@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/deps-resolve-dlls.json",
+  "title": "offramp deps resolve-dlls result",
+  "description": "The result of `offramp deps resolve-dlls`. See docs/spec/commands/deps.md#deps-resolve-dlls.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["projects", "summary", "applied", "journal", "preview"],
+  "properties": {
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "references"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "hintPath", "assemblyVersion", "targetFramework", "publicKeyToken", "resolution", "blocker"],
+              "properties": {
+                "name": { "type": "string" },
+                "hintPath": { "type": "string" },
+                "assemblyVersion": { "type": ["string", "null"] },
+                "targetFramework": { "type": ["string", "null"] },
+                "publicKeyToken": { "type": ["string", "null"] },
+                "blocker": { "type": "boolean" },
+                "resolution": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["kind", "project", "package", "version", "reason"],
+                  "properties": {
+                    "kind": { "enum": ["project", "package", "none"] },
+                    "project": { "type": ["string", "null"] },
+                    "package": { "type": ["string", "null"] },
+                    "version": { "type": ["string", "null"] },
+                    "reason": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "package", "unmatched", "blockers"],
+      "properties": {
+        "project": { "type": "integer", "minimum": 0 },
+        "package": { "type": "integer", "minimum": 0 },
+        "unmatched": { "type": "integer", "minimum": 0 },
+        "blockers": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  }
+}

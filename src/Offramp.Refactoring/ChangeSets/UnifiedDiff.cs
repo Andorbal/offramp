@@ -67,15 +67,16 @@ public static class UnifiedDiff
                 x++;
                 y++;
             }
-            else if (y < b.Length && (x == a.Length || lcs[x, y + 1] >= lcs[x + 1, y]))
+            else if (x < a.Length && (y == b.Length || lcs[x + 1, y] >= lcs[x, y + 1]))
             {
-                result.Add(new Operation('+', b[y], x, y + 1));
-                y++;
+                // Removals before additions, as git prints a replaced line.
+                result.Add(new Operation('-', a[x], x + 1, y));
+                x++;
             }
             else
             {
-                result.Add(new Operation('-', a[x], x + 1, y));
-                x++;
+                result.Add(new Operation('+', b[y], x, y + 1));
+                y++;
             }
         }
 

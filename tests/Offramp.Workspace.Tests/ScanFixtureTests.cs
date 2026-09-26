@@ -15,7 +15,7 @@ namespace Offramp.Workspace.Tests;
 /// </summary>
 public sealed class ScanFixtureTests
 {
-    public static TheoryData<string> Fixtures => ["netfx-only", "dual-target", "cycle", "windows-only-build-steps", "versions", "tests-in-prod", "move-cases"];
+    public static TheoryData<string> Fixtures => ["netfx-only", "dual-target", "cycle", "windows-only-build-steps", "versions", "tests-in-prod", "move-cases", "loose-dlls", "cpm-shadowing"];
 
     [Theory]
     [MemberData(nameof(Fixtures))]

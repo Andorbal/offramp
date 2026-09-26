@@ -40,6 +40,28 @@ public sealed class RecordedFeedTests
         }
     }
 
+    /// <summary>
+    /// The loose-dlls fixture's stub DLLs are what <see cref="LooseDlls"/> writes; regenerate with
+    /// <c>OFFRAMP_REGENERATE=1 dotnet test --filter Loose_dlls</c>.
+    /// </summary>
+    [Fact]
+    public void Loose_dlls_match_their_generator()
+    {
+        if (Environment.GetEnvironmentVariable("OFFRAMP_REGENERATE") == "1")
+        {
+            LooseDlls.Write(LooseDlls.LibPath);
+        }
+
+        var expected = LooseDlls.Build();
+        var actual = Directory.EnumerateFiles(LooseDlls.LibPath, "*.dll").ToDictionary(p => Path.GetFileName(p), File.ReadAllBytes);
+
+        Assert.Equal(expected.Keys, actual.Keys.Order(StringComparer.Ordinal));
+        foreach (var (name, bytes) in expected)
+        {
+            Assert.True(bytes.AsSpan().SequenceEqual(actual[name]), $"{name} differs from its generator; regenerate it.");
+        }
+    }
+
     private static List<string> Entries(byte[] nupkg)
     {
         using var zip = new ZipArchive(new MemoryStream(nupkg), ZipArchiveMode.Read);

@@ -43,6 +43,13 @@ public static class TargetSupport
         return null;
     }
 
+    /// <summary>The dependencies NuGet would use for <paramref name="target"/>: the nearest group's, or none.</summary>
+    public static IReadOnlyList<InspectedDependency> Dependencies(PackageInspection package, NuGetFramework target)
+    {
+        var nearest = NuGetFrameworkUtility.GetNearest(package.DependencyGroups, target, g => Parse(g.Framework));
+        return nearest?.Dependencies ?? [];
+    }
+
     public static NuGetFramework Parse(string shortName) =>
         shortName == "any" ? NuGetFramework.AnyFramework : NuGetFramework.ParseFolder(shortName);
 }

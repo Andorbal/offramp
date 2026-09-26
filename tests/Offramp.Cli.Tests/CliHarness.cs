@@ -30,12 +30,13 @@ public sealed class CliHarness : IDisposable
         Machine = new FakeMachine { RepositoryRoot = repository.Path };
     }
 
-    /// <summary>Lets git and dotnet builds run for real, for commands that move files and verify.</summary>
+    /// <summary>Lets git and dotnet builds and restores run for real, for commands that change files and verify.</summary>
     public CliHarness WithRealGitAndBuilds()
     {
         Machine.Setup.Add(r => r
             .On("git", [], spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult())
-            .On("dotnet", ["build"], spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult()));
+            .On("dotnet", ["build"], spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult())
+            .On("dotnet", ["restore"], spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult()));
         return this;
     }
 

@@ -69,6 +69,26 @@ public static class StubAssembly
             }
         }
 
+        if (assembly.TargetFramework is { } framework)
+        {
+            if (!references.TryGetValue("mscorlib", out var corlib))
+            {
+                corlib = metadata.AddAssemblyReference(
+                    metadata.GetOrAddString("mscorlib"), new Version(4, 0, 0, 0), default,
+                    metadata.GetOrAddBlob(Convert.FromHexString("b77a5c561934e089")), default, default);
+            }
+
+            var attributeType = metadata.AddTypeReference(corlib, metadata.GetOrAddString("System.Runtime.Versioning"), metadata.GetOrAddString("TargetFrameworkAttribute"));
+            var signature = new BlobBuilder();
+            new BlobEncoder(signature).MethodSignature(isInstanceMethod: true).Parameters(1, r => r.Void(), p => p.AddParameter().Type().String());
+            var constructor = metadata.AddMemberReference(attributeType, metadata.GetOrAddString(".ctor"), metadata.GetOrAddBlob(signature));
+            var value = new BlobBuilder();
+            new BlobEncoder(value).CustomAttributeSignature(
+                fixedArguments => fixedArguments.AddArgument().Scalar().Constant(framework),
+                namedArguments => namedArguments.Count(0));
+            metadata.AddCustomAttribute(EntityHandle.AssemblyDefinition, constructor, metadata.GetOrAddBlob(value));
+        }
+
         var builder = new ManagedPEBuilder(
             PEHeaderBuilder.CreateLibraryHeader(),
             new MetadataRootBuilder(metadata),

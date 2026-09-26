@@ -14,6 +14,7 @@
     <ProjectReference Include="..\Offramp.Core\Offramp.Core.csproj" />
     <ProjectReference Include="..\Offramp.Workspace\Offramp.Workspace.csproj" />
     <ProjectReference Include="..\Offramp.Analysis\Offramp.Analysis.csproj" />
+    <ProjectReference Include="..\Offramp.NuGet\Offramp.NuGet.csproj" />
   </ItemGroup>
 
   <ItemGroup>

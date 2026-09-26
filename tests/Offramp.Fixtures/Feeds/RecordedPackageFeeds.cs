@@ -1,14 +1,13 @@
 using NuGet.Versioning;
-using Offramp.Fixtures.Feeds;
 using Offramp.NuGet.Feeds;
 
-namespace Offramp.NuGet.Tests;
+namespace Offramp.Fixtures.Feeds;
 
 /// <summary>
 /// A feed answering from a recording, including what folder feeds cannot express:
 /// listing state and deprecation. Counts downloads so tests can check the search is lazy.
 /// </summary>
-internal sealed class RecordedPackageFeeds(FeedRecording recording) : IPackageFeeds
+public sealed class RecordedPackageFeeds(FeedRecording recording) : IPackageFeeds
 {
     public int Downloads { get; private set; }
 
