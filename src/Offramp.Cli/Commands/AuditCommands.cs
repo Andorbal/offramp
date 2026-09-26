@@ -36,6 +36,8 @@ public static class AuditCommands
         audit.Subcommands.Add(Kind(host, globals, AuditKind.Native, "native",
             "P/Invoke inventory, marshalling defaults that differ, LibraryImport candidates, and COM.",
             "offramp audit native", "offramp audit native --format sarif --out native.sarif"));
+        audit.Subcommands.Add(AuditDeadCodeCommand.Create(host, globals));
+        audit.Subcommands.Add(AuditApiCompatCommand.Create(host, globals));
         return audit;
     }
 

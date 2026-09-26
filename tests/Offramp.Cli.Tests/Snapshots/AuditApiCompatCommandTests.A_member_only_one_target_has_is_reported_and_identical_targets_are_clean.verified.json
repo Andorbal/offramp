@@ -1,0 +1,21 @@
+﻿{
+  "project": "src/Shared/Shared.csproj",
+  "mode": "targets",
+  "left": {
+    "label": "net48",
+    "targetFramework": "net48"
+  },
+  "right": {
+    "label": "net10.0",
+    "targetFramework": "net10.0"
+  },
+  "tool": "{Tool}",
+  "differences": [
+    {
+      "code": "CP0002",
+      "member": "string Shared.Clock.Zone()",
+      "onlyOn": "net48",
+      "message": "Member \u0027string Shared.Clock.Zone()\u0027 exists on net48 but not on net10.0"
+    }
+  ]
+}

@@ -36,11 +36,7 @@ public sealed class ScratchWorktree : IAsyncDisposable
     public static async Task<ScratchWorktree> CreateAsync(string repositoryRoot, IEnumerable<string> files, IGitService git, CancellationToken cancellationToken = default)
     {
         var root = System.IO.Path.GetFullPath(repositoryRoot);
-        // The canonical temporary directory: processes started in the scratch copy report it that
-        // way (they ask the operating system for their directory), and output is mapped back by it.
-        var parent = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "offramp-scratch");
-        Directory.CreateDirectory(parent);
-        var path = System.IO.Path.Combine(RepoPaths.Canonical(parent), ContentHash.Sha256(root)[..8] + "-" + Guid.NewGuid().ToString("N")[..8]);
+        var path = NewPath(root);
         // Only the top of a work tree (it holds .git) maps one to one onto a new work tree;
         // comparing paths instead would trip over symbolic links such as macOS's /var.
         var gitMarker = System.IO.Path.Combine(root, ".git");
@@ -61,6 +57,43 @@ public sealed class ScratchWorktree : IAsyncDisposable
         }
 
         return scratch;
+    }
+
+    /// <summary>
+    /// A detached work tree of the repository at <paramref name="revision"/>, or null when the
+    /// repository is not a git work tree or the revision does not exist.
+    /// </summary>
+    public static async Task<ScratchWorktree?> CreateAtRevisionAsync(string repositoryRoot, string revision, IGitService git, CancellationToken cancellationToken = default)
+    {
+        var root = System.IO.Path.GetFullPath(repositoryRoot);
+        if (await git.FindRepositoryRootAsync(root, cancellationToken) is null)
+        {
+            return null;
+        }
+
+        var path = NewPath(root);
+        try
+        {
+            await git.AddWorktreeAsync(root, path, revision, cancellationToken);
+        }
+        catch (GitCommandException)
+        {
+            return null;
+        }
+
+        return new ScratchWorktree(git, root, path, isWorktree: true);
+    }
+
+    /// <summary>
+    /// A new path under the canonical temporary directory: processes started in the scratch copy
+    /// report it that way (they ask the operating system for their directory), and output is
+    /// mapped back by it.
+    /// </summary>
+    private static string NewPath(string root)
+    {
+        var parent = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "offramp-scratch");
+        Directory.CreateDirectory(parent);
+        return System.IO.Path.Combine(RepoPaths.Canonical(parent), ContentHash.Sha256(root)[..8] + "-" + Guid.NewGuid().ToString("N")[..8]);
     }
 
     /// <summary>Copies a repository-relative file from the working tree into the scratch copy.</summary>

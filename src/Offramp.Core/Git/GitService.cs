@@ -30,9 +30,13 @@ public interface IGitService
     Task<IReadOnlyList<GitStatusEntry>> StatusAsync(string repositoryRoot, CancellationToken cancellationToken = default);
 
     /// <summary>Checks out <c>HEAD</c> into a new detached work tree at <paramref name="path"/> (<c>git worktree add --detach</c>).</summary>
-    Task AddWorktreeAsync(string repositoryRoot, string path, CancellationToken cancellationToken = default);
+    Task AddWorktreeAsync(string repositoryRoot, string path, CancellationToken cancellationToken = default) =>
+        AddWorktreeAsync(repositoryRoot, path, "HEAD", cancellationToken);
 
-    /// <summary>Removes a work tree added by <see cref="AddWorktreeAsync"/>, discarding its changes.</summary>
+    /// <summary>Adds a detached work tree at <paramref name="path"/> checked out at <paramref name="revision"/>.</summary>
+    Task AddWorktreeAsync(string repositoryRoot, string path, string revision, CancellationToken cancellationToken = default);
+
+    /// <summary>Removes a work tree added by <c>AddWorktreeAsync</c>, discarding its changes.</summary>
     Task RemoveWorktreeAsync(string repositoryRoot, string path, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -118,10 +122,10 @@ public sealed class GitService(IProcessRunner runner) : IGitService
         return ParsePorcelainZ(result.StandardOutput);
     }
 
-    public async Task AddWorktreeAsync(string repositoryRoot, string path, CancellationToken cancellationToken = default)
+    public async Task AddWorktreeAsync(string repositoryRoot, string path, string revision, CancellationToken cancellationToken = default)
     {
         var result = await runner.RunAsync(
-            new ProcessSpec("git", ["worktree", "add", "--detach", "--quiet", path, "HEAD"]) { WorkingDirectory = repositoryRoot, Timeout = TimeSpan.FromMinutes(10) },
+            new ProcessSpec("git", ["worktree", "add", "--detach", "--quiet", path, revision]) { WorkingDirectory = repositoryRoot, Timeout = TimeSpan.FromMinutes(10) },
             cancellationToken);
         if (!result.Succeeded)
         {
