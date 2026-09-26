@@ -11,6 +11,31 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp audit dead-code`: types and members nothing in the solution references, from one
+  index of every name the semantic model binds (by documentation ID, including the members the
+  compiler calls for `foreach`, `await`, and initializers). Each candidate (OFR3401) has a
+  confidence: `high` for private and internal code and public code in assemblies that are not
+  packed, `medium` for public code in packable projects or ones in
+  `deadCode.externalConsumers`, and `low` for anything reflection could reach (names in strings,
+  resources, or configuration; convention registrations; controllers and handlers; serializer
+  attributes; entry points; public properties). Candidates list their evidence and the lines
+  they span; the summary counts removable lines per confidence. `--include-tests` reports code
+  only tests use (OFR3402). `--scope public|all`, `--min-confidence`, `--project`,
+  `--format table|json|markdown`.
+  Schema: `schemas/v1/dead-code.json`.
+- `offramp audit api-compat`: builds two targets of a project (or the working tree and
+  `--baseline REV` in a scratch work tree) into `.offramp/cache/` and runs Microsoft's ApiCompat
+  tool at the SDK's version in strict mode, reporting members missing from one side (OFR3501)
+  and other incompatibilities (OFR3502); nothing to compare is OFR3503 and a tool or build
+  failure OFR3504. Schema: `schemas/v1/api-compat.json`.
+- Fixture `dead-code`. ADR 0022.
+
+### Changed
+- CI gives the test host's data collector five minutes to connect
+  (`VSTEST_CONNECTION_TIMEOUT`); a slow Windows runner aborted a run after the default 90
+  seconds.
+
 ## [0.8.0] - 2026-09-26
 
 ### Added
