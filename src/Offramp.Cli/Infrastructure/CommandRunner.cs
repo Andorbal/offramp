@@ -175,6 +175,21 @@ public static class CommandRunner
         where TResult : class
     {
         var host = context.Host;
+        if (outcome.Result is not null && handler is IRawOutput<TResult> raw && raw.RawOutput(outcome.Result, context) is { } text)
+        {
+            // The primary output is a document for another tool (dot, mermaid, a filter): stdout gets
+            // exactly that, so it can be piped; diagnostics go to stderr.
+            host.Out.Write(text);
+            if (diagnostics.Count > 0)
+            {
+                var side = new HumanOutput(ConsoleFactory.Create(host, host.Error, host.ErrorIsTerminal));
+                side.Diagnostics(diagnostics);
+                side.Summary(summary, null);
+            }
+
+            return;
+        }
+
         if (outcome.Result is not null)
         {
             var output = new HumanOutput(ConsoleFactory.Create(host, host.Out, host.OutputIsTerminal));
@@ -279,6 +294,16 @@ public static class CommandRunner
             return null;
         }
     }
+}
+
+/// <summary>
+/// Commands whose human output can be a document for another tool (DOT, Mermaid, a
+/// solution filter): when <see cref="RawOutput"/> returns text, stdout gets exactly that
+/// and diagnostics go to stderr.
+/// </summary>
+public interface IRawOutput<in TResult>
+{
+    string? RawOutput(TResult result, CommandContext context);
 }
 
 /// <summary>Commands that prompt; they never run under the live progress display.</summary>

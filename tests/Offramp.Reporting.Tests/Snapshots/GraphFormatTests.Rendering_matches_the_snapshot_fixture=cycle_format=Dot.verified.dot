@@ -1,0 +1,13 @@
+﻿// offramp graph: 2 projects, 2 references
+// fill = framework class (framework #E07A1F, standard #2B6CB0, modern #2F855A, dual #2C7A7B);
+// shape = kind (library rounded box, console box, service hexagon, web tab, test dashed rounded box, winforms/wpf double box);
+// red border = in a cycle; dashed edge = HintPath reference to another project's output
+digraph offramp {
+  rankdir=LR;
+  node [fontname="Helvetica", fontsize=11, fontcolor="white", color="#1A202C"];
+  edge [color="#718096", arrowsize=0.7];
+  "src/Alpha/Alpha.csproj" [label="Alpha", shape=box, style="rounded,filled", fillcolor="#E07A1F", color="#C53030", penwidth=2.5, tooltip="src/Alpha/Alpha.csproj\nlibrary, framework (net48)\n7 lines, 0 packages\nblocked, blocked by src/Beta/Beta.csproj"];
+  "src/Beta/Beta.csproj" [label="Beta", shape=box, style="rounded,filled", fillcolor="#E07A1F", color="#C53030", penwidth=2.5, tooltip="src/Beta/Beta.csproj\nlibrary, framework (net48)\n7 lines, 0 packages\nblocked, blocked by src/Alpha/Alpha.csproj"];
+  "src/Alpha/Alpha.csproj" -> "src/Beta/Beta.csproj" [color="#C53030"];
+  "src/Beta/Beta.csproj" -> "src/Alpha/Alpha.csproj" [style=dashed, color="#C53030"];
+}

@@ -1,0 +1,111 @@
+﻿{
+  "nodes": [
+    {
+      "id": "src/Contracts/Contracts.csproj",
+      "name": "Contracts",
+      "kind": "library",
+      "frameworkClass": "standard",
+      "targetFrameworks": [
+        "netstandard2.0"
+      ],
+      "loc": 13,
+      "packageCount": 0,
+      "readiness": "done",
+      "blockers": [],
+      "dependents": 2,
+      "directory": "src",
+      "cluster": null,
+      "inCycle": false
+    },
+    {
+      "id": "src/Shared/Shared.csproj",
+      "name": "Shared",
+      "kind": "library",
+      "frameworkClass": "dual",
+      "targetFrameworks": [
+        "net48",
+        "net10.0"
+      ],
+      "loc": 25,
+      "packageCount": 1,
+      "readiness": "done",
+      "blockers": [],
+      "dependents": 1,
+      "directory": "src",
+      "cluster": null,
+      "inCycle": false
+    },
+    {
+      "id": "src/Tool/Tool.csproj",
+      "name": "Tool",
+      "kind": "console",
+      "frameworkClass": "modern",
+      "targetFrameworks": [
+        "net10.0"
+      ],
+      "loc": 6,
+      "packageCount": 0,
+      "readiness": "done",
+      "blockers": [],
+      "dependents": 0,
+      "directory": "src",
+      "cluster": null,
+      "inCycle": false
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/Shared/Shared.csproj",
+      "to": "src/Contracts/Contracts.csproj",
+      "kind": "project"
+    },
+    {
+      "from": "src/Tool/Tool.csproj",
+      "to": "src/Contracts/Contracts.csproj",
+      "kind": "project"
+    },
+    {
+      "from": "src/Tool/Tool.csproj",
+      "to": "src/Shared/Shared.csproj",
+      "kind": "project"
+    }
+  ],
+  "cycles": [],
+  "legend": {
+    "frameworkClass": {
+      "dual": "#2C7A7B",
+      "framework": "#E07A1F",
+      "modern": "#2F855A",
+      "standard": "#2B6CB0"
+    },
+    "kind": {
+      "console": "box",
+      "library": "rounded box",
+      "service": "hexagon",
+      "test": "dashed rounded box",
+      "unknown": "ellipse",
+      "web": "tab",
+      "winforms": "double box",
+      "wpf": "double box"
+    },
+    "edge": {
+      "assembly": "dashed: HintPath reference to another project's output",
+      "project": "solid: ProjectReference"
+    },
+    "cycle": "#C53030"
+  },
+  "highlight": {
+    "mode": "cycles",
+    "nodes": []
+  },
+  "view": {
+    "includeKinds": [],
+    "excludeKinds": [],
+    "focus": null,
+    "depth": null,
+    "direction": "both",
+    "cluster": "none",
+    "highlight": "cycles",
+    "edges": "all"
+  }
+}

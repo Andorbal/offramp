@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/graph.json",
+  "title": "offramp graph result",
+  "description": "The result of `offramp graph`. See docs/spec/commands/graph.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "output", "graph", "content"],
+  "properties": {
+    "format": { "enum": ["json", "dot", "mermaid", "html", null] },
+    "output": { "type": ["string", "null"] },
+    "graph": { "$ref": "graph-document.json" },
+    "content": { "type": ["string", "null"] }
+  }
+}

@@ -1,0 +1,15 @@
+﻿%% offramp graph: 2 projects, 1 references
+%% shapes: library (rounded), console [box], service {{hexagon}}, web >flag], test (dashed rounded), winforms/wpf [[double]], unknown ((circle))
+%% red border = in a cycle; dotted edge = HintPath reference to another project's output
+flowchart LR
+  classDef framework fill:#E07A1F,stroke:#1A202C,color:#fff
+  classDef standard fill:#2B6CB0,stroke:#1A202C,color:#fff
+  classDef modern fill:#2F855A,stroke:#1A202C,color:#fff
+  classDef dual fill:#2C7A7B,stroke:#1A202C,color:#fff
+  classDef test stroke-dasharray:5 3
+  classDef cycle stroke:#C53030,stroke-width:3px
+  classDef highlight stroke:#D69E2E,stroke-width:3px
+  n0["Legacy.App"]
+  n1("Legacy.Core")
+  n0 --> n1
+  class n0,n1 framework

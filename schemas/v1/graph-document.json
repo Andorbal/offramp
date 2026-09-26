@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/graph-document.json",
+  "title": "Offramp project graph",
+  "description": "`offramp graph --format json`, and the data embedded in the HTML graph (script#offramp-graph). See docs/spec/commands/graph.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["nodes", "edges", "cycles", "legend", "highlight", "view"],
+  "properties": {
+    "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "kind"],
+        "properties": {
+          "from": { "$ref": "workspace.json#/$defs/relativePath" },
+          "to": { "$ref": "workspace.json#/$defs/relativePath" },
+          "kind": { "enum": ["project", "assembly"] }
+        }
+      }
+    },
+    "cycles": { "type": "array", "items": { "$ref": "workspace.json#/$defs/pathList" } },
+    "legend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frameworkClass", "kind", "edge", "cycle"],
+      "properties": {
+        "frameworkClass": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["framework", "standard", "modern", "dual"],
+          "properties": {
+            "framework": { "$ref": "#/$defs/color" }, "standard": { "$ref": "#/$defs/color" },
+            "modern": { "$ref": "#/$defs/color" }, "dual": { "$ref": "#/$defs/color" }
+          }
+        },
+        "kind": { "type": "object", "additionalProperties": { "type": "string" } },
+        "edge": { "type": "object", "additionalProperties": { "type": "string" } },
+        "cycle": { "$ref": "#/$defs/color" }
+      }
+    },
+    "highlight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "nodes"],
+      "properties": {
+        "mode": { "enum": ["none", "cycles", "frontier", "blockers"] },
+        "nodes": { "$ref": "workspace.json#/$defs/pathList" }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["includeKinds", "excludeKinds", "focus", "depth", "direction", "cluster", "highlight", "edges"],
+      "properties": {
+        "includeKinds": { "type": "array", "items": { "$ref": "workspace.json#/$defs/kind" } },
+        "excludeKinds": { "type": "array", "items": { "$ref": "workspace.json#/$defs/kind" } },
+        "focus": { "type": ["string", "null"] },
+        "depth": { "type": ["integer", "null"], "minimum": 0 },
+        "direction": { "enum": ["both", "dependencies", "dependents"] },
+        "cluster": { "enum": ["none", "directory", "kind"] },
+        "highlight": { "enum": ["none", "cycles", "frontier", "blockers"] },
+        "edges": { "enum": ["all", "project"] }
+      }
+    }
+  },
+  "$defs": {
+    "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "kind", "frameworkClass", "targetFrameworks", "loc", "packageCount", "readiness", "blockers", "dependents", "directory", "cluster", "inCycle"],
+      "properties": {
+        "id": { "$ref": "workspace.json#/$defs/relativePath" },
+        "name": { "type": "string" },
+        "kind": { "$ref": "workspace.json#/$defs/kind" },
+        "frameworkClass": { "$ref": "workspace.json#/$defs/frameworkClass" },
+        "targetFrameworks": { "type": "array", "items": { "type": "string" } },
+        "loc": { "type": "integer", "minimum": 0 },
+        "packageCount": { "type": "integer", "minimum": 0 },
+        "readiness": { "enum": ["ready", "blocked", "done"] },
+        "blockers": { "$ref": "workspace.json#/$defs/pathList" },
+        "dependents": { "type": "integer", "minimum": 0 },
+        "directory": { "type": "string" },
+        "cluster": { "type": ["string", "null"] },
+        "inCycle": { "type": "boolean" }
+      }
+    }
+  }
+}

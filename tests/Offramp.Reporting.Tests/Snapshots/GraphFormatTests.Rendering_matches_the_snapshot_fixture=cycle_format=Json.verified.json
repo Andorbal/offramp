@@ -1,0 +1,100 @@
+﻿{
+  "nodes": [
+    {
+      "id": "src/Alpha/Alpha.csproj",
+      "name": "Alpha",
+      "kind": "library",
+      "frameworkClass": "framework",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "loc": 7,
+      "packageCount": 0,
+      "readiness": "blocked",
+      "blockers": [
+        "src/Beta/Beta.csproj"
+      ],
+      "dependents": 1,
+      "directory": "src",
+      "cluster": null,
+      "inCycle": true
+    },
+    {
+      "id": "src/Beta/Beta.csproj",
+      "name": "Beta",
+      "kind": "library",
+      "frameworkClass": "framework",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "loc": 7,
+      "packageCount": 0,
+      "readiness": "blocked",
+      "blockers": [
+        "src/Alpha/Alpha.csproj"
+      ],
+      "dependents": 1,
+      "directory": "src",
+      "cluster": null,
+      "inCycle": true
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/Alpha/Alpha.csproj",
+      "to": "src/Beta/Beta.csproj",
+      "kind": "project"
+    },
+    {
+      "from": "src/Beta/Beta.csproj",
+      "to": "src/Alpha/Alpha.csproj",
+      "kind": "assembly"
+    }
+  ],
+  "cycles": [
+    [
+      "src/Alpha/Alpha.csproj",
+      "src/Beta/Beta.csproj"
+    ]
+  ],
+  "legend": {
+    "frameworkClass": {
+      "dual": "#2C7A7B",
+      "framework": "#E07A1F",
+      "modern": "#2F855A",
+      "standard": "#2B6CB0"
+    },
+    "kind": {
+      "console": "box",
+      "library": "rounded box",
+      "service": "hexagon",
+      "test": "dashed rounded box",
+      "unknown": "ellipse",
+      "web": "tab",
+      "winforms": "double box",
+      "wpf": "double box"
+    },
+    "edge": {
+      "assembly": "dashed: HintPath reference to another project's output",
+      "project": "solid: ProjectReference"
+    },
+    "cycle": "#C53030"
+  },
+  "highlight": {
+    "mode": "cycles",
+    "nodes": [
+      "src/Alpha/Alpha.csproj",
+      "src/Beta/Beta.csproj"
+    ]
+  },
+  "view": {
+    "includeKinds": [],
+    "excludeKinds": [],
+    "focus": null,
+    "depth": null,
+    "direction": "both",
+    "cluster": "none",
+    "highlight": "cycles",
+    "edges": "all"
+  }
+}

@@ -11,6 +11,25 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp graph`: the project graph as data (`--format json`, `schemas/v1/graph-document.json`),
+  Graphviz DOT, Mermaid, or a single self-contained interactive HTML page (layered layout,
+  search, kind and framework-class filters, focus with a depth slider, clusters, cycle list,
+  SVG/PNG export, light and dark). Nodes carry readiness (ready, blocked, done), their
+  framework-only blockers, and dependents; `--focus`/`--depth`/`--direction`,
+  `--include-kind`/`--exclude-kind`, `--cluster`, `--highlight cycles|frontier|blockers`, and
+  `--edges project`. With a format and no `--out`, stdout is the document itself, ready to
+  pipe into `dot`. Diagnostic OFR0201 flags Mermaid graphs above 300 projects.
+
+### Changed
+- `offramp slice` without `--out` now writes only the solution filter to stdout (diagnostics go
+  to stderr), so `offramp slice --for Foo > foo.slnf` works.
+
+### Fixed
+- Concurrent scans in one process could read an empty build from a binary log
+  (MSBuild.StructuredLogger returns each read's result through a static field); reads are now
+  serialized.
+
 ## [0.2.0] - 2026-09-26
 
 ### Added
