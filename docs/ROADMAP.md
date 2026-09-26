@@ -149,7 +149,7 @@ endpoint; `--host both` generates the systemd unit and install scripts.
 Acceptance: before/after tests per codemod; idempotency test (second run
 changes nothing); fixture-level run verified by build.
 
-## M12 — Web, csproj, config, extract ☐
+## M12 — Web, csproj, config, extract ◐
 
 - `web inventory`, `web scaffold`; `csproj modernize`; `config convert`;
   `move extract`.

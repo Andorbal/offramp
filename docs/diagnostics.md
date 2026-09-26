@@ -94,6 +94,9 @@ where a command reports a code at another severity, the entry says so.
 | [OFR2003](#ofr2003) | error | move | project is frozen |
 | [OFR2004](#ofr2004) | error | move | file is not part of the source project |
 | [OFR2005](#ofr2005) | error | move | move plan file missing or invalid |
+| [OFR2006](#ofr2006) | error | move | nothing to extract |
+| [OFR2007](#ofr2007) | error | move | new project already exists |
+| [OFR2008](#ofr2008) | error | move | new project's target references did not resolve |
 | [OFR2050](#ofr2050) | error | move | verification failed; changes rolled back |
 | [OFR2101](#ofr2101) | warning | move | file needs a co-move |
 | [OFR2102](#ofr2102) | warning | move | required package unavailable for destination |
@@ -187,6 +190,10 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4106](#ofr4106) | warning | service | generated worker does not compile |
 | [OFR4107](#ofr4107) | error | service | no service found |
 | [OFR4108](#ofr4108) | error | service | worker directory exists |
+| [OFR4201](#ofr4201) | warning | web | Web Forms page not ported |
+| [OFR4202](#ofr4202) | info | web | HttpHandler became an endpoint stub |
+| [OFR4203](#ofr4203) | error | web | scaffolded project does not compile |
+| [OFR4204](#ofr4204) | error | web | output folder not empty |
 | [OFR4301](#ofr4301) | warning | csproj | compile items kept explicit |
 | [OFR4302](#ofr4302) | info | csproj | build step converted for review |
 | [OFR4303](#ofr4303) | error | csproj | converted project compiles different inputs |
@@ -814,6 +821,33 @@ A file named for the move is not compiled by the source project (nor a .resx bes
 
 - **Typical cause:** A wrong path, or a plan edited by hand into invalid JSON.
 - **Fix:** Check the path, or write the plan again with `offramp move plan ... --out PATH`.
+
+### OFR2006
+
+**nothing to extract** · error · move
+
+`move extract` found nothing for a `--types` name (no type of that name in the source project, or several) or a `--files` pattern (no compiled file matches).
+
+- **Typical cause:** A misspelled or partial type name, a type from another project, or a pattern relative to the wrong folder.
+- **Fix:** Name types fully qualified (`Ns.Type`) and write `--files` patterns relative to the source project's folder.
+
+### OFR2007
+
+**new project already exists** · error · move
+
+`move extract` creates its project, and the project file or its folder already exists (or the workspace model has a project there). Nothing was planned.
+
+- **Typical cause:** A second extract with the same `--new`, or a folder with other files in it.
+- **Fix:** Choose another `--new` or `--dir`, or move the files into the existing project with `move plan --to`.
+
+### OFR2008
+
+**new project's target references did not resolve** · error · move
+
+`move extract` compiles the new project in memory for each of its target frameworks; for one of them, the SDK or NuGet could not resolve the reference assemblies, so nothing was planned.
+
+- **Typical cause:** A target framework the installed SDK does not know, or no access to the NuGet feed that has its reference packs.
+- **Fix:** Check `--tfm`, install the SDK for it, or restore once with network access.
 
 ### OFR2050
 
@@ -1652,6 +1686,42 @@ The worker project (the generated code and the linked files it uses) was compile
 - **Typical cause:** Running `service` twice, or an --out that points at an existing project.
 - **Fix:** Pass another --out, or delete the earlier output.
 
+### OFR4201
+
+**Web Forms page not ported** · warning · web
+
+Web Forms pages, user controls, and master pages have no ASP.NET Core counterpart that code can be converted to; `web scaffold` inventories them and leaves them to the legacy application behind the proxy.
+
+- **Typical cause:** Any .aspx, .ascx, or .master file.
+- **Fix:** Keep the page behind the proxy, rewrite it as a Razor Page or Blazor component, or use a third-party Web Forms converter.
+
+### OFR4202
+
+**HttpHandler became an endpoint stub** · info · web
+
+The handler's ProcessRequest is kept in a marked region of a minimal API endpoint stub, which is not mapped: its path keeps going to the legacy application through the proxy until someone ports the code and maps the endpoint.
+
+- **Typical cause:** Image, file, and feed handlers (.ashx, *.axd registrations).
+- **Fix:** Port ProcessRequest into the stub's Handle method, then uncomment its MapMethods line in Program.cs.
+
+### OFR4203
+
+**scaffolded project does not compile** · error · web
+
+The generated ASP.NET Core project was compiled in memory and still has errors after the actions the compiler rejected were left to the legacy application; it is written anyway.
+
+- **Typical cause:** Code shared with the legacy application that uses System.Web, or types the linked files need from other projects.
+- **Fix:** Read the errors in the message; move the shared code into a project both applications reference, or port it.
+
+### OFR4204
+
+**output folder not empty** · error · web
+
+The folder `--new` names already has files, so nothing was generated.
+
+- **Typical cause:** A second run.
+- **Fix:** Pass another --new, or delete the folder.
+
 ### OFR4301
 
 **compile items kept explicit** · warning · csproj
@@ -1877,5 +1947,4 @@ use these numbers; each moves to the table above in the pull request that first 
 |---|---|---|
 | OFR2010 | error | move crosses a solution slice boundary |
 | OFR4030 | error | gRPC unavailable for net48 host |
-| OFR4201–4202 | varies | web scaffold notes |
 | OFR9101 | error | MCP request outside allowed root |

@@ -98,7 +98,7 @@ Decisions in `docs/decisions/0024-service-workers.md`.
 Read-only inventory of an ASP.NET (System.Web) application.
 
 ```
-offramp web inventory --project P [--format json|markdown]
+offramp web inventory --project P [--format table|json|markdown]
 ```
 
 Collects: controllers (MVC/Web API) with actions and routes (attribute and
@@ -111,13 +111,34 @@ that matter (`system.web`, `system.webServer`, `authentication`,
 `sessionState`, `httpModules`, `handlers`, `customErrors`), and the
 `System.Web.*` API surface used per file (feeding `audit api`).
 
+### Details (M12)
+
+Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
+
+- Read from the recorded compilation with the semantic model, plus `Web.config` and the
+  project's files: controllers are classes deriving from `System.Web.Mvc.Controller` or
+  `System.Web.Http.ApiController`; actions are their public instance methods without
+  `[NonAction]`. Verbs come from attributes, and for Web API also from the name's prefix.
+  Attribute routes are combined with the controller's `[RoutePrefix]`; areas come from
+  `AreaRegistration` classes and the `Areas/NAME/` folders.
+- Convention routes are the literal arguments of `MapRoute`, `MapHttpRoute`, an area
+  registration's `context.MapRoute`, and `IgnoreRoute`; defaults are listed as
+  `name = value`, `UrlParameter.Optional` and `RouteParameter.Optional` as `?`.
+- Modules and handlers are the classes implementing `IHttpModule` and `IHttpHandler`
+  (not pages, not the `HttpApplication`), joined with their `system.web` and
+  `system.webServer` registrations; a registration whose class is not in the project is
+  listed with `file: null`.
+- `--format json` writes the result alone; `markdown` a document for a migration plan;
+  `table` (the default) the terminal view. The envelope (`--json`) carries the same
+  result. Schema: `schemas/v1/web-inventory.json`.
+
 ## `web scaffold`
 
 Strangler-fig setup: a new ASP.NET Core app that hosts migrated routes and
 proxies the rest to the legacy app.
 
 ```
-offramp web scaffold --project P --new src/Foo.Web.Core [--proxy yarp|none] [--adapters] [--apply]
+offramp web scaffold --project P --new src/Foo.Web.Core [--proxy yarp|none] [--adapters] [--legacy-url URL] [--apply]
 ```
 
 - Generates an ASP.NET Core project with: controllers ported for actions
@@ -132,13 +153,63 @@ offramp web scaffold --project P --new src/Foo.Web.Core [--proxy yarp|none] [--a
 - `HttpModule`s become middleware stubs with the original code in a marked
   region; `HttpHandler`s become minimal API endpoints (`OFR4202` per one).
 
+### Details (M12)
+
+Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
+
+- The new project (`Microsoft.NET.Sdk.Web`, `netN.0` from `offramp.yml`, named after
+  the `--new` folder) is written only into a folder that does not exist or is empty
+  (`OFR4204` otherwise, exit 2). Nothing in the legacy project is edited.
+- **Porting.** An action is copied as text, keeping its formatting, when it does not
+  render a view (`View`, `PartialView`) and uses no System.Web API beyond the ones with
+  an ASP.NET Core counterpart of the same shape (`Ok`, `NotFound`, `Json`, `Content`,
+  `Redirect*`, `Created`, `StatusCode`, `ModelState`, ...). Mapped names are replaced:
+  `IHttpActionResult` → `IActionResult`, `HttpNotFound()` → `NotFound()`,
+  `InternalServerError()` → `StatusCode(500)`, `new HttpStatusCodeResult(x)` →
+  `StatusCode((int)(x))`, `Json(x, JsonRequestBehavior.*)` → `Json(x)` (MVC) and
+  `Json(x)` → `new JsonResult(x)` (Web API); `[RoutePrefix]` → `[Route]`,
+  `[OutputCache]` → `[ResponseCache]`, `[FromUri]` → `[FromQuery]`; attributes with no
+  counterpart are left out and listed in `notes`. Web API controllers become
+  `ControllerBase` with `[ApiController]`; their verbs, which ASP.NET Core does not infer
+  from names, are made explicit (`POST` when the name has no verb prefix), and a
+  conventionally routed one gets `[Route("api/[controller]")]` and `{id}` templates.
+- **The compiler decides.** The project (with the legacy files the ported code needs,
+  compiled as links) is compiled in memory against `Microsoft.AspNetCore.App` and the
+  generated packages. An action whose code has an error stays with the legacy
+  application, with the error as its reason, and the project is compiled again (up to
+  eight rounds). An error outside the actions is `OFR4203` (the project is still
+  written).
+- **Routes.** MVC convention routes become `MapControllerRoute` (defaults inline as
+  `{name=value}` and `{name?}`), an area's only when one of its controllers is ported;
+  attribute routes come with the controllers (`MapControllers`).
+- **Proxy.** `yarp` (default): `AddReverseProxy` from `appsettings.json`, with a
+  catch-all route of the lowest priority (`Order` = `int.MaxValue`) to `--legacy-url`
+  (default: the project's IIS URL), so anything the new application does not map goes to
+  the legacy one. `none`: `ingress-paths.txt` and `ingressPaths` list the route templates
+  the new application serves.
+- **Adapters** (`--adapters`): `Microsoft.AspNetCore.SystemWebAdapters.CoreServices` with
+  the remote app client, session client, and remote authentication as the default
+  scheme (`RemoteApp:Url`, `RemoteApp:ApiKey`). The legacy side's setup is a next step.
+  Without adapters, ported `[Authorize]` actions need an authentication scheme; a comment
+  in `Program.cs` and a next step say so.
+- **Modules and handlers.** Each module is a middleware stub registered with
+  `UseMiddleware` and the original class under `#if OFFRAMP_HTTPMODULE`; each handler an
+  endpoint stub answering 501 with the original under `#if OFFRAMP_HTTPHANDLER`, and a
+  commented `MapMethods` line: until it is ported, the proxy keeps sending its path to the
+  legacy application (`OFR4202`). Web Forms files are `OFR4201`, one per page or control.
+- A dry run until `--apply`, which writes through a journal. Schema:
+  `schemas/v1/web-scaffold.json`.
+
 ## `csproj modernize`
 
 Legacy csproj → SDK-style, plus modern hygiene for already-SDK projects.
 
 ```
-offramp csproj modernize --project P|--all [--tfm net48;net10.0] [--cpm] [--apply]
+offramp csproj modernize --project P|--all [--tfm net48;net10.0] [--nullable enable] [--accept-diff] [--apply]
 ```
+
+(`--cpm` and `--hoist` are deferred; `deps consolidate --cpm` centralizes versions. See
+ADR 0026.)
 
 - Legacy projects: uses `try-convert` when available (`dotnet tool`), then
   post-passes: remove `AssemblyInfo` attributes that the SDK generates (keep
@@ -156,6 +227,37 @@ offramp csproj modernize --project P|--all [--tfm net48;net10.0] [--cpm] [--appl
 - Before/after verification: the set of compiled files and references must be
   identical (compared from binlogs of both builds); any difference is
   `OFR4303` and blocks `--apply` unless `--accept-diff`.
+
+### Details (M12)
+
+Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
+
+- Offramp converts legacy projects itself (no `try-convert`): the conversion is a pure
+  function of the project file, the model's evaluated items, the files on disk, and
+  `packages.config`, so a dry run shows exactly what `--apply` writes.
+  - Properties the SDK sets (`ProjectGuid`, `OutputPath`, `FileAlignment`,
+    `TargetFrameworkVersion`, the imports, ...) are dropped and listed in `removed`; the
+    others are kept. `TargetFrameworkVersion` becomes `TargetFramework` (or `--tfm`).
+  - `Compile`, `.resx` `EmbeddedResource`, and `None` items become the SDK's globs when
+    those give the same files; otherwise the Compile list stays with
+    `EnableDefaultCompileItems` false (`OFR4301`). `Link`, `DependentUpon`, `Generator`,
+    and resource names are kept as `Update` items.
+  - `packages.config` becomes `PackageReference` items (development dependencies with
+    `PrivateAssets="all"`; versions omitted under central package management); `HintPath`
+    references into `packages/` are dropped with it. Framework `Reference` items stay.
+  - `PreBuildEvent`/`PostBuildEvent` and `BeforeBuild`/`AfterBuild` become targets hooked
+    at the same point (`OFR4302`).
+  - ASP.NET web application projects and non-C# projects are not converted (`OFR4304`).
+  - AssemblyInfo attributes the SDK generates are removed with the `assemblyinfo` codemod
+    (the SDK generates them from properties instead).
+- SDK-style projects only get `--tfm` and `--nullable` when asked.
+- **Verification always runs**, dry run included: the change set is applied in a scratch
+  copy, the changed projects are built with a binary log, and each target's compiler
+  inputs (source files, references by file name, embedded resources by manifest name)
+  are compared with the scan's build of the original. References the conversion adds only
+  transitively (a package's dependency now flowing through `PackageReference`) are
+  reported and allowed. A difference or a failed build is `OFR4303`; `--apply` then
+  refuses unless `--accept-diff`. Schema: `schemas/v1/csproj-modernize.json`.
 
 ## `config convert`
 
@@ -181,3 +283,34 @@ offramp config convert --project P [--out DIR] [--sections appSettings,connectio
   Roslyn codemod (`codemod config-manager`) that redirects call sites to it.
 - Transforms (`web.Release.config`) → `appsettings.{Environment}.json` when
   the transform is expressible as overrides (`OFR4404` otherwise).
+
+### Details (M12)
+
+Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
+
+- The file is the project folder's `App.config` or `Web.config` (`OFR4405` when there is
+  none). Output goes next to it, or to `--out`; an existing output file stops the run
+  (`OFR4406`).
+- `appSettings` become root keys (what `IConfiguration["key"]` reads) and
+  `AppSettingsOptions`; `connectionStrings` the `ConnectionStrings` section (read with
+  `GetConnectionString`); `providerName` is kept as a note.
+- Custom sections: the section class is read with the semantic model
+  (`[ConfigurationProperty]` attributes: names, types, defaults, required). Scalars keep
+  their JSON type; nested elements become objects; an element collection, a custom
+  `TypeConverter`, or a value that does not parse is `OFR4401` and left out. Each section
+  gets an options class (`NameOptions`, a class with setters so it binds on every target).
+- `system.serviceModel` is `OFR4402`, `system.web`/`system.webServer` `OFR4403`;
+  `runtime`, `startup`, and `system.diagnostics` are dropped with a note; any other
+  section not declared in `configSections`, or whose class is not in the solution, is
+  `OFR4401`.
+- Transforms: `SetAttributes`, `Replace`, and `Insert` of `appSettings` and
+  `connectionStrings` entries located by key or name, and `SetAttributes`/`Replace` on a
+  converted custom section, become overrides in `appsettings.{Environment}.json`; the
+  rest is listed (`OFR4404`).
+- `--shim` writes `ConfigurationManagerShim` (`AppSettings`, `ConnectionStrings`, set up
+  with `Initialize(IConfiguration)`). The `config-manager-shim` codemod (OFRM014) points
+  the `ConfigurationManager` call sites that `config-manager` cannot inject into (static
+  members, classes created with `new`) at it.
+- For an SDK-style project, `appsettings*.json` is copied to the output and, with
+  `--shim`, `Microsoft.Extensions.Configuration.Abstractions` is referenced. Schema:
+  `schemas/v1/config-convert.json`.
