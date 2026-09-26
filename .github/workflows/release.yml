@@ -30,6 +30,9 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     environment: nuget
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      prerelease: ${{ steps.ver.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,28 +90,6 @@ jobs:
             dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
           done
 
-      # After the tool is on NuGet: the extension needs the offramp version it ships with.
-      # Stable tags only (a prerelease tag would take the stable version number on the Marketplace).
-      - name: Publish the VS Code extension
-        if: steps.ver.outputs.prerelease == 'false'
-        working-directory: editors/vscode
-        env:
-          VERSION: ${{ steps.ver.outputs.version }}
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: |
-          vsix="../../artifacts/offramp-vscode-${VERSION}.vsix"
-          if [ -n "$VSCE_PAT" ]; then
-            npx vsce publish --packagePath "$vsix"
-          else
-            echo "::warning::VSCE_PAT is not set, so the extension was not published to the Visual Studio Marketplace."
-          fi
-          if [ -n "$OVSX_PAT" ]; then
-            npx --yes ovsx@1.2.0 publish "$vsix" --pat "$OVSX_PAT"
-          else
-            echo "OVSX_PAT is not set; skipping Open VSX."
-          fi
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -118,3 +99,72 @@ jobs:
           files: |
             artifacts/*.nupkg
             artifacts/*.vsix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offramp-vscode
+          path: artifacts/*.vsix
+          if-no-files-found: error
+
+  # The VS Code extension, after the tool it needs is on NuGet. Stable tags only: a prerelease tag
+  # would take the stable version number on the Marketplace. The Marketplace login is Microsoft
+  # Entra ID through GitHub's OIDC token, so nothing is stored (Azure DevOps retired PATs for this);
+  # docs/RELEASING.md has the one-time setup. Open VSX keeps its own token.
+  publish-vscode:
+    name: Publish the VS Code extension
+    needs: publish
+    if: needs.publish.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    environment: vscode-marketplace
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the pinned vsce
+        working-directory: editors/vscode
+        run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: offramp-vscode
+          path: artifacts
+
+      - name: Sign in to Microsoft Entra ID
+        if: vars.AZURE_CLIENT_ID != ''
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          # Set for a user-assigned managed identity; an app registration needs no subscription.
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true
+
+      - name: Publish to the Visual Studio Marketplace
+        working-directory: editors/vscode
+        env:
+          CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          if [ -z "$CLIENT_ID" ]; then
+            echo "::warning::AZURE_CLIENT_ID is not set, so the extension was not published to the Visual Studio Marketplace (docs/RELEASING.md)."
+            exit 0
+          fi
+          npx vsce publish --azure-credential --packagePath "../../artifacts/offramp-vscode-${VERSION}.vsix"
+
+      - name: Publish to Open VSX
+        working-directory: editors/vscode
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then
+            echo "OVSX_PAT is not set; skipping Open VSX."
+            exit 0
+          fi
+          npx --yes ovsx@1.2.0 publish "../../artifacts/offramp-vscode-${VERSION}.vsix" --pat "$OVSX_PAT"

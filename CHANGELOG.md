@@ -35,8 +35,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
     `.offramp` folder, and `offramp.enabled` (`auto`, `on`, `off`) sets it per user or per
     workspace. It uses the repository's local tool, else the global tool, else
     `offramp.server.path`. It has a status bar item and commands, and CI builds the `.vsix`.
-    Stable releases publish it to the Visual Studio Marketplace as `AndrewBenz.offramp`
-    (`VSCE_PAT`), and to Open VSX when `OVSX_PAT` is set.
+    Stable releases publish it to the Visual Studio Marketplace as `AndrewBenz.offramp`,
+    signed in with Microsoft Entra ID through GitHub's OIDC token (`vsce publish
+    --azure-credential`; no stored token, since Azure DevOps PATs are retired), and to Open VSX
+    when `OVSX_PAT` is set.
   - `MovePlanner.Assess` (the planner's rules for one file with `--co-move none` and nothing
     but a move) and an `ICompilationSource` for the planner and the `audit api` target build.
   - Configuration: `projectMap`, `ide.newCode.base`, `ide.newCode.scope`,
