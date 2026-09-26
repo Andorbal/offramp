@@ -16,4 +16,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Offramp.Analysis.Tests" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\rules\framework-assemblies.yml;..\..\rules\audit-*.yml" LogicalName="Offramp.Analysis.Rules.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

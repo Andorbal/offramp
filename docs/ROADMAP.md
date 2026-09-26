@@ -102,7 +102,7 @@ pinned project (`VersionOverride`), the family bump is explained with a
 chain, restore verification blocks an induced NU1605; redirects for the web
 project are regenerated and stale ones pruned.
 
-## M7 — Audits ☐
+## M7 — Audits ◐
 
 - Rule engine and packs; `audit api`, `audit behavior`, `audit serialization`,
   `audit native`; SARIF output; `ifdef report|wrap|strip`.

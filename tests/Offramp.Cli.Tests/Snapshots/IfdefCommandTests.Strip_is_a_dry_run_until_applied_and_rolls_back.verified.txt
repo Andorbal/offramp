@@ -1,0 +1,30 @@
+﻿2 regions naming NETFRAMEWORK stripped as if it were undefined, in 2 files; 0 left.
+  src/Shared/Clock.cs:5 #if NETFRAMEWORK → kept else, 4 lines removed
+  src/Shared/Formatter.cs:10 #if NETFRAMEWORK → kept else, 4 lines removed
+
+--- a/src/Shared/Clock.cs
++++ b/src/Shared/Clock.cs
+@@ -2,9 +2,5 @@
+
+ public static class Clock
+ {
+-#if NETFRAMEWORK
+-    public static System.DateTime UtcNow() => System.DateTime.UtcNow;
+-#else
+     public static System.DateTime UtcNow() => System.TimeProvider.System.GetUtcNow().UtcDateTime;
+-#endif
+ }
+--- a/src/Shared/Formatter.cs
++++ b/src/Shared/Formatter.cs
+@@ -7,9 +7,5 @@
+ {
+     public string Format(Order order) => JsonConvert.SerializeObject(order);
+
+-#if NETFRAMEWORK
+-    public string Encode(string value) => System.Web.HttpUtility.UrlEncode(value);
+-#else
+     public string Encode(string value) => System.Net.WebUtility.UrlEncode(value);
+-#endif
+ }
+
+Dry run. Apply with --apply

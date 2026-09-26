@@ -1,0 +1,851 @@
+﻿{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "offramp",
+          "informationUri": "https://offramp.dev",
+          "semanticVersion": "{Version}",
+          "rules": [
+            {
+              "id": "OFR3201",
+              "name": "InsecureSerializer",
+              "shortDescription": {
+                "text": "insecure serializer"
+              },
+              "helpUri": "https://offramp.dev/diagnostics/OFR3201",
+              "help": {
+                "text": "BinaryFormatter and its relatives are removed (throw) from .NET 9; migrate the data, using the System.Runtime.Serialization.Formatters compatibility package only while a dual-read migration runs."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "category": "serialization",
+                "tags": [
+                  "offramp",
+                  "serialization",
+                  "serialization"
+                ]
+              }
+            },
+            {
+              "id": "OFR3202",
+              "name": "TransientBinarySerializationDeepClone",
+              "shortDescription": {
+                "text": "transient binary serialization (deep clone)"
+              },
+              "helpUri": "https://offramp.dev/diagnostics/OFR3202",
+              "help": {
+                "text": "The data never leaves the process; replace the round trip with a copy constructor, a record \u0060with\u0060, or a System.Text.Json round trip (\u0060offramp codemod\u0060)."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "properties": {
+                "category": "serialization",
+                "tags": [
+                  "offramp",
+                  "serialization",
+                  "serialization"
+                ]
+              }
+            },
+            {
+              "id": "OFR3203",
+              "name": "PersistedOrTransportedBinarySerialization",
+              "shortDescription": {
+                "text": "persisted or transported binary serialization"
+              },
+              "helpUri": "https://offramp.dev/diagnostics/OFR3203",
+              "help": {
+                "text": "Data written with BinaryFormatter outlives the process; plan a dual-read migration to a safe format before the target drops the formatter."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "category": "serialization",
+                "tags": [
+                  "offramp",
+                  "serialization",
+                  "serialization"
+                ]
+              }
+            },
+            {
+              "id": "OFR3204",
+              "name": "TypeSerializedWithABinaryFormatter",
+              "shortDescription": {
+                "text": "type serialized with a binary formatter"
+              },
+              "helpUri": "https://offramp.dev/diagnostics/OFR3204",
+              "help": {
+                "text": "Each listed type needs a new serialized shape; ISerializable, OnDeserialized hooks, and delegate members need attention."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "properties": {
+                "category": "serialization",
+                "tags": [
+                  "offramp",
+                  "serialization",
+                  "serialization"
+                ]
+              }
+            },
+            {
+              "id": "OFR3205",
+              "name": "SerializableTypeNeverSerialized",
+              "shortDescription": {
+                "text": "[Serializable] type never serialized"
+              },
+              "helpUri": "https://offramp.dev/diagnostics/OFR3205",
+              "help": {
+                "text": "No serializer in the solution receives it; the attribute can stay."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "properties": {
+                "category": "serialization",
+                "tags": [
+                  "offramp",
+                  "serialization",
+                  "serialization"
+                ]
+              }
+            },
+            {
+              "id": "OFR3210",
+              "name": "LegacyJSONSerializer",
+              "shortDescription": {
+                "text": "legacy JSON serializer"
+              },
+              "helpUri": "https://offramp.dev/diagnostics/OFR3210",
+              "help": {
+                "text": "Move to System.Text.Json (or Newtonsoft.Json where its behaviors are relied on)."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "category": "serialization",
+                "tags": [
+                  "offramp",
+                  "serialization",
+                  "serialization"
+                ]
+              }
+            },
+            {
+              "id": "OFR3211",
+              "name": "XMLSerializer",
+              "shortDescription": {
+                "text": "XML serializer"
+              },
+              "helpUri": "https://offramp.dev/diagnostics/OFR3211",
+              "help": {
+                "text": "Works on the target; pre-generated serializers (sgen) need Microsoft.XmlSerializer.Generator or can be dropped."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "properties": {
+                "category": "serialization",
+                "tags": [
+                  "offramp",
+                  "serialization",
+                  "serialization"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "automationDetails": {
+        "id": "offramp/audit/serialization/net10.0"
+      },
+      "columnKind": "unicodeCodePoints",
+      "results": [
+        {
+          "ruleId": "OFR3201",
+          "level": "error",
+          "message": {
+            "text": "Insecure serializer: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 15,
+                  "startColumn": 24
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3201:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter",
+            "category": "serialization"
+          },
+          "ruleIndex": 0
+        },
+        {
+          "ruleId": "OFR3201",
+          "level": "error",
+          "message": {
+            "text": "Insecure serializer: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 31,
+                  "startColumn": 37
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3201:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter",
+            "category": "serialization"
+          },
+          "ruleIndex": 0
+        },
+        {
+          "ruleId": "OFR3201",
+          "level": "error",
+          "message": {
+            "text": "Insecure serializer: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 32,
+                  "startColumn": 27
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3201:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+            "category": "serialization"
+          },
+          "ruleIndex": 0
+        },
+        {
+          "ruleId": "OFR3201",
+          "level": "error",
+          "message": {
+            "text": "Insecure serializer: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Deserialize(System.IO.Stream)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 34,
+                  "startColumn": 37
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3201:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Deserialize(System.IO.Stream)"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Deserialize(System.IO.Stream)",
+            "category": "serialization"
+          },
+          "ruleIndex": 0
+        },
+        {
+          "ruleId": "OFR3201",
+          "level": "error",
+          "message": {
+            "text": "Insecure serializer: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 42,
+                  "startColumn": 21
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3201:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter",
+            "category": "serialization"
+          },
+          "ruleIndex": 0
+        },
+        {
+          "ruleId": "OFR3201",
+          "level": "error",
+          "message": {
+            "text": "Insecure serializer: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 54,
+                  "startColumn": 21
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3201:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter",
+            "category": "serialization"
+          },
+          "ruleIndex": 0
+        },
+        {
+          "ruleId": "OFR3201",
+          "level": "error",
+          "message": {
+            "text": "Insecure serializer: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 61,
+                  "startColumn": 17
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3201:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter",
+            "category": "serialization"
+          },
+          "ruleIndex": 0
+        },
+        {
+          "ruleId": "OFR3201",
+          "level": "error",
+          "message": {
+            "text": "Insecure serializer: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 67,
+                  "startColumn": 33
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3201:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter",
+            "category": "serialization"
+          },
+          "ruleIndex": 0
+        },
+        {
+          "ruleId": "OFR3201",
+          "level": "error",
+          "message": {
+            "text": "Insecure serializer: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 80,
+                  "startColumn": 17
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3201:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter",
+            "category": "serialization"
+          },
+          "ruleIndex": 0
+        },
+        {
+          "ruleId": "OFR3202",
+          "level": "note",
+          "message": {
+            "text": "Behavior.Rules.OFR3202.Positive\u003CT\u003E(T) round-trips through a MemoryStream (deep clone); the data never leaves the process."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 32,
+                  "startColumn": 27
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3202:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+            "category": "serialization",
+            "flow": "transient"
+          },
+          "ruleIndex": 1
+        },
+        {
+          "ruleId": "OFR3203",
+          "level": "error",
+          "message": {
+            "text": "BinaryFormatter.Serialize uses a file stream; the data outlives the process."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 42,
+                  "startColumn": 39
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3203:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+            "category": "serialization",
+            "evidence": "file",
+            "flow": "persisted"
+          },
+          "ruleIndex": 2
+        },
+        {
+          "ruleId": "OFR3203",
+          "level": "error",
+          "message": {
+            "text": "BinaryFormatter.Serialize uses a file stream; the data outlives the process."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 54,
+                  "startColumn": 39
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3203:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+            "category": "serialization",
+            "evidence": "file",
+            "flow": "persisted"
+          },
+          "ruleIndex": 2
+        },
+        {
+          "ruleId": "OFR3203",
+          "level": "error",
+          "message": {
+            "text": "BinaryFormatter.Serialize writes to a MemoryStream whose contents leave the member (ToArray); the data outlives the process."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 61,
+                  "startColumn": 35
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3203:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+            "category": "serialization",
+            "evidence": "memory-escapes",
+            "flow": "persisted"
+          },
+          "ruleIndex": 2
+        },
+        {
+          "ruleId": "OFR3203",
+          "level": "error",
+          "message": {
+            "text": "BinaryFormatter.Deserialize uses the stream parameter \u0027stream\u0027; the data outlives the process."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 67,
+                  "startColumn": 51
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3203:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Deserialize(System.IO.Stream)"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Deserialize(System.IO.Stream)",
+            "category": "serialization",
+            "evidence": "parameter",
+            "flow": "persisted"
+          },
+          "ruleIndex": 2
+        },
+        {
+          "ruleId": "OFR3203",
+          "level": "error",
+          "message": {
+            "text": "BinaryFormatter.Serialize uses the stream parameter \u0027stream\u0027; the data outlives the process."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 80,
+                  "startColumn": 35
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3203:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+            "category": "serialization",
+            "evidence": "parameter",
+            "flow": "persisted"
+          },
+          "ruleIndex": 2
+        },
+        {
+          "ruleId": "OFR3204",
+          "level": "note",
+          "message": {
+            "text": "Behavior.Rules.Invoice is serialized with a binary formatter."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 32,
+                  "startColumn": 27
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3204:src/Behavior.Legacy/Behavior.Legacy.csproj:Behavior.Rules.Invoice"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "Behavior.Rules.Invoice",
+            "category": "serialization"
+          },
+          "ruleIndex": 3
+        },
+        {
+          "ruleId": "OFR3204",
+          "level": "note",
+          "message": {
+            "text": "Behavior.Rules.Customer is serialized with a binary formatter: implements ISerializable."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 61,
+                  "startColumn": 35
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3204:src/Behavior.Legacy/Behavior.Legacy.csproj:Behavior.Rules.Customer"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "Behavior.Rules.Customer",
+            "category": "serialization",
+            "iSerializable": "true"
+          },
+          "ruleIndex": 3
+        },
+        {
+          "ruleId": "OFR3204",
+          "level": "note",
+          "message": {
+            "text": "Behavior.Rules.Payload is serialized with a binary formatter: has deserialization callbacks, holds delegates (Compute)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 80,
+                  "startColumn": 35
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3204:src/Behavior.Legacy/Behavior.Legacy.csproj:Behavior.Rules.Payload"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "Behavior.Rules.Payload",
+            "category": "serialization",
+            "delegates": "Compute",
+            "onDeserialized": "true"
+          },
+          "ruleIndex": 3
+        },
+        {
+          "ruleId": "OFR3205",
+          "level": "note",
+          "message": {
+            "text": "Behavior.Rules.OFR3205.Positive is [Serializable] but no binary formatter in the solution receives it."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 92,
+                  "startColumn": 29
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3205:src/Behavior.Legacy/Behavior.Legacy.csproj:Behavior.Rules.OFR3205.Positive"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "Behavior.Rules.OFR3205.Positive",
+            "category": "serialization"
+          },
+          "ruleIndex": 4
+        },
+        {
+          "ruleId": "OFR3210",
+          "level": "warning",
+          "message": {
+            "text": "Legacy JSON serializer: System.Web.Script.Serialization.JavaScriptSerializer."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 108,
+                  "startColumn": 24
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3210:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Web.Script.Serialization.JavaScriptSerializer"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Web.Script.Serialization.JavaScriptSerializer",
+            "category": "serialization"
+          },
+          "ruleIndex": 5
+        },
+        {
+          "ruleId": "OFR3211",
+          "level": "note",
+          "message": {
+            "text": "XML serializer: System.Xml.Serialization.XmlSerializer."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 85,
+                  "startColumn": 17
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3211:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Xml.Serialization.XmlSerializer"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Xml.Serialization.XmlSerializer",
+            "category": "serialization"
+          },
+          "ruleIndex": 6
+        },
+        {
+          "ruleId": "OFR3211",
+          "level": "note",
+          "message": {
+            "text": "XML serializer: System.Xml.Serialization.XmlSerializer."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Rules/Serialization.cs",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 121,
+                  "startColumn": 24
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3211:src/Behavior.Legacy/Behavior.Legacy.csproj:System.Xml.Serialization.XmlSerializer"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "System.Xml.Serialization.XmlSerializer",
+            "category": "serialization"
+          },
+          "ruleIndex": 6
+        }
+      ]
+    }
+  ]
+}

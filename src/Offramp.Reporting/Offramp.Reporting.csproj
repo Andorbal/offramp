@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     Views for people and machines over the workspace model: graph exporters
-    (json, dot, mermaid, html) and the progress report.
+    (json, dot, mermaid, html), the progress report, and audit documents
+    (SARIF, Markdown).
   -->
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
@@ -9,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Offramp.Analysis\Offramp.Analysis.csproj" />
     <ProjectReference Include="..\Offramp.Core\Offramp.Core.csproj" />
     <ProjectReference Include="..\Offramp.Workspace\Offramp.Workspace.csproj" />
   </ItemGroup>

@@ -1,0 +1,39 @@
+# `audit native` rules (docs/spec/commands/audit.md).
+rules:
+  OFR3301:
+    pack: native
+    severity: info
+    title: P/Invoke declaration
+    category: interop
+    recommendation: Check each library exists on every target platform; Windows system libraries do not.
+    matcher: native-imports
+  OFR3302:
+    pack: native
+    severity: warning
+    title: ANSI string marshalling by default
+    category: interop
+    recommendation: CharSet defaults to ANSI (Auto means Unicode only on Windows); declare CharSet.Unicode or marshal strings explicitly.
+    matcher: native-imports
+  OFR3303:
+    pack: native
+    severity: info
+    title: candidate for [LibraryImport]
+    category: interop
+    recommendation: A blittable signature can use [LibraryImport] for source-generated marshalling on .NET 7+.
+    matcher: native-imports
+  OFR3310:
+    pack: native
+    severity: warning
+    title: COM interop
+    category: interop
+    recommendation: COM works only on Windows; isolate it behind a seam or target netN-windows.
+    matcher: com-references
+    symbols: [M:System.Runtime.InteropServices.Marshal.GetActiveObject]
+    attributes: [T:System.Runtime.InteropServices.ComImportAttribute]
+  OFR3320:
+    pack: native
+    severity: info
+    title: structured exception interop
+    category: interop
+    recommendation: SEHException and HRESULT mapping differ across platforms; review the handling.
+    symbols: [M:System.Runtime.InteropServices.Marshal.GetHRForException, T:System.Runtime.InteropServices.SEHException]

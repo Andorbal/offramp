@@ -1,0 +1,1095 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "audit api",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "Behavior.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "audit": "api",
+    "target": "net10.0",
+    "projects": [
+      "src/Behavior.Clean/Behavior.Clean.csproj",
+      "src/Behavior.Legacy/Behavior.Legacy.csproj"
+    ],
+    "rules": [
+      "OFR3001",
+      "OFR3002",
+      "OFR3003",
+      "OFR3004",
+      "OFR3005",
+      "OFR3006",
+      "OFR3007",
+      "OFR3008",
+      "OFR3009"
+    ],
+    "summary": [
+      {
+        "rule": "OFR3001",
+        "title": "API missing on target",
+        "severity": "error",
+        "findings": 17,
+        "projects": 1
+      },
+      {
+        "rule": "OFR3002",
+        "title": "API available only on Windows",
+        "severity": "warning",
+        "findings": 2,
+        "projects": 1
+      },
+      {
+        "rule": "OFR3003",
+        "title": "API throws on modern .NET",
+        "severity": "error",
+        "findings": 10,
+        "projects": 1
+      },
+      {
+        "rule": "OFR3004",
+        "title": "ASP.NET Web Forms",
+        "severity": "error",
+        "findings": 2,
+        "projects": 1
+      },
+      {
+        "rule": "OFR3005",
+        "title": "ASMX web services",
+        "severity": "error",
+        "findings": 2,
+        "projects": 1
+      },
+      {
+        "rule": "OFR3006",
+        "title": "WCF service host",
+        "severity": "error",
+        "findings": 1,
+        "projects": 1
+      },
+      {
+        "rule": "OFR3007",
+        "title": ".NET Remoting",
+        "severity": "error",
+        "findings": 1,
+        "projects": 1
+      },
+      {
+        "rule": "OFR3008",
+        "title": "WF (Windows Workflow Foundation)",
+        "severity": "error",
+        "findings": 1,
+        "projects": 1
+      },
+      {
+        "rule": "OFR3009",
+        "title": "COM+, Code Access Security, or AppDomain sandboxing",
+        "severity": "error",
+        "findings": 1,
+        "projects": 1
+      }
+    ],
+    "findings": [
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 14,
+        "column": 31,
+        "symbol": "System.Web.HttpContext",
+        "namespace": "System.Web",
+        "category": "missing-api",
+        "message": "System.Web.HttpContext (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Web",
+          "compilerError": "CS0234",
+          "mapping": "none",
+          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 17,
+        "column": 37,
+        "symbol": "System.Web.UI.Control",
+        "namespace": "System.Web.UI",
+        "category": "missing-api",
+        "message": "System.Web.UI.Control (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Web",
+          "compilerError": "CS0234",
+          "mapping": "none",
+          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 67,
+        "column": 47,
+        "symbol": "System.Web.UI.Page",
+        "namespace": "System.Web.UI",
+        "category": "missing-api",
+        "message": "System.Web.UI.Page (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Web",
+          "compilerError": "CS0234",
+          "mapping": "none",
+          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 78,
+        "column": 30,
+        "symbol": "System.Web.Services.WebServiceAttribute",
+        "namespace": "System.Web.Services",
+        "category": "missing-api",
+        "message": "System.Web.Services.WebServiceAttribute (System.Web.Services) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Web.Services",
+          "compilerError": "CS0234",
+          "mapping": "none",
+          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 79,
+        "column": 53,
+        "symbol": "System.Web.Services.WebService",
+        "namespace": "System.Web.Services",
+        "category": "missing-api",
+        "message": "System.Web.Services.WebService (System.Web.Services) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Web.Services",
+          "compilerError": "CS0234",
+          "mapping": "none",
+          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 96,
+        "column": 44,
+        "symbol": "System.ServiceModel.ServiceHost",
+        "namespace": "System.ServiceModel",
+        "category": "missing-api",
+        "message": "System.ServiceModel.ServiceHost (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.ServiceModel",
+          "compilerError": "CS0234",
+          "mapping": "package",
+          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+          "package": "System.ServiceModel.Http"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 101,
+        "column": 44,
+        "symbol": "System.ServiceModel.EndpointAddress",
+        "namespace": "System.ServiceModel",
+        "category": "missing-api",
+        "message": "System.ServiceModel.EndpointAddress (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.ServiceModel",
+          "compilerError": "CS0234",
+          "mapping": "package",
+          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+          "package": "System.ServiceModel.Http"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 109,
+        "column": 37,
+        "symbol": "System.Runtime.Remoting.RemotingConfiguration",
+        "namespace": "System.Runtime.Remoting",
+        "category": "missing-api",
+        "message": "System.Runtime.Remoting.RemotingConfiguration (mscorlib) does not exist on the target. The assembly is part of the target, but not this API. The core library; what it lost on modern .NET (Remoting, Code Access Security, AppDomain creation) has no port.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "mscorlib",
+          "compilerError": "CS0234",
+          "mapping": "builtin",
+          "note": "The core library; what it lost on modern .NET (Remoting, Code Access Security, AppDomain creation) has no port."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 126,
+        "column": 31,
+        "symbol": "System.Activities.Activity",
+        "namespace": "System.Activities",
+        "category": "missing-api",
+        "message": "System.Activities.Activity (System.Activities) does not exist on the target. Windows Workflow Foundation has no port; CoreWF covers WF4 workflows.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Activities",
+          "compilerError": "CS0234",
+          "mapping": "none",
+          "note": "Windows Workflow Foundation has no port; CoreWF covers WF4 workflows."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 102,
+        "column": 31,
+        "symbol": "System.Web.HttpRuntime",
+        "namespace": "System.Web",
+        "category": "missing-api",
+        "message": "System.Web.HttpRuntime (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Web",
+          "compilerError": "CS0234",
+          "mapping": "none",
+          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 107,
+        "column": 35,
+        "symbol": "System.Web.HttpCookie",
+        "namespace": "System.Web",
+        "category": "missing-api",
+        "message": "System.Web.HttpCookie (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Web",
+          "compilerError": "CS0234",
+          "mapping": "none",
+          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 128,
+        "column": 46,
+        "symbol": "System.Data.SqlClient.SqlConnection",
+        "namespace": "System.Data.SqlClient",
+        "category": "missing-api",
+        "message": "System.Data.SqlClient.SqlConnection (System.Data) does not exist on the target. The assembly is part of the target, but not this API. System.Data.SqlClient moves to the Microsoft.Data.SqlClient package.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Data",
+          "compilerError": "CS1069",
+          "mapping": "builtin",
+          "note": "System.Data.SqlClient moves to the Microsoft.Data.SqlClient package."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 180,
+        "column": 20,
+        "symbol": "System.Configuration.ConfigurationManager",
+        "namespace": "System.Configuration",
+        "category": "missing-api",
+        "message": "System.Configuration.ConfigurationManager (System.Configuration) does not exist on the target. Package: System.Configuration.ConfigurationManager.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Configuration",
+          "compilerError": "CS0103",
+          "mapping": "package",
+          "package": "System.Configuration.ConfigurationManager"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 185,
+        "column": 13,
+        "symbol": "System.Configuration.ConfigurationManager",
+        "namespace": "System.Configuration",
+        "category": "missing-api",
+        "message": "System.Configuration.ConfigurationManager (System.Configuration) does not exist on the target. Package: System.Configuration.ConfigurationManager.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Configuration",
+          "compilerError": "CS0103",
+          "mapping": "package",
+          "package": "System.Configuration.ConfigurationManager"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 245,
+        "column": 40,
+        "symbol": "System.Web.Security.MachineKey",
+        "namespace": "System.Web.Security",
+        "category": "missing-api",
+        "message": "System.Web.Security.MachineKey (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Web",
+          "compilerError": "CS0234",
+          "mapping": "none",
+          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 250,
+        "column": 35,
+        "symbol": "System.Web.HttpCookie",
+        "namespace": "System.Web",
+        "category": "missing-api",
+        "message": "System.Web.HttpCookie (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Web",
+          "compilerError": "CS0234",
+          "mapping": "none",
+          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Serialization.cs",
+        "line": 108,
+        "column": 24,
+        "symbol": "System.Web.Script.Serialization.JavaScriptSerializer",
+        "namespace": "System.Web.Script.Serialization",
+        "category": "missing-api",
+        "message": "System.Web.Script.Serialization.JavaScriptSerializer (System.Web.Extensions) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Web.Extensions",
+          "compilerError": "CS0246",
+          "mapping": "none",
+          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
+        }
+      },
+      {
+        "rule": "OFR3002",
+        "severity": "warning",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 32,
+        "column": 21,
+        "symbol": "System.Console.Beep(int, int)",
+        "namespace": "System",
+        "category": "windows-only",
+        "message": "System.Console.Beep(int, int) is supported only on windows on the target.",
+        "recommendation": "Target netN-windows, guard the call with OperatingSystem.IsWindows(), or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Console",
+          "platform": "windows"
+        }
+      },
+      {
+        "rule": "OFR3002",
+        "severity": "warning",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 89,
+        "column": 36,
+        "symbol": "Microsoft.Win32.Registry",
+        "namespace": "Microsoft.Win32",
+        "category": "windows-only",
+        "message": "Microsoft.Win32.Registry is supported only on windows on the target.",
+        "recommendation": "Target netN-windows, guard the call with OperatingSystem.IsWindows(), or isolate it behind a seam.",
+        "details": {
+          "assembly": "Microsoft.Win32.Registry",
+          "platform": "windows"
+        }
+      },
+      {
+        "rule": "OFR3003",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 45,
+        "column": 34,
+        "symbol": "System.Threading.Thread.Abort()",
+        "namespace": "System.Threading",
+        "category": "throws",
+        "message": "API throws on modern .NET: System.Threading.Thread.Abort().",
+        "recommendation": "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3003",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 50,
+        "column": 30,
+        "symbol": "System.AppDomain.CreateDomain(string)",
+        "namespace": "System",
+        "category": "throws",
+        "message": "API throws on modern .NET: System.AppDomain.CreateDomain(string).",
+        "recommendation": "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3003",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 56,
+        "column": 18,
+        "symbol": "System.Action.BeginInvoke(System.AsyncCallback, object)",
+        "namespace": "System",
+        "category": "throws",
+        "message": "Delegate BeginInvoke throws PlatformNotSupportedException on modern .NET; use Task.Run.",
+        "recommendation": "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3003",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Serialization.cs",
+        "line": 32,
+        "column": 27,
+        "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+        "namespace": "System.Runtime.Serialization.Formatters.Binary",
+        "category": "throws",
+        "message": "API throws on modern .NET: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object).",
+        "recommendation": "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3003",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Serialization.cs",
+        "line": 34,
+        "column": 37,
+        "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Deserialize(System.IO.Stream)",
+        "namespace": "System.Runtime.Serialization.Formatters.Binary",
+        "category": "throws",
+        "message": "API throws on modern .NET: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Deserialize(System.IO.Stream).",
+        "recommendation": "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3003",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Serialization.cs",
+        "line": 42,
+        "column": 39,
+        "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+        "namespace": "System.Runtime.Serialization.Formatters.Binary",
+        "category": "throws",
+        "message": "API throws on modern .NET: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object).",
+        "recommendation": "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3003",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Serialization.cs",
+        "line": 54,
+        "column": 39,
+        "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+        "namespace": "System.Runtime.Serialization.Formatters.Binary",
+        "category": "throws",
+        "message": "API throws on modern .NET: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object).",
+        "recommendation": "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3003",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Serialization.cs",
+        "line": 61,
+        "column": 35,
+        "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+        "namespace": "System.Runtime.Serialization.Formatters.Binary",
+        "category": "throws",
+        "message": "API throws on modern .NET: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object).",
+        "recommendation": "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3003",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Serialization.cs",
+        "line": 67,
+        "column": 51,
+        "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Deserialize(System.IO.Stream)",
+        "namespace": "System.Runtime.Serialization.Formatters.Binary",
+        "category": "throws",
+        "message": "API throws on modern .NET: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Deserialize(System.IO.Stream).",
+        "recommendation": "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3003",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Serialization.cs",
+        "line": 80,
+        "column": 35,
+        "symbol": "System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object)",
+        "namespace": "System.Runtime.Serialization.Formatters.Binary",
+        "category": "throws",
+        "message": "API throws on modern .NET: System.Runtime.Serialization.Formatters.Binary.BinaryFormatter.Serialize(System.IO.Stream, object).",
+        "recommendation": "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3004",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 17,
+        "column": 37,
+        "symbol": "System.Web.UI.Control",
+        "namespace": "System.Web.UI",
+        "category": "removed-technology",
+        "message": "ASP.NET Web Forms: System.Web.UI.Control.",
+        "recommendation": "Web Forms has no port; rebuild pages in Razor Pages or Blazor (`offramp web inventory`), incrementally behind a YARP proxy.",
+        "details": {}
+      },
+      {
+        "rule": "OFR3004",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 67,
+        "column": 22,
+        "symbol": "System.Web.UI.Page",
+        "namespace": "System.Web.UI",
+        "category": "removed-technology",
+        "message": "Behavior.Rules.OFR3004.Positive derives from System.Web.UI.Page.",
+        "recommendation": "Web Forms has no port; rebuild pages in Razor Pages or Blazor (`offramp web inventory`), incrementally behind a YARP proxy.",
+        "details": {}
+      },
+      {
+        "rule": "OFR3005",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 78,
+        "column": 10,
+        "symbol": "System.Web.Services.WebServiceAttribute",
+        "namespace": "System.Web.Services",
+        "category": "removed-technology",
+        "message": "ASMX web services: System.Web.Services.WebServiceAttribute.",
+        "recommendation": "Move to ASP.NET Core controllers, or CoreWCF for SOAP clients that cannot change.",
+        "details": {}
+      },
+      {
+        "rule": "OFR3005",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 79,
+        "column": 22,
+        "symbol": "System.Web.Services.WebService",
+        "namespace": "System.Web.Services",
+        "category": "removed-technology",
+        "message": "Behavior.Rules.OFR3005.Positive derives from System.Web.Services.WebService.",
+        "recommendation": "Move to ASP.NET Core controllers, or CoreWCF for SOAP clients that cannot change.",
+        "details": {}
+      },
+      {
+        "rule": "OFR3006",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 96,
+        "column": 44,
+        "symbol": "System.ServiceModel.ServiceHost",
+        "namespace": "System.ServiceModel",
+        "category": "removed-technology",
+        "message": "WCF service host: System.ServiceModel.ServiceHost.",
+        "recommendation": "WCF clients have packages; servers move to CoreWCF, gRPC, or HTTP APIs.",
+        "details": {}
+      },
+      {
+        "rule": "OFR3007",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 109,
+        "column": 37,
+        "symbol": "System.Runtime.Remoting.RemotingConfiguration",
+        "namespace": "System.Runtime.Remoting",
+        "category": "removed-technology",
+        "message": ".NET Remoting: System.Runtime.Remoting.RemotingConfiguration.",
+        "recommendation": "Remoting has no port; use gRPC, HTTP, or named pipes (`offramp remote`).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3008",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 126,
+        "column": 31,
+        "symbol": "System.Activities.Activity",
+        "namespace": "System.Activities",
+        "category": "removed-technology",
+        "message": "WF (Windows Workflow Foundation): System.Activities.Activity.",
+        "recommendation": "Workflow Foundation has no port (CoreWF is a community option); isolate workflows behind a seam.",
+        "details": {}
+      },
+      {
+        "rule": "OFR3009",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 140,
+        "column": 40,
+        "symbol": "System.Security.PermissionSet",
+        "namespace": "System.Security",
+        "category": "removed-technology",
+        "message": "COM+, Code Access Security, or AppDomain sandboxing: System.Security.PermissionSet.",
+        "recommendation": "COM+ services, CAS permissions, and sandboxed AppDomains are gone; isolate the code in a separate process.",
+        "details": {}
+      }
+    ],
+    "ledger": [
+      {
+        "project": "src/Behavior.Clean/Behavior.Clean.csproj",
+        "files": 1,
+        "portableFiles": 1,
+        "portability": 1,
+        "byCategory": {},
+        "byNamespace": {}
+      },
+      {
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "files": 4,
+        "portableFiles": 1,
+        "portability": 0.25,
+        "byCategory": {
+          "missing-api": 17,
+          "removed-technology": 8,
+          "throws": 10,
+          "windows-only": 2
+        },
+        "byNamespace": {
+          "Microsoft.Win32": 1,
+          "System": 3,
+          "System.Activities": 2,
+          "System.Configuration": 2,
+          "System.Data.SqlClient": 1,
+          "System.Runtime.Remoting": 2,
+          "System.Runtime.Serialization.Formatters.Binary": 7,
+          "System.Security": 1,
+          "System.ServiceModel": 3,
+          "System.Threading": 1,
+          "System.Web": 4,
+          "System.Web.Script.Serialization": 1,
+          "System.Web.Security": 1,
+          "System.Web.Services": 4,
+          "System.Web.UI": 4
+        }
+      }
+    ],
+    "topNamespaces": [
+      {
+        "namespace": "System.Runtime.Serialization.Formatters.Binary",
+        "findings": 7
+      },
+      {
+        "namespace": "System.Web",
+        "findings": 4
+      },
+      {
+        "namespace": "System.Web.Services",
+        "findings": 4
+      },
+      {
+        "namespace": "System.Web.UI",
+        "findings": 4
+      },
+      {
+        "namespace": "System",
+        "findings": 3
+      },
+      {
+        "namespace": "System.ServiceModel",
+        "findings": 3
+      },
+      {
+        "namespace": "System.Activities",
+        "findings": 2
+      },
+      {
+        "namespace": "System.Configuration",
+        "findings": 2
+      },
+      {
+        "namespace": "System.Runtime.Remoting",
+        "findings": 2
+      },
+      {
+        "namespace": "Microsoft.Win32",
+        "findings": 1
+      },
+      {
+        "namespace": "System.Data.SqlClient",
+        "findings": 1
+      },
+      {
+        "namespace": "System.Security",
+        "findings": 1
+      },
+      {
+        "namespace": "System.Threading",
+        "findings": 1
+      },
+      {
+        "namespace": "System.Web.Script.Serialization",
+        "findings": 1
+      },
+      {
+        "namespace": "System.Web.Security",
+        "findings": 1
+      }
+    ],
+    "skipped": [],
+    "output": null
+  },
+  "diagnostics": [
+    {
+      "code": "OFR3001",
+      "severity": "error",
+      "message": "System.Web.HttpContext (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`). (17 findings in the project; the first is shown.)",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 14,
+      "column": 31,
+      "data": {
+        "findings": 17,
+        "symbol": "System.Web.HttpContext"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3001"
+    },
+    {
+      "code": "OFR3002",
+      "severity": "warning",
+      "message": "System.Console.Beep(int, int) is supported only on windows on the target. (2 findings in the project; the first is shown.)",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 32,
+      "column": 21,
+      "data": {
+        "findings": 2,
+        "symbol": "System.Console.Beep(int, int)"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3002"
+    },
+    {
+      "code": "OFR3003",
+      "severity": "error",
+      "message": "API throws on modern .NET: System.Threading.Thread.Abort(). (10 findings in the project; the first is shown.)",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 45,
+      "column": 34,
+      "data": {
+        "findings": 10,
+        "symbol": "System.Threading.Thread.Abort()"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3003"
+    },
+    {
+      "code": "OFR3004",
+      "severity": "error",
+      "message": "ASP.NET Web Forms: System.Web.UI.Control. (2 findings in the project; the first is shown.)",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 17,
+      "column": 37,
+      "data": {
+        "findings": 2,
+        "symbol": "System.Web.UI.Control"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3004"
+    },
+    {
+      "code": "OFR3005",
+      "severity": "error",
+      "message": "ASMX web services: System.Web.Services.WebServiceAttribute. (2 findings in the project; the first is shown.)",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 78,
+      "column": 10,
+      "data": {
+        "findings": 2,
+        "symbol": "System.Web.Services.WebServiceAttribute"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3005"
+    },
+    {
+      "code": "OFR3006",
+      "severity": "error",
+      "message": "WCF service host: System.ServiceModel.ServiceHost.",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 96,
+      "column": 44,
+      "data": {
+        "findings": 1,
+        "symbol": "System.ServiceModel.ServiceHost"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3006"
+    },
+    {
+      "code": "OFR3007",
+      "severity": "error",
+      "message": ".NET Remoting: System.Runtime.Remoting.RemotingConfiguration.",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 109,
+      "column": 37,
+      "data": {
+        "findings": 1,
+        "symbol": "System.Runtime.Remoting.RemotingConfiguration"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3007"
+    },
+    {
+      "code": "OFR3008",
+      "severity": "error",
+      "message": "WF (Windows Workflow Foundation): System.Activities.Activity.",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 126,
+      "column": 31,
+      "data": {
+        "findings": 1,
+        "symbol": "System.Activities.Activity"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3008"
+    },
+    {
+      "code": "OFR3009",
+      "severity": "error",
+      "message": "COM+, Code Access Security, or AppDomain sandboxing: System.Security.PermissionSet.",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 140,
+      "column": 40,
+      "data": {
+        "findings": 1,
+        "symbol": "System.Security.PermissionSet"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3009"
+    },
+    {
+      "code": "OFR3011",
+      "severity": "info",
+      "message": "Microsoft.Web.Infrastructure does not support net10.0; the APIs used from it are reported as missing.",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "packages": [
+          "Microsoft.Web.Infrastructure"
+        ]
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3011"
+    }
+  ],
+  "summary": {
+    "errors": 8,
+    "warnings": 1,
+    "info": 1
+  }
+}

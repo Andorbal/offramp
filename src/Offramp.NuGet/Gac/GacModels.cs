@@ -1,4 +1,4 @@
-using Offramp.NuGet.Rules;
+using Offramp.Analysis.Rules;
 
 namespace Offramp.NuGet.Gac;
 

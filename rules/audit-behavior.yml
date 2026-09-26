@@ -1,0 +1,171 @@
+# `audit behavior` rules (docs/spec/commands/audit.md): code that compiles on the target
+# but behaves differently. Each rule matches by symbol identity (documentation IDs: a
+# `T:` type matches the type and its members, an `N:` namespace everything in it, an
+# `M:` without a parameter list every overload) or by a named matcher over the
+# semantic model. Severity is the default; `rules:` in offramp.yml overrides it.
+rules:
+  OFR3101:
+    pack: core
+    severity: warning
+    title: culture-sensitive string operation
+    category: globalization
+    recommendation: Pass StringComparison.Ordinal (or a CultureInfo) explicitly; ICU on Linux and modern .NET compares and matches differently from NLS.
+    matcher: culture-sensitive-string
+  OFR3102:
+    pack: core
+    severity: warning
+    title: non-Unicode code page
+    category: globalization
+    recommendation: Register CodePagesEncodingProvider.Instance (System.Text.Encoding.CodePages) at startup before asking for legacy code pages.
+    matcher: encoding-code-page
+  OFR3103:
+    pack: core
+    severity: warning
+    title: path assumes Windows separators or folders
+    category: platform
+    recommendation: Use Path.Combine with relative segments and Path.DirectorySeparatorChar; file systems elsewhere are case-sensitive and use '/'.
+    matcher: windows-path
+    symbols:
+      - F:System.Environment.SpecialFolder.AdminTools
+      - F:System.Environment.SpecialFolder.CDBurning
+      - F:System.Environment.SpecialFolder.CommonAdminTools
+      - F:System.Environment.SpecialFolder.CommonOemLinks
+      - F:System.Environment.SpecialFolder.CommonStartMenu
+      - F:System.Environment.SpecialFolder.CommonStartup
+      - F:System.Environment.SpecialFolder.Cookies
+      - F:System.Environment.SpecialFolder.History
+      - F:System.Environment.SpecialFolder.InternetCache
+      - F:System.Environment.SpecialFolder.NetworkShortcuts
+      - F:System.Environment.SpecialFolder.PrinterShortcuts
+      - F:System.Environment.SpecialFolder.Recent
+      - F:System.Environment.SpecialFolder.SendTo
+      - F:System.Environment.SpecialFolder.StartMenu
+      - F:System.Environment.SpecialFolder.Startup
+      - F:System.Environment.SpecialFolder.SystemX86
+      - F:System.Environment.SpecialFolder.Windows
+  OFR3104:
+    pack: core
+    severity: warning
+    title: time zone looked up by Windows ID
+    category: platform
+    recommendation: Use IANA IDs, or TimeZoneInfo.TryConvertWindowsIdToIanaId (.NET 6+) where Windows IDs come from data.
+    matcher: windows-time-zone
+  OFR3105:
+    pack: core
+    severity: warning
+    title: registry access
+    category: platform
+    recommendation: Move settings to configuration; guard any remaining registry access with OperatingSystem.IsWindows().
+    symbols: [T:Microsoft.Win32.Registry, T:Microsoft.Win32.RegistryKey]
+  OFR3106:
+    pack: web
+    severity: warning
+    title: ambient ASP.NET context
+    category: web
+    recommendation: ASP.NET Core has no ambient context; pass HttpContext (or IHttpContextAccessor) and IWebHostEnvironment explicitly.
+    symbols: [P:System.Web.HttpContext.Current, T:System.Web.HttpRuntime, T:System.Web.Hosting.HostingEnvironment]
+  OFR3107:
+    pack: core
+    severity: warning
+    title: shell execution through Process.Start
+    category: behavior
+    recommendation: UseShellExecute defaults to false on modern .NET; open URLs and documents with new ProcessStartInfo(target) { UseShellExecute = true }.
+    symbols: ["M:System.Diagnostics.Process.Start(System.String)", "M:System.Diagnostics.Process.Start(System.String,System.String)"]
+  OFR3108:
+    pack: data
+    severity: warning
+    title: legacy SQL Server client (System.Data.SqlClient)
+    category: data
+    recommendation: Move to Microsoft.Data.SqlClient; Encrypt defaults to true from 4.0, so connection strings may need TrustServerCertificate.
+    symbols: [N:System.Data.SqlClient]
+  OFR3109:
+    pack: core
+    severity: info
+    title: floating-point ToString without a format
+    category: behavior
+    recommendation: Since .NET Core 3.0, ToString() gives the shortest round-trippable string; pass a format ("G15", "R", "F2") where output is compared or stored.
+    matcher: floating-point-to-string
+  OFR3110:
+    pack: core
+    severity: warning
+    title: obsolete networking API
+    category: networking
+    recommendation: Use HttpClient (with SocketsHttpHandler settings instead of ServicePointManager).
+    symbols: [T:System.Net.WebRequest, T:System.Net.HttpWebRequest, T:System.Net.WebClient, T:System.Net.ServicePointManager]
+  OFR3111:
+    pack: core
+    severity: warning
+    title: ambient principal
+    category: security
+    recommendation: Thread.CurrentPrincipal does not flow the same way; ASP.NET Core uses HttpContext.User, services an explicit identity.
+    symbols: [P:System.Threading.Thread.CurrentPrincipal, T:System.Security.Principal.WindowsIdentity]
+  OFR3112:
+    pack: core
+    severity: info
+    title: settings read through ConfigurationManager
+    category: configuration
+    recommendation: The System.Configuration.ConfigurationManager package reads the host's app.config, not web.config; consider IConfiguration (`offramp config convert`).
+    symbols: [P:System.Configuration.ConfigurationManager.AppSettings, P:System.Configuration.ConfigurationManager.ConnectionStrings]
+  OFR3113:
+    pack: core
+    severity: info
+    title: regular expression without a timeout
+    category: behavior
+    recommendation: Pass a match timeout (or RegexOptions.NonBacktracking) for patterns applied to request data.
+    matcher: regex-without-timeout
+  OFR3114:
+    pack: core
+    severity: warning
+    title: TLS 1.0/1.1 or SSL pinned
+    category: security
+    recommendation: Let the operating system choose (SslProtocols.None / SecurityProtocolType.SystemDefault); old protocols are rejected by modern defaults.
+    symbols:
+      - F:System.Security.Authentication.SslProtocols.Ssl2
+      - F:System.Security.Authentication.SslProtocols.Ssl3
+      - F:System.Security.Authentication.SslProtocols.Tls
+      - F:System.Security.Authentication.SslProtocols.Tls11
+      - F:System.Net.SecurityProtocolType.Ssl3
+      - F:System.Net.SecurityProtocolType.Tls
+      - F:System.Net.SecurityProtocolType.Tls11
+  OFR3115:
+    pack: core
+    severity: warning
+    title: assembly loading
+    category: runtime
+    recommendation: Assembly.LoadFrom/LoadFile and AppDomain.AssemblyResolve follow AssemblyLoadContext rules on modern .NET; review load contexts and probing.
+    symbols: [M:System.Reflection.Assembly.LoadFrom, M:System.Reflection.Assembly.LoadFile, E:System.AppDomain.AssemblyResolve]
+  OFR3116:
+    pack: core
+    severity: info
+    title: runtime settings in app.config
+    category: configuration
+    recommendation: GC and runtime settings move to runtimeconfig.json (or MSBuild properties such as ServerGarbageCollection).
+    matcher: config-runtime-settings
+  OFR3117:
+    pack: web
+    severity: info
+    title: URL encoding differences
+    category: behavior
+    recommendation: HttpUtility and Uri.EscapeUriString escape differently from WebUtility and Uri.EscapeDataString; compare outputs where they are persisted or signed.
+    symbols: [M:System.Web.HttpUtility.UrlEncode, M:System.Web.HttpUtility.UrlPathEncode, M:System.Uri.EscapeUriString]
+  OFR3118:
+    pack: web
+    severity: warning
+    title: machine key or Forms authentication
+    category: security
+    recommendation: ASP.NET Core Data Protection replaces MachineKey; sharing Forms authentication cookies needs a compatibility adapter.
+    symbols: [T:System.Web.Security.MachineKey, T:System.Web.Security.FormsAuthentication]
+  OFR3119:
+    pack: core
+    severity: info
+    title: timers and thread pool tuning
+    category: runtime
+    recommendation: Usually fine; services heading to containers should prefer PeriodicTimer or hosted services, and revisit thread pool minimums.
+    symbols: [T:System.Timers.Timer, M:System.Threading.ThreadPool.SetMinThreads]
+  OFR3120:
+    pack: core
+    severity: info
+    title: operating system check
+    category: platform
+    recommendation: Branches that assume Windows need review; prefer OperatingSystem.IsWindows() and friends.
+    symbols: [P:System.Environment.OSVersion, M:System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform]

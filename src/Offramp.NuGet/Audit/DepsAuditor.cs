@@ -10,6 +10,7 @@ using Offramp.Core.Model;
 using Offramp.Core.Progress;
 using Offramp.NuGet.Feeds;
 using Offramp.NuGet.Inspection;
+using Offramp.Analysis.Rules;
 using Offramp.NuGet.Rules;
 
 namespace Offramp.NuGet.Audit;

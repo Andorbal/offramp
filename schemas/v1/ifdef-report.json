@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/ifdef-report.json",
+  "title": "offramp ifdef report result",
+  "description": "The result of `offramp ifdef report`. See docs/spec/commands/audit.md#ifdef.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["symbol", "projects", "totals"],
+  "properties": {
+    "symbol": { "type": ["string", "null"], "description": "The --symbol filter, or null for every symbol." },
+    "projects": {
+      "type": "array",
+      "description": "C# projects with conditional regions, by id.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "symbols"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "symbols": { "type": "array", "items": { "$ref": "#/$defs/count" } }
+        }
+      }
+    },
+    "totals": { "type": "array", "items": { "$ref": "#/$defs/count" }, "description": "Per symbol across the solution; a file shared by projects counts once." }
+  },
+  "$defs": {
+    "count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbol", "regions", "lines", "files"],
+      "properties": {
+        "symbol": { "type": "string" },
+        "regions": { "type": "integer", "minimum": 1, "description": "#if chains whose conditions name the symbol." },
+        "lines": { "type": "integer", "minimum": 0, "description": "Lines inside those chains, directives excluded." },
+        "files": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

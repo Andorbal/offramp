@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using Offramp.Core.Json;
 
-namespace Offramp.NuGet.Rules;
+namespace Offramp.Analysis.Rules;
 
 [JsonConverter(typeof(KebabCaseEnumConverter<FrameworkAssemblyKind>))]
 public enum FrameworkAssemblyKind

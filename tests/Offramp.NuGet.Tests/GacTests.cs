@@ -4,6 +4,7 @@ using Offramp.Core.Json;
 using Offramp.Core.Progress;
 using Offramp.Fixtures;
 using Offramp.NuGet.Gac;
+using Offramp.Analysis.Rules;
 using Offramp.NuGet.Rules;
 
 namespace Offramp.NuGet.Tests;

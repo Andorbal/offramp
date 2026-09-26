@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Offramp.Refactoring.ChangeSets;
+using Offramp.Refactoring.Conditional;
 using Offramp.Refactoring.Dependencies.Consolidation;
 using Offramp.Refactoring.Dependencies.Redirects;
 using Offramp.Refactoring.Dependencies.Resolution;
@@ -28,6 +29,8 @@ namespace Offramp.Refactoring;
 [JsonSerializable(typeof(ConsolidateResult))]
 [JsonSerializable(typeof(RedirectsResult))]
 [JsonSerializable(typeof(ResolveDllsResult))]
+[JsonSerializable(typeof(IfdefStripResult))]
+[JsonSerializable(typeof(IfdefWrapResult))]
 public sealed partial class RefactoringJsonContext : JsonSerializerContext
 {
 }
