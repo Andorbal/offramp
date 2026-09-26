@@ -51,6 +51,9 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   exited while a process it started (an MSBuild node, the compiler server) still holds its
   output pipes. Output is drained for at most ten seconds after exit, and MSBuild node reuse
   is off for the processes Offramp runs.
+- Scratch copies (`verify`, restore verification) live under the canonical temporary directory,
+  so paths in tool output map back to the repository on macOS, where `/var` is a link to
+  `/private/var`.
 
 ## [0.6.0] - 2026-09-26
 

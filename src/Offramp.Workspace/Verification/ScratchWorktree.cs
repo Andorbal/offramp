@@ -36,8 +36,11 @@ public sealed class ScratchWorktree : IAsyncDisposable
     public static async Task<ScratchWorktree> CreateAsync(string repositoryRoot, IEnumerable<string> files, IGitService git, CancellationToken cancellationToken = default)
     {
         var root = System.IO.Path.GetFullPath(repositoryRoot);
-        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "offramp-scratch", ContentHash.Sha256(root)[..8] + "-" + Guid.NewGuid().ToString("N")[..8]);
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+        // The canonical temporary directory: processes started in the scratch copy report it that
+        // way (they ask the operating system for their directory), and output is mapped back by it.
+        var parent = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "offramp-scratch");
+        Directory.CreateDirectory(parent);
+        var path = System.IO.Path.Combine(RepoPaths.Canonical(parent), ContentHash.Sha256(root)[..8] + "-" + Guid.NewGuid().ToString("N")[..8]);
         // Only the top of a work tree (it holds .git) maps one to one onto a new work tree;
         // comparing paths instead would trip over symbolic links such as macOS's /var.
         var gitMarker = System.IO.Path.Combine(root, ".git");
