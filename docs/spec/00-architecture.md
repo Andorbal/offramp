@@ -67,7 +67,8 @@ Offramp.Cli ──► Offramp.Reporting ──┐
             ──► Offramp.NuGet ───────┘                                  ▲
             ──► Offramp.Llm  (leaf, optional)                            │
 Offramp.Mcp ──► Offramp.Cli's handlers (same code path as the terminal) ──┘
-Offramp.Analyzers (netstandard2.0, no Offramp dependencies; consumed by codemod)
+Offramp.Refactoring ──► Offramp.Analyzers.CodeFixes ──► Offramp.Analyzers
+                        (netstandard2.0, Roslyn 4.8, no Offramp dependencies; packed as the Offramp.Analyzers NuGet package)
 ```
 
 - `Core`: model records, `offramp.yml` binding, diagnostics, `IProgressSink`,
@@ -75,7 +76,11 @@ Offramp.Analyzers (netstandard2.0, no Offramp dependencies; consumed by codemod)
 - `Workspace`: binlog/complog ingest, assets-file parsing (`NuGet.ProjectModel`),
   project graph, project-kind detection, compilation cache.
 - `Analysis`: read-only analyses over compilations and the model.
-- `Refactoring`: change sets, movers, journal, project-file editing.
+- `Refactoring`: change sets, movers, journal, project-file editing, and the
+  codemod driver (`codemod run` runs the fixers over recorded compilations).
+- `Analyzers`: the codemods' analyzers (OFRM###). `Analyzers.CodeFixes`: their
+  fixers, split out because the command-line compiler does not load
+  Workspaces (RS1038); it also packs both as the `Offramp.Analyzers` package.
 - `NuGet`: feeds, TFM compatibility, package inspection cache, consolidation.
 - `Scaffolding`: template rendering (Scriban or raw string templates; pick one
   and record the ADR), generators for service/web/remote/config.
