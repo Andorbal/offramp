@@ -11,6 +11,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-26
+
 ### Added
 - `offramp scan`: builds the solution with a binary log (or reads `--binlog`,
   `--binlog` with `--complog`, or `--complog` alone), converts it to a compiler
@@ -88,5 +90,6 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `Directory.Build.props` no longer produces a separate symbols package: PDBs
   are embedded, so `dotnet pack` failed with NU5017 when asked for a `.snupkg`.
 
-[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Andorbal/offramp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Andorbal/offramp/releases/tag/v0.1.0
