@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/guide-state.json",
+  "title": "offramp guide progress file",
+  "description": "What `offramp guide` has recorded, in <state>/guide.json. See docs/spec/commands/guide.md#progress-file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "records"],
+  "properties": {
+    "$schema": { "const": "https://offramp.dev/schemas/v1/guide-state.json" },
+    "version": { "const": 1 },
+    "records": {
+      "type": "array",
+      "description": "One per step and project, sorted by step, then project (null first).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step", "project", "status", "exitCode"],
+        "properties": {
+          "step": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "project": { "oneOf": [{ "$ref": "workspace.json#/$defs/relativePath" }, { "type": "null" }] },
+          "status": { "enum": ["done", "skipped", "previewed", "failed"] },
+          "exitCode": { "type": ["integer", "null"] }
+        }
+      }
+    }
+  }
+}

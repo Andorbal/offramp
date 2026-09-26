@@ -67,6 +67,8 @@ public sealed class CliHarness : IDisposable
 
     public Func<IAnsiConsole, IInitPrompter>? InitPrompter { get; set; }
 
+    public Func<IAnsiConsole, IGuidePrompter>? GuidePrompter { get; set; }
+
     public CliHost Host(TextWriter output, TextWriter error) => new()
     {
         Out = output,
@@ -81,6 +83,7 @@ public sealed class CliHarness : IDisposable
         Processes = Machine.CreateRunner(),
         ReferenceAssemblies = Machine.CreateReferenceAssembliesProbe(),
         InitPrompter = InitPrompter,
+        GuidePrompter = GuidePrompter,
         Os = "linux-x64",
     };
 

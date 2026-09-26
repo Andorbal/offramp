@@ -11,6 +11,23 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `offramp guide [--run|--done|--skip|--reset STEP] [--project P] [--apply]`: a walk through the
+  migration for people who have not done one before. A fixed checklist of Offramp's commands in
+  four stages (get set up; see what you have; tidy up while still on .NET Framework; port, a wave
+  at a time), each with a plain-language reason and one simple fact about the repository that
+  decides whether it applies. On a terminal it explains the next step and asks what to do (run it,
+  mark it done, skip it, stop), and asks which step first when several are open; otherwise it
+  reports where things stand. The first run runs `doctor` and creates `.offramp/guide.json`
+  (sorted records, no timestamps or absolute paths; `schemas/v1/guide-state.json`). Steps run in
+  process through the same command tree; with `--json` each step's envelope is embedded in the
+  result. Steps that change the repository are dry runs unless the guide is started with
+  `--apply`. `init`, `scan`, `compile-only`, and `port` are done when the repository shows it, and a
+  stale workspace model brings `scan` back first. Also an MCP tool (`offramp_guide`). Schema:
+  `schemas/v1/guide.json`. Diagnostics: OFR0040 progress file unreadable, OFR0041 step needs a
+  project, OFR0042 step did not complete, OFR0043 step cannot be skipped or marked done.
+  ADR 0028.
+
 ## [0.14.0] - 2026-09-26
 
 ### Added

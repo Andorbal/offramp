@@ -1,0 +1,45 @@
+﻿offramp guide ───────────────────────────────────────────────────────────────────────────────────────────────────────
+Next: Write offramp.yml.
+Started the guide; progress is kept in .offramp/guide.json.
+
+    Get set up (current)
+  ✓ Check the machine and the repository
+  → Write offramp.yml                                                     offramp init
+  · Build the workspace model                                             offramp scan
+    Waiting on: init.
+  · Let macOS and Linux compile projects with Windows-only build steps    offramp doctor --fix
+    Needs the workspace model: run `offramp scan`.
+    See what you have
+  · See the order to port projects in
+  · Look at the dependency graph
+  · Check your NuGet packages against net10.0
+  · Find APIs that are missing on net10.0
+  · Find code that compiles but behaves differently
+  · Find binary serialization
+  · Find native interop and COM
+  · Find code nobody uses
+  · Take stock of each ASP.NET application
+  · Make a progress report
+    Tidy up while still on .NET Framework
+  · Move test code out of production projects
+  · Convert legacy project files to SDK style
+  · Use one version of each package
+  · Replace references to loose DLLs
+  · Apply the automatic rewrites
+    Port, a wave at a time
+  · Add net10.0 to the projects that are ready
+  · Move application settings to appsettings.json
+  · Turn Windows services into workers
+  · Start an ASP.NET Core front for each web application
+
+  Write offramp.yml
+
+  offramp.yml records the target .NET version, which solution to work on, how changes are verified, and package versions
+  you must keep. Every command reads it. On a terminal, init asks a few questions with the detected answers as defaults,
+  and it adds Offramp's scratch files to .gitignore.
+
+  Command: offramp init
+
+Run it with offramp guide --run init, or record it with --done or --skip.
+
+Next: offramp init

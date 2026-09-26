@@ -168,6 +168,19 @@ Acceptance: an MCP client (test harness) lists tools, runs `offramp_deps_audit`
 on a fixture, and receives progress; `--llm` with a stubbed OpenAI-compatible
 server names a seam interface and the output marks `source: llm`.
 
+## M14 — Guide ◐
+
+- `guide`: a step-by-step walk through the migration over the existing commands
+  (`commands/guide.md`, ADR 0028): the checklist, observed and recorded
+  progress in `.offramp/guide.json`, a terminal session that asks when there is a
+  choice, flags for every question, `--json` with embedded step envelopes.
+
+Acceptance: a first run on a fresh repository runs `doctor` and creates the
+progress file; a session driven by key presses records its answers; a step that
+changes the repository is a dry run without `--apply` and applies with it; a
+stale model brings `scan` back; every step's command parses as a command line
+(and a broken one does not).
+
 ## Later
 
 - Desktop rule pack (WinForms/WPF), VB.NET projects, F# projects.

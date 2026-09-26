@@ -240,7 +240,7 @@ public static class CommandRunner
         await File.WriteAllTextAsync(path, content, new UTF8Encoding(false));
     }
 
-    private static string? ResolveConfigPath(GlobalSettings settings, CliHost host)
+    internal static string? ResolveConfigPath(GlobalSettings settings, CliHost host)
     {
         var path = settings.Config;
         if (path is null && host.Environment.TryGetValue(ConfigLoader.ConfigPathVariable, out var fromEnvironment)

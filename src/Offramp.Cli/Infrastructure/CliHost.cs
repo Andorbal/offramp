@@ -51,6 +51,9 @@ public sealed record CliHost
     /// <summary>Creates the prompter for <c>init</c>'s interview; replaced in tests.</summary>
     public Func<IAnsiConsole, Commands.IInitPrompter>? InitPrompter { get; init; }
 
+    /// <summary>Creates the prompter for <c>guide</c>'s session; replaced in tests.</summary>
+    public Func<IAnsiConsole, Commands.IGuidePrompter>? GuidePrompter { get; init; }
+
     public IGitService GitService => Git ?? new GitService(Processes);
 
     public bool Interactive => InputIsTerminal && OutputIsTerminal;
