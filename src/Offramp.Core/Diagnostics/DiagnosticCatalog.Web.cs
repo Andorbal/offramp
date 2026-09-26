@@ -6,7 +6,7 @@ public static partial class DiagnosticCatalog
 
     public static readonly DiagnosticDescriptor OFR4201 = new(
         "OFR4201", Severity.Warning,
-        "Web Forms page not ported",
+        "unported Web Forms page",
         "Web Forms pages, user controls, and master pages have no ASP.NET Core counterpart that code can be converted to; `web scaffold` inventories them and leaves them to the legacy application behind the proxy.",
         "Any .aspx, .ascx, or .master file.",
         "Keep the page behind the proxy, rewrite it as a Razor Page or Blazor component, or use a third-party Web Forms converter.",
@@ -14,7 +14,7 @@ public static partial class DiagnosticCatalog
 
     public static readonly DiagnosticDescriptor OFR4202 = new(
         "OFR4202", Severity.Info,
-        "HttpHandler became an endpoint stub",
+        "handler became an unmapped endpoint stub",
         "The handler's ProcessRequest is kept in a marked region of a minimal API endpoint stub, which is not mapped: its path keeps going to the legacy application through the proxy until someone ports the code and maps the endpoint.",
         "Image, file, and feed handlers (.ashx, *.axd registrations).",
         "Port ProcessRequest into the stub's Handle method, then uncomment its MapMethods line in Program.cs.",

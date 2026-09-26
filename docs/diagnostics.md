@@ -190,8 +190,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4106](#ofr4106) | warning | service | generated worker does not compile |
 | [OFR4107](#ofr4107) | error | service | no service found |
 | [OFR4108](#ofr4108) | error | service | worker directory exists |
-| [OFR4201](#ofr4201) | warning | web | Web Forms page not ported |
-| [OFR4202](#ofr4202) | info | web | HttpHandler became an endpoint stub |
+| [OFR4201](#ofr4201) | warning | web | unported Web Forms page |
+| [OFR4202](#ofr4202) | info | web | handler became an unmapped endpoint stub |
 | [OFR4203](#ofr4203) | error | web | scaffolded project does not compile |
 | [OFR4204](#ofr4204) | error | web | output folder not empty |
 | [OFR4301](#ofr4301) | warning | csproj | compile items kept explicit |
@@ -1688,7 +1688,7 @@ The worker project (the generated code and the linked files it uses) was compile
 
 ### OFR4201
 
-**Web Forms page not ported** · warning · web
+**unported Web Forms page** · warning · web
 
 Web Forms pages, user controls, and master pages have no ASP.NET Core counterpart that code can be converted to; `web scaffold` inventories them and leaves them to the legacy application behind the proxy.
 
@@ -1697,7 +1697,7 @@ Web Forms pages, user controls, and master pages have no ASP.NET Core counterpar
 
 ### OFR4202
 
-**HttpHandler became an endpoint stub** · info · web
+**handler became an unmapped endpoint stub** · info · web
 
 The handler's ProcessRequest is kept in a marked region of a minimal API endpoint stub, which is not mapped: its path keeps going to the legacy application through the proxy until someone ports the code and maps the endpoint.
 
