@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/report.json",
+  "title": "offramp report result",
+  "description": "The result of `offramp report`. See docs/spec/commands/workspace.md#report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "output", "report", "content"],
+  "properties": {
+    "format": { "enum": ["html", "json", "markdown", null] },
+    "output": { "type": ["string", "null"] },
+    "report": { "$ref": "report-data.json" },
+    "content": { "type": ["string", "null"] }
+  }
+}

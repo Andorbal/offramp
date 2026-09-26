@@ -45,6 +45,9 @@ public sealed record LedgerSnapshot
     public required IReadOnlyList<LedgerProject> Projects { get; init; }
 }
 
+/// <summary>What <see cref="Ledger.ReadAll"/> found: snapshots oldest first, and files that are not snapshots.</summary>
+public sealed record LedgerContents(IReadOnlyList<LedgerSnapshot> Snapshots, IReadOnlyList<string> Unreadable);
+
 public static class Ledger
 {
     public static LedgerSnapshot Snapshot(WorkspaceModel model)
@@ -89,6 +92,50 @@ public static class Ledger
         var path = Path.Combine(ledgerDirectory, $"{date}-{hash}.json");
         File.WriteAllText(path, OfframpJson.Serialize(snapshot, typeInfo), new System.Text.UTF8Encoding(false));
         return RepoPaths.ToRepositoryRelative(repositoryRoot, path);
+    }
+
+    /// <summary>
+    /// Every snapshot in the ledger directory, oldest first (by creation time, then
+    /// file name), and the repository-relative paths of JSON files that are not snapshots.
+    /// </summary>
+    public static LedgerContents ReadAll(string ledgerDirectory, string repositoryRoot)
+    {
+        if (!Directory.Exists(ledgerDirectory))
+        {
+            return new LedgerContents([], []);
+        }
+
+        var snapshots = new List<(LedgerSnapshot Snapshot, string File)>();
+        var unreadable = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(ledgerDirectory, "*.json"))
+        {
+            var snapshot = TryRead(file);
+            if (snapshot is null)
+            {
+                unreadable.Add(RepoPaths.ToRepositoryRelative(repositoryRoot, file));
+            }
+            else
+            {
+                snapshots.Add((snapshot, Path.GetFileName(file)));
+            }
+        }
+
+        return new LedgerContents(
+            [.. snapshots.OrderBy(s => s.Snapshot.CreatedAt, StringComparer.Ordinal).ThenBy(s => s.File, StringComparer.Ordinal).Select(s => s.Snapshot)],
+            [.. unreadable.Order(StringComparer.Ordinal)]);
+    }
+
+    private static LedgerSnapshot? TryRead(string file)
+    {
+        try
+        {
+            var snapshot = System.Text.Json.JsonSerializer.Deserialize(File.ReadAllText(file), WorkspaceJsonContext.Default.LedgerSnapshot);
+            return snapshot is { CreatedAt.Length: > 0, Totals: not null, Projects: not null } ? snapshot : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     private static string Wire<T>(T value)

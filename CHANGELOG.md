@@ -37,6 +37,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `--include-kind`/`--exclude-kind`, `--cluster`, `--highlight cycles|frontier|blockers`, and
   `--edges project`. With a format and no `--out`, stdout is the document itself, ready to
   pipe into `dot`. Diagnostic OFR0201 flags Mermaid graphs above 300 projects.
+- `offramp report`: the stakeholder progress page from the committed ledger and the current
+  model: headline numbers, a burn-down of lines of code by framework class across scans,
+  framework class by area, applications with what is left in their closure and what to port
+  next, and the projects ready to port today. `--format html` (one script-free file with SVG
+  charts, light and dark, print-friendly; `--with-graph` embeds the interactive graph),
+  `markdown`, or `json` (`schemas/v1/report-data.json`), `--since`, and `--title`.
+  Diagnostic OFR0202 names ledger files that are not snapshots. ADR 0016.
 
 ### Changed
 - `offramp slice` without `--out` now writes only the solution filter to stdout (diagnostics go

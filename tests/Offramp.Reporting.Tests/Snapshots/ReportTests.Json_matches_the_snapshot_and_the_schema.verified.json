@@ -1,0 +1,274 @@
+﻿{
+  "title": "Monolith",
+  "asOf": "2026-09-25T20:11:04Z",
+  "since": null,
+  "headline": {
+    "projects": 8,
+    "loc": 20200,
+    "frameworkProjects": 6,
+    "frameworkLoc": 16100,
+    "portablePercent": 20.3,
+    "frameworkLocChange": -4100,
+    "applications": 3,
+    "applicationsDone": 1,
+    "ready": 2
+  },
+  "series": [
+    {
+      "createdAt": "2026-06-02T09:00:00Z",
+      "projects": 8,
+      "loc": 20200,
+      "byFrameworkClass": {
+        "dual": {
+          "projects": 0,
+          "loc": 0
+        },
+        "framework": {
+          "projects": 8,
+          "loc": 20200
+        },
+        "modern": {
+          "projects": 0,
+          "loc": 0
+        },
+        "standard": {
+          "projects": 0,
+          "loc": 0
+        }
+      },
+      "byKind": {
+        "console": 1,
+        "library": 4,
+        "service": 1,
+        "test": 1,
+        "unknown": 0,
+        "web": 1,
+        "winforms": 0,
+        "wpf": 0
+      }
+    },
+    {
+      "createdAt": "2026-07-15T09:00:00Z",
+      "projects": 8,
+      "loc": 20200,
+      "byFrameworkClass": {
+        "dual": {
+          "projects": 0,
+          "loc": 0
+        },
+        "framework": {
+          "projects": 7,
+          "loc": 19400
+        },
+        "modern": {
+          "projects": 0,
+          "loc": 0
+        },
+        "standard": {
+          "projects": 1,
+          "loc": 800
+        }
+      },
+      "byKind": {
+        "console": 1,
+        "library": 4,
+        "service": 1,
+        "test": 1,
+        "unknown": 0,
+        "web": 1,
+        "winforms": 0,
+        "wpf": 0
+      }
+    },
+    {
+      "createdAt": "2026-08-30T09:00:00Z",
+      "projects": 8,
+      "loc": 20900,
+      "byFrameworkClass": {
+        "dual": {
+          "projects": 1,
+          "loc": 3300
+        },
+        "framework": {
+          "projects": 6,
+          "loc": 16800
+        },
+        "modern": {
+          "projects": 0,
+          "loc": 0
+        },
+        "standard": {
+          "projects": 1,
+          "loc": 800
+        }
+      },
+      "byKind": {
+        "console": 1,
+        "library": 4,
+        "service": 1,
+        "test": 1,
+        "unknown": 0,
+        "web": 1,
+        "winforms": 0,
+        "wpf": 0
+      }
+    },
+    {
+      "createdAt": "2026-09-25T20:11:04Z",
+      "projects": 8,
+      "loc": 20200,
+      "byFrameworkClass": {
+        "dual": {
+          "projects": 1,
+          "loc": 3300
+        },
+        "framework": {
+          "projects": 6,
+          "loc": 16100
+        },
+        "modern": {
+          "projects": 0,
+          "loc": 0
+        },
+        "standard": {
+          "projects": 1,
+          "loc": 800
+        }
+      },
+      "byKind": {
+        "console": 1,
+        "library": 4,
+        "service": 1,
+        "test": 1,
+        "unknown": 0,
+        "web": 1,
+        "winforms": 0,
+        "wpf": 0
+      }
+    }
+  ],
+  "areas": [
+    {
+      "area": "legacy",
+      "projects": 2,
+      "loc": 6500,
+      "byFrameworkClass": {
+        "dual": {
+          "projects": 0,
+          "loc": 0
+        },
+        "framework": {
+          "projects": 2,
+          "loc": 6500
+        },
+        "modern": {
+          "projects": 0,
+          "loc": 0
+        },
+        "standard": {
+          "projects": 0,
+          "loc": 0
+        }
+      }
+    },
+    {
+      "area": "src",
+      "projects": 5,
+      "loc": 12800,
+      "byFrameworkClass": {
+        "dual": {
+          "projects": 1,
+          "loc": 3300
+        },
+        "framework": {
+          "projects": 3,
+          "loc": 8700
+        },
+        "modern": {
+          "projects": 0,
+          "loc": 0
+        },
+        "standard": {
+          "projects": 1,
+          "loc": 800
+        }
+      }
+    },
+    {
+      "area": "tests",
+      "projects": 1,
+      "loc": 900,
+      "byFrameworkClass": {
+        "dual": {
+          "projects": 0,
+          "loc": 0
+        },
+        "framework": {
+          "projects": 1,
+          "loc": 900
+        },
+        "modern": {
+          "projects": 0,
+          "loc": 0
+        },
+        "standard": {
+          "projects": 0,
+          "loc": 0
+        }
+      }
+    }
+  ],
+  "applications": [
+    {
+      "project": "src/App/App.csproj",
+      "name": "App",
+      "kind": "console",
+      "frameworkClass": "framework",
+      "status": "blocked",
+      "closure": 3,
+      "remaining": 2,
+      "remainingLoc": 6600,
+      "next": [
+        "src/Core/Core.csproj"
+      ]
+    },
+    {
+      "project": "src/Svc/Svc.csproj",
+      "name": "Svc",
+      "kind": "service",
+      "frameworkClass": "framework",
+      "status": "ready",
+      "closure": 2,
+      "remaining": 1,
+      "remainingLoc": 2100,
+      "next": [
+        "src/Svc/Svc.csproj"
+      ]
+    },
+    {
+      "project": "src/Web/Web.csproj",
+      "name": "Web",
+      "kind": "web",
+      "frameworkClass": "dual",
+      "status": "done",
+      "closure": 2,
+      "remaining": 0,
+      "remainingLoc": 0,
+      "next": []
+    }
+  ],
+  "frontier": [
+    {
+      "project": "src/Core/Core.csproj",
+      "name": "Core",
+      "loc": 5400,
+      "dependents": 2
+    },
+    {
+      "project": "src/Svc/Svc.csproj",
+      "name": "Svc",
+      "loc": 2100,
+      "dependents": 0
+    }
+  ]
+}

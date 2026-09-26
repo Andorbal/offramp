@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Offramp.Reporting.Graph;
+using Offramp.Reporting.Report;
 
 namespace Offramp.Reporting;
 
@@ -15,6 +16,8 @@ namespace Offramp.Reporting;
     AllowTrailingCommas = true)]
 [JsonSerializable(typeof(GraphDocument))]
 [JsonSerializable(typeof(GraphResult))]
+[JsonSerializable(typeof(ReportData))]
+[JsonSerializable(typeof(ReportResult))]
 public sealed partial class ReportingJsonContext : JsonSerializerContext
 {
 }
