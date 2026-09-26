@@ -1,0 +1,248 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "NetfxOnly.sln",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Legacy.App/Legacy.App.csproj",
+      "name": "Legacy.App",
+      "assemblyName": "Legacy.App",
+      "rootNamespace": "Legacy.App",
+      "language": "csharp",
+      "kind": "console",
+      "kindEvidence": "OutputType=Exe",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Exe",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Legacy.App/Program.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [
+        "src/Legacy.Core/Legacy.Core.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Newtonsoft.Json",
+          "version": "13.0.3",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Newtonsoft.Json",
+              "version": "13.0.3",
+              "dependencies": [],
+              "direct": true
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 15,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Legacy.Core/Legacy.Core.csproj",
+      "name": "Legacy.Core",
+      "assemblyName": "Legacy.Core",
+      "rootNamespace": "Legacy.Core",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Legacy.Core/Thumbnails.cs",
+        "src/Legacy.Core/UrlHelper.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [
+        {
+          "name": "System.Drawing",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 35,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/Legacy.App/Legacy.App.csproj",
+        "to": "src/Legacy.Core/Legacy.Core.csproj",
+        "kind": "project"
+      }
+    ],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Legacy.Core/Legacy.Core.csproj",
+      "src/Legacy.App/Legacy.App.csproj"
+    ]
+  },
+  "packages": {
+    "Newtonsoft.Json": {
+      "versions": {
+        "13.0.3": [
+          "src/Legacy.App/Legacy.App.csproj"
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "NetfxOnly.sln",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Legacy.App/Legacy.App.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Legacy.Core/Legacy.Core.csproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <!-- sgen: pre-generates XmlSerializer assemblies under the .NET Framework runtime (OFR0110). -->
+    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>
+    <!-- A post-build event that calls a Windows executable (OFR0115). -->
+    <PostBuildEvent>signtool.exe sign /a "$(TargetPath)"</PostBuildEvent>
+    <!-- T4 templates transformed on every build (OFR0113). -->
+    <TransformOnBuild>true</TransformOnBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Entity Framework 6 designer model, embedded by EntityDeploy (OFR0112). -->
+    <EntityDeploy Include="Model.edmx" />
+    <!-- T4 template transformed at build time (OFR0113). -->
+    <!-- Microsoft Fakes shim assembly generation (OFR0113). -->
+    <Fakes Include="Fakes\System.fakes" />
+    <None Include="Generated.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>Generated.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+</Project>

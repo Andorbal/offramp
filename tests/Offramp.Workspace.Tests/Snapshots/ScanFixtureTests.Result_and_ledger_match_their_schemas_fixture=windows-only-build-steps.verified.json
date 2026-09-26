@@ -1,0 +1,67 @@
+﻿{
+  "model": ".offramp/workspace.json",
+  "upToDate": false,
+  "source": {
+    "kind": "binlog",
+    "path": "msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "solution": "WindowsOnly.sln",
+  "buildSucceeded": false,
+  "projects": 2,
+  "loc": 18,
+  "byFrameworkClass": {
+    "dual": 0,
+    "framework": 2,
+    "modern": 0,
+    "standard": 0
+  },
+  "byKind": {
+    "console": 0,
+    "library": 2,
+    "service": 0,
+    "test": 0,
+    "unknown": 0,
+    "web": 0,
+    "winforms": 0,
+    "wpf": 0
+  },
+  "cycles": [],
+  "windowsOnlyBuildSteps": [
+    {
+      "project": "src/Database/Database.sqlproj",
+      "steps": [
+        "ssdt"
+      ]
+    },
+    {
+      "project": "src/Office/Office.csproj",
+      "steps": [
+        "com"
+      ]
+    },
+    {
+      "project": "src/Soap/Soap.csproj",
+      "steps": [
+        "sgen",
+        "entity-deploy",
+        "t4",
+        "fakes",
+        "build-event"
+      ]
+    }
+  ],
+  "unrecognized": [],
+  "notLoaded": [
+    {
+      "project": "src/Database/Database.sqlproj",
+      "reason": "unsupported project type (.sqlproj)"
+    }
+  ],
+  "partial": [
+    "src/Office/Office.csproj",
+    "src/Soap/Soap.csproj"
+  ],
+  "ledgerSnapshot": ".offramp/ledger/2026-09-25-bd7acf72.json"
+}

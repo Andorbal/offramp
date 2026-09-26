@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Contracts/Contracts.csproj" />
+    <Project Path="src/Shared/Shared.csproj" />
+    <Project Path="src/Tool/Tool.csproj" />
+  </Folder>
+</Solution>

@@ -32,6 +32,67 @@ public static class Scrub
         return repositoryRoot is null ? text : ReplaceRoot(text, repositoryRoot);
     }
 
+    /// <summary>
+    /// Scrubs a workspace model (or anything embedding one): timestamps, the
+    /// repository root, SDK version and OS, content hashes, and compiler-call
+    /// indexes (their order follows the parallel build).
+    /// </summary>
+    public static string Model(string json, string? repositoryRoot = null)
+    {
+        var node = JsonNode.Parse(json)!;
+        repositoryRoot ??= node["repositoryRoot"]?.GetValue<string>();
+        ScrubNode(node);
+        var text = OfframpJson.Format(node);
+        return repositoryRoot is null ? text : ReplaceRoot(text, repositoryRoot);
+    }
+
+    private static void ScrubNode(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (var key in obj.Select(p => p.Key).ToList())
+                {
+                    var value = obj[key];
+                    switch (key)
+                    {
+                        case "createdAt" when value is JsonValue:
+                            obj[key] = "{CreatedAt}";
+                            break;
+                        case "repositoryRoot" when value is JsonValue:
+                            obj[key] = RootPlaceholder;
+                            break;
+                        case "sha256" when value is JsonValue:
+                            obj[key] = "{Sha256}";
+                            break;
+                        case "sdk" when value is JsonObject sdk:
+                            sdk["version"] = "{SdkVersion}";
+                            sdk["os"] = "{Os}";
+                            break;
+                        case "compilerCalls" when value is JsonObject calls:
+                            foreach (var call in calls.Select(c => c.Value).OfType<JsonObject>())
+                            {
+                                call["index"] = 0;
+                            }
+
+                            break;
+                        default:
+                            ScrubNode(value);
+                            break;
+                    }
+                }
+
+                break;
+            case JsonArray array:
+                foreach (var item in array)
+                {
+                    ScrubNode(item);
+                }
+
+                break;
+        }
+    }
+
     /// <summary>Replaces the repository root (either slash style, JSON-escaped or not) with a placeholder.</summary>
     public static string ReplaceRoot(string text, string repositoryRoot)
     {

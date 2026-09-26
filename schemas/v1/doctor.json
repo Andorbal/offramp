@@ -5,42 +5,116 @@
   "description": "The result of `offramp doctor`. See docs/spec/commands/workspace.md#doctor.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["checks", "environment", "summary"],
+  "required": [
+    "checks",
+    "environment",
+    "summary",
+    "fix"
+  ],
   "properties": {
     "checks": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "title", "status", "message", "remedy", "codes"],
+        "required": [
+          "id",
+          "title",
+          "status",
+          "message",
+          "remedy",
+          "codes"
+        ],
         "properties": {
-          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-          "title": { "type": "string", "minLength": 1 },
-          "status": { "enum": ["pass", "warn", "fail", "skip"] },
-          "message": { "type": "string", "minLength": 1 },
-          "remedy": { "type": ["string", "null"] },
-          "codes": { "type": "array", "items": { "type": "string", "pattern": "^OFR[0-9]{4}$" } }
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "warn",
+              "fail",
+              "skip"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "remedy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "codes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^OFR[0-9]{4}$"
+            }
+          }
         }
       }
     },
     "environment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sdks", "selectedSdk", "globalJson", "git", "os", "target"],
+      "required": [
+        "sdks",
+        "selectedSdk",
+        "globalJson",
+        "git",
+        "os",
+        "target"
+      ],
       "properties": {
-        "sdks": { "type": "array", "items": { "type": "string" } },
-        "selectedSdk": { "type": ["string", "null"] },
+        "sdks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selectedSdk": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "globalJson": {
           "oneOf": [
-            { "type": "null" },
+            {
+              "type": "null"
+            },
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["path", "version", "rollForward"],
+              "required": [
+                "path",
+                "version",
+                "rollForward"
+              ],
               "properties": {
-                "path": { "type": "string" },
-                "version": { "type": ["string", "null"] },
-                "rollForward": { "type": ["string", "null"] }
+                "path": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "rollForward": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
               }
             }
           ]
@@ -48,26 +122,93 @@
         "git": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["version", "repository"],
+          "required": [
+            "version",
+            "repository"
+          ],
           "properties": {
-            "version": { "type": ["string", "null"] },
-            "repository": { "type": "boolean" }
+            "version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "repository": {
+              "type": "boolean"
+            }
           }
         },
-        "os": { "type": "string" },
-        "target": { "type": "string", "pattern": "^net[0-9]+\\.0$" }
+        "os": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "pattern": "^net[0-9]+\\.0$"
+        }
       }
     },
     "summary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["pass", "warn", "fail", "skip"],
+      "required": [
+        "pass",
+        "warn",
+        "fail",
+        "skip"
+      ],
       "properties": {
-        "pass": { "type": "integer", "minimum": 0 },
-        "warn": { "type": "integer", "minimum": 0 },
-        "fail": { "type": "integer", "minimum": 0 },
-        "skip": { "type": "integer", "minimum": 0 }
+        "pass": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fail": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skip": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
+    },
+    "fix": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "file",
+            "alreadyPresent",
+            "applied",
+            "diff"
+          ],
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "alreadyPresent": {
+              "type": "boolean"
+            },
+            "applied": {
+              "type": "boolean"
+            },
+            "diff": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "The compile-only fix with --fix; null otherwise."
     }
   }
 }

@@ -28,6 +28,9 @@ where a command reports a code at another severity, the entry says so.
 | Code | Severity | Area | Title |
 |---|---|---|---|
 | [OFR0001](#ofr0001) | error | workspace | workspace model missing |
+| [OFR0002](#ofr0002) | warning | workspace | workspace model stale |
+| [OFR0003](#ofr0003) | error | scan | no binary log to reuse |
+| [OFR0004](#ofr0004) | error | scan | log file not found or unreadable |
 | [OFR0010](#ofr0010) | error | environment | .NET SDK not found |
 | [OFR0011](#ofr0011) | error | environment | SDK requested by global.json is not installed |
 | [OFR0012](#ofr0012) | error | environment | selected SDK cannot target the requested framework |
@@ -36,6 +39,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0015](#ofr0015) | warning | environment | not a git repository |
 | [OFR0016](#ofr0016) | info | configuration | no offramp.yml; built-in defaults in effect |
 | [OFR0020](#ofr0020) | error | workspace | more than one solution found |
+| [OFR0021](#ofr0021) | error | workspace | project not in the workspace model |
+| [OFR0022](#ofr0022) | error | workspace | no solution found |
 | [OFR0030](#ofr0030) | error | configuration | offramp.yml already exists |
 | [OFR0050](#ofr0050) | warning | configuration | unknown key in offramp.yml |
 | [OFR0051](#ofr0051) | warning | configuration | pin without a reason |
@@ -45,7 +50,24 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0055](#ofr0055) | error | configuration | configuration file not found |
 | [OFR0056](#ofr0056) | error | configuration | invalid configuration value from the environment |
 | [OFR0099](#ofr0099) | error | cli | internal error |
+| [OFR0101](#ofr0101) | warning | project loading | project could not be loaded |
+| [OFR0102](#ofr0102) | info | project loading | project kind unknown |
+| [OFR0103](#ofr0103) | info | scan | model built from a compiler log alone |
+| [OFR0104](#ofr0104) | warning | project loading | package graph unavailable |
+| [OFR0110](#ofr0110) | warning | project loading | build step needs Windows: sgen |
+| [OFR0111](#ofr0111) | warning | project loading | build step needs Windows: COM reference |
+| [OFR0112](#ofr0112) | warning | project loading | build step needs Windows: EDMX EntityDeploy |
+| [OFR0113](#ofr0113) | warning | project loading | build step needs Windows: T4 or Fakes |
+| [OFR0114](#ofr0114) | warning | project loading | build step needs Windows: SSDT |
+| [OFR0115](#ofr0115) | warning | project loading | build step needs Windows: build event calling a Windows executable |
+| [OFR0120](#ofr0120) | warning | project loading | project reference cycle |
+| [OFR0130](#ofr0130) | error | scan | analysis build failed; model partial |
+| [OFR0131](#ofr0131) | error | scan | analysis build timed out |
+| [OFR0132](#ofr0132) | warning | scan | compiler calls unavailable for some projects |
 | [OFR1006](#ofr1006) | warning | deps | feed unreachable; result partial |
+| [OFR1301](#ofr1301) | warning | deps | project outside the solution would inherit CPM |
+| [OFR1302](#ofr1302) | warning | deps | nested Directory.Packages.props shadows the root |
+| [OFR1303](#ofr1303) | warning | deps | packages.config project cannot use CPM |
 
 ### OFR0001
 
@@ -55,6 +77,33 @@ The command needs the workspace model (`.offramp/workspace.json`) and it does no
 
 - **Typical cause:** `offramp scan` has not been run in this repository, or `--workspace` points somewhere else.
 - **Fix:** Run `offramp scan`. `doctor` reports the same condition as a warning.
+
+### OFR0002
+
+**workspace model stale** · warning · workspace
+
+Files the workspace model was built from (project files, `Directory.*.props/targets`, solutions, `packages.config`, or the log it was read from) changed since the last `scan`.
+
+- **Typical cause:** Edits, a branch switch, or a pull since the model was built.
+- **Fix:** Run `offramp scan` (or `offramp scan --if-stale`). `--fail-on-stale` turns this into an error.
+
+### OFR0003
+
+**no binary log to reuse** · error · scan
+
+`scan --no-build` reuses the binary log of the previous scan, and there is none.
+
+- **Typical cause:** No earlier `offramp scan`, or the state directory was cleaned.
+- **Fix:** Run `offramp scan` without `--no-build`, or pass `--binlog PATH`.
+
+### OFR0004
+
+**log file not found or unreadable** · error · scan
+
+The binary log or compiler log passed to `scan` does not exist or is not a valid log.
+
+- **Typical cause:** A wrong path, a truncated download, or a file that is not an MSBuild binary log or compiler log.
+- **Fix:** Pass the path of an existing `.binlog` (from `dotnet build -bl`) or `.complog` (from `complog create`).
 
 ### OFR0010
 
@@ -127,6 +176,24 @@ The repository contains several solution files and none was chosen, so Offramp c
 
 - **Typical cause:** A repository with several `.sln`, `.slnx`, or `.slnf` files and no `solution:` in `offramp.yml`.
 - **Fix:** Pass `--solution PATH` or set `solution:` in `offramp.yml`. `init` reports this as a warning and leaves `solution:` empty.
+
+### OFR0021
+
+**project not in the workspace model** · error · workspace
+
+A project named on the command line is not part of the scanned solution.
+
+- **Typical cause:** A typo, a path relative to another directory, or a project outside the solution or slice.
+- **Fix:** Use a repository-relative project path as listed by `offramp scan --json` (`result.projects`), or rescan the right solution.
+
+### OFR0022
+
+**no solution found** · error · workspace
+
+`scan` needs a solution to build and none was given or found in the repository.
+
+- **Typical cause:** A repository without `.sln`/`.slnx` files, or one where the solution lives outside the repository root.
+- **Fix:** Pass `--solution PATH`, set `solution:` in `offramp.yml`, or pass `--binlog`/`--complog` from a build made elsewhere.
 
 ### OFR0030
 
@@ -209,6 +276,132 @@ Offramp hit an unexpected exception. This is a bug in Offramp, not in your repos
 - **Typical cause:** A defect in Offramp.
 - **Fix:** Re-run with `--verbose` for the stack trace and report it at https://github.com/Andorbal/offramp/issues.
 
+### OFR0101
+
+**project could not be loaded** · warning · project loading
+
+A project listed in the solution has no usable evaluation in the build log, so it is missing from the model. The message carries the reason.
+
+- **Typical cause:** An unsupported project type (for example `.vcxproj` or `.wixproj`), an evaluation error such as a missing SDK or import, or a project filtered out of the build.
+- **Fix:** Fix the evaluation error the message names, or exclude the project from the solution filter you scan.
+
+### OFR0102
+
+**project kind unknown** · info · project loading
+
+None of the kind rules matched (for example `OutputType=WinExe` without Windows Forms or WPF), so the project's kind is `unknown`.
+
+- **Typical cause:** An unusual output type or a project Offramp does not recognize.
+- **Fix:** Set the kind in `offramp.yml`: `projects: [{ path: ..., kind: console }]`.
+
+### OFR0103
+
+**model built from a compiler log alone** · info · scan
+
+A compiler log records compiler invocations only, so the model lacks what MSBuild evaluation provides: package references and versions, the SDK, test-project detection, Windows-only build steps, and central package management settings.
+
+- **Typical cause:** `scan --complog` without the binary log the compiler log was made from.
+- **Fix:** Copy the binary log from the machine that produced the compiler log and run `offramp scan --binlog build.binlog --complog build.complog`.
+
+### OFR0104
+
+**package graph unavailable** · warning · project loading
+
+The project's `project.assets.json` does not exist in this checkout, so its resolved packages (`resolved`) are missing from the model.
+
+- **Typical cause:** Scanning a log built on another machine or in another checkout without restoring here, or a restore that failed.
+- **Fix:** Run `dotnet restore` on the solution, then scan again.
+
+### OFR0110
+
+**build step needs Windows: sgen** · warning · project loading
+
+`GenerateSerializationAssemblies` runs sgen, which loads the built assembly under the .NET Framework runtime; the build fails outside Windows (MSB3474).
+
+- **Typical cause:** `<GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>` in the project or an imported props file.
+- **Fix:** Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`), which turns sgen off outside Windows; on modern .NET use `Microsoft.XmlSerializer.Generator` or drop it.
+
+### OFR0111
+
+**build step needs Windows: COM reference** · warning · project loading
+
+`COMReference` items are imported with the type library importer, which only exists on Windows (MSB4803 elsewhere).
+
+- **Typical cause:** A COM type library referenced from the project.
+- **Fix:** Reference the generated interop assembly as a file, or build the project only on Windows and analyze it from a compiler log captured there.
+
+### OFR0112
+
+**build step needs Windows: EDMX EntityDeploy** · warning · project loading
+
+`EntityDeploy` items embed an Entity Framework 6 designer model with a build task that ships with Visual Studio.
+
+- **Typical cause:** An `.edmx` model in the project.
+- **Fix:** Move to code-first mappings, or use the compiler-log route for this project.
+
+### OFR0113
+
+**build step needs Windows: T4 or Fakes** · warning · project loading
+
+T4 templates transformed at build time (`TransformOnBuild`, TextTemplating targets) or Microsoft Fakes assemblies need Visual Studio build targets.
+
+- **Typical cause:** `TransformOnBuild=true`, an import of `Microsoft.TextTemplating.targets`, or `Fakes` items.
+- **Fix:** Check the generated output in and turn build-time transformation off, or run those builds on Windows.
+
+### OFR0114
+
+**build step needs Windows: SSDT** · warning · project loading
+
+SQL Server Data Tools projects (`.sqlproj`) build with Windows-only targets.
+
+- **Typical cause:** A classic SSDT database project in the solution.
+- **Fix:** Move to `MSBuild.Sdk.SqlProj`, which builds cross-platform, or exclude the project from scans outside Windows.
+
+### OFR0115
+
+**build step needs Windows: build event calling a Windows executable** · warning · project loading
+
+A pre- or post-build event runs a Windows command (`.exe`, `.bat`, `xcopy`, `%VAR%`, ...), which fails elsewhere.
+
+- **Typical cause:** A `PreBuildEvent`/`PostBuildEvent` written for cmd.exe.
+- **Fix:** Guard the event with `Condition="'$(OS)' == 'Windows_NT'"` or `'$(OfframpCompileOnly)' != 'true'`, or replace it with MSBuild tasks.
+
+### OFR0120
+
+**project reference cycle** · warning · project loading
+
+Projects depend on each other in a loop, through `ProjectReference` items or `HintPath` references to each other's build output. The message shows the loop.
+
+- **Typical cause:** A `HintPath` to another project's `bin` folder added to work around a build order problem.
+- **Fix:** Break the loop: extract the shared code into a new project, or replace the `HintPath` with a `ProjectReference` in one direction only.
+
+### OFR0130
+
+**analysis build failed; model partial** · error · scan
+
+The build `scan` ran (or the log it read) has errors, so some projects have no compiler call. The model is written anyway; affected projects are marked `partial: true`.
+
+- **Typical cause:** A compile error, a missing SDK or package, or a Windows-only build step on macOS or Linux.
+- **Fix:** Fix the first errors listed, add the compile-only block for Windows-only steps (`offramp doctor --fix`), or scan a log captured on Windows.
+
+### OFR0131
+
+**analysis build timed out** · error · scan
+
+The build `scan` ran did not finish within `verify.timeoutSeconds`.
+
+- **Typical cause:** A very large solution, or a build step waiting for input.
+- **Fix:** Raise `verify.timeoutSeconds`, scan a solution filter (`offramp slice`), or pass a binary log built elsewhere with `--binlog`.
+
+### OFR0132
+
+**compiler calls unavailable for some projects** · warning · scan
+
+Some compiler invocations are missing from the compiler log: their inputs were missing when the binary log was converted, or the binary log was captured in another checkout or on another machine and cannot be converted here. Semantic commands skip the projects without one.
+
+- **Typical cause:** Converting a binary log that was built on another machine, or a build that did not compile every project.
+- **Fix:** Convert the binary log to a compiler log on the machine that built it (`complog create`), then scan with `--binlog` and `--complog`.
+
 ### OFR1006
 
 **feed unreachable; result partial** · warning · deps
@@ -218,6 +411,33 @@ A NuGet feed could not be queried, so any answer that depends on it is incomplet
 - **Typical cause:** No network, a feed that is down, or missing credentials for a private feed.
 - **Fix:** Check `nuget.config`, network access, and credential providers, then re-run.
 
+### OFR1301
+
+**project outside the solution would inherit CPM** · warning · deps
+
+A project file that is not part of the scanned solution sits below a `Directory.Packages.props`, so central package management applies to it too, and its `PackageReference` versions stop working.
+
+- **Typical cause:** A monorepo with unrelated projects under the same root as the migrating solution.
+- **Fix:** Use a non-default file name for the central versions (`deps.cpm.file`) and opt the solution's projects in with `DirectoryPackagesPropsPath`, as `deps consolidate` does when this fires.
+
+### OFR1302
+
+**nested Directory.Packages.props shadows the root** · warning · deps
+
+A `Directory.Packages.props` below the root one is found first by the projects under it and does not import the root file, so they see different versions.
+
+- **Typical cause:** A copied props file in a subfolder.
+- **Fix:** Import the parent file (`<Import Project="$([MSBuild]::GetPathOfFileAbove(Directory.Packages.props, $(MSBuildThisFileDirectory)..))" />`) or delete the nested file.
+
+### OFR1303
+
+**packages.config project cannot use CPM** · warning · deps
+
+The project still uses `packages.config`, which central package management does not apply to.
+
+- **Typical cause:** A legacy project not yet migrated to `PackageReference`.
+- **Fix:** Migrate the project to `PackageReference` (`offramp csproj modernize`, or Visual Studio's migration).
+
 ## Reserved codes
 
 Codes the specification assigns to commands that have not shipped yet. Implementations
@@ -225,17 +445,6 @@ use these numbers; each moves to the table above in the pull request that first 
 
 | Code | Severity | Meaning |
 |---|---|---|
-| OFR0002 | warning | workspace model stale (inputs changed since scan) |
-| OFR0101 | warning | project could not be loaded (reason attached) |
-| OFR0102 | info | project kind unknown |
-| OFR0110 | warning | Windows-only build step: sgen |
-| OFR0111 | warning | Windows-only build step: COM reference |
-| OFR0112 | warning | Windows-only build step: EDMX EntityDeploy |
-| OFR0113 | warning | Windows-only build step: T4 / Fakes |
-| OFR0114 | warning | Windows-only build step: SSDT |
-| OFR0115 | warning | Windows-only build step: build event calling Windows executable |
-| OFR0120 | warning | project reference cycle |
-| OFR0130 | error | analysis build failed; model partial |
 | OFR0201 | info | Mermaid output too large to render well |
 | OFR1001 | error | no package version supports the target |
 | OFR1002 | warning | in-use version does not support the target |
@@ -246,9 +455,6 @@ use these numbers; each moves to the table above in the pull request that first 
 | OFR1210 | error | pin conflicts with a transitive lower bound (chain attached) |
 | OFR1211 | error | restore verification reported NU1605/NU1107/NU1608/NU1010 |
 | OFR1220 | warning | family member lacks the family version |
-| OFR1301 | warning | project outside the solution would inherit CPM |
-| OFR1302 | warning | nested Directory.Packages.props shadows the root |
-| OFR1303 | warning | packages.config project cannot use CPM |
 | OFR1401 | info | loose DLL is another project's output |
 | OFR1402 | info | loose DLL matched to a package |
 | OFR1403 | warning | loose DLL unmatched |

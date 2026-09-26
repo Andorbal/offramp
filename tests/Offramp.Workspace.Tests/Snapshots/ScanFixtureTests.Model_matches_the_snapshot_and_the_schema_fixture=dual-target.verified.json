@@ -1,0 +1,374 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "DualTarget.slnx",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Contracts/Contracts.csproj",
+      "name": "Contracts",
+      "assemblyName": "Contracts",
+      "rootNamespace": "Contracts",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "netstandard2.0"
+      ],
+      "frameworkClass": "standard",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "latest",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "Nullable": "enable",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "netstandard2.0": [
+          "TRACE",
+          "DEBUG",
+          "NETSTANDARD",
+          "NETSTANDARD2_0",
+          "NETSTANDARD1_0_OR_GREATER",
+          "NETSTANDARD1_1_OR_GREATER",
+          "NETSTANDARD1_2_OR_GREATER",
+          "NETSTANDARD1_3_OR_GREATER",
+          "NETSTANDARD1_4_OR_GREATER",
+          "NETSTANDARD1_5_OR_GREATER",
+          "NETSTANDARD1_6_OR_GREATER",
+          "NETSTANDARD2_0_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Contracts/Order.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "netstandard2.0": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "netstandard2.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 13,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Shared/Shared.csproj",
+      "name": "Shared",
+      "assemblyName": "Shared",
+      "rootNamespace": "Shared",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48",
+        "net10.0"
+      ],
+      "frameworkClass": "dual",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "latest",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "Nullable": "enable",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net10.0": [
+          "TRACE",
+          "DEBUG",
+          "NET",
+          "NET10_0",
+          "NETCOREAPP",
+          "NET5_0_OR_GREATER",
+          "NET6_0_OR_GREATER",
+          "NET7_0_OR_GREATER",
+          "NET8_0_OR_GREATER",
+          "NET9_0_OR_GREATER",
+          "NET10_0_OR_GREATER",
+          "NETCOREAPP1_0_OR_GREATER",
+          "NETCOREAPP1_1_OR_GREATER",
+          "NETCOREAPP2_0_OR_GREATER",
+          "NETCOREAPP2_1_OR_GREATER",
+          "NETCOREAPP2_2_OR_GREATER",
+          "NETCOREAPP3_0_OR_GREATER",
+          "NETCOREAPP3_1_OR_GREATER"
+        ],
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Shared/Clock.cs",
+        "src/Shared/Formatter.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [
+        "src/Contracts/Contracts.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Newtonsoft.Json",
+          "version": "13.0.3",
+          "versionOverride": null,
+          "privateAssets": null,
+          "tfms": [
+            "net48",
+            "net10.0"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net10.0": {
+          "packages": [
+            {
+              "id": "Newtonsoft.Json",
+              "version": "13.0.3",
+              "dependencies": [],
+              "direct": true
+            }
+          ]
+        },
+        "net48": {
+          "packages": [
+            {
+              "id": "Newtonsoft.Json",
+              "version": "13.0.3",
+              "dependencies": [],
+              "direct": true
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net10.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        },
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 25,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Tool/Tool.csproj",
+      "name": "Tool",
+      "assemblyName": "Tool",
+      "rootNamespace": "Tool",
+      "language": "csharp",
+      "kind": "console",
+      "kindEvidence": "OutputType=Exe",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net10.0"
+      ],
+      "frameworkClass": "modern",
+      "outputType": "Exe",
+      "isTestProject": false,
+      "properties": {
+        "ImplicitUsings": "enable",
+        "IsPackable": "true",
+        "LangVersion": "14.0",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "Nullable": "enable",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net10.0": [
+          "TRACE",
+          "DEBUG",
+          "NET",
+          "NET10_0",
+          "NETCOREAPP",
+          "NET5_0_OR_GREATER",
+          "NET6_0_OR_GREATER",
+          "NET7_0_OR_GREATER",
+          "NET8_0_OR_GREATER",
+          "NET9_0_OR_GREATER",
+          "NET10_0_OR_GREATER",
+          "NETCOREAPP1_0_OR_GREATER",
+          "NETCOREAPP1_1_OR_GREATER",
+          "NETCOREAPP2_0_OR_GREATER",
+          "NETCOREAPP2_1_OR_GREATER",
+          "NETCOREAPP2_2_OR_GREATER",
+          "NETCOREAPP3_0_OR_GREATER",
+          "NETCOREAPP3_1_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Tool/Program.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [
+        "src/Contracts/Contracts.csproj",
+        "src/Shared/Shared.csproj"
+      ],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net10.0": {
+          "packages": [
+            {
+              "id": "Newtonsoft.Json",
+              "version": "13.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net10.0": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 6,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/Shared/Shared.csproj",
+        "to": "src/Contracts/Contracts.csproj",
+        "kind": "project"
+      },
+      {
+        "from": "src/Tool/Tool.csproj",
+        "to": "src/Contracts/Contracts.csproj",
+        "kind": "project"
+      },
+      {
+        "from": "src/Tool/Tool.csproj",
+        "to": "src/Shared/Shared.csproj",
+        "kind": "project"
+      }
+    ],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Contracts/Contracts.csproj",
+      "src/Shared/Shared.csproj",
+      "src/Tool/Tool.csproj"
+    ]
+  },
+  "packages": {
+    "Newtonsoft.Json": {
+      "versions": {
+        "13.0.3": [
+          "src/Shared/Shared.csproj"
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "DualTarget.slnx",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Contracts/Contracts.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Shared/Shared.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Tool/Tool.csproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}

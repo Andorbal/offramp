@@ -24,6 +24,21 @@
     <PackageVersion Include="NuGet.Protocol" Version="7.9.0" />
     <PackageVersion Include="NuGet.Versioning" Version="7.9.0" />
     <PackageVersion Include="NuGet.ProjectModel" Version="7.9.0" />
+    <PackageVersion Include="MSBuild.StructuredLogger" Version="2.3.246" />
+    <PackageVersion Include="Basic.CompilerLog.Util" Version="0.9.63" />
+    <!--
+      Roslyn is pinned above Basic.CompilerLog's floor (4.8): older compilers report
+      bogus errors against .NET 10 reference assemblies, and C# and VB must match.
+    -->
+    <PackageVersion Include="Microsoft.CodeAnalysis" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Common" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.VisualStudio.SolutionPersistence" Version="1.0.52" />
+    <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.12" />
   </ItemGroup>
 
   <ItemGroup Label="Test">

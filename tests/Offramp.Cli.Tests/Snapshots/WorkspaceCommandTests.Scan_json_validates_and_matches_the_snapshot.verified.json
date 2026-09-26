@@ -1,0 +1,358 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "scan",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "WindowsOnly.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "model": ".offramp/workspace.json",
+    "upToDate": false,
+    "source": {
+      "kind": "binlog",
+      "path": "msbuild.binlog",
+      "sha256": "488305c56cfdeae7a6b4b7449f5914aaa81590284c91556dbd67de1c15db6bd8",
+      "complog": null
+    },
+    "solution": "WindowsOnly.sln",
+    "buildSucceeded": false,
+    "projects": 2,
+    "loc": 18,
+    "byFrameworkClass": {
+      "dual": 0,
+      "framework": 2,
+      "modern": 0,
+      "standard": 0
+    },
+    "byKind": {
+      "console": 0,
+      "library": 2,
+      "service": 0,
+      "test": 0,
+      "unknown": 0,
+      "web": 0,
+      "winforms": 0,
+      "wpf": 0
+    },
+    "cycles": [],
+    "windowsOnlyBuildSteps": [
+      {
+        "project": "src/Database/Database.sqlproj",
+        "steps": [
+          "ssdt"
+        ]
+      },
+      {
+        "project": "src/Office/Office.csproj",
+        "steps": [
+          "com"
+        ]
+      },
+      {
+        "project": "src/Soap/Soap.csproj",
+        "steps": [
+          "sgen",
+          "entity-deploy",
+          "t4",
+          "fakes",
+          "build-event"
+        ]
+      }
+    ],
+    "unrecognized": [],
+    "notLoaded": [
+      {
+        "project": "src/Database/Database.sqlproj",
+        "reason": "unsupported project type (.sqlproj)"
+      }
+    ],
+    "partial": [
+      "src/Office/Office.csproj",
+      "src/Soap/Soap.csproj"
+    ],
+    "ledgerSnapshot": ".offramp/ledger/2026-09-25-bd7acf72.json"
+  },
+  "diagnostics": [
+    {
+      "code": "OFR0016",
+      "severity": "info",
+      "message": "No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.",
+      "project": null,
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR0016"
+    },
+    {
+      "code": "OFR0101",
+      "severity": "warning",
+      "message": "Not loaded: unsupported project type (.sqlproj).",
+      "project": "src/Database/Database.sqlproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "reason": "unsupported project type (.sqlproj)"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0101"
+    },
+    {
+      "code": "OFR0104",
+      "severity": "warning",
+      "message": "src/Office/obj/project.assets.json does not exist; restore the solution to include resolved packages.",
+      "project": "src/Office/Office.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "assetsFile": "src/Office/obj/project.assets.json"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0104"
+    },
+    {
+      "code": "OFR0104",
+      "severity": "warning",
+      "message": "src/Soap/obj/project.assets.json does not exist; restore the solution to include resolved packages.",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "assetsFile": "src/Soap/obj/project.assets.json"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0104"
+    },
+    {
+      "code": "OFR0110",
+      "severity": "warning",
+      "message": "Needs Windows to build: GenerateSerializationAssemblies=On.",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "GenerateSerializationAssemblies=On",
+        "step": "sgen"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0110"
+    },
+    {
+      "code": "OFR0111",
+      "severity": "warning",
+      "message": "Needs Windows to build: COMReference Scripting.",
+      "project": "src/Office/Office.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "COMReference Scripting",
+        "step": "com"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0111"
+    },
+    {
+      "code": "OFR0112",
+      "severity": "warning",
+      "message": "Needs Windows to build: EntityDeploy Model.edmx.",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "EntityDeploy Model.edmx",
+        "step": "entity-deploy"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0112"
+    },
+    {
+      "code": "OFR0113",
+      "severity": "warning",
+      "message": "Needs Windows to build: Fakes Fakes/System.fakes.",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "Fakes Fakes/System.fakes",
+        "step": "fakes"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0113"
+    },
+    {
+      "code": "OFR0113",
+      "severity": "warning",
+      "message": "Needs Windows to build: TransformOnBuild=true.",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "TransformOnBuild=true",
+        "step": "t4"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0113"
+    },
+    {
+      "code": "OFR0114",
+      "severity": "warning",
+      "message": "Needs Windows to build: SQL Server Database Project (.sqlproj).",
+      "project": "src/Database/Database.sqlproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "step": "ssdt"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0114"
+    },
+    {
+      "code": "OFR0115",
+      "severity": "warning",
+      "message": "Needs Windows to build: PostBuildEvent: signtool.exe sign /a \"\".",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "PostBuildEvent: signtool.exe sign /a \"\"",
+        "step": "build-event"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0115"
+    },
+    {
+      "code": "OFR0130",
+      "severity": "error",
+      "message": "The build failed with 2 error(s); the model is partial. First: Microsoft.Common.CurrentVersion.targets(3084): MSB4803: The task \"ResolveComReference\" is not supported on the .NET Core version of MSBuild. Please use the .NET Framework version of MSBuild. See https://aka.ms/msbuild/MSB4803 for further details.; Microsoft.Common.CurrentVersion.targets(3983): MSB3474: The task \"SGen\" is not supported on the .NET Core version of MSBuild. Use the Microsoft XML Serializer Generator package instead. See https://go.microsoft.com/fwlink/?linkid=858594 for more information.",
+      "project": null,
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "errorCount": 2,
+        "errors": [
+          "Microsoft.Common.CurrentVersion.targets(3084): MSB4803: The task \"ResolveComReference\" is not supported on the .NET Core version of MSBuild. Please use the .NET Framework version of MSBuild. See https://aka.ms/msbuild/MSB4803 for further details.",
+          "Microsoft.Common.CurrentVersion.targets(3983): MSB3474: The task \"SGen\" is not supported on the .NET Core version of MSBuild. Use the Microsoft XML Serializer Generator package instead. See https://go.microsoft.com/fwlink/?linkid=858594 for more information."
+        ]
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0130"
+    },
+    {
+      "code": "OFR0132",
+      "severity": "warning",
+      "message": "The binary log was captured in another location, so it cannot be converted to a compiler log here. Create the compiler log where the log was built (`complog create`) and pass it with --complog.",
+      "project": null,
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR0132"
+    }
+  ],
+  "summary": {
+    "errors": 1,
+    "warnings": 11,
+    "info": 1
+  }
+}

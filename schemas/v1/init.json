@@ -5,49 +5,145 @@
   "description": "The result of `offramp init`. See docs/spec/03-configuration.md#init.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["configFile", "written", "dryRun", "replaced", "interactive", "values", "solutionCandidates", "gitignore", "content"],
+  "required": [
+    "configFile",
+    "written",
+    "dryRun",
+    "replaced",
+    "interactive",
+    "values",
+    "solutionCandidates",
+    "gitignore",
+    "content",
+    "compileOnlyFix"
+  ],
   "properties": {
-    "configFile": { "type": "string" },
-    "written": { "type": "boolean" },
-    "dryRun": { "type": "boolean" },
-    "replaced": { "type": "boolean" },
-    "interactive": { "type": "boolean" },
+    "configFile": {
+      "type": "string"
+    },
+    "written": {
+      "type": "boolean"
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "replaced": {
+      "type": "boolean"
+    },
+    "interactive": {
+      "type": "boolean"
+    },
     "values": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["target", "solution", "verifyMode", "cpmFile", "pins"],
+      "required": [
+        "target",
+        "solution",
+        "verifyMode",
+        "cpmFile",
+        "pins"
+      ],
       "properties": {
-        "target": { "type": "integer", "minimum": 5 },
-        "solution": { "type": ["string", "null"] },
-        "verifyMode": { "enum": ["build", "command", "none"] },
-        "cpmFile": { "type": "string" },
+        "target": {
+          "type": "integer",
+          "minimum": 5
+        },
+        "solution": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "verifyMode": {
+          "enum": [
+            "build",
+            "command",
+            "none"
+          ]
+        },
+        "cpmFile": {
+          "type": "string"
+        },
         "pins": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["package", "project", "version", "reason"],
+            "required": [
+              "package",
+              "project",
+              "version",
+              "reason"
+            ],
             "properties": {
-              "package": { "type": "string" },
-              "project": { "type": ["string", "null"] },
-              "version": { "type": "string" },
-              "reason": { "type": ["string", "null"] }
+              "package": {
+                "type": "string"
+              },
+              "project": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "version": {
+                "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
             }
           }
         }
       }
     },
-    "solutionCandidates": { "type": "array", "items": { "type": "string" } },
+    "solutionCandidates": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "gitignore": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "added", "present"],
+      "required": [
+        "file",
+        "added",
+        "present"
+      ],
       "properties": {
-        "file": { "type": "string" },
-        "added": { "type": "array", "items": { "type": "string" } },
-        "present": { "type": "array", "items": { "type": "string" } }
+        "file": {
+          "type": "string"
+        },
+        "added": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "present": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
-    "content": { "type": "string", "description": "The YAML that was, or with --dry-run would be, written." }
+    "content": {
+      "type": "string",
+      "description": "The YAML that was, or with --dry-run would be, written."
+    },
+    "compileOnlyFix": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "doctor.json#/properties/fix/oneOf/1"
+        }
+      ]
+    }
   }
 }

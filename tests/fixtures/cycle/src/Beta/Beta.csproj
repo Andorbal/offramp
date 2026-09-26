@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      The hidden cycle: Beta references Alpha's build output by HintPath while
+      Alpha references Beta as a project. Legacy solutions accumulate these.
+    -->
+    <Reference Include="Alpha">
+      <HintPath>..\Alpha\bin\Debug\net48\Alpha.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

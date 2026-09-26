@@ -1,0 +1,7 @@
+<Project>
+  <!--
+    Stops MSBuild's upward search so fixture solutions never inherit Offramp's
+    own build settings (warnings as errors, analyzers, MinVer, central package
+    management). Each fixture is a standalone, tiny repository.
+  -->
+</Project>

@@ -1,0 +1,309 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "WindowsOnly.sln",
+  "source": {
+    "kind": "binlog",
+    "path": "msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Office/Office.csproj",
+      "name": "Office",
+      "assemblyName": "Office",
+      "rootNamespace": "Office",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG"
+        ]
+      },
+      "windowsOnlyBuildSteps": [
+        "com"
+      ],
+      "packagesConfig": false,
+      "compile": [
+        "src/Office/Files.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [
+        {
+          "name": "Scripting",
+          "guid": "{420B2830-E718-11CF-893D-00A0C9054228}",
+          "embedInteropTypes": true
+        }
+      ],
+      "internalsVisibleTo": [],
+      "resolved": {},
+      "compilerCalls": {},
+      "loc": 7,
+      "partial": true,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Soap/Soap.csproj",
+      "name": "Soap",
+      "assemblyName": "Soap",
+      "rootNamespace": "Soap",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "GenerateSerializationAssemblies": "On",
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG"
+        ]
+      },
+      "windowsOnlyBuildSteps": [
+        "sgen",
+        "entity-deploy",
+        "t4",
+        "fakes",
+        "build-event"
+      ],
+      "packagesConfig": false,
+      "compile": [
+        "src/Soap/Envelope.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {},
+      "compilerCalls": {},
+      "loc": 11,
+      "partial": true,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Office/Office.csproj",
+      "src/Soap/Soap.csproj"
+    ]
+  },
+  "packages": {},
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "WindowsOnly.sln",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Database/Database.sqlproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Office/Office.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Soap/Soap.csproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "OFR0101",
+      "severity": "warning",
+      "message": "Not loaded: unsupported project type (.sqlproj).",
+      "project": "src/Database/Database.sqlproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "reason": "unsupported project type (.sqlproj)"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0101"
+    },
+    {
+      "code": "OFR0104",
+      "severity": "warning",
+      "message": "src/Office/obj/project.assets.json does not exist; restore the solution to include resolved packages.",
+      "project": "src/Office/Office.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "assetsFile": "src/Office/obj/project.assets.json"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0104"
+    },
+    {
+      "code": "OFR0104",
+      "severity": "warning",
+      "message": "src/Soap/obj/project.assets.json does not exist; restore the solution to include resolved packages.",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "assetsFile": "src/Soap/obj/project.assets.json"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0104"
+    },
+    {
+      "code": "OFR0110",
+      "severity": "warning",
+      "message": "Needs Windows to build: GenerateSerializationAssemblies=On.",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "GenerateSerializationAssemblies=On",
+        "step": "sgen"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0110"
+    },
+    {
+      "code": "OFR0111",
+      "severity": "warning",
+      "message": "Needs Windows to build: COMReference Scripting.",
+      "project": "src/Office/Office.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "COMReference Scripting",
+        "step": "com"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0111"
+    },
+    {
+      "code": "OFR0112",
+      "severity": "warning",
+      "message": "Needs Windows to build: EntityDeploy Model.edmx.",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "EntityDeploy Model.edmx",
+        "step": "entity-deploy"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0112"
+    },
+    {
+      "code": "OFR0113",
+      "severity": "warning",
+      "message": "Needs Windows to build: Fakes Fakes/System.fakes.",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "Fakes Fakes/System.fakes",
+        "step": "fakes"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0113"
+    },
+    {
+      "code": "OFR0113",
+      "severity": "warning",
+      "message": "Needs Windows to build: TransformOnBuild=true.",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "TransformOnBuild=true",
+        "step": "t4"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0113"
+    },
+    {
+      "code": "OFR0114",
+      "severity": "warning",
+      "message": "Needs Windows to build: SQL Server Database Project (.sqlproj).",
+      "project": "src/Database/Database.sqlproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "step": "ssdt"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0114"
+    },
+    {
+      "code": "OFR0115",
+      "severity": "warning",
+      "message": "Needs Windows to build: PostBuildEvent: signtool.exe sign /a \"\".",
+      "project": "src/Soap/Soap.csproj",
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "evidence": "PostBuildEvent: signtool.exe sign /a \"\"",
+        "step": "build-event"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR0115"
+    }
+  ]
+}

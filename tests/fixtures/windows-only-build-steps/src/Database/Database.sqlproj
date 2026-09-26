@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- A classic SQL Server Data Tools project (OFR0114): its targets ship with Visual Studio on Windows. -->
+  <PropertyGroup>
+    <Name>Database</Name>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql160DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">17.0</VisualStudioVersion>
+    <SSDTTargets>$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets</SSDTTargets>
+  </PropertyGroup>
+  <ItemGroup>
+    <Build Include="Tables\Orders.sql" />
+  </ItemGroup>
+  <Import Project="$(SSDTTargets)" Condition="Exists('$(SSDTTargets)')" />
+</Project>

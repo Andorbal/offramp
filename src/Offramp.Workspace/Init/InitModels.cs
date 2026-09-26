@@ -62,4 +62,7 @@ public sealed record InitResult
 
     /// <summary>The YAML that was (or would be) written.</summary>
     public required string Content { get; init; }
+
+    /// <summary>The compile-only block, when the interview offered it (the model has Windows-only build steps).</summary>
+    public Doctor.CompileOnlyFix? CompileOnlyFix { get; init; }
 }

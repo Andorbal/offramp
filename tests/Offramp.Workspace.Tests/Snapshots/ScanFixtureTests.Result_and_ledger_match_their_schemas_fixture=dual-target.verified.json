@@ -1,0 +1,36 @@
+﻿{
+  "model": ".offramp/workspace.json",
+  "upToDate": false,
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "solution": "DualTarget.slnx",
+  "buildSucceeded": true,
+  "projects": 3,
+  "loc": 44,
+  "byFrameworkClass": {
+    "dual": 1,
+    "framework": 0,
+    "modern": 1,
+    "standard": 1
+  },
+  "byKind": {
+    "console": 1,
+    "library": 2,
+    "service": 0,
+    "test": 0,
+    "unknown": 0,
+    "web": 0,
+    "winforms": 0,
+    "wpf": 0
+  },
+  "cycles": [],
+  "windowsOnlyBuildSteps": [],
+  "unrecognized": [],
+  "notLoaded": [],
+  "partial": [],
+  "ledgerSnapshot": ".offramp/ledger/2026-09-25-907f4be0.json"
+}

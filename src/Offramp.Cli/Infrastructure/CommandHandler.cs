@@ -76,6 +76,13 @@ public interface ICommandHandler<TOptions, TResult>
     /// </summary>
     bool IncludesConfigDiagnostics => true;
 
+    /// <summary>
+    /// True for commands whose primary output with <c>--out</c> is an artifact they
+    /// write themselves (a solution filter, an HTML page); the runner then writes the
+    /// envelope only with <c>--json</c>, to stdout.
+    /// </summary>
+    bool WritesOwnOutput => false;
+
     Task<CommandOutcome<TResult>> ExecuteAsync(TOptions options, CommandContext context, CancellationToken cancellationToken);
 
     /// <summary>Human rendering: the headline first, then tables.</summary>

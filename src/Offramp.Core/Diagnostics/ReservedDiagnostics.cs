@@ -12,17 +12,6 @@ public static class ReservedDiagnostics
 {
     public static IReadOnlyList<ReservedDiagnostic> All { get; } =
     [
-        new("OFR0002", "warning", "workspace model stale (inputs changed since scan)"),
-        new("OFR0101", "warning", "project could not be loaded (reason attached)"),
-        new("OFR0102", "info", "project kind unknown"),
-        new("OFR0110", "warning", "Windows-only build step: sgen"),
-        new("OFR0111", "warning", "Windows-only build step: COM reference"),
-        new("OFR0112", "warning", "Windows-only build step: EDMX EntityDeploy"),
-        new("OFR0113", "warning", "Windows-only build step: T4 / Fakes"),
-        new("OFR0114", "warning", "Windows-only build step: SSDT"),
-        new("OFR0115", "warning", "Windows-only build step: build event calling Windows executable"),
-        new("OFR0120", "warning", "project reference cycle"),
-        new("OFR0130", "error", "analysis build failed; model partial"),
         new("OFR0201", "info", "Mermaid output too large to render well"),
         new("OFR1001", "error", "no package version supports the target"),
         new("OFR1002", "warning", "in-use version does not support the target"),
@@ -33,9 +22,6 @@ public static class ReservedDiagnostics
         new("OFR1210", "error", "pin conflicts with a transitive lower bound (chain attached)"),
         new("OFR1211", "error", "restore verification reported NU1605/NU1107/NU1608/NU1010"),
         new("OFR1220", "warning", "family member lacks the family version"),
-        new("OFR1301", "warning", "project outside the solution would inherit CPM"),
-        new("OFR1302", "warning", "nested Directory.Packages.props shadows the root"),
-        new("OFR1303", "warning", "packages.config project cannot use CPM"),
         new("OFR1401", "info", "loose DLL is another project's output"),
         new("OFR1402", "info", "loose DLL matched to a package"),
         new("OFR1403", "warning", "loose DLL unmatched"),

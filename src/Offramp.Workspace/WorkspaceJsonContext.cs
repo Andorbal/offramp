@@ -15,6 +15,9 @@ namespace Offramp.Workspace;
     AllowTrailingCommas = true)]
 [JsonSerializable(typeof(DoctorReport))]
 [JsonSerializable(typeof(Offramp.Workspace.Init.InitResult))]
+[JsonSerializable(typeof(Offramp.Workspace.Store.LedgerSnapshot))]
+[JsonSerializable(typeof(Offramp.Workspace.Scanning.ScanResult))]
+[JsonSerializable(typeof(Offramp.Workspace.Slicing.SliceResult))]
 public sealed partial class WorkspaceJsonContext : JsonSerializerContext
 {
 }

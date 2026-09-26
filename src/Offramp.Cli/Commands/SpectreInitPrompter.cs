@@ -1,4 +1,6 @@
+using Offramp.Cli.Rendering;
 using Offramp.Core.Configuration;
+using Offramp.Workspace.Doctor;
 using Offramp.Workspace.Init;
 using Spectre.Console;
 
@@ -64,5 +66,12 @@ public sealed class SpectreInitPrompter(IAnsiConsole console) : IInitPrompter
             CpmFile = cpm,
             Pins = pins,
         };
+    }
+
+    public bool OfferCompileOnlyBlock(CompileOnlyFix plan)
+    {
+        console.MarkupLine("Some projects need Windows to build. Offramp can add this block so macOS and Linux builds skip those steps:");
+        DiffRenderer.Render(new HumanOutput(console), plan.Diff ?? "");
+        return console.Confirm($"Add it to {plan.File}?", defaultValue: false);
     }
 }
