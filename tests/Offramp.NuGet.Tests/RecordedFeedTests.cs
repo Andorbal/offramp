@@ -1,5 +1,7 @@
+using System.IO.Compression;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using System.Security.Cryptography;
 using Offramp.Fixtures;
 using Offramp.Fixtures.Feeds;
 
@@ -33,8 +35,24 @@ public sealed class RecordedFeedTests
         Assert.Equal(expected.Keys.Order(StringComparer.Ordinal), actual.Keys.Order(StringComparer.Ordinal));
         foreach (var (name, bytes) in expected)
         {
-            Assert.True(bytes.AsSpan().SequenceEqual(actual[name]), $"{name} differs from the recording; regenerate it.");
+            // Entry by entry, not byte by byte: the zip writer records the OS it ran on.
+            Assert.True(Entries(bytes).SequenceEqual(Entries(actual[name])), $"{name} differs from the recording; regenerate it.");
         }
+    }
+
+    private static List<string> Entries(byte[] nupkg)
+    {
+        using var zip = new ZipArchive(new MemoryStream(nupkg), ZipArchiveMode.Read);
+        return [.. zip.Entries.Select(e =>
+        {
+            using var content = new MemoryStream();
+            using (var stream = e.Open())
+            {
+                stream.CopyTo(content);
+            }
+
+            return $"{e.FullName} {e.LastWriteTime.DateTime:yyyy-MM-ddTHH:mm:ss} {Convert.ToHexString(SHA256.HashData(content.ToArray()))}";
+        })];
     }
 
     [Fact]
