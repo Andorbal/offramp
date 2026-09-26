@@ -9,6 +9,9 @@ public enum JournalStepKind
     Create,
     Edit,
     Rename,
+
+    /// <summary>A file removed; <c>before</c> holds its bytes so rollback restores it.</summary>
+    Delete,
 }
 
 [JsonConverter(typeof(CamelCaseEnumConverter<JournalState>))]
@@ -33,13 +36,13 @@ public sealed record JournalStep
     /// <summary>The rename's source, else null.</summary>
     public string? From { get; init; }
 
-    /// <summary>The edited file's original bytes (base64), so rollback restores them exactly; else null.</summary>
+    /// <summary>The edited or deleted file's original bytes (base64), so rollback restores them exactly; else null.</summary>
     public string? Before { get; init; }
 
     /// <summary>What a created or edited file contains after the step (base64), so an interrupted run can be finished; else null.</summary>
     public string? After { get; init; }
 
-    /// <summary>The SHA-256 the file at <see cref="Path"/> has after the step (a renamed file's never changes); rollback checks it.</summary>
+    /// <summary>The SHA-256 the file at <see cref="Path"/> has after the step (a renamed file's never changes); rollback checks it. Null for a delete.</summary>
     public string? Sha256 { get; init; }
 
     /// <summary>Directories this step created (deepest first), removed again by rollback when empty.</summary>

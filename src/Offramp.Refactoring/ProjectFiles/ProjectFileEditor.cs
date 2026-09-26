@@ -163,6 +163,21 @@ public sealed class ProjectFileEditor
         group.AddProperty(name, value);
     }
 
+    /// <summary>Removes every unconditioned property with the name; returns how many.</summary>
+    public int RemoveProperty(string name)
+    {
+        var matches = _root.PropertyGroups.Where(g => string.IsNullOrEmpty(g.Condition))
+            .SelectMany(g => g.Properties)
+            .Where(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(p.Condition))
+            .ToList();
+        foreach (var property in matches)
+        {
+            property.Parent.RemoveChild(property);
+        }
+
+        return matches.Count;
+    }
+
     /// <summary>Removes every <c>Reference</c> item whose assembly name (the Include up to its first comma) matches; returns how many.</summary>
     public int RemoveReference(string assemblyName)
     {

@@ -1,0 +1,204 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "config convert",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "LegacyCsproj.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "project": "src/Billing.Tool/Billing.Tool.csproj",
+    "source": "src/Billing.Tool/App.config",
+    "sections": [
+      {
+        "name": "startup",
+        "kind": "dropped",
+        "jsonKey": null,
+        "options": null,
+        "values": 0,
+        "notes": [
+          "The supported runtime is the target framework's now."
+        ]
+      },
+      {
+        "name": "appSettings",
+        "kind": "appSettings",
+        "jsonKey": "",
+        "options": "AppSettingsOptions",
+        "values": 3,
+        "notes": []
+      },
+      {
+        "name": "connectionStrings",
+        "kind": "connectionStrings",
+        "jsonKey": "ConnectionStrings",
+        "options": null,
+        "values": 1,
+        "notes": [
+          "Billing: providerName System.Data.SqlClient has no appsettings.json counterpart; the code chooses the provider."
+        ]
+      },
+      {
+        "name": "billing",
+        "kind": "custom",
+        "jsonKey": "Billing",
+        "options": "BillingOptions",
+        "values": 5,
+        "notes": []
+      },
+      {
+        "name": "runtime",
+        "kind": "dropped",
+        "jsonKey": null,
+        "options": null,
+        "values": 0,
+        "notes": [
+          "Binding redirects and runtime settings: modern .NET unifies assembly versions itself; GC and threading settings go in runtimeconfig.json (the project's properties)."
+        ]
+      }
+    ],
+    "transforms": [
+      {
+        "file": "src/Billing.Tool/App.Release.config",
+        "environment": "Release",
+        "output": "src/Billing.Tool/appsettings.Release.json",
+        "overrides": 5,
+        "notConverted": [
+          "appSettings/add (Remove, Match(key))"
+        ]
+      }
+    ],
+    "files": [
+      "src/Billing.Tool/ConfigurationOptions.cs",
+      "src/Billing.Tool/appsettings.Release.json",
+      "src/Billing.Tool/appsettings.json"
+    ],
+    "shim": false,
+    "nextSteps": [
+      "Read settings through IConfiguration: a host builder loads appsettings.json and appsettings.{Environment}.json; bind each section with services.Configure<TOptions>(configuration.GetSection(\"Key\")).",
+      "The project is not SDK-style: run `offramp csproj modernize` so appsettings.json is copied to the output and packages can be referenced."
+    ],
+    "applied": false,
+    "journal": null,
+    "preview": "--- /dev/null\n+++ b/src/Billing.Tool/ConfigurationOptions.cs\n@@ -0,0 +1,38 @@\n+// <auto-generated>\n+//     Generated by offramp config convert: the options classes for appsettings.json.\n+// </auto-generated>\n+\n+namespace Contoso.Billing.Tool\n+{\n+    /// <summary>The appSettings, which appsettings.json holds as root keys: bind with configuration.Get&lt;AppSettingsOptions&gt;().</summary>\n+    public class AppSettingsOptions\n+    {\n+        public string InvoicePrefix { get; set; }\n+\n+        public string PageSize { get; set; }\n+\n+        // \"Features:Audit\" is not a C# name: read configuration[\"Features:Audit\"].\n+    }\n+\n+    /// <summary>The Contoso.Billing.BillingSection section, under \"Billing\" in appsettings.json: bind with configuration.GetSection(BillingOptions.Section).</summary>\n+    public class BillingOptions\n+    {\n+        public const string Section = \"Billing\";\n+\n+        public string Currency { get; set; } = \"USD\";\n+\n+        public int Retries { get; set; } = 1;\n+\n+        public global::System.TimeSpan Timeout { get; set; } = global::System.TimeSpan.Parse(\"00:00:10\", global::System.Globalization.CultureInfo.InvariantCulture);\n+\n+        public AuditOptions Audit { get; set; } = new AuditOptions();\n+    }\n+\n+    /// <summary>The Contoso.Billing.AuditElement element.</summary>\n+    public class AuditOptions\n+    {\n+        public bool Enabled { get; set; } = false;\n+\n+        public string Path { get; set; } = \"\";\n+    }\n+}\n--- /dev/null\n+++ b/src/Billing.Tool/appsettings.Release.json\n@@ -0,0 +1,11 @@\n+{\n+  \"InvoicePrefix\": \"PRD\",\n+  \"Region\": \"eu-west\",\n+  \"ConnectionStrings\": {\n+    \"Billing\": \"Server=sql.prod;Database=Billing;Integrated Security=true\"\n+  },\n+  \"Billing\": {\n+    \"Currency\": \"USD\",\n+    \"Retries\": 5\n+  }\n+}\n--- /dev/null\n+++ b/src/Billing.Tool/appsettings.json\n@@ -0,0 +1,17 @@\n+{\n+  \"InvoicePrefix\": \"INV\",\n+  \"PageSize\": \"50\",\n+  \"Features:Audit\": \"true\",\n+  \"ConnectionStrings\": {\n+    \"Billing\": \"Server=(local);Database=Billing;Integrated Security=true\"\n+  },\n+  \"Billing\": {\n+    \"Currency\": \"EUR\",\n+    \"Retries\": 3,\n+    \"Timeout\": \"00:00:30\",\n+    \"Audit\": {\n+      \"Enabled\": true,\n+      \"Path\": \"C:\\\\Audit\"\n+    }\n+  }\n+}\n"
+  },
+  "diagnostics": [
+    {
+      "code": "OFR4404",
+      "severity": "warning",
+      "message": "src/Billing.Tool/App.Release.config: appSettings/add (Remove, Match(key)).",
+      "project": "src/Billing.Tool/Billing.Tool.csproj",
+      "file": "src/Billing.Tool/App.Release.config",
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4404"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 1,
+    "info": 0
+  }
+}

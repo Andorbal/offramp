@@ -280,6 +280,16 @@
         "experimental": false,
         "rewritesCode": true,
         "packages": []
+      },
+      {
+        "id": "OFRM014",
+        "name": "config-manager-shim",
+        "title": "Read settings through ConfigurationManagerShim",
+        "description": "Where the project has the ConfigurationManagerShim that `offramp config convert --shim` writes, ConfigurationManager.AppSettings and ConnectionStrings become the shim's, which read IConfiguration: the sites config-manager cannot inject into (static members, classes created with new).",
+        "optIn": false,
+        "experimental": false,
+        "rewritesCode": true,
+        "packages": []
       }
     ]
   },

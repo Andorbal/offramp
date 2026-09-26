@@ -311,6 +311,78 @@ public sealed class RestructuringCodemodTests
         }
         """).RunAsync(TestContext.Current.CancellationToken);
 
+    [Fact]
+    public Task Config_reads_go_through_the_shim_when_the_project_has_one() => new CodemodTest<ConfigManagerShimAnalyzer, ConfigManagerShimFixer>(
+        Shim + """
+            static class Settings
+            {
+                public static string Host() => [|ConfigurationManager.AppSettings|]["Host"];
+
+                public static string Port() => [|ConfigurationManager.AppSettings|].Get("Port");
+
+                public static string Database() => [|ConfigurationManager.ConnectionStrings|]["Main"].ConnectionString;
+
+                public static int Count() => [|ConfigurationManager.AppSettings|].Count;
+            }
+        }
+        """,
+        Shim + """
+            static class Settings
+            {
+                public static string Host() => ConfigurationManagerShim.AppSettings["Host"];
+
+                public static string Port() => ConfigurationManagerShim.AppSettings.Get("Port");
+
+                public static string Database() => ConfigurationManagerShim.ConnectionStrings["Main"].ConnectionString;
+
+                public static int Count() => [|ConfigurationManager.AppSettings|].Count;
+            }
+        }
+        """).RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public Task Without_the_shim_config_reads_are_not_reported() => new SitesTest<ConfigManagerShimAnalyzer>(
+        """
+        using System.Configuration;
+
+        static class Settings
+        {
+            public static string Host() => ConfigurationManager.AppSettings["Host"];
+        }
+        """).RunAsync(TestContext.Current.CancellationToken);
+
+    /// <summary>The shim's shape, as config convert --shim writes it.</summary>
+    private const string Shim = """
+        using System.Configuration;
+
+        namespace App
+        {
+            public static class ConfigurationManagerShim
+            {
+                public static AppSettingsShim AppSettings => null;
+
+                public static ConnectionStringsShim ConnectionStrings => null;
+            }
+
+            public sealed class AppSettingsShim
+            {
+                public string this[string key] => null;
+
+                public string Get(string key) => null;
+            }
+
+            public sealed class ConnectionStringsShim
+            {
+                public ConnectionStringSettingsShim this[string name] => null;
+            }
+
+            public sealed class ConnectionStringSettingsShim
+            {
+                public string ConnectionString => null;
+            }
+
+        """;
+
     /// <summary>ASP.NET Core's accessor and the System.Web adapters' conversion, as source.</summary>
     private const string Adapters = """
         namespace Microsoft.AspNetCore.Http

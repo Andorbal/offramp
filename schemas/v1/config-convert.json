@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/config-convert.json",
+  "title": "offramp config convert result",
+  "description": "The result of `offramp config convert`. See docs/spec/commands/scaffold.md#config-convert.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "source", "sections", "transforms", "files", "shim", "nextSteps", "applied", "journal", "preview"],
+  "properties": {
+    "project": { "$ref": "workspace.json#/$defs/relativePath" },
+    "source": { "type": ["string", "null"], "description": "The App.config or Web.config read." },
+    "sections": {
+      "type": "array",
+      "description": "Every top-level element of the configuration file, in document order.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "kind", "jsonKey", "options", "values", "notes"],
+        "properties": {
+          "name": { "type": "string" },
+          "kind": { "enum": ["appSettings", "connectionStrings", "custom", "dropped", "unsupported"] },
+          "jsonKey": { "type": ["string", "null"], "description": "Where the values are in appsettings.json: empty for appSettings (root keys)." },
+          "options": { "type": ["string", "null"], "description": "The generated options class." },
+          "values": { "type": "integer", "minimum": 0 },
+          "notes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "transforms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "environment", "output", "overrides", "notConverted"],
+        "properties": {
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "environment": { "type": "string" },
+          "output": { "type": ["string", "null"], "description": "The appsettings.{Environment}.json written." },
+          "overrides": { "type": "integer", "minimum": 0 },
+          "notConverted": { "type": "array", "items": { "type": "string" }, "description": "Transform steps with no override form (OFR4404)." }
+        }
+      }
+    },
+    "files": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" } },
+    "shim": { "type": "boolean" },
+    "nextSteps": { "type": "array", "items": { "type": "string" } },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "preview": { "type": ["string", "null"] }
+  }
+}

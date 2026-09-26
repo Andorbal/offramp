@@ -5,6 +5,7 @@
 packages:
   Microsoft.AspNet.WebApi.OwinSelfHost: 5.3.0
   Microsoft.AspNetCore.Mvc.Testing: 10.0.12
+  Microsoft.AspNetCore.SystemWebAdapters.CoreServices: 2.3.0
   Microsoft.Extensions.Configuration.Abstractions: 10.0.12
   Microsoft.Extensions.Hosting: 10.0.12
   Microsoft.Extensions.Hosting.Systemd: 10.0.12
@@ -17,3 +18,4 @@ packages:
   System.Text.Json: 10.0.12
   xunit.runner.visualstudio: 3.1.5
   xunit.v3: 3.2.2
+  Yarp.ReverseProxy: 2.3.0

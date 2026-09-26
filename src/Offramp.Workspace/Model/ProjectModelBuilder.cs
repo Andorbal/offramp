@@ -79,7 +79,9 @@ public static class ProjectModelBuilder
         var calls = new SortedDictionary<string, CompilerCallRef>(StringComparer.Ordinal);
         foreach (var tfm in tfms)
         {
-            if (context.CompilerCalls.TryGetValue((projectId, tfm), out var call))
+            // A legacy (non-SDK) project's compiler call has no TargetFramework; it is the project's only one.
+            if (context.CompilerCalls.TryGetValue((projectId, tfm), out var call)
+                || (tfms.Count == 1 && context.CompilerCalls.TryGetValue((projectId, ""), out call)))
             {
                 calls[tfm] = call;
             }

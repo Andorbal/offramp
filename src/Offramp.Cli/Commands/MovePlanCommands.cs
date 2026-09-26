@@ -208,7 +208,8 @@ public sealed class MovePlanCommand : ICommandHandler<MovePlanOptions, MovePlanR
             .Order(StringComparer.Ordinal)];
     }
 
-    private static string Anchor(string prefix, string pattern)
+    /// <summary>A pattern relative to the working directory (<paramref name="prefix"/>, repository-relative) as a repository-relative one.</summary>
+    internal static string Anchor(string prefix, string pattern)
     {
         var normalized = pattern.Replace('\\', '/');
         while (normalized.StartsWith("./", StringComparison.Ordinal))
@@ -395,6 +396,8 @@ internal static class MoveCommandSupport
         ProjectEditKind.RemovePackageReference => "remove PackageReference " + edit.Value,
         ProjectEditKind.AddInternalsVisibleTo => "add InternalsVisibleTo " + edit.Value,
         ProjectEditKind.KeepResourceName => $"keep the resource name {edit.Version} for {edit.Value}",
+        ProjectEditKind.CreateProject => "create",
+        ProjectEditKind.AddToSolution => "add project " + edit.Value,
         _ => edit.Kind + " " + edit.Value,
     };
 

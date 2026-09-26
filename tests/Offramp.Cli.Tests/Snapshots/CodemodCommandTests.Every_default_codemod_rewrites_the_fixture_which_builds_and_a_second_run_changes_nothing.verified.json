@@ -120,7 +120,8 @@
       "codepages",
       "timezone-ids",
       "service-controller",
-      "assemblyinfo"
+      "assemblyinfo",
+      "config-manager-shim"
     ],
     "projects": [
       {

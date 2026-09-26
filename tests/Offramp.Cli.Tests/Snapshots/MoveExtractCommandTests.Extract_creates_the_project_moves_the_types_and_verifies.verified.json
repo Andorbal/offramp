@@ -1,0 +1,243 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "move extract",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "MoveCases.slnx",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "from": "src/Legacy/Legacy.csproj",
+    "newProject": "src/Legacy.Domain/Legacy.Domain.csproj",
+    "targetFrameworks": [
+      "net48",
+      "netstandard2.0"
+    ],
+    "types": [
+      {
+        "type": "Legacy.Clean.Money",
+        "files": [
+          "src/Legacy/Clean/Money.cs"
+        ]
+      },
+      {
+        "type": "Legacy.Partial.Invoice",
+        "files": [
+          "src/Legacy/Partial/Invoice.Totals.cs",
+          "src/Legacy/Partial/Invoice.cs"
+        ]
+      }
+    ],
+    "requested": [
+      "src/Legacy/Clean/Money.cs",
+      "src/Legacy/Json/Serializer.cs",
+      "src/Legacy/Partial/Invoice.Totals.cs",
+      "src/Legacy/Partial/Invoice.cs"
+    ],
+    "projectFile": "<Project Sdk=\"Microsoft.NET.Sdk\">\n\n  <PropertyGroup>\n    <TargetFrameworks>net48;netstandard2.0</TargetFrameworks>\n    <RootNamespace>Legacy</RootNamespace>\n    <LangVersion>latest</LangVersion>\n  </PropertyGroup>\n\n  <ItemGroup Condition=\"'$(TargetFrameworkIdentifier)' == '.NETFramework'\">\n    <Reference Include=\"System.Web\" />\n  </ItemGroup>\n\n</Project>\n",
+    "plan": {
+      "$schema": "https://offramp.dev/schemas/v1/move-plan.json",
+      "version": 1,
+      "from": "src/Legacy/Legacy.csproj",
+      "to": "src/Legacy.Domain/Legacy.Domain.csproj",
+      "target": "net10.0",
+      "workspaceHash": "sha256:{Hash}",
+      "moves": [
+        {
+          "file": "src/Legacy/Clean/Money.cs",
+          "to": "src/Legacy.Domain/Clean/Money.cs",
+          "coMoveOf": null,
+          "sha256": "{Sha256}",
+          "needs": []
+        },
+        {
+          "file": "src/Legacy/Json/Serializer.cs",
+          "to": "src/Legacy.Domain/Json/Serializer.cs",
+          "coMoveOf": null,
+          "sha256": "{Sha256}",
+          "needs": []
+        },
+        {
+          "file": "src/Legacy/Partial/Invoice.Totals.cs",
+          "to": "src/Legacy.Domain/Partial/Invoice.Totals.cs",
+          "coMoveOf": null,
+          "sha256": "{Sha256}",
+          "needs": [
+            "src/Legacy/Clean/Money.cs",
+            "src/Legacy/Partial/Invoice.cs"
+          ]
+        },
+        {
+          "file": "src/Legacy/Partial/Invoice.cs",
+          "to": "src/Legacy.Domain/Partial/Invoice.cs",
+          "coMoveOf": "src/Legacy/Partial/Invoice.Totals.cs",
+          "sha256": "{Sha256}",
+          "needs": [
+            "src/Legacy/Clean/Money.cs"
+          ]
+        }
+      ],
+      "projectEdits": [
+        {
+          "project": "src/Legacy.Domain/Legacy.Domain.csproj",
+          "kind": "createProject",
+          "value": null,
+          "version": null
+        },
+        {
+          "project": "MoveCases.slnx",
+          "kind": "addToSolution",
+          "value": "src/Legacy.Domain/Legacy.Domain.csproj",
+          "version": null
+        },
+        {
+          "project": "src/Legacy.Domain/Legacy.Domain.csproj",
+          "kind": "addPackageReference",
+          "value": "Newtonsoft.Json",
+          "version": "13.0.3"
+        },
+        {
+          "project": "src/Legacy/Legacy.csproj",
+          "kind": "addProjectReference",
+          "value": "src/Legacy.Domain/Legacy.Domain.csproj",
+          "version": null
+        }
+      ],
+      "excluded": [],
+      "cycles": [],
+      "verify": "end"
+    },
+    "preview": "--- /dev/null\n+++ b/src/Legacy.Domain/Legacy.Domain.csproj\n@@ -0,0 +1,17 @@\n+<Project Sdk=\"Microsoft.NET.Sdk\">\n+\n+  <PropertyGroup>\n+    <TargetFrameworks>net48;netstandard2.0</TargetFrameworks>\n+    <RootNamespace>Legacy</RootNamespace>\n+    <LangVersion>latest</LangVersion>\n+  </PropertyGroup>\n+\n+  <ItemGroup Condition=\"'$(TargetFrameworkIdentifier)' == '.NETFramework'\">\n+    <Reference Include=\"System.Web\" />\n+  </ItemGroup>\n+\n+  <ItemGroup>\n+    <PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.3\" />\n+  </ItemGroup>\n+\n+</Project>\n--- a/MoveCases.slnx\n+++ b/MoveCases.slnx\n@@ -2,6 +2,7 @@\n   <Folder Name=\"/src/\">\n     <Project Path=\"src/Contracts/Contracts.csproj\" />\n     <Project Path=\"src/Core/Core.csproj\" />\n+    <Project Path=\"src/Legacy.Domain/Legacy.Domain.csproj\" />\n     <Project Path=\"src/Legacy/Legacy.csproj\" />\n     <Project Path=\"src/Modern/Modern.csproj\" />\n     <Project Path=\"src/Reports/Reports.csproj\" />\n--- a/src/Legacy/Legacy.csproj\n+++ b/src/Legacy/Legacy.csproj\n@@ -10,6 +10,7 @@\n   </ItemGroup>\n   <ItemGroup>\n     <ProjectReference Include=\"..\\Contracts\\Contracts.csproj\" />\n+    <ProjectReference Include=\"..\\Legacy.Domain\\Legacy.Domain.csproj\" />\n     <ProjectReference Include=\"..\\Reports\\Reports.csproj\" />\n   </ItemGroup>\n   <ItemGroup>\nrename from src/Legacy/Clean/Money.cs\nrename to src/Legacy.Domain/Clean/Money.cs\nrename from src/Legacy/Json/Serializer.cs\nrename to src/Legacy.Domain/Json/Serializer.cs\nrename from src/Legacy/Partial/Invoice.Totals.cs\nrename to src/Legacy.Domain/Partial/Invoice.Totals.cs\nrename from src/Legacy/Partial/Invoice.cs\nrename to src/Legacy.Domain/Partial/Invoice.cs\n",
+    "apply": null
+  },
+  "diagnostics": [
+    {
+      "code": "OFR0016",
+      "severity": "info",
+      "message": "No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.",
+      "project": null,
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR0016"
+    },
+    {
+      "code": "OFR2110",
+      "severity": "info",
+      "message": "Declares part of a partial type in src/Legacy/Partial/Invoice.Totals.cs; they move together.",
+      "project": "src/Legacy/Legacy.csproj",
+      "file": "src/Legacy/Partial/Invoice.cs",
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR2110"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 2
+  }
+}

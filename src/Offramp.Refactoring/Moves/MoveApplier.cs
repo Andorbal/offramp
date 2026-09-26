@@ -9,6 +9,7 @@ using Offramp.Core.Paths;
 using Offramp.Core.Processes;
 using Offramp.Core.Progress;
 using Offramp.Refactoring.ChangeSets;
+using Offramp.Refactoring.ProjectFiles;
 using Offramp.Workspace.Verification;
 
 namespace Offramp.Refactoring.Moves;
@@ -49,6 +50,9 @@ public sealed record MoveApplyRequest
     public IProgressSink Progress { get; init; } = NullProgressSink.Instance;
 
     public required DateTimeOffset Now { get; init; }
+
+    /// <summary>Project files the plan creates (<c>move extract</c>), by path: their content before the move's edits.</summary>
+    public IReadOnlyDictionary<string, byte[]>? Created { get; init; }
 }
 
 /// <summary>How <c>move apply</c> ended.</summary>
@@ -110,7 +114,9 @@ public static class MoveApplier
             return new MoveApplyOutcome(empty with { Skipped = [.. skipped] }, skipped.Count > 0 ? MoveApplyStatus.Partial : MoveApplyStatus.Applied);
         }
 
-        var changeSet = MoveChangeSet.Build(request.RepositoryRoot, plan, skipped, out var edited, request.Model);
+        var changeSet = MoveChangeSet.Build(request.RepositoryRoot, plan, skipped, out var edited, request.Model, request.Created);
+        await AddToSolutionsAsync(request.RepositoryRoot, plan, changeSet, cancellationToken);
+        edited = [.. changeSet.Edits.Select(e => e.Path).Order(StringComparer.Ordinal)];
         var batches = Batches(moves, BatchSize(request.VerifyPolicy));
         var order = batches.SelectMany(b => b).Select((m, i) => (m.File, i)).ToDictionary(x => x.File, x => x.i, StringComparer.Ordinal);
         changeSet.Renames.Sort((a, b) => order[a.From].CompareTo(order[b.From]));
@@ -282,6 +288,21 @@ public static class MoveApplier
         && int.TryParse(policy.AsSpan("batch:".Length), NumberStyles.None, CultureInfo.InvariantCulture, out var size) && size > 0
             ? size
             : null;
+
+    /// <summary>The plan's <c>addToSolution</c> edits (a project it creates), as edits of the solution files.</summary>
+    public static async Task AddToSolutionsAsync(string root, MovePlanDocument plan, ChangeSet changeSet, CancellationToken cancellationToken)
+    {
+        foreach (var edit in plan.ProjectEdits.Where(e => e.Kind == ProjectEditKind.AddToSolution))
+        {
+            foreach (var (path, before, after) in await SolutionEditor.AddProjectAsync(root, edit.Project, edit.Value!, cancellationToken))
+            {
+                if (!before.AsSpan().SequenceEqual(after))
+                {
+                    changeSet.Edit(path, before, after);
+                }
+            }
+        }
+    }
 
     /// <summary>True when <paramref name="policy"/> is one <c>move apply</c> understands.</summary>
     public static bool IsPolicy(string policy) =>

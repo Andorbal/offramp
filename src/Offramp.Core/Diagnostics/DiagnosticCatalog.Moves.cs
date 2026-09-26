@@ -132,6 +132,30 @@ public static partial class DiagnosticCatalog
         "Check the path, or write the plan again with `offramp move plan ... --out PATH`.",
         MovesArea);
 
+    public static readonly DiagnosticDescriptor OFR2006 = new(
+        "OFR2006", Severity.Error,
+        "nothing to extract",
+        "`move extract` found nothing for a `--types` name (no type of that name in the source project, or several) or a `--files` pattern (no compiled file matches).",
+        "A misspelled or partial type name, a type from another project, or a pattern relative to the wrong folder.",
+        "Name types fully qualified (`Ns.Type`) and write `--files` patterns relative to the source project's folder.",
+        MovesArea);
+
+    public static readonly DiagnosticDescriptor OFR2007 = new(
+        "OFR2007", Severity.Error,
+        "new project already exists",
+        "`move extract` creates its project, and the project file or its folder already exists (or the workspace model has a project there). Nothing was planned.",
+        "A second extract with the same `--new`, or a folder with other files in it.",
+        "Choose another `--new` or `--dir`, or move the files into the existing project with `move plan --to`.",
+        MovesArea);
+
+    public static readonly DiagnosticDescriptor OFR2008 = new(
+        "OFR2008", Severity.Error,
+        "new project's target references did not resolve",
+        "`move extract` compiles the new project in memory for each of its target frameworks; for one of them, the SDK or NuGet could not resolve the reference assemblies, so nothing was planned.",
+        "A target framework the installed SDK does not know, or no access to the NuGet feed that has its reference packs.",
+        "Check `--tfm`, install the SDK for it, or restore once with network access.",
+        MovesArea);
+
     public static readonly DiagnosticDescriptor OFR2101 = new(
         "OFR2101", Severity.Warning,
         "file needs a co-move",

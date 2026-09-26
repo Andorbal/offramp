@@ -1,0 +1,575 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "web inventory",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "Mvc5.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "project": "src/Shop.Web/Shop.Web.csproj",
+    "kind": "mvc+webapi+webforms",
+    "url": "http://localhost:51234/",
+    "controllers": [
+      {
+        "name": "DashboardController",
+        "type": "Shop.Web.Areas.Admin.Controllers.DashboardController",
+        "kind": "mvc",
+        "area": "Admin",
+        "routePrefix": null,
+        "filters": [
+          "Authorize(Roles = \"Admin\")"
+        ],
+        "file": "src/Shop.Web/Areas/Admin/Controllers/DashboardController.cs",
+        "actions": [
+          {
+            "name": "Index",
+            "httpMethods": [],
+            "routes": [],
+            "filters": [],
+            "file": "src/Shop.Web/Areas/Admin/Controllers/DashboardController.cs",
+            "line": 8
+          }
+        ]
+      },
+      {
+        "name": "ProductsController",
+        "type": "Shop.Web.Controllers.Api.ProductsController",
+        "kind": "webapi",
+        "area": null,
+        "routePrefix": "api/products",
+        "filters": [],
+        "file": "src/Shop.Web/Controllers/Api/ProductsController.cs",
+        "actions": [
+          {
+            "name": "Get",
+            "httpMethods": [
+              "GET"
+            ],
+            "routes": [
+              "api/products"
+            ],
+            "filters": [],
+            "file": "src/Shop.Web/Controllers/Api/ProductsController.cs",
+            "line": 18
+          },
+          {
+            "name": "Get",
+            "httpMethods": [
+              "GET"
+            ],
+            "routes": [
+              "api/products/{id:int}"
+            ],
+            "filters": [],
+            "file": "src/Shop.Web/Controllers/Api/ProductsController.cs",
+            "line": 24
+          },
+          {
+            "name": "Post",
+            "httpMethods": [
+              "POST"
+            ],
+            "routes": [
+              "api/products"
+            ],
+            "filters": [],
+            "file": "src/Shop.Web/Controllers/Api/ProductsController.cs",
+            "line": 37
+          }
+        ]
+      },
+      {
+        "name": "StockController",
+        "type": "Shop.Web.Controllers.Api.StockController",
+        "kind": "webapi",
+        "area": null,
+        "routePrefix": null,
+        "filters": [],
+        "file": "src/Shop.Web/Controllers/Api/StockController.cs",
+        "actions": [
+          {
+            "name": "Get",
+            "httpMethods": [
+              "GET"
+            ],
+            "routes": [],
+            "filters": [],
+            "file": "src/Shop.Web/Controllers/Api/StockController.cs",
+            "line": 8
+          }
+        ]
+      },
+      {
+        "name": "HomeController",
+        "type": "Shop.Web.Controllers.HomeController",
+        "kind": "mvc",
+        "area": null,
+        "routePrefix": null,
+        "filters": [],
+        "file": "src/Shop.Web/Controllers/HomeController.cs",
+        "actions": [
+          {
+            "name": "Index",
+            "httpMethods": [],
+            "routes": [],
+            "filters": [
+              "OutputCache(Duration = 60)"
+            ],
+            "file": "src/Shop.Web/Controllers/HomeController.cs",
+            "line": 9
+          },
+          {
+            "name": "About",
+            "httpMethods": [
+              "GET"
+            ],
+            "routes": [],
+            "filters": [],
+            "file": "src/Shop.Web/Controllers/HomeController.cs",
+            "line": 15
+          },
+          {
+            "name": "Catalog",
+            "httpMethods": [],
+            "routes": [],
+            "filters": [],
+            "file": "src/Shop.Web/Controllers/HomeController.cs",
+            "line": 21
+          },
+          {
+            "name": "Health",
+            "httpMethods": [],
+            "routes": [],
+            "filters": [],
+            "file": "src/Shop.Web/Controllers/HomeController.cs",
+            "line": 26
+          },
+          {
+            "name": "Config",
+            "httpMethods": [],
+            "routes": [],
+            "filters": [],
+            "file": "src/Shop.Web/Controllers/HomeController.cs",
+            "line": 32
+          },
+          {
+            "name": "Contact",
+            "httpMethods": [
+              "POST"
+            ],
+            "routes": [],
+            "filters": [
+              "ValidateAntiForgeryToken"
+            ],
+            "file": "src/Shop.Web/Controllers/HomeController.cs",
+            "line": 39
+          }
+        ]
+      },
+      {
+        "name": "OrdersController",
+        "type": "Shop.Web.Controllers.OrdersController",
+        "kind": "mvc",
+        "area": null,
+        "routePrefix": "orders",
+        "filters": [
+          "Authorize"
+        ],
+        "file": "src/Shop.Web/Controllers/OrdersController.cs",
+        "actions": [
+          {
+            "name": "Index",
+            "httpMethods": [],
+            "routes": [
+              "orders"
+            ],
+            "filters": [],
+            "file": "src/Shop.Web/Controllers/OrdersController.cs",
+            "line": 10
+          },
+          {
+            "name": "Details",
+            "httpMethods": [],
+            "routes": [
+              "orders/{id:int}"
+            ],
+            "filters": [],
+            "file": "src/Shop.Web/Controllers/OrdersController.cs",
+            "line": 16
+          }
+        ]
+      }
+    ],
+    "routes": [
+      {
+        "name": "(ignored)",
+        "template": "{resource}.axd/{*pathInfo}",
+        "kind": "ignore",
+        "area": null,
+        "defaults": [],
+        "file": "src/Shop.Web/App_Start/RouteConfig.cs",
+        "line": 10
+      },
+      {
+        "name": "Catalog",
+        "template": "catalog/{category}",
+        "kind": "mvc",
+        "area": null,
+        "defaults": [
+          "controller = Home",
+          "action = Catalog"
+        ],
+        "file": "src/Shop.Web/App_Start/RouteConfig.cs",
+        "line": 13
+      },
+      {
+        "name": "Default",
+        "template": "{controller}/{action}/{id}",
+        "kind": "mvc",
+        "area": null,
+        "defaults": [
+          "controller = Home",
+          "action = Index",
+          "id = ?"
+        ],
+        "file": "src/Shop.Web/App_Start/RouteConfig.cs",
+        "line": 18
+      },
+      {
+        "name": "DefaultApi",
+        "template": "api/{controller}/{id}",
+        "kind": "webapi",
+        "area": null,
+        "defaults": [
+          "id = ?"
+        ],
+        "file": "src/Shop.Web/App_Start/WebApiConfig.cs",
+        "line": 11
+      },
+      {
+        "name": "Admin_default",
+        "template": "Admin/{controller}/{action}/{id}",
+        "kind": "mvc",
+        "area": "Admin",
+        "defaults": [
+          "action = Index",
+          "id = ?"
+        ],
+        "file": "src/Shop.Web/Areas/Admin/AdminAreaRegistration.cs",
+        "line": 11
+      }
+    ],
+    "attributeRouting": [
+      "mvc",
+      "webapi"
+    ],
+    "globalFilters": [
+      "HandleError"
+    ],
+    "areas": [
+      "Admin"
+    ],
+    "modules": [
+      {
+        "name": "RequestTiming",
+        "type": "Shop.Web.Modules.RequestTimingModule",
+        "file": "src/Shop.Web/Modules/RequestTimingModule.cs",
+        "path": null,
+        "verb": null,
+        "registeredIn": [
+          "system.web",
+          "system.webServer"
+        ]
+      }
+    ],
+    "handlers": [
+      {
+        "name": "Thumbnail",
+        "type": "Shop.Web.Handlers.ThumbnailHandler",
+        "file": "src/Shop.Web/Handlers/ThumbnailHandler.cs",
+        "path": "thumbnail.axd",
+        "verb": "GET",
+        "registeredIn": [
+          "system.webServer"
+        ]
+      }
+    ],
+    "globalAsax": [
+      "Application_Start",
+      "Application_BeginRequest",
+      "Session_Start",
+      "Application_Error"
+    ],
+    "bundles": [],
+    "webForms": [
+      "src/Shop.Web/Controls/Header.ascx",
+      "src/Shop.Web/Legacy/Report.aspx"
+    ],
+    "session": [
+      {
+        "file": "src/Shop.Web/Controllers/HomeController.cs",
+        "line": 41,
+        "what": "Session"
+      },
+      {
+        "file": "src/Shop.Web/Global.asax.cs",
+        "line": 28,
+        "what": "Session"
+      }
+    ],
+    "outputCache": [
+      {
+        "file": "src/Shop.Web/Controllers/HomeController.cs",
+        "line": 8,
+        "what": "OutputCache(Duration = 60)"
+      }
+    ],
+    "settings": {
+      "authentication": "Forms",
+      "loginUrl": "~/Account/Login",
+      "sessionState": "InProc",
+      "machineKey": true,
+      "customErrors": "RemoteOnly",
+      "sections": [
+        "appSettings",
+        "connectionStrings",
+        "system.web",
+        "system.webServer"
+      ]
+    },
+    "systemWeb": [
+      {
+        "file": "src/Shop.Web/App_Start/FilterConfig.cs",
+        "types": [
+          "System.Web.Mvc.GlobalFilterCollection",
+          "System.Web.Mvc.HandleErrorAttribute"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/App_Start/RouteConfig.cs",
+        "types": [
+          "System.Web.Mvc.RouteCollectionAttributeRoutingExtensions",
+          "System.Web.Mvc.RouteCollectionExtensions",
+          "System.Web.Mvc.UrlParameter",
+          "System.Web.Routing.RouteCollection"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/App_Start/WebApiConfig.cs",
+        "types": [
+          "System.Web.Http.HttpConfiguration",
+          "System.Web.Http.HttpConfigurationExtensions",
+          "System.Web.Http.HttpRouteCollectionExtensions",
+          "System.Web.Http.RouteParameter"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Areas/Admin/AdminAreaRegistration.cs",
+        "types": [
+          "System.Web.Mvc.AreaRegistration",
+          "System.Web.Mvc.AreaRegistrationContext",
+          "System.Web.Mvc.UrlParameter"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Areas/Admin/Controllers/DashboardController.cs",
+        "types": [
+          "System.Web.Mvc.ActionResult",
+          "System.Web.Mvc.AuthorizeAttribute",
+          "System.Web.Mvc.Controller"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Controllers/Api/ProductsController.cs",
+        "types": [
+          "System.Web.Http.ApiController",
+          "System.Web.Http.HttpPostAttribute",
+          "System.Web.Http.IHttpActionResult",
+          "System.Web.Http.RouteAttribute",
+          "System.Web.Http.RoutePrefixAttribute"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Controllers/Api/StockController.cs",
+        "types": [
+          "System.Web.Http.ApiController",
+          "System.Web.Http.IHttpActionResult",
+          "System.Web.HttpContext"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Controllers/HomeController.cs",
+        "types": [
+          "System.Web.Mvc.ActionResult",
+          "System.Web.Mvc.Controller",
+          "System.Web.Mvc.ControllerBase",
+          "System.Web.Mvc.HttpGetAttribute",
+          "System.Web.Mvc.HttpPostAttribute",
+          "System.Web.Mvc.JsonRequestBehavior",
+          "System.Web.Mvc.OutputCacheAttribute",
+          "System.Web.Mvc.ValidateAntiForgeryTokenAttribute"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Controllers/OrdersController.cs",
+        "types": [
+          "System.Web.Mvc.ActionResult",
+          "System.Web.Mvc.AuthorizeAttribute",
+          "System.Web.Mvc.Controller",
+          "System.Web.Mvc.JsonRequestBehavior",
+          "System.Web.Mvc.RouteAttribute",
+          "System.Web.Mvc.RoutePrefixAttribute"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Controls/Header.ascx.cs",
+        "types": [
+          "System.Web.UI.UserControl"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Global.asax.cs",
+        "types": [
+          "System.Web.Http.GlobalConfiguration",
+          "System.Web.HttpApplication",
+          "System.Web.HttpContext",
+          "System.Web.HttpServerUtility",
+          "System.Web.Mvc.AreaRegistration",
+          "System.Web.Mvc.GlobalFilters",
+          "System.Web.Routing.RouteTable"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Handlers/ThumbnailHandler.cs",
+        "types": [
+          "System.Web.HttpContext",
+          "System.Web.HttpResponse",
+          "System.Web.IHttpHandler"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Legacy/Report.aspx.cs",
+        "types": [
+          "System.Web.UI.Page"
+        ]
+      },
+      {
+        "file": "src/Shop.Web/Modules/RequestTimingModule.cs",
+        "types": [
+          "System.Web.HttpApplication",
+          "System.Web.HttpContext",
+          "System.Web.HttpResponse",
+          "System.Web.IHttpModule"
+        ]
+      }
+    ]
+  },
+  "diagnostics": [],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 0
+  }
+}

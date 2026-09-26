@@ -20,10 +20,10 @@
         "additionalProperties": false,
         "required": ["kind", "path", "from", "before", "after", "sha256", "createdDirectories", "done"],
         "properties": {
-          "kind": { "enum": ["create", "edit", "rename"] },
+          "kind": { "enum": ["create", "edit", "rename", "delete"] },
           "path": { "$ref": "workspace.json#/$defs/relativePath" },
           "from": { "type": ["string", "null"] },
-          "before": { "type": ["string", "null"], "description": "An edited file's original bytes, base64." },
+          "before": { "type": ["string", "null"], "description": "An edited or deleted file's original bytes, base64." },
           "after": { "type": ["string", "null"], "description": "A created or edited file's new bytes, base64, so an interrupted run can be finished." },
           "sha256": { "type": ["string", "null"] },
           "createdDirectories": { "$ref": "workspace.json#/$defs/pathList" },

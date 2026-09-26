@@ -17,14 +17,16 @@ public static class MoveChangeSet
     /// <param name="skip">Moves left out (files changed since the plan).</param>
     /// <param name="edited">The project files the change set edits.</param>
     /// <param name="model">The workspace model, for central package management and AssemblyInfo files; null uses neither.</param>
-    public static ChangeSet Build(string root, MovePlanDocument plan, IReadOnlySet<string> skip, out IReadOnlyList<string> edited, WorkspaceModel? model = null)
+    /// <param name="created">Project files the change set creates (<c>move extract</c>), by path: their content before the move's edits.</param>
+    public static ChangeSet Build(string root, MovePlanDocument plan, IReadOnlySet<string> skip, out IReadOnlyList<string> edited, WorkspaceModel? model = null,
+        IReadOnlyDictionary<string, byte[]>? created = null)
     {
         var editors = new SortedDictionary<string, (byte[] Before, ProjectFileEditor Editor)>(StringComparer.Ordinal);
         ProjectFileEditor Editor(string project)
         {
             if (!editors.TryGetValue(project, out var entry))
             {
-                var bytes = File.ReadAllBytes(RepoPaths.ToAbsolute(root, project));
+                var bytes = created is not null && created.TryGetValue(project, out var content) ? content : File.ReadAllBytes(RepoPaths.ToAbsolute(root, project));
                 entry = (bytes, ProjectFileEditor.Load(bytes));
                 editors[project] = entry;
             }
@@ -40,7 +42,8 @@ public static class MoveChangeSet
             return changeSet;
         }
 
-        foreach (var edit in plan.ProjectEdits)
+        // Created projects come from `created`, solutions from MoveApplier.AddToSolutionsAsync.
+        foreach (var edit in plan.ProjectEdits.Where(e => e.Kind is not (ProjectEditKind.CreateProject or ProjectEditKind.AddToSolution)))
         {
             var editor = Editor(edit.Project);
             switch (edit.Kind)
@@ -98,7 +101,12 @@ public static class MoveChangeSet
             changeSet.Rename(root, move.File, move.To);
         }
 
-        foreach (var (project, (before, editor)) in editors)
+        foreach (var project in (created?.Keys ?? []).Order(StringComparer.Ordinal))
+        {
+            changeSet.Creates.Add(new FileCreate(project, editors.TryGetValue(project, out var entry) ? entry.Editor.Save() : created![project]));
+        }
+
+        foreach (var (project, (before, editor)) in editors.Where(e => created is null || !created.ContainsKey(e.Key)))
         {
             changeSet.Edit(project, before, editor.Save());
         }

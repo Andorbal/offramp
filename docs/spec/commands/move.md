@@ -326,6 +326,38 @@ Creates the project from a template (SDK-style, same `LangVersion`, `Nullable`,
 analyzers, and package versions as `SRC`), adds a `ProjectReference` from `SRC`
 unless that would be circular, then runs `move plan` + `move apply` into it.
 
+### Details (M12, `docs/decisions/0026-web-csproj-config-extract.md`)
+
+- **What moves.** `--types` names types declared in `SRC`, fully qualified or by a
+  unique simple name; each brings every file that declares it (all parts of a partial
+  type). `--files` takes paths or globs relative to the current directory, like `move
+  plan`. A name or pattern that matches nothing (or a simple name that matches several
+  types) is `OFR2006`. Files move whole, so other types in the same file come along;
+  `move plan`'s co-move closure brings what they need.
+- **The new project** is `--dir` (default: `NAME` beside `SRC`'s folder) plus
+  `NAME.csproj`; the folder must not exist or be empty (`OFR2007`). The template:
+  `Microsoft.NET.Sdk`, `--tfm` (default: `SRC`'s target frameworks), `SRC`'s root
+  namespace (moved files keep their namespaces), `LangVersion`, `Nullable`, and
+  `ImplicitUsings` when `SRC` sets them, `SRC`'s analyzer packages (`PrivateAssets="all"`,
+  versions omitted under central package management), and `SRC`'s .NET Framework
+  `Reference` items for .NET Framework targets. It is added to the workspace's solution.
+- **Planning** is `move plan` with the new project as destination. It does not exist
+  yet, so its compilation per target is built in memory: `SRC`'s recorded compilation's
+  framework references for a target `SRC` compiles for, else the target's reference
+  assemblies resolved by the SDK (`OFR2008` when they do not resolve). The plan adds
+  the package and project references the moved files need, `SRC`'s reference to the new
+  project, and the rest of `move plan`'s rules (exclusions, internals, resources).
+  Its `projectEdits` start with `createProject` and `addToSolution`.
+- **Applying** (`--apply`, when anything can move) is `move apply` of that plan: one
+  journal creates the project file (with the plan's edits), edits the solution and
+  `SRC`, and renames the files, then verifies (`--verify`, default `move.verify`); a
+  failed verification rolls everything back. `move rollback` undoes it, deleting the
+  project file. The plan is kept under `.offramp/plans/`. Nothing is created when every
+  file is excluded.
+- Result (`schemas/v1/move-extract.json`): `from`, `newProject`, `targetFrameworks`,
+  `types`, `requested`, `projectFile` (the template), `plan`, `preview`, and `apply` (the
+  `move apply` result, or null).
+
 ## `forwarders`
 
 After types moved between assemblies, keep binary consumers working.
@@ -382,6 +414,9 @@ offramp forwarders --from SRC.csproj --to DEST.csproj [--since GIT_REF] [--apply
 | OFR2003 | source or destination is frozen |
 | OFR2004 | file is not in the source project |
 | OFR2005 | move plan file missing or invalid |
+| OFR2006 | `move extract`: a type name or pattern matched nothing |
+| OFR2007 | `move extract`: the new project's folder already exists |
+| OFR2008 | `move extract`: the new project's target references did not resolve |
 | OFR2010 | move crosses solution slice boundary |
 | OFR2050 | verification failed; rolled back |
 | OFR2101 | needs co-move (files listed) |

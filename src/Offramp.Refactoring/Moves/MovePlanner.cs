@@ -46,7 +46,13 @@ public sealed record MovePlanRequest
     public required string NamespaceMismatch { get; init; }
 
     public required DiagnosticBag Diagnostics { get; init; }
+
+    /// <summary><c>move extract</c>: the destination does not exist yet; <see cref="To"/> is its path.</summary>
+    public NewProject? Create { get; init; }
 }
+
+/// <summary>A project <c>move extract</c> creates: its model entry, its file, and its compilation per target, all in memory.</summary>
+public sealed record NewProject(ProjectInfo Project, byte[] Content, IReadOnlyList<(string Tfm, CSharpCompilation Compilation)> Compilations);
 
 /// <summary>
 /// Plans a move of files between projects (docs/spec/commands/move.md#move-plan): partitions what
@@ -63,7 +69,7 @@ public static class MovePlanner
         var model = request.Model;
         var bag = request.Diagnostics;
         var source = model.Projects.Single(p => p.Id == request.From);
-        var destination = model.Projects.Single(p => p.Id == request.To);
+        var destination = request.Create?.Project ?? model.Projects.Single(p => p.Id == request.To);
         if (source.Id == destination.Id)
         {
             bag.Report(DiagnosticCatalog.OFR2002, $"The destination is the source project itself ({source.Id}).", new DiagnosticLocation(source.Id));
@@ -85,10 +91,12 @@ public static class MovePlanner
         using var loader = new CompilationLoader(request.RepositoryRoot);
         var sourceTarget = CompilationLoader.PreferredTarget(source);
         var sourceCompilation = sourceTarget is null ? null : loader.LoadForProject(source, sourceTarget) as CSharpCompilation;
-        var destinations = destination.CompilerCalls.Keys
-            .Select(tfm => (Tfm: tfm, Compilation: loader.LoadForProject(destination, tfm) as CSharpCompilation))
-            .Where(d => d.Compilation is not null)
-            .ToList();
+        var destinations = request.Create is { } created
+            ? [.. created.Compilations.Select(c => (c.Tfm, (CSharpCompilation?)c.Compilation))]
+            : destination.CompilerCalls.Keys
+                .Select(tfm => (Tfm: tfm, Compilation: loader.LoadForProject(destination, tfm) as CSharpCompilation))
+                .Where(d => d.Compilation is not null)
+                .ToList();
         if (sourceCompilation is null || destinations.Count == 0)
         {
             bag.Report(DiagnosticCatalog.OFR0004, $"The compiler log has no compilation for {(sourceCompilation is null ? source.Id : destination.Id)}; run `offramp scan` again.");
@@ -535,6 +543,13 @@ public static class MovePlanner
                 })
                 .ToList();
             var edits = Edits(candidates, needs);
+            if (request.Create is not null && moves.Count > 0)
+            {
+                edits.InsertRange(0, Model.Solution is { } solution
+                    ? [new ProjectEdit { Project = destination.Id, Kind = ProjectEditKind.CreateProject }, new ProjectEdit { Project = solution, Kind = ProjectEditKind.AddToSolution, Value = destination.Id }]
+                    : [new ProjectEdit { Project = destination.Id, Kind = ProjectEditKind.CreateProject }]);
+            }
+
             var document = new MovePlanDocument
             {
                 From = source.Id,
@@ -547,7 +562,7 @@ public static class MovePlanner
                 Cycles = [.. _cycles.OrderBy(c => c.File, StringComparer.Ordinal)],
                 Verify = request.Config.Move.Verify,
             };
-            var changeSet = MoveChangeSet.Build(Root, document, new HashSet<string>(StringComparer.Ordinal), out _, Model);
+            var changeSet = MoveChangeSet.Build(Root, document, new HashSet<string>(StringComparer.Ordinal), out _, Model, Created(request));
             return new MovePlanResult { Plan = document, Preview = changeSet.Preview() };
         }
 
@@ -961,7 +976,7 @@ public static class MovePlanner
 
         private string? DestinationExcludes(string moved)
         {
-            var bytes = File.ReadAllBytes(RepoPaths.ToAbsolute(Root, destination.Id));
+            var bytes = request.Create?.Content ?? File.ReadAllBytes(RepoPaths.ToAbsolute(Root, destination.Id));
             var relative = moved[(Folder(destination.Id).Length == 0 ? 0 : Folder(destination.Id).Length + 1)..];
             return ProjectFileEditor.Load(bytes).RemovePatterns("Compile").FirstOrDefault(p => new PathGlobs([p]).Matches(relative));
         }
@@ -987,6 +1002,10 @@ public static class MovePlanner
         private static CSharpParseOptions Options(CSharpCompilation compilation) =>
             (CSharpParseOptions?)compilation.SyntaxTrees.FirstOrDefault()?.Options ?? CSharpParseOptions.Default;
     }
+
+    /// <summary>The project files a plan creates, by path, for <see cref="MoveChangeSet.Build"/>.</summary>
+    internal static IReadOnlyDictionary<string, byte[]>? Created(MovePlanRequest request) =>
+        request.Create is { } created ? new Dictionary<string, byte[]>(StringComparer.Ordinal) { [created.Project.Id] = created.Content } : null;
 
     /// <summary>A value with the framework NuGet compares it by (GetNearest needs a reference type).</summary>
     private sealed record Candidate<T>(T Value, NuGetFramework Framework);

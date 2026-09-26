@@ -24,6 +24,7 @@ public static class MoveCommands
         move.Subcommands.Add(MoveApplyCommand.Create(host, globals));
         move.Subcommands.Add(MoveTestsCommand.Create(host, globals));
         move.Subcommands.Add(MoveRollbackCommand.Create(host, globals));
+        move.Subcommands.Add(MoveExtractCommand.Create(host, globals));
         return move;
     }
 }

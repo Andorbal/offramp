@@ -12,9 +12,12 @@ public sealed record FileEdit(string Path, byte[] Before, byte[] After);
 /// <summary>A new file.</summary>
 public sealed record FileCreate(string Path, byte[] Content);
 
+/// <summary>A file removed (for example a packages.config replaced by PackageReference items): its bytes, for rollback.</summary>
+public sealed record FileDelete(string Path, byte[] Before);
+
 /// <summary>
 /// What a writing command will do to the repository (docs/spec/00-architecture.md):
-/// new files and edits, then renames. Rendered as a dry-run diff, applied through a
+/// new files and edits, then deletions and renames. Rendered as a dry-run diff, applied through a
 /// journal, and rolled back from it.
 /// </summary>
 public sealed class ChangeSet
@@ -25,7 +28,9 @@ public sealed class ChangeSet
 
     public List<FileRename> Renames { get; } = [];
 
-    public bool IsEmpty => Creates.Count == 0 && Edits.Count == 0 && Renames.Count == 0;
+    public List<FileDelete> Deletes { get; } = [];
+
+    public bool IsEmpty => Creates.Count == 0 && Edits.Count == 0 && Renames.Count == 0 && Deletes.Count == 0;
 
     /// <summary>Records a rename, hashing the file as it is now so the move can prove it changed nothing.</summary>
     public void Rename(string repositoryRoot, string from, string to) =>
@@ -49,7 +54,11 @@ public sealed class ChangeSet
 
     public void Create(string path, string content) => Creates.Add(new FileCreate(path, new UTF8Encoding(false).GetBytes(content)));
 
-    /// <summary>A unified diff of the new and edited files, then the renames, in path order.</summary>
+    /// <summary>Records a deletion, keeping the file's bytes as they are now.</summary>
+    public void Delete(string repositoryRoot, string path) =>
+        Deletes.Add(new FileDelete(path, File.ReadAllBytes(System.IO.Path.Combine(repositoryRoot, path))));
+
+    /// <summary>A unified diff of the new and edited files, then the deletions and renames, in path order.</summary>
     public string Preview()
     {
         var builder = new StringBuilder();
@@ -61,6 +70,11 @@ public sealed class ChangeSet
         foreach (var edit in Edits.OrderBy(e => e.Path, StringComparer.Ordinal))
         {
             builder.Append(UnifiedDiff.Render(edit.Path, Decode(edit.Before), Decode(edit.After)));
+        }
+
+        foreach (var delete in Deletes.OrderBy(d => d.Path, StringComparer.Ordinal))
+        {
+            builder.Append("deleted file ").Append(delete.Path).Append('\n');
         }
 
         foreach (var rename in Renames.OrderBy(r => r.From, StringComparer.Ordinal))

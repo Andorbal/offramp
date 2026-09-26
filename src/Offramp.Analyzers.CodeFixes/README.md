@@ -19,6 +19,7 @@ and `dotnet format`.
 | OFRM011 | timezone-ids | `FindSystemTimeZoneById` → `TZConvert.GetTimeZoneInfo` |
 | OFRM012 | service-controller | reports `ServiceController` use (needs a package) |
 | OFRM013 | assemblyinfo | removes assembly attributes the SDK generates |
+| OFRM014 | config-manager-shim | `ConfigurationManager.AppSettings` → the `ConfigurationManagerShim` that `offramp config convert --shim` writes |
 
 All rules are suggestions by default; `sample.editorconfig` in the package lists them.
 Apply one across a project with `dotnet format analyzers --diagnostics OFRM008 --severity info`.
