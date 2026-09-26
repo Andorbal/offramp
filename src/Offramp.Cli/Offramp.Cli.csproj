@@ -26,6 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Offramp.Core\Offramp.Core.csproj" />
     <ProjectReference Include="..\Offramp.Workspace\Offramp.Workspace.csproj" />
+    <ProjectReference Include="..\Offramp.Reporting\Offramp.Reporting.csproj" />
   </ItemGroup>
 
   <ItemGroup>

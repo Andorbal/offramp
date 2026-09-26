@@ -2,12 +2,14 @@
   <Folder Name="/src/">
     <Project Path="src/Offramp.Cli/Offramp.Cli.csproj" />
     <Project Path="src/Offramp.Core/Offramp.Core.csproj" />
+    <Project Path="src/Offramp.Reporting/Offramp.Reporting.csproj" />
     <Project Path="src/Offramp.Workspace/Offramp.Workspace.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Offramp.Cli.Tests/Offramp.Cli.Tests.csproj" />
     <Project Path="tests/Offramp.Core.Tests/Offramp.Core.Tests.csproj" />
     <Project Path="tests/Offramp.Fixtures/Offramp.Fixtures.csproj" />
+    <Project Path="tests/Offramp.Reporting.Tests/Offramp.Reporting.Tests.csproj" />
     <Project Path="tests/Offramp.Workspace.Tests/Offramp.Workspace.Tests.csproj" />
   </Folder>
   <Folder Name="/solution-items/">

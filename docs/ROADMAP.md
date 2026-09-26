@@ -46,7 +46,7 @@ Acceptance: `scan` on every fixture produces a snapshot-tested model on all
 three OSes; a model produced from a Windows-captured complog of `dual-target`
 equals (after scrubbing) the one produced natively.
 
-## M2 — See it ☐
+## M2 — See it ◐
 
 - `graph` (json, dot, mermaid, html with all interactions).
 - `deps audit` (feed access, nupkg inspection, cache, Windows-only detection,

@@ -12,7 +12,6 @@ public static class ReservedDiagnostics
 {
     public static IReadOnlyList<ReservedDiagnostic> All { get; } =
     [
-        new("OFR0201", "info", "Mermaid output too large to render well"),
         new("OFR1001", "error", "no package version supports the target"),
         new("OFR1002", "warning", "in-use version does not support the target"),
         new("OFR1003", "warning", "package deprecated"),

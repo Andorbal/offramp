@@ -17,7 +17,7 @@ namespace Offramp.Cli.Commands;
 public sealed record SliceOptions(IReadOnlyList<string> For, bool IncludeDependents, bool IncludeTests, string Format);
 
 /// <summary><c>offramp slice</c>: a solution filter for a project closure (docs/spec/commands/workspace.md#slice).</summary>
-public sealed class SliceCommand : ICommandHandler<SliceOptions, SliceResult>
+public sealed class SliceCommand : ICommandHandler<SliceOptions, SliceResult>, IRawOutput<SliceResult>
 {
     public string CommandPath => "slice";
 
@@ -69,7 +69,7 @@ public sealed class SliceCommand : ICommandHandler<SliceOptions, SliceResult>
         var requested = new List<string>();
         foreach (var value in options.For)
         {
-            var project = Resolve(value, model, context);
+            var project = ProjectLookup.Resolve(value, model, context);
             if (project is null)
             {
                 context.Diagnostics.Report(DiagnosticCatalog.OFR0021,
@@ -108,20 +108,16 @@ public sealed class SliceCommand : ICommandHandler<SliceOptions, SliceResult>
         return CommandOutcome<SliceResult>.Completed(result);
     }
 
+    /// <summary>Without --out, stdout is the filter itself, ready to redirect into a file.</summary>
+    public string? RawOutput(SliceResult result, CommandContext context) => result.Output is null ? result.Content : null;
+
     public void Render(SliceResult result, CommandContext context, HumanOutput output)
     {
         var counts = result.Counts;
-        var headline = result.Output is null
-            ? $"Slice of {counts.Total} projects ({counts.Requested} requested, {counts.Dependencies} dependencies, {counts.Dependents} dependents, {counts.Tests} tests)."
-            : $"Wrote {result.Output}: {counts.Total} projects ({counts.Requested} requested, {counts.Dependencies} dependencies, {counts.Dependents} dependents, {counts.Tests} tests).";
-        output.Headline(headline, Theme.ReadyStyle);
+        output.Headline(
+            $"Wrote {result.Output}: {counts.Total} projects ({counts.Requested} requested, {counts.Dependencies} dependencies, {counts.Dependents} dependents, {counts.Tests} tests).",
+            Theme.ReadyStyle);
         output.Line();
-        if (result.Output is null)
-        {
-            output.Console.Write(new Text(result.Content));
-            return;
-        }
-
         foreach (var project in result.Projects)
         {
             output.MarkupLine("  " + Markup.Escape(project));
@@ -133,27 +129,6 @@ public sealed class SliceCommand : ICommandHandler<SliceOptions, SliceResult>
     /// the envelope is written only with --json.
     /// </summary>
     public bool WritesOwnOutput => true;
-
-    private static string? Resolve(string value, WorkspaceModel model, CommandContext context)
-    {
-        var normalized = RepoPaths.Normalize(value);
-        var byId = model.Projects.FirstOrDefault(p => string.Equals(p.Id, normalized, StringComparison.OrdinalIgnoreCase));
-        if (byId is not null)
-        {
-            return byId.Id;
-        }
-
-        var absolute = Path.GetFullPath(value, context.Host.WorkingDirectory);
-        var relative = RepoPaths.ToRepositoryRelative(context.Repository.Path, absolute);
-        var byPath = model.Projects.FirstOrDefault(p => string.Equals(p.Id, relative, StringComparison.OrdinalIgnoreCase));
-        if (byPath is not null)
-        {
-            return byPath.Id;
-        }
-
-        var byName = model.Projects.Where(p => string.Equals(p.Name, value, StringComparison.OrdinalIgnoreCase)).ToList();
-        return byName.Count == 1 ? byName[0].Id : null;
-    }
 
     private static async Task<string?> UnderlyingSolutionAsync(WorkspaceModel model, string root, CancellationToken cancellationToken)
     {

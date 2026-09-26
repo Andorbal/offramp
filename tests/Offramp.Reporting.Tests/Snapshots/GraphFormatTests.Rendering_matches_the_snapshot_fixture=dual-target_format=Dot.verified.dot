@@ -1,0 +1,15 @@
+﻿// offramp graph: 3 projects, 3 references
+// fill = framework class (framework #E07A1F, standard #2B6CB0, modern #2F855A, dual #2C7A7B);
+// shape = kind (library rounded box, console box, service hexagon, web tab, test dashed rounded box, winforms/wpf double box);
+// red border = in a cycle; dashed edge = HintPath reference to another project's output
+digraph offramp {
+  rankdir=LR;
+  node [fontname="Helvetica", fontsize=11, fontcolor="white", color="#1A202C"];
+  edge [color="#718096", arrowsize=0.7];
+  "src/Contracts/Contracts.csproj" [label="Contracts", shape=box, style="rounded,filled", fillcolor="#2B6CB0", tooltip="src/Contracts/Contracts.csproj\nlibrary, standard (netstandard2.0)\n13 lines, 0 packages\ndone"];
+  "src/Shared/Shared.csproj" [label="Shared", shape=box, style="rounded,filled", fillcolor="#2C7A7B", tooltip="src/Shared/Shared.csproj\nlibrary, dual (net48, net10.0)\n25 lines, 1 packages\ndone"];
+  "src/Tool/Tool.csproj" [label="Tool", shape=box, style="filled", fillcolor="#2F855A", tooltip="src/Tool/Tool.csproj\nconsole, modern (net10.0)\n6 lines, 0 packages\ndone"];
+  "src/Shared/Shared.csproj" -> "src/Contracts/Contracts.csproj";
+  "src/Tool/Tool.csproj" -> "src/Contracts/Contracts.csproj";
+  "src/Tool/Tool.csproj" -> "src/Shared/Shared.csproj";
+}

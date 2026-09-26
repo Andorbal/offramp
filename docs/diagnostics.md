@@ -64,6 +64,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0130](#ofr0130) | error | scan | analysis build failed; model partial |
 | [OFR0131](#ofr0131) | error | scan | analysis build timed out |
 | [OFR0132](#ofr0132) | warning | scan | compiler calls unavailable for some projects |
+| [OFR0201](#ofr0201) | info | graph/report | graph too large for Mermaid |
 | [OFR1006](#ofr1006) | warning | deps | feed unreachable; result partial |
 | [OFR1301](#ofr1301) | warning | deps | project outside the solution would inherit CPM |
 | [OFR1302](#ofr1302) | warning | deps | nested Directory.Packages.props shadows the root |
@@ -402,6 +403,15 @@ Some compiler invocations are missing from the compiler log: their inputs were m
 - **Typical cause:** Converting a binary log that was built on another machine, or a build that did not compile every project.
 - **Fix:** Convert the binary log to a compiler log on the machine that built it (`complog create`), then scan with `--binlog` and `--complog`.
 
+### OFR0201
+
+**graph too large for Mermaid** · info · graph/report
+
+The Mermaid graph has more than 300 projects; Mermaid renderers become slow and unreadable at that size.
+
+- **Typical cause:** `graph --format mermaid` on a large solution without a focus or kind filter.
+- **Fix:** Narrow the view with `--focus PROJECT --depth N` or `--exclude-kind test`, or use `--format html`.
+
 ### OFR1006
 
 **feed unreachable; result partial** · warning · deps
@@ -445,7 +455,6 @@ use these numbers; each moves to the table above in the pull request that first 
 
 | Code | Severity | Meaning |
 |---|---|---|
-| OFR0201 | info | Mermaid output too large to render well |
 | OFR1001 | error | no package version supports the target |
 | OFR1002 | warning | in-use version does not support the target |
 | OFR1003 | warning | package deprecated |

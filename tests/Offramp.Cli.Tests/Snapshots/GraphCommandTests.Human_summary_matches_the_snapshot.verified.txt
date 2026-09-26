@@ -1,0 +1,10 @@
+﻿Graph: 3 projects, 3 references, 0 cycles.
+
+  Class         Projects   Lines   Ready   Blocked
+────────────────────────────────────────────────────
+  ■ framework          0       0       0         0
+  ■ standard           1      13       0         0
+  ■ modern             1       6       0         0
+  ■ dual               1      25       0         0
+
+Interactive view: offramp graph --format html --out graph.html

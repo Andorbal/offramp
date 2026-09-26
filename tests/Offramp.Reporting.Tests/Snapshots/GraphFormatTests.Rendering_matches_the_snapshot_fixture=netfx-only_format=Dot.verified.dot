@@ -1,0 +1,12 @@
+﻿// offramp graph: 2 projects, 1 reference
+// fill = framework class (framework #E07A1F, standard #2B6CB0, modern #2F855A, dual #2C7A7B);
+// shape = kind (library rounded box, console box, service hexagon, web tab, test dashed rounded box, winforms/wpf double box);
+// red border = in a cycle; dashed edge = HintPath reference to another project's output
+digraph offramp {
+  rankdir=LR;
+  node [fontname="Helvetica", fontsize=11, fontcolor="white", color="#1A202C"];
+  edge [color="#718096", arrowsize=0.7];
+  "src/Legacy.App/Legacy.App.csproj" [label="Legacy.App", shape=box, style="filled", fillcolor="#E07A1F", tooltip="src/Legacy.App/Legacy.App.csproj\nconsole, framework (net48)\n15 lines, 1 packages\nblocked, blocked by src/Legacy.Core/Legacy.Core.csproj"];
+  "src/Legacy.Core/Legacy.Core.csproj" [label="Legacy.Core", shape=box, style="rounded,filled", fillcolor="#E07A1F", tooltip="src/Legacy.Core/Legacy.Core.csproj\nlibrary, framework (net48)\n35 lines, 0 packages\nready"];
+  "src/Legacy.App/Legacy.App.csproj" -> "src/Legacy.Core/Legacy.Core.csproj";
+}

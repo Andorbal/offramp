@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Views for people and machines over the workspace model: graph exporters
+    (json, dot, mermaid, html) and the progress report.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <RootNamespace>Offramp.Reporting</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Offramp.Core\Offramp.Core.csproj" />
+    <ProjectReference Include="..\Offramp.Workspace\Offramp.Workspace.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\*" LogicalName="Offramp.Reporting.Resources.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Offramp.Reporting.Tests" />
+  </ItemGroup>
+</Project>
