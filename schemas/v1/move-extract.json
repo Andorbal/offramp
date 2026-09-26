@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/move-extract.json",
+  "title": "offramp move extract result",
+  "description": "The result of `offramp move extract`. See docs/spec/commands/move.md#move-extract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["from", "newProject", "targetFrameworks", "types", "requested", "projectFile", "plan", "preview", "apply"],
+  "properties": {
+    "from": { "$ref": "workspace.json#/$defs/relativePath" },
+    "newProject": { "$ref": "workspace.json#/$defs/relativePath" },
+    "targetFrameworks": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "types": {
+      "type": "array",
+      "description": "--types, resolved to the files that declare them.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "files"],
+        "properties": {
+          "type": { "type": "string" },
+          "files": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" }, "minItems": 1 }
+        }
+      }
+    },
+    "requested": { "type": "array", "items": { "$ref": "workspace.json#/$defs/relativePath" }, "description": "The files asked for; the plan adds what they need." },
+    "projectFile": { "type": "string", "description": "The new project file as the template makes it, before the move's edits." },
+    "plan": { "$ref": "move-plan.json" },
+    "preview": { "type": ["string", "null"], "description": "The unified diff of the new and edited project files and the renames; null once applied." },
+    "apply": {
+      "description": "With --apply: what move apply did; null for a dry run.",
+      "oneOf": [{ "type": "null" }, { "$ref": "move-apply.json" }]
+    }
+  }
+}

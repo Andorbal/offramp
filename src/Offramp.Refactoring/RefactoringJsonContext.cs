@@ -27,6 +27,7 @@ namespace Offramp.Refactoring;
 [JsonSerializable(typeof(MovePlanDocument))]
 [JsonSerializable(typeof(MovePlanResult))]
 [JsonSerializable(typeof(MoveApplyResult))]
+[JsonSerializable(typeof(MoveExtractResult))]
 [JsonSerializable(typeof(ForwardersResult))]
 [JsonSerializable(typeof(ConsolidateResult))]
 [JsonSerializable(typeof(RedirectsResult))]
