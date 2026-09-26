@@ -392,16 +392,9 @@ public static class TestMovePlanner
             return new ReferenceNeed(reference, ReferenceOrigin.Project, null, null, project.Id);
         }
 
-        var segments = reference.Display?.Replace('\\', '/').Split('/') ?? [];
-        var resolved = context.Source.Resolved.Values.SelectMany(f => f.Packages).ToList();
-        for (var i = 0; i + 1 < segments.Length; i++)
+        if (name is not null && PackageIndex.For(context.Root, context.Source).Find(name) is { } package)
         {
-            var package = resolved.FirstOrDefault(p => string.Equals(p.Id, segments[i], StringComparison.OrdinalIgnoreCase)
-                && string.Equals(p.Version, segments[i + 1], StringComparison.OrdinalIgnoreCase));
-            if (package is not null)
-            {
-                return new ReferenceNeed(reference, ReferenceOrigin.Package, package.Id, package.Version, null);
-            }
+            return new ReferenceNeed(reference, ReferenceOrigin.Package, package.Id, package.Version, null);
         }
 
         return new ReferenceNeed(reference, ReferenceOrigin.Framework, null, null, null);
