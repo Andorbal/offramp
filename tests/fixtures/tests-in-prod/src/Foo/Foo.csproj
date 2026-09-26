@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Tests live next to the code they test; the project ships them too. -->
+    <PackageReference Include="xunit" Version="2.9.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Web" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- A test file shared with other projects, outside this project's folder. -->
+    <Compile Include="..\Common\SharedTests.cs" Link="SharedTests.cs" />
+  </ItemGroup>
+</Project>

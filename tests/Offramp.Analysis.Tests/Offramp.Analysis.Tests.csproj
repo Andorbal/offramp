@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Offramp.Analysis.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Offramp.Analysis\Offramp.Analysis.csproj" />
+    <ProjectReference Include="..\Offramp.Fixtures\Offramp.Fixtures.csproj" />
+  </ItemGroup>
+</Project>

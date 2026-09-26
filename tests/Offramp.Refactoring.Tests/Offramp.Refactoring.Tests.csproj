@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Offramp.Refactoring.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Offramp.Refactoring\Offramp.Refactoring.csproj" />
+    <ProjectReference Include="..\Offramp.Fixtures\Offramp.Fixtures.csproj" />
+  </ItemGroup>
+</Project>

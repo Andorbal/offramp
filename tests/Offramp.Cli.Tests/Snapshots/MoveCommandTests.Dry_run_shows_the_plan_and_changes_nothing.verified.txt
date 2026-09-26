@@ -1,0 +1,36 @@
+﻿Would move 2 files (1 test, 1 helper) from src/Foo/Foo.csproj to src/Foo.Tests/Foo.Tests.csproj.
+
+  File                                         To                                           Kind
+────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  src/Foo/Service/Tests/OrderServiceTests.cs   src/Foo.Tests/Service/OrderServiceTests.cs   test (certain)
+  src/Foo/TestData/Builders.cs                 src/Foo.Tests/TestData/Builders.cs           helper (high)
+
+Stays: src/Common/SharedTests.cs OFR2206
+Stays: src/Foo/Health/StartupChecks.cs OFR2201
+Stays: src/Foo/Web/Tests/UrlTests.cs OFR2103
+Review: src/Foo/Testing/FakeClock.cs (medium: used by nothing in the project or its consumers; name suggests test
+support (FakeClock); in a Testing folder; --include-helpers medium moves it)
+
+--- a/src/Foo/Foo.csproj
++++ b/src/Foo/Foo.csproj
+@@ -14,4 +14,7 @@
+     <!-- A test file shared with other projects, outside this project's folder. -->
+     <Compile Include="..\Common\SharedTests.cs" Link="SharedTests.cs" />
+   </ItemGroup>
++  <ItemGroup>
++    <InternalsVisibleTo Include="Foo.Tests" />
++  </ItemGroup>
+ </Project>
+rename from src/Foo/Service/Tests/OrderServiceTests.cs
+rename to src/Foo.Tests/Service/OrderServiceTests.cs
+rename from src/Foo/TestData/Builders.cs
+rename to src/Foo.Tests/TestData/Builders.cs
+
+Dry run. Apply with offramp move tests --project src/Foo/Foo.csproj --apply
+
+! OFR2103 src/Foo/Web/Tests/UrlTests.cs Does not compile in src/Foo.Tests/Foo.Tests.csproj.
+! OFR2201 src/Foo/Health/StartupChecks.cs A test that src/Foo/Service/Startup.cs uses; it stays.
+! OFR2206 src/Common/SharedTests.cs Linked from outside src/Foo/Foo.csproj's folder; it stays.
+· OFR0016 No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.
+
+3 warning(s), 1 info

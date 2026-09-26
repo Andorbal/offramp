@@ -25,6 +25,7 @@
     <PackageVersion Include="NuGet.Versioning" Version="7.9.0" />
     <PackageVersion Include="NuGet.ProjectModel" Version="7.9.0" />
     <PackageVersion Include="MSBuild.StructuredLogger" Version="2.3.246" />
+    <PackageVersion Include="Microsoft.Build" Version="17.11.48" />
     <PackageVersion Include="Basic.CompilerLog.Util" Version="0.9.63" />
     <!--
       Roslyn is pinned above Basic.CompilerLog's floor (4.8): older compilers report

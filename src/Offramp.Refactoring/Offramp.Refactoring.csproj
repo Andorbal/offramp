@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Commands that write to the user's repository: change sets (renames, project
+    file edits, new files) with a dry-run diff, a journal, and rollback; project
+    file editing with Microsoft.Build's construction model (no evaluation); and
+    the movers built on them.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <RootNamespace>Offramp.Refactoring</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Offramp.Core\Offramp.Core.csproj" />
+    <ProjectReference Include="..\Offramp.Workspace\Offramp.Workspace.csproj" />
+    <ProjectReference Include="..\Offramp.Analysis\Offramp.Analysis.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Construction API only (ProjectRootElement); nothing is evaluated, so no MSBuildLocator. -->
+    <PackageReference Include="Microsoft.Build" />
+    <PackageReference Include="Microsoft.VisualStudio.SolutionPersistence" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\rules\test-projects.yml" LogicalName="Offramp.Refactoring.Rules.test-projects.yml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Offramp.Refactoring.Tests" />
+  </ItemGroup>
+</Project>
