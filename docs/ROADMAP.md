@@ -159,7 +159,7 @@ Acceptance: inventory snapshot for `mvc5`; scaffold builds and proxies (YARP
 config test); modernize proves identical compile sets via binlog comparison;
 config convert round-trips `appSettings` and a custom section.
 
-## M13 — Agents ☐
+## M13 — Agents ◐
 
 - `mcp serve`; `Offramp.Llm` adapters; `--llm` gates at the permitted sites;
   architecture test for the layering rule.
