@@ -84,7 +84,7 @@ jobs:
           VSTEST_CONNECTION_TIMEOUT: "300"
         run: >-
           dotnet test --no-build -c Release
-          --filter "Category!=Corpus&Category!=Slow"
+          --filter "Category!=Corpus&Category!=Slow&Category!=Docker"
           --logger "trx;LogFileName=test-results.trx"
           --collect:"XPlat Code Coverage"
           --blame-hang-timeout 15m
@@ -96,6 +96,34 @@ jobs:
         with:
           name: test-results-${{ matrix.os }}
           path: "**/TestResults/**"
+
+  # Roadmap M10 acceptance: the Linux image `service --dockerfile --health` generates
+  # builds and answers on /health. Needs a Linux Docker engine, which the ubuntu runner has.
+  container:
+    name: Container (service image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build tests/Offramp.Cli.Tests -c Release
+
+      - name: Build the service image and call its health endpoint
+        env:
+          OFFRAMP_DOCKER_TESTS: "1"
+        run: >-
+          dotnet test tests/Offramp.Cli.Tests --no-build -c Release
+          --filter "Category=Docker"
+          --logger "console;verbosity=normal"
+          --blame-hang-timeout 20m
+          --blame-hang-dump-type none
 
   pack:
     name: Pack (smoke)
