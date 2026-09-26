@@ -14,8 +14,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Roadmap M1 acceptance: the model built from logs of dual-target captured on
+  # Windows must equal the native one on every OS. This job captures the logs;
+  # build-test compares (ScanFixtureTests.Logs_captured_on_windows_produce_the_native_model).
+  windows-capture:
+    name: Windows capture (dual-target)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Scan dual-target on Windows
+        shell: bash
+        run: |
+          capture="$RUNNER_TEMP/dual-target"
+          cp -r tests/fixtures/dual-target "$capture"
+          dotnet build src/Offramp.Cli -c Release -f net10.0 -nologo
+          cd "$capture"
+          git init -q
+          dotnet "$GITHUB_WORKSPACE/src/Offramp.Cli/bin/Release/net10.0/offramp.dll" scan --json > "$RUNNER_TEMP/scan.json"
+          cat "$RUNNER_TEMP/scan.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-capture
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/dual-target/.offramp/msbuild.binlog
+            ${{ runner.temp }}/dual-target/.offramp/build.complog
+            ${{ runner.temp }}/dual-target/.offramp/workspace.json
+
   build-test:
     name: ${{ matrix.os }}
+    needs: windows-capture
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -36,7 +70,14 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c Release
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-capture
+          path: artifacts/windows-capture
+
       - name: Test
+        env:
+          OFFRAMP_WINDOWS_CAPTURE: ${{ github.workspace }}/artifacts/windows-capture
         run: >-
           dotnet test --no-build -c Release
           --filter "Category!=Corpus&Category!=Slow"
