@@ -185,6 +185,10 @@ public static class ScanRunner
             "build", RepoPaths.ToAbsolute(request.RepositoryRoot, solution),
             "-bl:" + binlog, "-c", request.Config.Verify.Configuration,
             "-nologo", "-v:minimal", "-clp:NoSummary", "-nodeReuse:false",
+
+            // An incremental build skips the compiler for up-to-date projects, and the model
+            // needs every project's compiler call.
+            "--no-incremental",
         };
         foreach (var (name, value) in request.Config.Verify.Properties)
         {

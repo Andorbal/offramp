@@ -9,8 +9,9 @@ One of:
 
 1. **A solution** (`--solution`, or auto-detected when the repo has one). `scan`
    runs `dotnet build <sln> -bl:.offramp/msbuild.binlog -c <verify.configuration>
-   -p:<verify.properties>` (restore included), ingests the binlog, and converts
-   it to `.offramp/build.complog`. `--no-build` reuses the previous scan's binlog.
+   -p:<verify.properties> --no-incremental` (restore included), ingests the binlog,
+   and converts it to `.offramp/build.complog`. The build is never incremental: an
+   up-to-date project would skip the compiler and have no compiler call to record. `--no-build` reuses the previous scan's binlog.
 2. **`--binlog PATH`**: an existing MSBuild binary log, typically captured on a
    Windows agent with `dotnet build -bl` or `msbuild /bl`. A log from another
    checkout or machine is not converted to a compiler log here (its conversion

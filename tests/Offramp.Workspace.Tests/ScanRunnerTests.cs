@@ -88,6 +88,7 @@ public sealed class ScanRunnerTests : IDisposable
         var build = Assert.Single(runner.Calls);
         Assert.Equal(TimeSpan.FromSeconds(1800), build.Timeout);
         Assert.Contains("-nodeReuse:false", build.Arguments);
+        Assert.Contains("--no-incremental", build.Arguments);
     }
 
     [Fact]
