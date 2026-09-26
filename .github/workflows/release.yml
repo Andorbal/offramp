@@ -141,7 +141,7 @@ jobs:
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          # Set for a user-assigned managed identity; an app registration needs no subscription.
+          # Unset unless the identity has an Azure role (docs/RELEASING.md).
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           allow-no-subscriptions: true
 
