@@ -179,6 +179,14 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4021](#ofr4021) | error | seams | generated project directory exists |
 | [OFR4022](#ofr4022) | info | seams | host falls back to net48 |
 | [OFR4023](#ofr4023) | error | seams | remote interface not found |
+| [OFR4101](#ofr4101) | warning | service | pause, continue, or custom commands differ |
+| [OFR4102](#ofr4102) | warning | service | code left in compatibility region |
+| [OFR4103](#ofr4103) | info | service | multiple services in one executable |
+| [OFR4104](#ofr4104) | warning | service | service depends on other Windows services |
+| [OFR4105](#ofr4105) | warning | service | session change or power events |
+| [OFR4106](#ofr4106) | warning | service | generated worker does not compile |
+| [OFR4107](#ofr4107) | error | service | no service found |
+| [OFR4108](#ofr4108) | error | service | worker directory exists |
 | [OFR5001](#ofr5001) | error | verify | verification failed |
 | [OFR5002](#ofr5002) | error | verify | verification timed out |
 | [OFR5010](#ofr5010) | warning | verify | new error code relative to baseline |
@@ -1553,6 +1561,78 @@ The implementation and the files it uses did not compile for net10.0-windows wit
 - **Typical cause:** A type from another project, several classes implementing the interface, a typo.
 - **Fix:** Pass --project, and --implementation when more than one class implements the interface.
 
+### OFR4101
+
+**pause, continue, or custom commands differ** · warning · service
+
+The service handles pause, continue, or custom commands; the generic host has none of them, so the worker keeps them as methods the application can call and nothing calls them by default.
+
+- **Typical cause:** Services that pause work while an operator investigates, or accept custom commands from `sc control`.
+- **Fix:** Decide whether the behavior is still needed; call the worker's Pause and Continue from an endpoint or configuration if it is.
+
+### OFR4102
+
+**code left in compatibility region** · warning · service
+
+The worker keeps service code that uses ServiceBase members the host does not have (RequestAdditionalTime, ExitCode, Stop, the EventLog object, a Topshelf host control) inside `#if OFFRAMP_SERVICEBASE`, which is never defined; the code does not run until someone ports it.
+
+- **Typical cause:** Shutdown timing requests, exit codes, self-stopping services, event log sources.
+- **Fix:** Port each region: HostOptions.ShutdownTimeout for more stop time, IHostApplicationLifetime.StopApplication to stop, Environment.ExitCode for exit codes.
+
+### OFR4103
+
+**multiple services in one executable** · info · service
+
+The executable runs several services; the worker project hosts one worker per service in one process, which registers as one Windows service or one container.
+
+- **Typical cause:** `ServiceBase.Run(new ServiceBase[] { ... })` with more than one service.
+- **Fix:** Keep them together, or split the worker project if they must start, stop, or scale independently.
+
+### OFR4104
+
+**service depends on other Windows services** · warning · service
+
+The installer or Topshelf configuration makes the service depend on other Windows services; a container or systemd unit has no such dependency, so the worker must wait for or reach the dependency itself.
+
+- **Typical cause:** Dependencies on the event log, SQL Server, MSMQ, or a vendor service.
+- **Fix:** Replace the dependency with readiness checks or retries; the install script keeps it for the Windows host.
+
+### OFR4105
+
+**session change or power events** · warning · service
+
+The service reacts to logon sessions or power events, which the generic host does not deliver; the handler is kept in an excluded region.
+
+- **Typical cause:** Services that act on user logon, lock, or system suspend.
+- **Fix:** Keep this part as a Windows service (the Windows host), or drop the behavior for containers.
+
+### OFR4106
+
+**generated worker does not compile** · warning · service
+
+The worker project (the generated code and the linked files it uses) was compiled in memory for the target and has errors; it is still written, with the errors to fix.
+
+- **Typical cause:** Linked code that uses .NET Framework-only APIs, the ServiceProcess types in kept code, or project types from other projects.
+- **Fix:** Fix the listed errors in the worker, or port the linked code first (`audit api` lists what is missing).
+
+### OFR4107
+
+**no service found** · error · service
+
+`service --project` names a project with no ServiceBase subclass and no Topshelf HostFactory configuration.
+
+- **Typical cause:** A library, a console application, or a service hosted by another framework.
+- **Fix:** Pass the project that contains the service's entry point.
+
+### OFR4108
+
+**worker directory exists** · error · service
+
+`service` writes a new project only: its output directory already exists and is not empty, so nothing was generated.
+
+- **Typical cause:** Running `service` twice, or an --out that points at an existing project.
+- **Fix:** Pass another --out, or delete the earlier output.
+
 ### OFR5001
 
 **verification failed** · error · verify
@@ -1607,7 +1687,6 @@ use these numbers; each moves to the table above in the pull request that first 
 |---|---|---|
 | OFR2010 | error | move crosses a solution slice boundary |
 | OFR4030 | error | gRPC unavailable for net48 host |
-| OFR4101–4105 | varies | service conversion notes |
 | OFR4201–4202 | varies | web scaffold notes |
 | OFR4301–4303 | varies | csproj modernize notes |
 | OFR4401–4404 | varies | config convert notes |
