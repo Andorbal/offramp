@@ -82,6 +82,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `move plan` maps a source project's files to its compiled trees by path lookup instead of a
   scan per file, which matters for projects with thousands of files.
 
+### Fixed
+- The release workflow runs the tests as CI does: a 300-second test host connection timeout, a
+  hang guard, and Docker tests left to CI's container job. The first `v0.15.0` run failed on
+  Windows because a test host missed the default 90 seconds, so nothing was published.
+
 ## [0.14.0] - 2026-09-26
 
 ### Added

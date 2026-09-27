@@ -23,7 +23,16 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet build -c Release
-      - run: dotnet test --no-build -c Release --filter "Category!=Corpus&Category!=Slow"
+      # The same test run as ci.yml's build-test job (the container job there covers Docker).
+      - name: Test
+        env:
+          # Seconds the test host waits for the data collector (default 90; slow Windows runners miss it).
+          VSTEST_CONNECTION_TIMEOUT: "300"
+        run: >-
+          dotnet test --no-build -c Release
+          --filter "Category!=Corpus&Category!=Slow&Category!=Docker"
+          --blame-hang-timeout 15m
+          --blame-hang-dump-type none
 
   publish:
     name: Pack, publish to NuGet, create GitHub Release
