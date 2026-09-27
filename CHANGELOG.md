@@ -83,9 +83,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   scan per file, which matters for projects with thousands of files.
 
 ### Fixed
-- The release workflow runs the tests as CI does: a 300-second test host connection timeout, a
-  hang guard, and Docker tests left to CI's container job. The first `v0.15.0` run failed on
-  Windows because a test host missed the default 90 seconds, so nothing was published.
+- The release workflow's tests no longer fail on Windows without a failing test. They use CI's
+  300-second test host connection timeout and hang guard, leave Docker tests to CI's container
+  job, and on Windows run one test assembly at a time, because a test process started while
+  others ran could miss xunit's fixed 60-second limit. The first two `v0.15.0` runs failed this
+  way, before anything was published.
 
 ## [0.14.0] - 2026-09-26
 

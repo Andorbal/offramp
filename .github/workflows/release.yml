@@ -23,7 +23,10 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet build -c Release
-      # The same test run as ci.yml's build-test job (the container job there covers Docker).
+      # The same test run as ci.yml's build-test job (the container job there covers Docker), except
+      # that Windows runs one test assembly at a time (-m:1): xunit gives a test process a fixed 60
+      # seconds to start, which a 4-core Windows runner busy with other assemblies' fixture builds
+      # can miss. CI keeps running them in parallel; a release should not need a second try.
       - name: Test
         env:
           # Seconds the test host waits for the data collector (default 90; slow Windows runners miss it).
@@ -33,6 +36,7 @@ jobs:
           --filter "Category!=Corpus&Category!=Slow&Category!=Docker"
           --blame-hang-timeout 15m
           --blame-hang-dump-type none
+          ${{ matrix.os == 'windows-latest' && '-m:1' || '' }}
 
   publish:
     name: Pack, publish to NuGet, create GitHub Release
