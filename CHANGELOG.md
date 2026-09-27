@@ -71,6 +71,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   ADR 0028.
 
 ### Changed
+- Releases push to nuget.org with trusted publishing: `NuGet/login` exchanges GitHub's OIDC
+  token for an API key that lasts an hour, so the `NUGET_API_KEY` secret is no longer used. The
+  `nuget` environment needs the variable `NUGET_USER` and nuget.org a trusted publishing policy
+  (`docs/RELEASING.md`).
 - Moving a file git does not track (for example one created after the last commit) is a plain
   move instead of a failed `git mv`; its bytes still do not change.
 - `move plan` maps a source project's files to its compiled trees by path lookup instead of a

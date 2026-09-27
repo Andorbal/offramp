@@ -26,7 +26,7 @@ MinVer; the extension takes the tag's `X.Y.Z` when it is packaged.
    git push origin vX.Y.Z
    ```
 5. `release.yml` runs: builds, tests on all three OSes, packs, pushes to
-   nuget.org with the `NUGET_API_KEY` secret, and creates a GitHub Release
+   nuget.org with trusted publishing (below), and creates a GitHub Release
    whose notes are the matching CHANGELOG section (extracted by
    `eng/changelog-section.sh`), with the `.nupkg` files and the VS Code
    extension's `.vsix` attached. For a stable tag, the `publish-vscode` job
@@ -39,16 +39,42 @@ MinVer; the extension takes the tag's `X.Y.Z` when it is packaged.
 
 ## Secrets and permissions
 
-- `NUGET_API_KEY`: scoped to push `offramp` and `Offramp.*` packages. Rotate
-  yearly.
-- `NUGET_API_KEY` belongs to the `nuget` environment the publish job runs in
-  (or to the repository).
+- No NuGet or Marketplace secret: both sign in with GitHub's OIDC token
+  (below). The `nuget` environment holds the variable `NUGET_USER`, the
+  `vscode-marketplace` environment `AZURE_CLIENT_ID` and `AZURE_TENANT_ID`.
 - `OVSX_PAT` (optional): an Open VSX access token for the `AndrewBenz`
   namespace (create the namespace once with `npx ovsx create-namespace
   AndrewBenz`), in the `vscode-marketplace` environment or the repository.
-- The release workflow needs `contents: write` to create the release, and the
-  `publish-vscode` job `id-token: write` to sign in to Microsoft Entra ID; both
-  are granted in the workflow file, nothing else.
+- The `publish` job needs `contents: write` to create the release and
+  `id-token: write` to sign in to nuget.org, and the `publish-vscode` job
+  `id-token: write` to sign in to Microsoft Entra ID; all are granted in the
+  workflow file, nothing else.
+
+### nuget.org: trusted publishing, no key
+
+nuget.org discourages API keys for automated publishing. The `publish` job
+runs `NuGet/login`, which exchanges GitHub's OIDC token for an API key that
+lasts an hour and is pushed with right away. Guide:
+<https://learn.microsoft.com/nuget/nuget-org/trusted-publishing>. Once:
+
+1. **Add a policy**: nuget.org → your username → **Trusted Publishing** → add
+   a policy owned by the account that should own the packages: repository
+   owner `Andorbal`, repository `offramp`, workflow file `release.yml` (the
+   file name only), environment `nuget`. Its scopes must allow pushing new
+   packages as well as new versions: the first release creates `offramp` and
+   `Offramp.Analyzers`.
+2. **Tell GitHub**: create the environment `nuget` (Settings → Environments;
+   add required reviewers if releases should wait for a person; if you
+   restrict deployment branches and tags, allow `v*`) and add the variable
+   `NUGET_USER`: the owning account's nuget.org profile name, not its email
+   address.
+3. **Remove any `NUGET_API_KEY` secret** left from before, and delete the
+   key on nuget.org.
+
+A policy nuget.org shows as temporarily active becomes permanent with the
+first publish within seven days; after that it can be restarted from the
+same page.
+
 
 ### The Visual Studio Marketplace: Microsoft Entra ID, no token
 
