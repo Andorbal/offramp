@@ -11,6 +11,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Changed
+- `docs/ROADMAP.md` marks M0 through M15 released: they first shipped in v0.15.0.
+- CI skips its build, test, container, VS Code extension, and pack jobs for a change that only
+  adds or edits documentation: top-level Markdown files and `docs/`, except
+  `docs/diagnostics.md` and `docs/spec/03-configuration.md`, which tests read. Deleting or
+  renaming a file, or any other path, runs everything. `eng/ci-changes.sh` decides; the
+  changelog check still runs.
+
 ## [0.15.0] - 2026-09-27
 
 ### Added

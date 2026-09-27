@@ -14,11 +14,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Whether this change needs building. One that only adds or edits documentation (top-level
+  # Markdown and docs/, except the docs files tests read) skips every job that builds, tests, or
+  # packs: windows-capture, container, and vscode-extension check this, and build-test and pack
+  # are skipped with the jobs they need. eng/ci-changes.sh has the rule; skipped jobs pass.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.changes.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether this change needs building
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            # The checked-out merge commit's first parent is the base the PR was merged onto.
+            pull_request) base="HEAD^1" ;;
+            push) base="$BEFORE" ;;
+            # workflow_dispatch: build everything.
+            *) base="" ;;
+          esac
+          eng/ci-changes.sh "$base" HEAD >> "$GITHUB_OUTPUT"
+
   # Roadmap M1 acceptance: the model built from logs of dual-target captured on
   # Windows must equal the native one on every OS. This job captures the logs;
   # build-test compares (ScanFixtureTests.Logs_captured_on_windows_produce_the_native_model).
   windows-capture:
     name: Windows capture (dual-target)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -101,6 +132,8 @@ jobs:
   # builds and answers on /health. Needs a Linux Docker engine, which the ubuntu runner has.
   container:
     name: Container (service image)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -129,6 +162,8 @@ jobs:
   # against a scanned fixture (diagnostic, lenses, quick fix), and it packages (docs/spec/commands/ide.md).
   vscode-extension:
     name: VS Code extension
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
