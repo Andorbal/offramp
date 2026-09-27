@@ -11,6 +11,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `docs/reviews/2026-09-27-migration-gaps.md`: a review of what a real migration still needs from
+  the tool as of v0.15.0, ordered by payoff, with proposals for each gap.
+
 ### Changed
 - `docs/ROADMAP.md` marks M0 through M15 released: they first shipped in v0.15.0.
 - CI skips its build, test, container, VS Code extension, and pack jobs for a change that only
