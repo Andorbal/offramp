@@ -11,6 +11,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-27
+
 ### Added
 - Editor integration (`docs/spec/commands/ide.md`, ADR 0029), for developers who are not on the
   migration: new code in .NET Framework-only projects stays migration-friendly.
@@ -606,18 +608,19 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `Directory.Build.props` no longer produces a separate symbols package: PDBs
   are embedded, so `dotnet pack` failed with NU5017 when asked for a `.snupkg`.
 
-[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.14.0...HEAD
-[0.14.0]: https://github.com/Andorbal/offramp/compare/v0.13.0...v0.14.0
-[0.13.0]: https://github.com/Andorbal/offramp/compare/v0.12.0...v0.13.0
-[0.12.0]: https://github.com/Andorbal/offramp/compare/v0.11.0...v0.12.0
-[0.11.0]: https://github.com/Andorbal/offramp/compare/v0.10.0...v0.11.0
-[0.10.0]: https://github.com/Andorbal/offramp/compare/v0.9.0...v0.10.0
-[0.9.0]: https://github.com/Andorbal/offramp/compare/v0.8.0...v0.9.0
-[0.8.0]: https://github.com/Andorbal/offramp/compare/v0.7.0...v0.8.0
-[0.7.0]: https://github.com/Andorbal/offramp/compare/v0.6.0...v0.7.0
-[0.6.0]: https://github.com/Andorbal/offramp/compare/v0.5.0...v0.6.0
-[0.5.0]: https://github.com/Andorbal/offramp/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/Andorbal/offramp/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/Andorbal/offramp/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/Andorbal/offramp/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/Andorbal/offramp/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/Andorbal/offramp/compare/68f5511b14b047def139a5de50f8f0dd7919174e...v0.15.0
+[0.14.0]: https://github.com/Andorbal/offramp/compare/6f08ae0eb5cfccb69f7610cde61f4bf09943d081...68f5511b14b047def139a5de50f8f0dd7919174e
+[0.13.0]: https://github.com/Andorbal/offramp/compare/35ac927acc082f7b1015acb6e90271765a6fff8f...6f08ae0eb5cfccb69f7610cde61f4bf09943d081
+[0.12.0]: https://github.com/Andorbal/offramp/compare/071a64810b05bf0f372ed9320d3b5554639e4408...35ac927acc082f7b1015acb6e90271765a6fff8f
+[0.11.0]: https://github.com/Andorbal/offramp/compare/f19c1688a9a4ed5f1f351507d159d746a7108066...071a64810b05bf0f372ed9320d3b5554639e4408
+[0.10.0]: https://github.com/Andorbal/offramp/compare/fedc3afc4065315d1cf499797f82e4e6884f89b9...f19c1688a9a4ed5f1f351507d159d746a7108066
+[0.9.0]: https://github.com/Andorbal/offramp/compare/a1b8af48de84a374951ff1cdddb2db8fd0b5b3f1...fedc3afc4065315d1cf499797f82e4e6884f89b9
+[0.8.0]: https://github.com/Andorbal/offramp/compare/6572c58908fcc30611854cbc6e5c56c439461b5f...a1b8af48de84a374951ff1cdddb2db8fd0b5b3f1
+[0.7.0]: https://github.com/Andorbal/offramp/compare/c24e44b749d7b397cb90e7b7d16d8b5ff69bf68d...6572c58908fcc30611854cbc6e5c56c439461b5f
+[0.6.0]: https://github.com/Andorbal/offramp/compare/dd6b0c5815f28f23e3c959d31af9b7961b88a224...c24e44b749d7b397cb90e7b7d16d8b5ff69bf68d
+[0.5.0]: https://github.com/Andorbal/offramp/compare/73cfe40c7e5b4e24c8e2443e21fa1bb5a53adb8e...dd6b0c5815f28f23e3c959d31af9b7961b88a224
+[0.4.0]: https://github.com/Andorbal/offramp/compare/9d178f5cfb5dac323b7314e08f575ff0a065579a...73cfe40c7e5b4e24c8e2443e21fa1bb5a53adb8e
+[0.3.0]: https://github.com/Andorbal/offramp/compare/40bf799790fd4b3b0d21e65f2400cde4c7b401f7...9d178f5cfb5dac323b7314e08f575ff0a065579a
+[0.2.0]: https://github.com/Andorbal/offramp/compare/d6e341009a47e438ba4997a4356372f63cbe649f...40bf799790fd4b3b0d21e65f2400cde4c7b401f7
+[0.1.0]: https://github.com/Andorbal/offramp/tree/d6e341009a47e438ba4997a4356372f63cbe649f
