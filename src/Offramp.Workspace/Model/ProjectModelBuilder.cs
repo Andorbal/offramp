@@ -20,6 +20,9 @@ public sealed record ProjectBuildContext
         new Dictionary<(string, string), IReadOnlyList<string>>();
 
     public required PathGlobs Excluded { get; init; }
+
+    /// <summary>Errors the log records, with capture paths; a project's evaluation errors name some Windows-only steps.</summary>
+    public IReadOnlyList<BuildError> Errors { get; init; } = [];
 }
 
 /// <summary>Turns one project's evaluations into a <see cref="ProjectInfo"/> (docs/spec/02-workspace-model.md).</summary>
@@ -105,7 +108,7 @@ public static class ProjectModelBuilder
             IsTestProject = facts.IsTestProject,
             Properties = Properties(all, context),
             DefineConstants = DefineConstants(projectId, inner, context),
-            WindowsOnlyBuildSteps = [.. WindowsOnlyBuildSteps.Detect(projectFile, evaluations).Select(s => s.Id)],
+            WindowsOnlyBuildSteps = [.. WindowsOnlyBuildSteps.Detect(projectFile, evaluations, context.Errors.Where(e => string.Equals(e.ProjectFile, projectFile, StringComparison.OrdinalIgnoreCase))).Select(s => s.Id)],
             PackagesConfig = File.Exists(Path.Combine(localDirectory, "packages.config")),
             Compile = compile,
             CompileExplicit = !first.IsTrue("UsingMicrosoftNETSdk")

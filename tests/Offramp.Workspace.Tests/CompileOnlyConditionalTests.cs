@@ -19,7 +19,24 @@ public sealed class CompileOnlyConditionalTests : IDisposable
         var updated = CompileOnlyConditional.Apply(current)!;
 
         Assert.StartsWith("<Project>\n  <!-- keep me -->\n  <PropertyGroup>\n    <LangVersion>latest</LangVersion>\n  </PropertyGroup>\n", updated, StringComparison.Ordinal);
-        Assert.EndsWith("    <OfframpCompileOnly>true</OfframpCompileOnly>\n  </PropertyGroup>\n</Project>\n", updated, StringComparison.Ordinal);
+        Assert.Contains("    <OfframpCompileOnly>true</OfframpCompileOnly>\n  </PropertyGroup>\n", updated, StringComparison.Ordinal);
+        Assert.EndsWith("IsImplicitlyDefined=\"true\" PrivateAssets=\"all\" />\n  </ItemGroup>\n</Project>\n", updated, StringComparison.Ordinal);
+        AssertValidProject(updated);
+    }
+
+    [Fact]
+    public void A_file_with_the_first_section_gains_only_the_web_targets_section()
+    {
+        var earlier = "<Project>\n" + string.Concat(CompileOnlyConditional.CompileOnlyLines.Select(l => "  " + l + "\n")) + "</Project>\n";
+
+        var updated = CompileOnlyConditional.Apply(earlier)!;
+
+        Assert.StartsWith(earlier[..^"</Project>\n".Length], updated, StringComparison.Ordinal);
+        Assert.Single(XDocument.Parse(updated).Descendants("OfframpCompileOnly"));
+        Assert.Single(XDocument.Parse(updated).Descendants("MvcBuildViews"));
+        Assert.False(CompileOnlyConditional.IsPresent(earlier));
+        Assert.True(CompileOnlyConditional.IsPresent(updated));
+        Assert.Null(CompileOnlyConditional.Apply(updated));
         AssertValidProject(updated);
     }
 
@@ -105,5 +122,8 @@ public sealed class CompileOnlyConditionalTests : IDisposable
         var document = XDocument.Parse(content);
         Assert.Equal("Project", document.Root!.Name.LocalName);
         Assert.Contains(document.Descendants(), e => e.Name.LocalName == "OfframpCompileOnly" && e.Value == "true");
+        Assert.Contains(document.Descendants(), e => e.Name.LocalName == "PackageReference"
+            && (string?)e.Attribute("Include") == "MSBuild.Microsoft.VisualStudio.Web.targets"
+            && (string?)e.Attribute("IsImplicitlyDefined") == "true");
     }
 }

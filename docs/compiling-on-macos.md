@@ -40,6 +40,8 @@ first (`offramp csproj modernize`) or use the compiler-log route below.
 | SSDT `.sqlproj` | Windows-only targets | `MSBuild.Sdk.SqlProj` is the cross-platform replacement |
 | Pre/post-build events calling Windows executables | obvious | guard them with a condition on `$(OS)` |
 | WPF / WinForms on modern targets | need Windows targeting packs | set `EnableWindowsTargeting=true`; they then build on macOS |
+| ASP.NET (System.Web) web application targets, including every `MSBuild.SDK.SystemWeb` project | `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets` ships with Visual Studio only; evaluation stops with MSB4019 | the compile-only block takes them from a package (below) |
+| Precompiled MVC views (`MvcBuildViews=true`, on by default in Release for `MSBuild.SDK.SystemWeb`) | `AspNetCompiler` exists only in .NET Framework's MSBuild (MSB4803) | the compile-only block turns it off |
 
 ## The compile-only conditional
 
@@ -53,12 +55,56 @@ Put this in the repository's root `Directory.Build.props` (`offramp doctor
   <EnableWindowsTargeting>true</EnableWindowsTargeting>
   <OfframpCompileOnly>true</OfframpCompileOnly>
 </PropertyGroup>
+<!-- ASP.NET (System.Web) projects on macOS/Linux: the Visual Studio web targets come from a package; views are not precompiled and Web Deploy publishing is left out (added by offramp doctor). -->
+<PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+  <MvcBuildViews>false</MvcBuildViews>
+  <AspNetTargetsPath>$(MSBuildThisFileDirectory)</AspNetTargetsPath>
+</PropertyGroup>
+<ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' == 'true' And '$(VSToolsPath)' != ''">
+  <PackageReference Include="MSBuild.Microsoft.VisualStudio.Web.targets" Version="14.0.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
+</ItemGroup>
 ```
 
 Then guard anything else that needs Windows with
 `Condition="'$(OfframpCompileOnly)' != 'true'"`. Offramp's own verification
-builds pass the same properties from `offramp.yml` (`verify.properties`), so
-verification works even before you edit any props file.
+builds pass the properties from `offramp.yml` (`verify.properties`), so
+verification of the first section works even before you edit any props file;
+the ASP.NET section needs the file, because it adds a package.
+
+If your `Directory.Build.props` has the first section from an earlier Offramp,
+`offramp doctor --fix` adds only the ASP.NET section.
+
+### ASP.NET (System.Web) projects
+
+`MSBuild.SDK.SystemWeb` ends its `Sdk.targets` with an unconditional
+`<Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" />`,
+and legacy web application projects import the same file. Only Visual Studio
+installs it, so outside Windows the build stops before compiling anything:
+
+```text
+error MSB4019: The imported project ".../Microsoft/VisualStudio/v17.0/WebApplications/Microsoft.WebApplication.targets" was not found.
+```
+
+The block's ASP.NET section handles it, only outside Windows and only for
+SDK-style projects that define `VSToolsPath`:
+
+- The `MSBuild.Microsoft.VisualStudio.Web.targets` package carries copies of
+  those targets, and its props point `VSToolsPath` at them. The reference is
+  marked implicit, so it needs no `PackageVersion` under central package
+  management and Offramp leaves it out of package analysis.
+- `MvcBuildViews` is turned off: view precompilation runs `AspNetCompiler`,
+  which .NET's MSBuild does not have.
+- `AspNetTargetsPath` points at a folder without the Web Deploy targets, so
+  they are not imported. Publishing needs Windows anyway, and those targets add
+  a step to `Clean` (and so to rebuilds) that .NET's MSBuild cannot load.
+
+Build with the .NET SDK (`dotnet build`, or the .NET SDK's MSBuild in Rider's
+toolset settings). If the error names a path under
+`/Library/Frameworks/Mono.framework/`, Mono's MSBuild did the build; Mono is
+no longer maintained, and Offramp neither uses nor supports it.
+
+`offramp scan` reports these projects as `OFR0116`, and `offramp doctor` lists
+them under Windows-only build steps.
 
 ## The compiler-log fallback
 

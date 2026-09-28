@@ -21,14 +21,22 @@ public sealed record CompileOnlyFix
 /// <summary>
 /// The compile-only conditional of docs/compiling-on-macos.md, inserted into the
 /// repository's root Directory.Build.props as text, so every other byte of the
-/// file (formatting, comments, line endings) stays as it was.
+/// file (formatting, comments, line endings) stays as it was. It has two sections,
+/// each found by its own marker, so a file with the first section from an earlier
+/// Offramp gains only the section it lacks.
 /// </summary>
 public static class CompileOnlyConditional
 {
     public const string FileName = "Directory.Build.props";
     public const string Marker = "<OfframpCompileOnly>";
 
-    public static readonly string[] BlockLines =
+    /// <summary>Marks the ASP.NET web targets section.</summary>
+    public const string WebTargetsMarker = "\"" + Model.WindowsOnlyBuildSteps.WebTargetsPackage + "\"";
+
+    /// <summary>The package version the web targets section references; the last one published.</summary>
+    public const string WebTargetsVersion = "14.0.0.3";
+
+    public static readonly string[] CompileOnlyLines =
     [
         "<!-- Compile-only builds on macOS/Linux: skip steps that need Windows (added by offramp doctor). -->",
         "<PropertyGroup Condition=\"!$([MSBuild]::IsOSPlatform('Windows'))\">",
@@ -38,14 +46,36 @@ public static class CompileOnlyConditional
         "</PropertyGroup>",
     ];
 
+    /// <summary>
+    /// ASP.NET (System.Web) projects import <c>$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets</c>,
+    /// which only Visual Studio installs. Outside Windows the targets come from a package whose props set
+    /// <c>VSToolsPath</c>; the reference is implicit, so it stays out of package analysis and needs no
+    /// <c>PackageVersion</c> under central package management. <c>MvcBuildViews</c> would run <c>AspNetCompiler</c>,
+    /// and the Web Deploy targets (imported from <c>$(AspNetTargetsPath)</c> when they exist there) hook tasks built
+    /// for .NET Framework's MSBuild into <c>Clean</c>; neither runs on .NET's MSBuild. Only SDK-style projects with a
+    /// <c>VSToolsPath</c> get the package.
+    /// </summary>
+    public static readonly string[] WebTargetsLines =
+    [
+        "<!-- ASP.NET (System.Web) projects on macOS/Linux: the Visual Studio web targets come from a package; views are not precompiled and Web Deploy publishing is left out (added by offramp doctor). -->",
+        "<PropertyGroup Condition=\"!$([MSBuild]::IsOSPlatform('Windows'))\">",
+        "  <MvcBuildViews>false</MvcBuildViews>",
+        "  <AspNetTargetsPath>$(MSBuildThisFileDirectory)</AspNetTargetsPath>",
+        "</PropertyGroup>",
+        "<ItemGroup Condition=\"!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' == 'true' And '$(VSToolsPath)' != ''\">",
+        "  <PackageReference Include=" + WebTargetsMarker + " Version=\"" + WebTargetsVersion + "\" IsImplicitlyDefined=\"true\" PrivateAssets=\"all\" />",
+        "</ItemGroup>",
+    ];
+
+    /// <summary>Both sections, as a new file gets them.</summary>
+    public static IReadOnlyList<string> BlockLines => [.. CompileOnlyLines, .. WebTargetsLines];
+
+    /// <summary>True when both sections are in <paramref name="content"/>.</summary>
+    public static bool IsPresent(string? content) => content is not null && MissingLines(content).Count == 0;
+
     /// <summary>The new content for <paramref name="current"/> (null when the file does not exist), or null when already present.</summary>
     public static string? Apply(string? current)
     {
-        if (current is not null && current.Contains(Marker, StringComparison.Ordinal))
-        {
-            return null;
-        }
-
         if (current is null)
         {
             var created = new StringBuilder("<Project>\n");
@@ -55,6 +85,12 @@ public static class CompileOnlyConditional
             }
 
             return created.Append("</Project>\n").ToString();
+        }
+
+        var lines = MissingLines(current);
+        if (lines.Count == 0)
+        {
+            return null;
         }
 
         var newline = current.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
@@ -74,8 +110,7 @@ public static class CompileOnlyConditional
             insertion.Append(newline);
         }
 
-        insertion.Append(indent).Append(BlockLines[0]).Append(newline);
-        foreach (var line in BlockLines.Skip(1))
+        foreach (var line in lines)
         {
             insertion.Append(indent).Append(line).Append(newline);
         }
@@ -87,5 +122,21 @@ public static class CompileOnlyConditional
         }
 
         return current[..insertAt] + insertion + current[insertAt..];
+    }
+
+    private static List<string> MissingLines(string content)
+    {
+        var lines = new List<string>();
+        if (!content.Contains(Marker, StringComparison.Ordinal))
+        {
+            lines.AddRange(CompileOnlyLines);
+        }
+
+        if (!content.Contains(WebTargetsMarker, StringComparison.OrdinalIgnoreCase))
+        {
+            lines.AddRange(WebTargetsLines);
+        }
+
+        return lines;
     }
 }

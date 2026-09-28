@@ -6,6 +6,7 @@ using Offramp.Core.Output;
 using Offramp.Workspace;
 using Offramp.Workspace.Doctor;
 using Offramp.Workspace.Init;
+using Offramp.Workspace.Model;
 using Offramp.Workspace.Store;
 using Spectre.Console;
 
@@ -144,7 +145,7 @@ public sealed class InitCommand : ICommandHandler<InitOptions, InitResult>, INex
 
         try
         {
-            return WorkspaceStore.Read(workspacePath).Projects.Any(p => p.WindowsOnlyBuildSteps.Count > 0);
+            return WindowsOnlyBuildSteps.AnyIn(WorkspaceStore.Read(workspacePath));
         }
         catch (System.Text.Json.JsonException)
         {

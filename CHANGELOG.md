@@ -11,6 +11,22 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `OFR0116` (build step needs Windows: ASP.NET web application targets): a project that imports
+  `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets` from Visual Studio, such as
+  every `MSBuild.SDK.SystemWeb` project, or that sets `MvcBuildViews=true`. It is found from the
+  import, or from the MSB4019 error when evaluation stopped at that import, so `scan` and `doctor`
+  now name the cause instead of reporting a partial `library` and "No project needs Windows".
+- The compile-only block (`doctor --fix`, offered by `init`) has a second section for ASP.NET
+  (System.Web) projects, outside Windows only: the web targets come from the
+  `MSBuild.Microsoft.VisualStudio.Web.targets` package (an implicit reference, so it needs no
+  `PackageVersion` under central package management and stays out of package analysis),
+  `MvcBuildViews` is off, and the Web Deploy targets, which break `Clean` and rebuilds under
+  .NET's MSBuild, are not imported. A file with the first section from an earlier version gains
+  only the new one. ADR 0030; `docs/compiling-on-macos.md` explains it.
+- The `systemweb` fixture: an `MSBuild.SDK.SystemWeb` site, built by tests before and after the
+  block.
+
 ### Changed
 - `docs/ROADMAP.md` marks M0 through M15 released: they first shipped in v0.15.0.
 - CI skips its build, test, container, VS Code extension, and pack jobs for a change that only

@@ -125,6 +125,14 @@ public static partial class DiagnosticCatalog
         "Guard the event with `Condition=\"'$(OS)' == 'Windows_NT'\"` or `'$(OfframpCompileOnly)' != 'true'`, or replace it with MSBuild tasks.",
         LoadingArea);
 
+    public static readonly DiagnosticDescriptor OFR0116 = new(
+        "OFR0116", Severity.Warning,
+        "build step needs Windows: ASP.NET web application targets",
+        "An ASP.NET (System.Web) project imports `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets`, which only Visual Studio installs, so evaluation fails elsewhere (MSB4019); or `MvcBuildViews=true` precompiles views with `AspNetCompiler`, which .NET's MSBuild does not have (MSB4803).",
+        "A project on the `MSBuild.SDK.SystemWeb` SDK, which imports the web targets unconditionally, or a legacy web application project; a Release build of either, which turns `MvcBuildViews` on.",
+        "Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`). Outside Windows it takes the web targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package and turns `MvcBuildViews` off. Build with the .NET SDK (`dotnet build`), not Mono's `msbuild`.",
+        LoadingArea);
+
     public static readonly DiagnosticDescriptor OFR0120 = new(
         "OFR0120", Severity.Warning,
         "project reference cycle",
