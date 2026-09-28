@@ -73,6 +73,15 @@ Compiles fine, behaves differently. Pattern matchers over the semantic model
 | OFR3118 | `System.Web.Security.MachineKey`, Forms Auth cookies | Data Protection replaces MachineKey; cookie sharing needs adapters |
 | OFR3119 | `Timer` types (`System.Timers.Timer` in services), `ThreadPool.SetMinThreads` | usually fine; info for services heading to containers |
 | OFR3120 | `Environment.OSVersion`, `RuntimeInformation` checks assuming Windows | branch review |
+| OFR3121 | `Encoding.Default` | ANSI code page on .NET Framework, UTF-8 on modern .NET |
+| OFR3122 | `string.GetHashCode()` outside a `GetHashCode`/`Equals` member | randomized per process; stored or sent hash codes stop matching |
+| OFR3123 | a `ClientBase<T>` or `ChannelFactory<T>` created without a binding and address | the WCF client packages do not read `system.serviceModel`; throws at runtime |
+| OFR3124 | `TransactionScope`, `Transaction.Current` | distributed transactions are Windows-only (opt-in from .NET 7) |
+| OFR3125 | `StoreLocation.LocalMachine`, `CspParameters`, `CngKey`, `ProtectedData` | no machine store, key containers, or DPAPI on Linux |
+| OFR3126 | `Process.Start`/`ProcessStartInfo` naming a Windows program (`.exe`, `.bat`, `cmd`, `powershell`, a drive-letter path, ...) | the program is not there on Linux or macOS |
+| OFR3127 | `Environment.CurrentDirectory`, `Directory.GetCurrentDirectory`, `Assembly.Location`/`CodeBase` | services and containers start elsewhere; single-file publish has no assembly file |
+| OFR3128 | `AppDomain.SetupInformation`, `AppDomainSetup`, `AppendPrivatePath` and the other probing members | one AppDomain; probing is `AssemblyLoadContext`'s |
+| OFR3129 | a string literal naming a repository file with different casing | case-sensitive file systems |
 
 Output groups by rule with counts, then by project, with the first N
 locations per rule and `--all-locations` to expand.
@@ -98,6 +107,14 @@ locations per rule and `--all-locations` to expand.
 - `JavaScriptSerializer`, `DataContractJsonSerializer` (`OFR3210`, warning,
   System.Text.Json suggested), `XmlSerializer` with `sgen` (`OFR3211`, info:
   use `Microsoft.XmlSerializer.Generator` or drop).
+- The project's `.resx` files (every one under the project folder outside `bin/`,
+  `obj/`, and dot-directories), entry by entry: a BinaryFormatter or SoapFormatter
+  payload (`mimetype="application/x-microsoft.net.object.binary.base64"` or
+  `...soap.base64`) is `OFR3212` (error from target 9, warning below, like `OFR3201`);
+  any other non-string entry, a typed value, a byte array, or a file reference to
+  anything but text or bytes, is `OFR3213` (info: the .NET SDK's `GenerateResource`
+  needs `GenerateResourceUsePreserializedResources` and `System.Resources.Extensions`,
+  MSB3822/MSB3823). Findings are located in the `.resx` at the `<data>` element.
 - Recommendation block: for persisted data, the bridge is the
   `System.Runtime.Serialization.Formatters` compatibility package plus the
   `EnableUnsafeBinaryFormatterSerialization` switch while a dual-read
@@ -202,6 +219,26 @@ Decisions behind the four code audits (ADR 0021).
 - OFR3116: `<gcServer>`, `<gcConcurrent>`, `<GCCpuGroup>`, and the other GC and
   thread-pool elements under `<runtime>` in the project's `app.config` or
   `web.config`, located in that file.
+- OFR3122: `string.GetHashCode()` with no arguments, unless the enclosing member is named
+  `GetHashCode` or `Equals` (a comparer or an override feeds a hash table for the life of
+  the process, which is fine).
+- OFR3123: an object creation whose type derives from `ClientBase<TChannel>` or
+  `ChannelFactory<TChannel>`, through a parameterless constructor or one whose first
+  parameter is a string named `endpointConfigurationName` (or `endpointName`).
+- OFR3126: a constant first argument of `Process.Start` or a `ProcessStartInfo`
+  constructor, or a constant assigned to `ProcessStartInfo.FileName`, whose file name
+  ends in `.exe`, `.bat`, `.cmd`, `.ps1`, `.vbs`, `.msi`, or `.com`, starts with a drive
+  letter, or is one of `cmd`, `powershell`, `cscript`, `wscript`, `regsvr32`, `rundll32`,
+  `sc`, `net`, `netsh`, `xcopy`, `robocopy`, `taskkill`, `tasklist`, `iisreset`,
+  `msiexec`, `notepad`, `explorer`, `schtasks`, `reg`, `ipconfig`, `certutil`, `wmic`,
+  `icacls`, `attrib`, `mstsc`.
+- OFR3129: a string literal that looks like a relative path (no URL, wildcard, drive
+  letter, or leading slash; an extension on its last segment) is resolved against the
+  project folder, then the repository root, in an index of the repository's files
+  (outside `bin/`, `obj/`, `node_modules/`, `packages/`, and dot-directories). It is a
+  finding when a file exists under that path ignoring case but not with the literal's
+  case; a literal that names nothing is never one. The index, not the file system,
+  decides, so the result is the same on every operating system.
 - The other behavior rules match by symbol.
 
 **`audit serialization`.**

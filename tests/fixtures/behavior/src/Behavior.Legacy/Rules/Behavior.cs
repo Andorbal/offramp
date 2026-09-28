@@ -276,4 +276,200 @@ namespace Behavior.Rules
             return Environment.ProcessorCount;
         }
     }
+
+    internal static class OFR3121
+    {
+        public static string Positive(string path)
+        {
+            return File.ReadAllText(path, Encoding.Default);
+        }
+
+        public static string Negative(string path)
+        {
+            return File.ReadAllText(path, Encoding.UTF8);
+        }
+    }
+
+    internal static class OFR3122
+    {
+        public static int Positive(string customer, int shards)
+        {
+            return Math.Abs(customer.GetHashCode()) % shards;
+        }
+
+        public sealed class Negative : IEqualityComparer<string>
+        {
+            public bool Equals(string x, string y)
+            {
+                return string.Equals(x, y, StringComparison.Ordinal);
+            }
+
+            public int GetHashCode(string value)
+            {
+                return value.GetHashCode();
+            }
+        }
+    }
+
+    /// <summary>A generated-style WCF service reference and the two ways of creating it.</summary>
+    internal static class OFR3123
+    {
+        [System.ServiceModel.ServiceContract]
+        public interface IPing
+        {
+            [System.ServiceModel.OperationContract]
+            string Echo(string text);
+        }
+
+        public sealed class PingClient : System.ServiceModel.ClientBase<IPing>, IPing
+        {
+            public PingClient()
+            {
+            }
+
+            public PingClient(string endpointConfigurationName)
+                : base(endpointConfigurationName)
+            {
+            }
+
+            public PingClient(System.ServiceModel.Channels.Binding binding, System.ServiceModel.EndpointAddress address)
+                : base(binding, address)
+            {
+            }
+
+            public string Echo(string text)
+            {
+                return Channel.Echo(text);
+            }
+        }
+
+        public static IPing Positive()
+        {
+            return new PingClient();
+        }
+
+        public static IPing PositiveNamed()
+        {
+            return new PingClient("BasicHttpBinding_IPing");
+        }
+
+        public static IPing PositiveFactory()
+        {
+            return new System.ServiceModel.ChannelFactory<IPing>("BasicHttpBinding_IPing").CreateChannel();
+        }
+
+        public static IPing Negative(Uri address)
+        {
+            return new PingClient(new System.ServiceModel.BasicHttpBinding(), new System.ServiceModel.EndpointAddress(address));
+        }
+
+        public static IPing NegativeFactory(Uri address)
+        {
+            return new System.ServiceModel.ChannelFactory<IPing>(new System.ServiceModel.BasicHttpBinding(), new System.ServiceModel.EndpointAddress(address)).CreateChannel();
+        }
+    }
+
+    internal static class OFR3124
+    {
+        public static void Positive(Action work)
+        {
+            using (var scope = new System.Transactions.TransactionScope())
+            {
+                work();
+                scope.Complete();
+            }
+        }
+
+        public static void Negative(System.Data.IDbConnection connection, Action work)
+        {
+            using (var transaction = connection.BeginTransaction())
+            {
+                work();
+                transaction.Commit();
+            }
+        }
+    }
+
+    internal static class OFR3125
+    {
+        public static object Positive()
+        {
+            return new System.Security.Cryptography.X509Certificates.X509Store(
+                System.Security.Cryptography.X509Certificates.StoreName.My,
+                System.Security.Cryptography.X509Certificates.StoreLocation.LocalMachine);
+        }
+
+        public static byte[] PositiveDpapi(byte[] data)
+        {
+            return System.Security.Cryptography.ProtectedData.Protect(data, null, System.Security.Cryptography.DataProtectionScope.LocalMachine);
+        }
+
+        public static object Negative(string path)
+        {
+            return new System.Security.Cryptography.X509Certificates.X509Certificate2(path);
+        }
+    }
+
+    internal static class OFR3126
+    {
+        public static void Positive(string folder)
+        {
+            Process.Start("cmd.exe", "/c dir " + folder);
+        }
+
+        public static void PositiveInfo(string script)
+        {
+            var info = new ProcessStartInfo { FileName = "powershell", Arguments = "-File " + script };
+            Process.Start(info);
+        }
+
+        public static void Negative(string tool)
+        {
+            Process.Start(new ProcessStartInfo("dotnet", "--info"));
+        }
+    }
+
+    internal static class OFR3127
+    {
+        public static string Positive()
+        {
+            return Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().CodeBase), "settings.xml");
+        }
+
+        public static string Negative()
+        {
+            return Path.Combine(AppContext.BaseDirectory, "settings.xml");
+        }
+    }
+
+    internal static class OFR3128
+    {
+        public static string Positive()
+        {
+            return AppDomain.CurrentDomain.SetupInformation.ConfigurationFile;
+        }
+
+        public static string Negative()
+        {
+            return AppDomain.CurrentDomain.BaseDirectory;
+        }
+    }
+
+    internal static class OFR3129
+    {
+        public static string Positive()
+        {
+            return File.ReadAllText("Rules/behavior.cs");
+        }
+
+        public static string PositiveFromRoot()
+        {
+            return File.ReadAllText("src/Behavior.Legacy/APP.CONFIG");
+        }
+
+        public static string Negative()
+        {
+            return File.ReadAllText("Rules/Behavior.cs") + File.ReadAllText("missing/nothing.txt") + "https://example.test/Rules/behavior.cs";
+        }
+    }
 }

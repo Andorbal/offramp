@@ -162,6 +162,50 @@
                   "serialization"
                 ]
               }
+            },
+            {
+              "id": "OFR3212",
+              "name": "ResourceSerializedWithBinaryFormatter",
+              "shortDescription": {
+                "text": "resource serialized with BinaryFormatter"
+              },
+              "helpUri": "https://offramp.dev/diagnostics/OFR3212",
+              "help": {
+                "text": "Re-save the resource so the designer stores it as a file reference, a byte array, or a string; BinaryFormatter and SoapFormatter payloads in .resx files cannot be read on .NET 9 and later."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "category": "serialization",
+                "tags": [
+                  "offramp",
+                  "serialization",
+                  "serialization"
+                ]
+              }
+            },
+            {
+              "id": "OFR3213",
+              "name": "NonStringResource",
+              "shortDescription": {
+                "text": "non-string resource"
+              },
+              "helpUri": "https://offramp.dev/diagnostics/OFR3213",
+              "help": {
+                "text": "Under the .NET SDK, GenerateResource needs GenerateResourceUsePreserializedResources=true and the System.Resources.Extensions package for non-string resources (MSB3822, MSB3823); set them, or move the resource to a file."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "properties": {
+                "category": "serialization",
+                "tags": [
+                  "offramp",
+                  "serialization",
+                  "serialization"
+                ]
+              }
             }
           ]
         }
@@ -844,6 +888,71 @@
             "category": "serialization"
           },
           "ruleIndex": 6
+        },
+        {
+          "ruleId": "OFR3212",
+          "level": "error",
+          "message": {
+            "text": "Resource \u0027WindowSize\u0027 in Legacy.resx is a BinaryFormatter payload; it cannot be read on .NET 9 and later."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Resources/Legacy.resx",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 20,
+                  "startColumn": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3212:src/Behavior.Legacy/Behavior.Legacy.csproj:WindowSize"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "WindowSize",
+            "category": "serialization",
+            "mimetype": "application/x-microsoft.net.object.binary.base64",
+            "resource": "WindowSize",
+            "serializer": "BinaryFormatter"
+          },
+          "ruleIndex": 7
+        },
+        {
+          "ruleId": "OFR3213",
+          "level": "note",
+          "message": {
+            "text": "Resource \u0027Margin\u0027 in Legacy.resx is a System.Drawing.Size, not a string; under the .NET SDK, GenerateResource needs GenerateResourceUsePreserializedResources=true and System.Resources.Extensions."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/Behavior.Legacy/Resources/Legacy.resx",
+                  "uriBaseId": "SRCROOT"
+                },
+                "region": {
+                  "startLine": 24,
+                  "startColumn": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "offrampSymbol/v1": "OFR3213:src/Behavior.Legacy/Behavior.Legacy.csproj:Margin"
+          },
+          "properties": {
+            "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+            "symbol": "Margin",
+            "category": "serialization",
+            "resource": "Margin",
+            "type": "System.Drawing.Size"
+          },
+          "ruleIndex": 8
         }
       ]
     }

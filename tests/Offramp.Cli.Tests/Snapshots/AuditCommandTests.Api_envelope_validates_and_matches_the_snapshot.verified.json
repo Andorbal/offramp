@@ -138,7 +138,7 @@
         "rule": "OFR3001",
         "title": "API missing on target",
         "severity": "error",
-        "findings": 17,
+        "findings": 27,
         "projects": 1
       },
       {
@@ -526,6 +526,215 @@
         "severity": "error",
         "overridden": false,
         "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 317,
+        "column": 30,
+        "symbol": "System.ServiceModel.ServiceContractAttribute",
+        "namespace": "System.ServiceModel",
+        "category": "missing-api",
+        "message": "System.ServiceModel.ServiceContractAttribute (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.ServiceModel",
+          "compilerError": "CS0234",
+          "mapping": "package",
+          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+          "package": "System.ServiceModel.Http"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 320,
+        "column": 34,
+        "symbol": "System.ServiceModel.OperationContractAttribute",
+        "namespace": "System.ServiceModel",
+        "category": "missing-api",
+        "message": "System.ServiceModel.OperationContractAttribute (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.ServiceModel",
+          "compilerError": "CS0234",
+          "mapping": "package",
+          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+          "package": "System.ServiceModel.Http"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 324,
+        "column": 62,
+        "symbol": "System.ServiceModel.ClientBase<Behavior.Rules.OFR3123.IPing>",
+        "namespace": "System.ServiceModel",
+        "category": "missing-api",
+        "message": "System.ServiceModel.ClientBase<Behavior.Rules.OFR3123.IPing> (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.ServiceModel",
+          "compilerError": "CS0234",
+          "mapping": "package",
+          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+          "package": "System.ServiceModel.Http"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 335,
+        "column": 60,
+        "symbol": "System.ServiceModel.Channels.Binding",
+        "namespace": "System.ServiceModel.Channels",
+        "category": "missing-api",
+        "message": "System.ServiceModel.Channels.Binding (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.ServiceModel",
+          "compilerError": "CS0234",
+          "mapping": "package",
+          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+          "package": "System.ServiceModel.Http"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 342,
+        "column": 24,
+        "symbol": "System.ServiceModel.ClientBase<Behavior.Rules.OFR3123.IPing>.Channel",
+        "namespace": "System.ServiceModel",
+        "category": "missing-api",
+        "message": "System.ServiceModel.ClientBase<Behavior.Rules.OFR3123.IPing>.Channel (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.ServiceModel",
+          "compilerError": "CS0103",
+          "mapping": "package",
+          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+          "package": "System.ServiceModel.Http"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 358,
+        "column": 44,
+        "symbol": "System.ServiceModel.ChannelFactory<Behavior.Rules.OFR3123.IPing>",
+        "namespace": "System.ServiceModel",
+        "category": "missing-api",
+        "message": "System.ServiceModel.ChannelFactory<Behavior.Rules.OFR3123.IPing> (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.ServiceModel",
+          "compilerError": "CS0234",
+          "mapping": "package",
+          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+          "package": "System.ServiceModel.Http"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 363,
+        "column": 59,
+        "symbol": "System.ServiceModel.BasicHttpBinding",
+        "namespace": "System.ServiceModel",
+        "category": "missing-api",
+        "message": "System.ServiceModel.BasicHttpBinding (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.ServiceModel",
+          "compilerError": "CS0234",
+          "mapping": "package",
+          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+          "package": "System.ServiceModel.Http"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 368,
+        "column": 44,
+        "symbol": "System.ServiceModel.ChannelFactory<Behavior.Rules.OFR3123.IPing>",
+        "namespace": "System.ServiceModel",
+        "category": "missing-api",
+        "message": "System.ServiceModel.ChannelFactory<Behavior.Rules.OFR3123.IPing> (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.ServiceModel",
+          "compilerError": "CS0234",
+          "mapping": "package",
+          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
+          "package": "System.ServiceModel.Http"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 404,
+        "column": 49,
+        "symbol": "System.Security.Cryptography.ProtectedData",
+        "namespace": "System.Security.Cryptography",
+        "category": "missing-api",
+        "message": "System.Security.Cryptography.ProtectedData (System.Security) does not exist on the target. Package: System.Security.Cryptography.Xml. Also System.Security.Cryptography.Pkcs for CMS and ProtectedData for DPAPI (Windows).",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "System.Security",
+          "compilerError": "CS1069",
+          "mapping": "package",
+          "note": "Also System.Security.Cryptography.Pkcs for CMS and ProtectedData for DPAPI (Windows).",
+          "package": "System.Security.Cryptography.Xml"
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Behavior.cs",
+        "line": 449,
+        "column": 61,
+        "symbol": "System.AppDomainSetup.ConfigurationFile",
+        "namespace": "System",
+        "category": "missing-api",
+        "message": "System.AppDomainSetup.ConfigurationFile (mscorlib) does not exist on the target. The assembly is part of the target, but not this API. The core library; what it lost on modern .NET (Remoting, Code Access Security, AppDomain creation) has no port.",
+        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
+        "details": {
+          "assembly": "mscorlib",
+          "compilerError": "CS1061",
+          "mapping": "builtin",
+          "note": "The core library; what it lost on modern .NET (Remoting, Code Access Security, AppDomain creation) has no port."
+        }
+      },
+      {
+        "rule": "OFR3001",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
         "file": "src/Behavior.Legacy/Rules/Serialization.cs",
         "line": 108,
         "column": 24,
@@ -863,21 +1072,23 @@
         "portableFiles": 1,
         "portability": 0.25,
         "byCategory": {
-          "missing-api": 17,
+          "missing-api": 27,
           "removed-technology": 8,
           "throws": 10,
           "windows-only": 2
         },
         "byNamespace": {
           "Microsoft.Win32": 1,
-          "System": 3,
+          "System": 4,
           "System.Activities": 2,
           "System.Configuration": 2,
           "System.Data.SqlClient": 1,
           "System.Runtime.Remoting": 2,
           "System.Runtime.Serialization.Formatters.Binary": 7,
           "System.Security": 1,
-          "System.ServiceModel": 3,
+          "System.Security.Cryptography": 1,
+          "System.ServiceModel": 10,
+          "System.ServiceModel.Channels": 1,
           "System.Threading": 1,
           "System.Web": 4,
           "System.Web.Script.Serialization": 1,
@@ -889,8 +1100,16 @@
     ],
     "topNamespaces": [
       {
+        "namespace": "System.ServiceModel",
+        "findings": 10
+      },
+      {
         "namespace": "System.Runtime.Serialization.Formatters.Binary",
         "findings": 7
+      },
+      {
+        "namespace": "System",
+        "findings": 4
       },
       {
         "namespace": "System.Web",
@@ -903,14 +1122,6 @@
       {
         "namespace": "System.Web.UI",
         "findings": 4
-      },
-      {
-        "namespace": "System",
-        "findings": 3
-      },
-      {
-        "namespace": "System.ServiceModel",
-        "findings": 3
       },
       {
         "namespace": "System.Activities",
@@ -937,6 +1148,14 @@
         "findings": 1
       },
       {
+        "namespace": "System.Security.Cryptography",
+        "findings": 1
+      },
+      {
+        "namespace": "System.ServiceModel.Channels",
+        "findings": 1
+      },
+      {
         "namespace": "System.Threading",
         "findings": 1
       },
@@ -956,13 +1175,13 @@
     {
       "code": "OFR3001",
       "severity": "error",
-      "message": "System.Web.HttpContext (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`). (17 findings in the project; the first is shown.)",
+      "message": "System.Web.HttpContext (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`). (27 findings in the project; the first is shown.)",
       "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
       "file": "src/Behavior.Legacy/Rules/Api.cs",
       "line": 14,
       "column": 31,
       "data": {
-        "findings": 17,
+        "findings": 27,
         "symbol": "System.Web.HttpContext"
       },
       "help": "https://offramp.dev/diagnostics/OFR3001"

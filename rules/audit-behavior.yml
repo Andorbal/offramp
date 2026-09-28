@@ -169,3 +169,82 @@ rules:
     category: platform
     recommendation: Branches that assume Windows need review; prefer OperatingSystem.IsWindows() and friends.
     symbols: [P:System.Environment.OSVersion, M:System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform]
+  OFR3121:
+    pack: core
+    severity: warning
+    title: system default encoding
+    category: globalization
+    recommendation: Name the encoding (Encoding.UTF8, or the code page the data was written with); Encoding.Default is the ANSI code page on .NET Framework and UTF-8 on modern .NET.
+    symbols: [P:System.Text.Encoding.Default]
+  OFR3122:
+    pack: core
+    severity: info
+    title: string hash code used outside hashing
+    category: behavior
+    recommendation: Hash codes of strings are randomized per process on modern .NET; derive persisted keys, shard numbers, and cache keys from a stable hash (SHA-256, xxHash) instead.
+    matcher: string-hash-code
+  OFR3123:
+    pack: core
+    severity: warning
+    title: WCF client configured from app.config
+    category: configuration
+    recommendation: Build the binding and EndpointAddress in code and pass them to the client or ChannelFactory; the System.ServiceModel packages on modern .NET do not read system.serviceModel from configuration.
+    matcher: wcf-client-config
+  OFR3124:
+    pack: data
+    severity: info
+    title: ambient transaction
+    category: data
+    recommendation: A scope spanning two connections escalates to a distributed transaction, which needs MSDTC and works on Windows only (opt-in from .NET 7); keep each scope on one connection or coordinate in the application.
+    symbols: [T:System.Transactions.TransactionScope, P:System.Transactions.Transaction.Current]
+  OFR3125:
+    pack: core
+    severity: warning
+    title: machine certificate store or key container
+    category: security
+    recommendation: The machine certificate store, CAPI/CNG key containers, and DPAPI exist on Windows only; load certificates from files or a secret store, keep keys in a key vault, and protect data with Data Protection or an explicit key.
+    symbols:
+      - F:System.Security.Cryptography.X509Certificates.StoreLocation.LocalMachine
+      - T:System.Security.Cryptography.CspParameters
+      - T:System.Security.Cryptography.CngKey
+      - T:System.Security.Cryptography.ProtectedData
+  OFR3126:
+    pack: core
+    severity: warning
+    title: start of a Windows program
+    category: platform
+    recommendation: The program does not exist on Linux or macOS; call the API the command wraps, or make the command a configurable dependency and guard it with OperatingSystem.IsWindows().
+    matcher: windows-executable
+  OFR3127:
+    pack: core
+    severity: info
+    title: path built from the working directory or assembly location
+    category: platform
+    recommendation: Services, containers, and single-file publish start with a different working directory and may have no assembly file; build paths from AppContext.BaseDirectory or configuration.
+    symbols:
+      - P:System.Environment.CurrentDirectory
+      - M:System.IO.Directory.GetCurrentDirectory
+      - P:System.Reflection.Assembly.Location
+      - P:System.Reflection.Assembly.CodeBase
+      - P:System.Reflection.Assembly.EscapedCodeBase
+  OFR3128:
+    pack: core
+    severity: warning
+    title: probing paths and AppDomain setup information
+    category: runtime
+    recommendation: Assembly probing is AssemblyLoadContext's on modern .NET; AppDomainSetup and the private path APIs throw or return nothing. Resolve assemblies with AssemblyLoadContext and read the configuration file path from AppContext.BaseDirectory.
+    symbols:
+      - P:System.AppDomain.SetupInformation
+      - M:System.AppDomain.AppendPrivatePath
+      - M:System.AppDomain.ClearPrivatePath
+      - M:System.AppDomain.SetShadowCopyPath
+      - P:System.AppDomain.RelativeSearchPath
+      - P:System.AppDomain.DynamicDirectory
+      - T:System.AppDomainSetup
+  OFR3129:
+    pack: core
+    severity: warning
+    title: file name differs from the repository in case
+    category: platform
+    recommendation: Spell the path as the file is named; file systems on Linux are case-sensitive, so the name opens on Windows and fails there.
+    matcher: file-name-case

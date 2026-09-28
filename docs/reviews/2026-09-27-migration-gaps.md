@@ -12,10 +12,11 @@ matters, a proposal, and a size (S: a day; M: a few days; L: a milestone).
 
 > Status, 2026-09-28: after review, the focus is on wrong answers, friction, and
 > cheap audit rules rather than new commands. A1, A2, and A3 shipped on this
-> branch (ADR 0030). Open in that focus: A4 (staleness granularity, per-project),
-> the `plan` caveat for .NET Framework-only DLLs and blocked packages, the OFR3001
-> flood from a package with no target version, and section C. B, D, and E are
-> parked.
+> branch (ADR 0030), and so did section C's rules except OFR3130 (directory
+> ordering, judged too noisy) and its mapping tables. Open in that focus: A4
+> (staleness granularity, per-project), the `plan` caveat for .NET Framework-only
+> DLLs and blocked packages, and the OFR3001 flood from a package with no target
+> version. B, D, and E are parked.
 
 ## A. Answers that are wrong or misleading today
 

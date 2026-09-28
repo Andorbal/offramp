@@ -58,6 +58,7 @@ public static class AuditRunner
         new TargetCompilationMatcher(), new CultureSensitiveStringMatcher(), new EncodingCodePageMatcher(), new WindowsPathMatcher(),
         new WindowsTimeZoneMatcher(), new FloatingPointToStringMatcher(), new RegexWithoutTimeoutMatcher(), new DelegateBeginInvokeMatcher(),
         new ConfigRuntimeSettingsMatcher(), new SerializationFlowMatcher(), new NativeImportsMatcher(), new ComReferencesMatcher(),
+        new StringHashCodeMatcher(), new WcfClientConfigMatcher(), new WindowsExecutableMatcher(), new FileNameCaseMatcher(), new ResxResourcesMatcher(),
     }.ToDictionary(m => m.Name, StringComparer.Ordinal);
 
     private static readonly SerializableUnusedMatcher SerializableUnused = new();
