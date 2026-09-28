@@ -667,7 +667,14 @@ public static class TestMovePlanner
             TargetFrameworks = source.TargetFrameworks,
             SourceReference = Relative(context.Destination, source.Id),
             Packages = packages,
-            FrameworkReferences = [.. source.AssemblyReferences.Where(r => r.Kind == AssemblyReferenceKind.Framework).Select(r => r.Name).Distinct(StringComparer.OrdinalIgnoreCase)],
+            // A test framework referenced as an assembly (MSTest v1) is replaced by its package, not copied.
+            FrameworkReferences =
+            [
+                .. source.AssemblyReferences
+                    .Where(r => r.Kind == AssemblyReferenceKind.Framework && !TestCodeClassifier.TestAssemblies.ContainsKey(r.Name))
+                    .Select(r => r.Name)
+                    .Distinct(StringComparer.OrdinalIgnoreCase),
+            ],
             Properties = properties,
             CentralVersions = Central(source),
         };

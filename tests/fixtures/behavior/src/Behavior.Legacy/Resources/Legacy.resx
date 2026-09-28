@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <!-- A string: no finding. -->
+  <data name="Greeting" xml:space="preserve">
+    <value>Hello</value>
+  </data>
+  <!-- OFR3212: a System.Drawing.Size serialized with BinaryFormatter by an old designer. -->
+  <data name="WindowSize" mimetype="application/x-microsoft.net.object.binary.base64">
+    <value>AAEAAAD/////AQAAAAAAAAAEAQAAAB1TeXN0ZW0uRHJhd2luZy5TaXplLCBTeXN0ZW0uRHJhd2luZwIAAAAFd2lkdGgGaGVpZ2h0AAAICAIAAAAKAAAAFAAAAAs=</value>
+  </data>
+  <!-- OFR3213: a typed value converted from its string form. -->
+  <data name="Margin" type="System.Drawing.Size, System.Drawing">
+    <value>10, 20</value>
+  </data>
+  <!-- A text file reference: still a string, no finding. -->
+  <data name="Notes" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>notes.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+</root>

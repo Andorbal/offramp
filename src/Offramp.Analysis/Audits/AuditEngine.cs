@@ -48,6 +48,9 @@ public sealed class AuditRunState
 {
     /// <summary>Documentation IDs of the types some serializer in the solution receives.</summary>
     public HashSet<string> SerializedTypes { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Every file in the repository by its repository-relative path, compared without case (built on first use).</summary>
+    public IReadOnlyDictionary<string, string>? RepositoryFiles { get; set; }
 }
 
 /// <summary>A named matcher (<c>matcher:</c> in a rule pack) over a whole compilation.</summary>

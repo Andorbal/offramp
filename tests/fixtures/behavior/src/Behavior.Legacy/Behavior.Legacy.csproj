@@ -5,6 +5,8 @@
     <RootNamespace>Behavior</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <NoWarn>$(NoWarn);CS0168;CS0219;CS0618;CS0649;CS0169;CS0414;SYSLIB0011</NoWarn>
+    <!-- Resources/Legacy.resx holds non-string entries (OFR3212, OFR3213); the SDK builds them only with these. -->
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Activities" />
@@ -15,7 +17,9 @@
     <Reference Include="System.Runtime.Remoting" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Runtime.Serialization.Formatters.Soap" />
+    <Reference Include="System.Security" />
     <Reference Include="System.ServiceModel" />
+    <Reference Include="System.Transactions" />
     <Reference Include="System.Web" />
     <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Web.Services" />
@@ -23,5 +27,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.Infrastructure" Version="1.0.0" />
+    <PackageReference Include="System.Resources.Extensions" Version="9.0.0" />
   </ItemGroup>
 </Project>

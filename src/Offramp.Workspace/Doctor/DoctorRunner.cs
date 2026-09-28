@@ -8,6 +8,7 @@ using Offramp.Workspace.Cpm;
 using Offramp.Workspace.Environment;
 using Offramp.Workspace.Ingest;
 using Offramp.Workspace.Init;
+using Offramp.Workspace.Scanning;
 using Offramp.Workspace.Store;
 
 namespace Offramp.Workspace.Doctor;
@@ -55,6 +56,7 @@ public static class DoctorRunner
         checks.Add(CheckWorkspace(context, model));
         checks.Add(CheckWindowsOnlySteps(context, model));
         checks.Add(await CheckCpmAsync(context, model, cancellationToken));
+        checks.Add(CheckFrameworkFloor(context, model));
 
         return new DoctorReport
         {
@@ -443,6 +445,38 @@ public static class DoctorRunner
         DoctorContext context, DiagnosticDescriptor descriptor, string message,
         Severity? severity = null, IEnumerable<KeyValuePair<string, JsonNode?>>? data = null) =>
         context.Diagnostics.Report(descriptor, message, data: data, severity: severity);
+
+    private static DoctorCheck CheckFrameworkFloor(DoctorContext context, WorkspaceModel? model)
+    {
+        const string id = "framework-floor";
+        const string title = ".NET Framework version floor";
+        if (model is null)
+        {
+            return Skip(id, title, "Skipped: run `offramp scan` to check project targets.");
+        }
+
+        var below = model.Diagnostics.Where(d => d.Code == "OFR0106" && d.Project is not null).OrderBy(d => d.Project, StringComparer.Ordinal).ToList();
+        if (below.Count == 0)
+        {
+            return Pass(id, title, $"Every .NET Framework project targets {FrameworkFloor.Floor} or later.");
+        }
+
+        foreach (var diagnostic in below)
+        {
+            context.Diagnostics.Add(diagnostic);
+        }
+
+        var named = below.Select(d => $"{d.Project} ({(d.Data.TryGetValue("targetFramework", out var t) ? t?.ToString() : "?")})");
+        return new DoctorCheck
+        {
+            Id = id,
+            Title = title,
+            Status = CheckStatus.Warn,
+            Message = $"{below.Count} project(s) target .NET Framework below {FrameworkFloor.Floor}: {string.Join(", ", named)}.",
+            Remedy = $"Raise them to {FrameworkFloor.Floor} or net48 before porting or referencing portable projects: .NET Standard 2.0 needs facade packages and binding redirects on older versions. `offramp csproj modernize --project P --tfm net48` does it for a legacy project.",
+            Codes = ["OFR0106"],
+        };
+    }
 
     private static DoctorCheck Pass(string id, string title, string message) =>
         new() { Id = id, Title = title, Status = CheckStatus.Pass, Message = message };

@@ -75,6 +75,23 @@ public sealed class TestCodeClassifierTests
         Assert.Empty(parser.ProductionReferrers);
     }
 
+    /// <summary>MSTest v1 is a GAC assembly, not a package; its attributes still mark a test file.</summary>
+    [Fact]
+    public void MSTest_v1_attributes_from_the_QualityTools_assembly_are_tests()
+    {
+        var stub = CSharpSyntaxTree.ParseText("namespace Microsoft.VisualStudio.TestTools.UnitTesting { public class TestClassAttribute : System.Attribute { } public class TestMethodAttribute : System.Attribute { } }");
+        var mstest = CSharpCompilation.Create("Microsoft.VisualStudio.QualityTools.UnitTestFramework", [stub], [Corlib], new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var tree = CSharpSyntaxTree.ParseText(
+            "[Microsoft.VisualStudio.TestTools.UnitTesting.TestClass] public class ATests { [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod] public void T() { } }",
+            path: "/r/src/Foo/Tests/ATests.cs");
+        var source = CSharpCompilation.Create("Foo", [tree], [Corlib, mstest.ToMetadataReference()], new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var classified = Classify(source, new Dictionary<string, string> { ["src/Foo/Tests/ATests.cs"] = "/r/src/Foo/Tests/ATests.cs" }, [], "Foo.Tests").Single();
+
+        Assert.Equal((TestFileKind.Test, TestConfidence.Certain), Pair(classified));
+        Assert.Equal(["mstest"], classified.Frameworks);
+    }
+
     private static (CSharpCompilation, Dictionary<string, string>) Source(params (string File, string Code)[] files)
     {
         var xunit = CSharpSyntaxTree.ParseText("namespace Xunit { public class FactAttribute : System.Attribute { } }");

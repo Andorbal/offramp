@@ -9,6 +9,7 @@ public sealed class ProjectKindDetectorTests
     {
         { "is-test-project", new ProjectFacts { IsTestProject = true, OutputType = "Exe" }, ProjectKind.Test, "IsTestProject=true" },
         { "test-package", Facts(packages: ["xunit"]), ProjectKind.Test, "PackageReference xunit" },
+        { "mstest-v1-reference", new ProjectFacts { AssemblyReferences = Set("Microsoft.VisualStudio.QualityTools.UnitTestFramework") }, ProjectKind.Test, "Reference Microsoft.VisualStudio.QualityTools.UnitTestFramework" },
         { "test-guid", new ProjectFacts { ProjectTypeGuids = "{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}" }, ProjectKind.Test, "ProjectTypeGuids {3AC096D0-A1C2-E12C-1390-A8335801FDAB}" },
         { "test-beats-web", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", PackageIds = Set("NUnit") }, ProjectKind.Test, "PackageReference NUnit" },
         { "web-sdk", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", OutputType = "Exe" }, ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web" },

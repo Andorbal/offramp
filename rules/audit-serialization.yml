@@ -55,3 +55,18 @@ rules:
     category: serialization
     recommendation: Works on the target; pre-generated serializers (sgen) need Microsoft.XmlSerializer.Generator or can be dropped.
     symbols: [T:System.Xml.Serialization.XmlSerializer]
+  OFR3212:
+    pack: serialization
+    severity: error
+    severityBelowTarget: { target: 9, severity: warning }
+    title: resource serialized with BinaryFormatter
+    category: serialization
+    recommendation: Re-save the resource so the designer stores it as a file reference, a byte array, or a string; BinaryFormatter and SoapFormatter payloads in .resx files cannot be read on .NET 9 and later.
+    matcher: resx-resources
+  OFR3213:
+    pack: serialization
+    severity: info
+    title: non-string resource
+    category: serialization
+    recommendation: Under the .NET SDK, GenerateResource needs GenerateResourceUsePreserializedResources=true and the System.Resources.Extensions package for non-string resources (MSB3822, MSB3823); set them, or move the resource to a file.
+    matcher: resx-resources

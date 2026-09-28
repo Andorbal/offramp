@@ -117,7 +117,7 @@ public static class ReportBuilder
                         Name = p.Name,
                         Kind = p.Kind,
                         FrameworkClass = p.FrameworkClass,
-                        Status = Status(p.Id, remaining),
+                        Status = Status(p.Id, remaining, standings[p.Id]),
                         Closure = closure.Count,
                         Remaining = remaining.Count,
                         RemainingLoc = remaining.Sum(id => byId[id].Loc),
@@ -127,10 +127,10 @@ public static class ReportBuilder
         ];
     }
 
-    private static ProjectReadiness Status(string application, List<string> remaining) => remaining switch
+    private static ProjectReadiness Status(string application, List<string> remaining, ProjectStanding standing) => remaining switch
     {
         [] => ProjectReadiness.Done,
-        [var only] when only == application => ProjectReadiness.Ready,
+        [var only] when only == application && standing.UnresolvedReferences.Count == 0 => ProjectReadiness.Ready,
         _ => ProjectReadiness.Blocked,
     };
 

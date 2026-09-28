@@ -76,7 +76,7 @@
       "required": [
         "id", "name", "assemblyName", "rootNamespace", "language", "kind", "kindEvidence", "sdkStyle", "sdk", "targetFrameworks",
         "frameworkClass", "outputType", "isTestProject", "properties", "defineConstants", "windowsOnlyBuildSteps", "packagesConfig",
-        "compile", "compileExplicit", "projectReferences", "packageReferences", "assemblyReferences", "comReferences",
+        "compile", "compileExplicit", "projectReferences", "unresolvedReferences", "packageReferences", "assemblyReferences", "comReferences",
         "internalsVisibleTo", "resolved", "compilerCalls", "loc", "config"
       ],
       "properties": {
@@ -103,6 +103,16 @@
         "compile": { "$ref": "#/$defs/pathList" },
         "compileExplicit": { "type": "boolean" },
         "projectReferences": { "$ref": "#/$defs/pathList" },
+        "unresolvedReferences": {
+          "type": "array",
+          "description": "Declared project references to projects the model does not contain; they block readiness (OFR0105).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "reason"],
+            "properties": { "path": { "$ref": "#/$defs/relativePath" }, "reason": { "type": "string" } }
+          }
+        },
         "packageReferences": {
           "type": "array",
           "items": {

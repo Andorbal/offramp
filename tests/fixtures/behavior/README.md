@@ -11,6 +11,10 @@ that must not (`AuditRunnerTests` checks both for every rule in every pack).
   - `Rules/Api.cs`, `Rules/Behavior.cs`, `Rules/Serialization.cs`, `Rules/Native.cs`:
     one file per audit.
   - `app.config`: `<gcServer>` and `<gcConcurrent>` (OFR3116).
+  - `Resources/Legacy.resx`: a BinaryFormatter-encoded entry (OFR3212), a typed entry
+    (OFR3213), and a string and a text file reference that no rule reports. The project
+    sets `GenerateResourceUsePreserializedResources` and references
+    `System.Resources.Extensions` so the SDK builds it.
 - `Behavior.Clean`: `net48` library that no rule matches, with an `app.config` that
   has no runtime settings: the negative project.
 

@@ -67,6 +67,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "Contoso.Legacy.Reports",
@@ -261,6 +262,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "Microsoft.AspNet.WebApi.Core",
@@ -389,6 +391,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
@@ -537,6 +540,7 @@
       "projectReferences": [
         "src/Shared/Shared.csproj"
       ],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "Contoso.Serialization",
@@ -761,6 +765,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "Contoso.Windows.Controls",

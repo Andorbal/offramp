@@ -70,13 +70,36 @@ project × target framework, from which a Roslyn `Compilation` is created on
 demand. Compilations are **not** stored in the model; the model stores enough
 to rebuild them (the complog path and call index).
 
+### Project references outside the model
+
+A `ProjectReference` to a project the model does not contain (a C++/CLI or SQL
+Server project, a project that did not evaluate, or one outside the solution or
+slice that was scanned) cannot become a graph edge. It is not dropped: the
+referencing project records it in `unresolvedReferences` with the reason, and
+`scan` reports `OFR0105`. `plan`, `report`, and the guide treat such a
+reference as a blocker of the referencing project and of every .NET
+Framework-only project that depends on it, because the code behind it may or
+may not port. A reference kept only for build order
+(`ReferenceOutputAssembly="false"`) is not recorded, and one on a project that
+is already portable blocks nothing: that project builds for the target with it.
+
+### The .NET Framework floor
+
+A project whose .NET Framework target is older than `net472` gets `OFR0106`
+from `scan` (in the model's diagnostics, so `doctor` shows it under
+`framework-floor`). .NET Standard 2.0 libraries, which is what a dual-target or
+`netstandard2.0` project is to it, are consumed cleanly only from 4.7.2 on; the
+step before porting anything such a project depends on is to raise it. Offramp
+does not raise it on its own: `csproj modernize --tfm` can for a legacy project,
+and `plan` shows every project's targets so the ones to raise are visible.
+
 ## Project kind detection
 
 Evaluated in order; first match wins; the evidence is recorded.
 
 | Kind | Evidence |
 |---|---|
-| `test` | `IsTestProject=true`, or a PackageReference to a known test framework (xunit, NUnit, MSTest.TestFramework, TUnit) or adapter, or legacy test ProjectTypeGuid |
+| `test` | `IsTestProject=true`, or a PackageReference to a known test framework (xunit, NUnit, MSTest.TestFramework, TUnit) or adapter, or a `Reference` to `Microsoft.VisualStudio.QualityTools.UnitTestFramework` (MSTest v1), or legacy test ProjectTypeGuid |
 | `web` | `Sdk=Microsoft.NET.Sdk.Web`, or legacy web ProjectTypeGuid, or `Reference Include="System.Web"` with `OutputType=Library` and a `web.config` |
 | `winforms` | `UseWindowsForms=true`, or `Reference Include="System.Windows.Forms"` with `OutputType=WinExe` |
 | `wpf` | `UseWPF=true`, or `Sdk=Microsoft.NET.Sdk.WindowsDesktop` with `PresentationFramework` reference |
@@ -121,6 +144,9 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
       "compile": ["src/Foo/A.cs", "src/Foo/Sub/B.cs"],
       "compileExplicit": false,                   // true when csproj lists Compile items explicitly
       "projectReferences": ["src/Bar/Bar.csproj"],
+      "unresolvedReferences": [                   // declared references the model cannot follow (OFR0105); they block readiness
+        { "path": "native/Interop.vcxproj", "reason": "unsupported project type (.vcxproj)" }
+      ],
       "packageReferences": [
         { "id": "Newtonsoft.Json", "version": "13.0.3", "versionOverride": null, "privateAssets": null, "tfms": ["net48", "net10.0"] }
       ],

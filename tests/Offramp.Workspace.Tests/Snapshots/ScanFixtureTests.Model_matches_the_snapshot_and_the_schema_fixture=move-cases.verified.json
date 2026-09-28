@@ -61,6 +61,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [],
       "assemblyReferences": [],
       "comReferences": [],
@@ -129,6 +130,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [],
       "assemblyReferences": [],
       "comReferences": [],
@@ -217,6 +219,7 @@
         "src/Contracts/Contracts.csproj",
         "src/Reports/Reports.csproj"
       ],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "EntityFramework",
@@ -330,6 +333,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [],
       "assemblyReferences": [],
       "comReferences": [],
@@ -399,6 +403,7 @@
       "projectReferences": [
         "src/Core/Core.csproj"
       ],
+      "unresolvedReferences": [],
       "packageReferences": [],
       "assemblyReferences": [],
       "comReferences": [],

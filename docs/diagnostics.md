@@ -59,6 +59,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0102](#ofr0102) | info | project loading | project kind unknown |
 | [OFR0103](#ofr0103) | info | scan | model built from a compiler log alone |
 | [OFR0104](#ofr0104) | warning | project loading | package graph unavailable |
+| [OFR0105](#ofr0105) | warning | project loading | project reference outside the model |
+| [OFR0106](#ofr0106) | warning | project loading | target framework below net472 |
 | [OFR0110](#ofr0110) | warning | project loading | build step needs Windows: sgen |
 | [OFR0111](#ofr0111) | warning | project loading | build step needs Windows: COM reference |
 | [OFR0112](#ofr0112) | warning | project loading | build step needs Windows: EDMX EntityDeploy |
@@ -154,6 +156,15 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3118](#ofr3118) | warning | audit | machine key or Forms authentication |
 | [OFR3119](#ofr3119) | info | audit | timers and thread pool tuning |
 | [OFR3120](#ofr3120) | info | audit | operating system check |
+| [OFR3121](#ofr3121) | warning | audit | system default encoding |
+| [OFR3122](#ofr3122) | info | audit | string hash code used outside hashing |
+| [OFR3123](#ofr3123) | warning | audit | WCF client configured from app.config |
+| [OFR3124](#ofr3124) | info | audit | ambient transaction |
+| [OFR3125](#ofr3125) | warning | audit | machine certificate store or key container |
+| [OFR3126](#ofr3126) | warning | audit | start of a Windows program |
+| [OFR3127](#ofr3127) | info | audit | path built from the working directory or assembly location |
+| [OFR3128](#ofr3128) | warning | audit | probing paths and AppDomain setup information |
+| [OFR3129](#ofr3129) | warning | audit | file name differs from the repository in case |
 | [OFR3201](#ofr3201) | error | audit | insecure serializer |
 | [OFR3202](#ofr3202) | info | audit | transient binary serialization (deep clone) |
 | [OFR3203](#ofr3203) | error | audit | persisted or transported binary serialization |
@@ -161,6 +172,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3205](#ofr3205) | info | audit | [Serializable] type never serialized |
 | [OFR3210](#ofr3210) | warning | audit | legacy JSON serializer |
 | [OFR3211](#ofr3211) | info | audit | XML serializer |
+| [OFR3212](#ofr3212) | error | audit | resource serialized with BinaryFormatter |
+| [OFR3213](#ofr3213) | info | audit | non-string resource |
 | [OFR3301](#ofr3301) | info | audit | P/Invoke declaration |
 | [OFR3302](#ofr3302) | warning | audit | ANSI string marshalling by default |
 | [OFR3303](#ofr3303) | info | audit | candidate for [LibraryImport] |
@@ -513,6 +526,24 @@ The project's `project.assets.json` does not exist in this checkout, so its reso
 
 - **Typical cause:** Scanning a log built on another machine or in another checkout without restoring here, or a restore that failed.
 - **Fix:** Run `dotnet restore` on the solution, then scan again.
+
+### OFR0105
+
+**project reference outside the model** · warning · project loading
+
+A `ProjectReference` points at a project the model does not contain, so the graph cannot follow it. The project is `blocked` in `plan`, `report`, and the guide until the reference is resolved, and so is every .NET Framework-only project that depends on it. The message names the referenced project and why it is missing.
+
+- **Typical cause:** A C++/CLI (`.vcxproj`), SQL Server (`.sqlproj`), or other unsupported project; a project that did not evaluate (OFR0101); or a project outside the solution or slice that was scanned.
+- **Fix:** Scan a solution or slice that contains the project, fix the evaluation error OFR0101 names, or plan that project's port outside Offramp. A reference kept only for build order (`ReferenceOutputAssembly="false"`) does not count.
+
+### OFR0106
+
+**target framework below net472** · warning · project loading
+
+The project targets a .NET Framework version older than 4.7.2. .NET Standard 2.0 libraries, which is what portable code in a dual-target or `netstandard2.0` project is to such a project, are consumed cleanly only from 4.7.2 on; older versions pull in facade packages and need binding redirects that break at runtime. The message names the target.
+
+- **Typical cause:** A project last retargeted years ago (`net45`, `net461`, `net47`).
+- **Fix:** Raise the target to `net472` or `net48` first (`TargetFramework` in an SDK-style project, `TargetFrameworkVersion` and `<supportedRuntime>` in a legacy one; `offramp csproj modernize --project P --tfm net48` converts and retargets), rebuild, then port or reference portable projects.
 
 ### OFR0110
 
@@ -1369,6 +1400,87 @@ An operating system check assumes Windows.
 - **Typical cause:** Environment.OSVersion or RuntimeInformation.IsOSPlatform branches.
 - **Fix:** Branches that assume Windows need review; prefer OperatingSystem.IsWindows() and friends.
 
+### OFR3121
+
+**system default encoding** · warning · audit
+
+Encoding.Default is the system ANSI code page on .NET Framework and UTF-8 on modern .NET, so text read or written with it changes meaning after the port.
+
+- **Typical cause:** File.ReadAllText(path, Encoding.Default), StreamWriter with Encoding.Default, legacy interop code.
+- **Fix:** Name the encoding (Encoding.UTF8, or the code page the data was written with); Encoding.Default is the ANSI code page on .NET Framework and UTF-8 on modern .NET.
+
+### OFR3122
+
+**string hash code used outside hashing** · info · audit
+
+string.GetHashCode() is called outside a GetHashCode or Equals member. Modern .NET randomizes string hashing per process, so a value that is stored, sent, or used to choose a shard or cache key stops matching.
+
+- **Typical cause:** Sharding or partitioning by name.GetHashCode() % n, cache keys built from hash codes, hash codes persisted in a database.
+- **Fix:** Hash codes of strings are randomized per process on modern .NET; derive persisted keys, shard numbers, and cache keys from a stable hash (SHA-256, xxHash) instead.
+
+### OFR3123
+
+**WCF client configured from app.config** · warning · audit
+
+A WCF client (ClientBase<T>) or ChannelFactory<T> is created without a binding and address, so its endpoint comes from system.serviceModel in the configuration file. The System.ServiceModel packages on modern .NET do not read that section; the constructor throws at runtime although the code compiles.
+
+- **Typical cause:** A generated service reference used as new FooClient() or new FooClient("endpointName").
+- **Fix:** Build the binding and EndpointAddress in code and pass them to the client or ChannelFactory; the System.ServiceModel packages on modern .NET do not read system.serviceModel from configuration.
+
+### OFR3124
+
+**ambient transaction** · info · audit
+
+TransactionScope or Transaction.Current is used. A scope that spans more than one connection escalates to a distributed transaction, which modern .NET supports on Windows only (and only when opted in from .NET 7).
+
+- **Typical cause:** Data access code wrapping several repositories or connections in one TransactionScope.
+- **Fix:** A scope spanning two connections escalates to a distributed transaction, which needs MSDTC and works on Windows only (opt-in from .NET 7); keep each scope on one connection or coordinate in the application.
+
+### OFR3125
+
+**machine certificate store or key container** · warning · audit
+
+The code reads the machine certificate store, names a CAPI or CNG key container, or protects data with DPAPI. Linux has no machine store or key containers, and DPAPI is Windows only.
+
+- **Typical cause:** new X509Store(StoreName.My, StoreLocation.LocalMachine), CspParameters with a KeyContainerName, ProtectedData.Protect.
+- **Fix:** The machine certificate store, CAPI/CNG key containers, and DPAPI exist on Windows only; load certificates from files or a secret store, keep keys in a key vault, and protect data with Data Protection or an explicit key.
+
+### OFR3126
+
+**start of a Windows program** · warning · audit
+
+Process.Start or ProcessStartInfo names a Windows program: a .exe, .bat, .cmd, .ps1, .vbs, or .msi, a drive-letter path, or a command such as cmd, powershell, or xcopy.
+
+- **Typical cause:** Shelling out to cmd.exe, PowerShell scripts, or Windows administration commands.
+- **Fix:** The program does not exist on Linux or macOS; call the API the command wraps, or make the command a configurable dependency and guard it with OperatingSystem.IsWindows().
+
+### OFR3127
+
+**path built from the working directory or assembly location** · info · audit
+
+Environment.CurrentDirectory, Directory.GetCurrentDirectory, or Assembly.Location/CodeBase is used, typically to find files next to the application. A service or container starts elsewhere, and single-file publish has no assembly file.
+
+- **Typical cause:** Path.Combine(Environment.CurrentDirectory, "config.xml"), Assembly.GetExecutingAssembly().CodeBase.
+- **Fix:** Services, containers, and single-file publish start with a different working directory and may have no assembly file; build paths from AppContext.BaseDirectory or configuration.
+
+### OFR3128
+
+**probing paths and AppDomain setup information** · warning · audit
+
+AppDomain.SetupInformation, AppDomainSetup, or the private-path APIs are used. Modern .NET has one AppDomain whose probing is AssemblyLoadContext's; these members throw or return nothing.
+
+- **Typical cause:** AppDomain.CurrentDomain.SetupInformation.ConfigurationFile, AppendPrivatePath, RelativeSearchPath.
+- **Fix:** Assembly probing is AssemblyLoadContext's on modern .NET; AppDomainSetup and the private path APIs throw or return nothing. Resolve assemblies with AssemblyLoadContext and read the configuration file path from AppContext.BaseDirectory.
+
+### OFR3129
+
+**file name differs from the repository in case** · warning · audit
+
+A string literal names a file in the repository (relative to the project folder or the repository root) with different casing than the file has. Windows and macOS open it; Linux does not.
+
+- **Typical cause:** "Config.xml" for a file named config.xml, a folder renamed at some point.
+- **Fix:** Spell the path as the file is named; file systems on Linux are case-sensitive, so the name opens on Windows and fails there.
+
 ### OFR3201
 
 **insecure serializer** · error · audit
@@ -1431,6 +1543,24 @@ XmlSerializer works on modern .NET; pre-generated serializers (sgen) need Micros
 
 - **Typical cause:** XmlSerializer usages, especially with GenerateSerializationAssemblies.
 - **Fix:** Works on the target; pre-generated serializers (sgen) need Microsoft.XmlSerializer.Generator or can be dropped.
+
+### OFR3212
+
+**resource serialized with BinaryFormatter** · error · audit
+
+A .resx entry is a BinaryFormatter or SoapFormatter payload (its mimetype says so). The build reads it with the formatter, which is removed from .NET 9, so the project stops building or the resource fails to load. Reported as a warning below target 9.
+
+- **Typical cause:** Images, icons, and typed values that an old Visual Studio designer saved into a .resx as serialized objects.
+- **Fix:** Re-save the resource so the designer stores it as a file reference, a byte array, or a string; BinaryFormatter and SoapFormatter payloads in .resx files cannot be read on .NET 9 and later.
+
+### OFR3213
+
+**non-string resource** · info · audit
+
+A .resx entry is not a string: a typed value, a byte array, or a file reference to anything but text or bytes. The .NET SDK's GenerateResource task refuses such resources (MSB3822, MSB3823) unless the project opts into preserialized resources and references System.Resources.Extensions.
+
+- **Typical cause:** Windows Forms designer resources, images embedded as byte arrays, typed settings in resources.
+- **Fix:** Under the .NET SDK, GenerateResource needs GenerateResourceUsePreserializedResources=true and the System.Resources.Extensions package for non-string resources (MSB3822, MSB3823); set them, or move the resource to a file.
 
 ### OFR3301
 

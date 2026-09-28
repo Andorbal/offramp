@@ -219,7 +219,8 @@ offramp move tests --project SRC.csproj [--to TESTS.csproj] [--create]
 Detection (semantic, C# only; another language is `OFR2205`):
 - **Test file**: any type with an attribute whose containing assembly is a
   known test framework (`xunit.core`, `xunit.v3.core`, `nunit.framework`,
-  `Microsoft.VisualStudio.TestPlatform.TestFramework`, `TUnit.Core`), or that
+  `Microsoft.VisualStudio.TestPlatform.TestFramework`, MSTest v1's
+  `Microsoft.VisualStudio.QualityTools.UnitTestFramework`, `TUnit.Core`), or that
   derives from a known test base type. Confidence `certain`.
 - **Helper file**: iterate to a fixpoint over which files use which (every
   simple name bound with the semantic model, in the source project and in the

@@ -14,6 +14,8 @@ public sealed record PlanEntry
 
     public required FrameworkClass FrameworkClass { get; init; }
 
+    public required IReadOnlyList<string> TargetFrameworks { get; init; }
+
     /// <summary>
     /// 0 for projects already portable; 1 for projects portable today; n for projects
     /// whose framework-only dependencies are all in earlier waves. Members of a cycle share a wave.
@@ -25,6 +27,12 @@ public sealed record PlanEntry
 
     /// <summary>Framework-only projects this one depends on, directly or transitively.</summary>
     public required IReadOnlyList<string> Blockers { get; init; }
+
+    /// <summary>
+    /// Project references outside the model that block this project: its own and those of its
+    /// blockers. Empty for a project that is already portable.
+    /// </summary>
+    public required IReadOnlyList<string> UnresolvedReferences { get; init; }
 
     public required ProjectReadiness Readiness { get; init; }
 

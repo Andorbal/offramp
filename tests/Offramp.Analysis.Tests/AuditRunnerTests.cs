@@ -52,8 +52,17 @@ public sealed class AuditRunnerTests
     [ProducesDiagnostic("OFR3118")]
     [ProducesDiagnostic("OFR3119")]
     [ProducesDiagnostic("OFR3120")]
+    [ProducesDiagnostic("OFR3121")]
+    [ProducesDiagnostic("OFR3122")]
+    [ProducesDiagnostic("OFR3123")]
+    [ProducesDiagnostic("OFR3124")]
+    [ProducesDiagnostic("OFR3125")]
+    [ProducesDiagnostic("OFR3126")]
+    [ProducesDiagnostic("OFR3127")]
+    [ProducesDiagnostic("OFR3128")]
+    [ProducesDiagnostic("OFR3129")]
     public async Task Every_behavior_rule_has_a_positive_and_a_negative() =>
-        await AssertPositivesAndNegatives(AuditKind.Behavior, configRule: "OFR3116");
+        await AssertPositivesAndNegatives(AuditKind.Behavior, fileRules: new Dictionary<string, string> { ["OFR3116"] = "src/Behavior.Legacy/app.config" });
 
     [Fact]
     [ProducesDiagnostic("OFR3201")]
@@ -63,8 +72,36 @@ public sealed class AuditRunnerTests
     [ProducesDiagnostic("OFR3205")]
     [ProducesDiagnostic("OFR3210")]
     [ProducesDiagnostic("OFR3211")]
+    [ProducesDiagnostic("OFR3212")]
+    [ProducesDiagnostic("OFR3213")]
     public async Task Every_serialization_rule_has_a_positive_and_a_negative() =>
-        await AssertPositivesAndNegatives(AuditKind.Serialization);
+        await AssertPositivesAndNegatives(AuditKind.Serialization, fileRules: new Dictionary<string, string>
+        {
+            ["OFR3212"] = "src/Behavior.Legacy/Resources/Legacy.resx",
+            ["OFR3213"] = "src/Behavior.Legacy/Resources/Legacy.resx",
+        });
+
+    [Fact]
+    public async Task Resources_are_read_entry_by_entry()
+    {
+        var (result, _) = await RunAsync("behavior", AuditKind.Serialization);
+
+        var formatter = Assert.Single(result.Findings, f => f.Rule == "OFR3212");
+        Assert.Equal(("WindowSize", "BinaryFormatter", Severity.Error), (formatter.Symbol, formatter.Details["serializer"], formatter.Severity));
+        var typed = Assert.Single(result.Findings, f => f.Rule == "OFR3213");
+        Assert.Equal(("Margin", "System.Drawing.Size"), (typed.Symbol, typed.Details["type"]));
+        Assert.True(formatter.Line > 0 && typed.Line > formatter.Line);
+    }
+
+    [Fact]
+    public async Task File_names_are_compared_against_the_repository_not_the_file_system()
+    {
+        var (result, _) = await RunAsync("behavior", AuditKind.Behavior);
+
+        var mine = result.Findings.Where(f => f.Rule == "OFR3129").ToList();
+        Assert.Equal(["src/Behavior.Legacy/Rules/Behavior.cs", "src/Behavior.Legacy/app.config"], mine.Select(f => f.Details["file"]).Order(StringComparer.Ordinal));
+        Assert.All(mine, f => Assert.Equal("src/Behavior.Legacy/Rules/Behavior.cs", f.File));
+    }
 
     [Fact]
     [ProducesDiagnostic("OFR3301")]
@@ -214,7 +251,8 @@ public sealed class AuditRunnerTests
             second.Result.Findings.Select(f => $"{f.Rule} {f.File}:{f.Line}:{f.Column} {f.Symbol}"));
     }
 
-    private static async Task AssertPositivesAndNegatives(AuditKind audit, string? configRule = null, Action<DiagnosticBag>? extra = null)
+    /// <param name="fileRules">Rules whose findings live in a file rather than a rule class, with the file expected to hold one.</param>
+    private static async Task AssertPositivesAndNegatives(AuditKind audit, Dictionary<string, string>? fileRules = null, Action<DiagnosticBag>? extra = null)
     {
         var (result, bag) = await RunAsync("behavior", audit);
         var fixture = await ScannedFixtures.GetAsync("behavior");
@@ -224,11 +262,11 @@ public sealed class AuditRunnerTests
         foreach (var rule in AuditRules.For(audit))
         {
             var mine = result.Findings.Where(f => f.Rule == rule.Id).ToList();
-            if (rule.Id == configRule)
+            if (fileRules is not null && fileRules.TryGetValue(rule.Id, out var expectedFile))
             {
-                if (!mine.Any(f => f.File == "src/Behavior.Legacy/app.config"))
+                if (!mine.Any(f => f.File == expectedFile))
                 {
-                    failures.Add($"{rule.Id}: no finding in Behavior.Legacy's app.config");
+                    failures.Add($"{rule.Id}: no finding in {expectedFile}");
                 }
 
                 failures.AddRange(mine.Where(f => f.Project == Clean).Select(f => $"{rule.Id}: finding in Behavior.Clean at {f.File}:{f.Line}"));

@@ -126,6 +126,7 @@ public sealed class PlanCommand(bool waves = false) : ICommandHandler<PlanOption
         table.AddColumn(new TableColumn("Wave").RightAligned());
         table.AddColumn("Project");
         table.AddColumn("Class");
+        table.AddColumn("Targets");
         table.AddColumn("Status");
         table.AddColumn(new TableColumn("Dependents").RightAligned());
         table.AddColumn("Waits on");
@@ -135,20 +136,28 @@ public sealed class PlanCommand(bool waves = false) : ICommandHandler<PlanOption
                 new Markup(entry.Wave.ToString(CultureInfo.InvariantCulture)),
                 new Markup(Markup.Escape(entry.Project) + (entry.InCycle ? $" [{Theme.DecisionStyle}](cycle)[/]" : "")),
                 new Markup($"[{ClassColor(entry.FrameworkClass).ToMarkup()}]■[/] {Wire(entry.FrameworkClass)}"),
+                new Markup(Markup.Escape(string.Join(";", entry.TargetFrameworks))),
                 new Markup(Status(entry.Readiness)),
                 new Markup(entry.BlastRadius.ToString(CultureInfo.InvariantCulture)),
-                new Markup(Markup.Escape(Blockers(entry.Blockers))));
+                new Markup(Markup.Escape(WaitsOn(entry))));
         }
 
         return table;
     }
 
-    private static string Blockers(IReadOnlyList<string> blockers) => blockers.Count switch
+    /// <summary>Framework-only blockers by name, then references outside the model by file name, at most two named.</summary>
+    private static string WaitsOn(PlanEntry entry)
     {
-        0 => "",
-        <= 2 => string.Join(", ", blockers.Select(b => Path.GetFileNameWithoutExtension(b))),
-        _ => string.Join(", ", blockers.Take(2).Select(b => Path.GetFileNameWithoutExtension(b))) + string.Create(CultureInfo.InvariantCulture, $" +{blockers.Count - 2}"),
-    };
+        var names = entry.Blockers.Select(b => Path.GetFileNameWithoutExtension(b))
+            .Concat(entry.UnresolvedReferences.Select(u => $"{Path.GetFileName(u)} (outside the model)"))
+            .ToList();
+        return names.Count switch
+        {
+            0 => "",
+            <= 2 => string.Join(", ", names),
+            _ => string.Join(", ", names.Take(2)) + string.Create(CultureInfo.InvariantCulture, $" +{names.Count - 2}"),
+        };
+    }
 
     private static string Status(ProjectReadiness readiness) => readiness switch
     {

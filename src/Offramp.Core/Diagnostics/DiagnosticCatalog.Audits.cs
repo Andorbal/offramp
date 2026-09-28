@@ -252,6 +252,78 @@ public static partial class DiagnosticCatalog
         "Branches that assume Windows need review; prefer OperatingSystem.IsWindows() and friends.",
         AuditArea);
 
+    public static readonly DiagnosticDescriptor OFR3121 = new(
+        "OFR3121", Severity.Warning,
+        "system default encoding",
+        "Encoding.Default is the system ANSI code page on .NET Framework and UTF-8 on modern .NET, so text read or written with it changes meaning after the port.",
+        "File.ReadAllText(path, Encoding.Default), StreamWriter with Encoding.Default, legacy interop code.",
+        "Name the encoding (Encoding.UTF8, or the code page the data was written with); Encoding.Default is the ANSI code page on .NET Framework and UTF-8 on modern .NET.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3122 = new(
+        "OFR3122", Severity.Info,
+        "string hash code used outside hashing",
+        "string.GetHashCode() is called outside a GetHashCode or Equals member. Modern .NET randomizes string hashing per process, so a value that is stored, sent, or used to choose a shard or cache key stops matching.",
+        "Sharding or partitioning by name.GetHashCode() % n, cache keys built from hash codes, hash codes persisted in a database.",
+        "Hash codes of strings are randomized per process on modern .NET; derive persisted keys, shard numbers, and cache keys from a stable hash (SHA-256, xxHash) instead.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3123 = new(
+        "OFR3123", Severity.Warning,
+        "WCF client configured from app.config",
+        "A WCF client (ClientBase<T>) or ChannelFactory<T> is created without a binding and address, so its endpoint comes from system.serviceModel in the configuration file. The System.ServiceModel packages on modern .NET do not read that section; the constructor throws at runtime although the code compiles.",
+        "A generated service reference used as new FooClient() or new FooClient(\"endpointName\").",
+        "Build the binding and EndpointAddress in code and pass them to the client or ChannelFactory; the System.ServiceModel packages on modern .NET do not read system.serviceModel from configuration.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3124 = new(
+        "OFR3124", Severity.Info,
+        "ambient transaction",
+        "TransactionScope or Transaction.Current is used. A scope that spans more than one connection escalates to a distributed transaction, which modern .NET supports on Windows only (and only when opted in from .NET 7).",
+        "Data access code wrapping several repositories or connections in one TransactionScope.",
+        "A scope spanning two connections escalates to a distributed transaction, which needs MSDTC and works on Windows only (opt-in from .NET 7); keep each scope on one connection or coordinate in the application.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3125 = new(
+        "OFR3125", Severity.Warning,
+        "machine certificate store or key container",
+        "The code reads the machine certificate store, names a CAPI or CNG key container, or protects data with DPAPI. Linux has no machine store or key containers, and DPAPI is Windows only.",
+        "new X509Store(StoreName.My, StoreLocation.LocalMachine), CspParameters with a KeyContainerName, ProtectedData.Protect.",
+        "The machine certificate store, CAPI/CNG key containers, and DPAPI exist on Windows only; load certificates from files or a secret store, keep keys in a key vault, and protect data with Data Protection or an explicit key.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3126 = new(
+        "OFR3126", Severity.Warning,
+        "start of a Windows program",
+        "Process.Start or ProcessStartInfo names a Windows program: a .exe, .bat, .cmd, .ps1, .vbs, or .msi, a drive-letter path, or a command such as cmd, powershell, or xcopy.",
+        "Shelling out to cmd.exe, PowerShell scripts, or Windows administration commands.",
+        "The program does not exist on Linux or macOS; call the API the command wraps, or make the command a configurable dependency and guard it with OperatingSystem.IsWindows().",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3127 = new(
+        "OFR3127", Severity.Info,
+        "path built from the working directory or assembly location",
+        "Environment.CurrentDirectory, Directory.GetCurrentDirectory, or Assembly.Location/CodeBase is used, typically to find files next to the application. A service or container starts elsewhere, and single-file publish has no assembly file.",
+        "Path.Combine(Environment.CurrentDirectory, \"config.xml\"), Assembly.GetExecutingAssembly().CodeBase.",
+        "Services, containers, and single-file publish start with a different working directory and may have no assembly file; build paths from AppContext.BaseDirectory or configuration.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3128 = new(
+        "OFR3128", Severity.Warning,
+        "probing paths and AppDomain setup information",
+        "AppDomain.SetupInformation, AppDomainSetup, or the private-path APIs are used. Modern .NET has one AppDomain whose probing is AssemblyLoadContext's; these members throw or return nothing.",
+        "AppDomain.CurrentDomain.SetupInformation.ConfigurationFile, AppendPrivatePath, RelativeSearchPath.",
+        "Assembly probing is AssemblyLoadContext's on modern .NET; AppDomainSetup and the private path APIs throw or return nothing. Resolve assemblies with AssemblyLoadContext and read the configuration file path from AppContext.BaseDirectory.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3129 = new(
+        "OFR3129", Severity.Warning,
+        "file name differs from the repository in case",
+        "A string literal names a file in the repository (relative to the project folder or the repository root) with different casing than the file has. Windows and macOS open it; Linux does not.",
+        "\"Config.xml\" for a file named config.xml, a folder renamed at some point.",
+        "Spell the path as the file is named; file systems on Linux are case-sensitive, so the name opens on Windows and fails there.",
+        AuditArea);
+
     public static readonly DiagnosticDescriptor OFR3201 = new(
         "OFR3201", Severity.Error,
         "insecure serializer",
@@ -306,6 +378,22 @@ public static partial class DiagnosticCatalog
         "XmlSerializer works on modern .NET; pre-generated serializers (sgen) need Microsoft.XmlSerializer.Generator.",
         "XmlSerializer usages, especially with GenerateSerializationAssemblies.",
         "Works on the target; pre-generated serializers (sgen) need Microsoft.XmlSerializer.Generator or can be dropped.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3212 = new(
+        "OFR3212", Severity.Error,
+        "resource serialized with BinaryFormatter",
+        "A .resx entry is a BinaryFormatter or SoapFormatter payload (its mimetype says so). The build reads it with the formatter, which is removed from .NET 9, so the project stops building or the resource fails to load. Reported as a warning below target 9.",
+        "Images, icons, and typed values that an old Visual Studio designer saved into a .resx as serialized objects.",
+        "Re-save the resource so the designer stores it as a file reference, a byte array, or a string; BinaryFormatter and SoapFormatter payloads in .resx files cannot be read on .NET 9 and later.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3213 = new(
+        "OFR3213", Severity.Info,
+        "non-string resource",
+        "A .resx entry is not a string: a typed value, a byte array, or a file reference to anything but text or bytes. The .NET SDK's GenerateResource task refuses such resources (MSB3822, MSB3823) unless the project opts into preserialized resources and references System.Resources.Extensions.",
+        "Windows Forms designer resources, images embedded as byte arrays, typed settings in resources.",
+        "Under the .NET SDK, GenerateResource needs GenerateResourceUsePreserializedResources=true and the System.Resources.Extensions package for non-string resources (MSB3822, MSB3823); set them, or move the resource to a file.",
         AuditArea);
 
     public static readonly DiagnosticDescriptor OFR3301 = new(

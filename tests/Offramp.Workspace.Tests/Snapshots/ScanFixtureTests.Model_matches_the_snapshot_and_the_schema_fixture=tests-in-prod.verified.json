@@ -68,6 +68,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "NUnit",
@@ -161,6 +162,7 @@
       "projectReferences": [
         "src/Foo/Foo.csproj"
       ],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "Microsoft.NET.Test.Sdk",
@@ -402,6 +404,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "xunit",

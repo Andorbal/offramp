@@ -61,6 +61,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "Newtonsoft.Json",
@@ -145,6 +146,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [],
       "assemblyReferences": [],
       "comReferences": [],
@@ -212,6 +214,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "Newtonsoft.Json",

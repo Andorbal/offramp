@@ -69,6 +69,7 @@
       "projectReferences": [
         "src/Legacy.Core/Legacy.Core.csproj"
       ],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "Newtonsoft.Json",
@@ -160,6 +161,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [],
       "assemblyReferences": [
         {

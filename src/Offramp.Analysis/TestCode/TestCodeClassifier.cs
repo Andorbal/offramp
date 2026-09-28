@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.CodeAnalysis;
+using Offramp.Workspace.Model;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Offramp.Core.Json;
@@ -62,6 +63,7 @@ public static class TestCodeClassifier
         ["xunit.v3.core"] = "xunit.v3",
         ["nunit.framework"] = "nunit",
         ["Microsoft.VisualStudio.TestPlatform.TestFramework"] = "mstest",
+        [ProjectKindDetector.MsTestV1Assembly] = "mstest",
         ["TUnit.Core"] = "tunit",
     };
 

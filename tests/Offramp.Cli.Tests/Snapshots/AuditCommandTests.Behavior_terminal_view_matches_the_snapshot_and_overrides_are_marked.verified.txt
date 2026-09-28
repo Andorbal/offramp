@@ -1,26 +1,35 @@
-﻿audit behavior for net10.0: 22 findings (1 error, 14 warnings, 7 info) in 2 projects.
+﻿audit behavior for net10.0: 39 findings (1 error, 27 warnings, 11 info) in 2 projects.
 
-  Rule      Severity   Title                                              Findings   Projects
-───────────────────────────────────────────────────────────────────────────────────────────────
-  OFR3102   warning    non-Unicode code page                                     1          1
-  OFR3103   warning    path assumes Windows separators or folders                2          1
-  OFR3104   warning    time zone looked up by Windows ID                         1          1
-  OFR3105   warning    registry access                                           1          1
-  OFR3106   warning    ambient ASP.NET context                                   2          1
-  OFR3107   warning    shell execution through Process.Start                     1          1
-  OFR3108   warning    legacy SQL Server client (System.Data.SqlClient)          1          1
-  OFR3109   error      floating-point ToString without a format                  1          1
-  OFR3110   warning    obsolete networking API                                   1          1
-  OFR3111   warning    ambient principal                                         1          1
-  OFR3112   info       settings read through ConfigurationManager                1          1
-  OFR3113   info       regular expression without a timeout                      1          1
-  OFR3114   warning    TLS 1.0/1.1 or SSL pinned                                 1          1
-  OFR3115   warning    assembly loading                                          1          1
-  OFR3116   info       runtime settings in app.config                            2          1
-  OFR3117   info       URL encoding differences                                  1          1
-  OFR3118   warning    machine key or Forms authentication                       1          1
-  OFR3119   info       timers and thread pool tuning                             1          1
-  OFR3120   info       operating system check                                    1          1
+  Rule      Severity   Title                                                        Findings   Projects
+─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  OFR3102   warning    non-Unicode code page                                               1          1
+  OFR3103   warning    path assumes Windows separators or folders                          2          1
+  OFR3104   warning    time zone looked up by Windows ID                                   1          1
+  OFR3105   warning    registry access                                                     1          1
+  OFR3106   warning    ambient ASP.NET context                                             2          1
+  OFR3107   warning    shell execution through Process.Start                               2          1
+  OFR3108   warning    legacy SQL Server client (System.Data.SqlClient)                    1          1
+  OFR3109   error      floating-point ToString without a format                            1          1
+  OFR3110   warning    obsolete networking API                                             1          1
+  OFR3111   warning    ambient principal                                                   1          1
+  OFR3112   info       settings read through ConfigurationManager                          1          1
+  OFR3113   info       regular expression without a timeout                                1          1
+  OFR3114   warning    TLS 1.0/1.1 or SSL pinned                                           1          1
+  OFR3115   warning    assembly loading                                                    1          1
+  OFR3116   info       runtime settings in app.config                                      2          1
+  OFR3117   info       URL encoding differences                                            1          1
+  OFR3118   warning    machine key or Forms authentication                                 1          1
+  OFR3119   info       timers and thread pool tuning                                       1          1
+  OFR3120   info       operating system check                                              1          1
+  OFR3121   warning    system default encoding                                             1          1
+  OFR3122   info       string hash code used outside hashing                               1          1
+  OFR3123   warning    WCF client configured from app.config                               3          1
+  OFR3124   info       ambient transaction                                                 2          1
+  OFR3125   warning    machine certificate store or key container                          2          1
+  OFR3126   warning    start of a Windows program                                          3          1
+  OFR3127   info       path built from the working directory or assembly location          1          1
+  OFR3128   warning    probing paths and AppDomain setup information                       1          1
+  OFR3129   warning    file name differs from the repository in case                       2          1
 
 OFR3102 (1)
   OFR3102 src/Behavior.Legacy/Rules/Behavior.cs:45 Encoding.GetEncoding(1252) needs CodePagesEncodingProvider.Instance
@@ -38,9 +47,11 @@ OFR3105 (1)
 OFR3106 (2)
   OFR3106 src/Behavior.Legacy/Rules/Api.cs:14 Ambient ASP.NET context: System.Web.HttpContext.Current.
   OFR3106 src/Behavior.Legacy/Rules/Behavior.cs:102 Ambient ASP.NET context: System.Web.HttpRuntime.
-OFR3107 (1)
+OFR3107 (2)
   OFR3107 src/Behavior.Legacy/Rules/Behavior.cs:115 Shell execution through Process.Start:
 System.Diagnostics.Process.Start(string).
+  OFR3107 src/Behavior.Legacy/Rules/Behavior.cs:417 Shell execution through Process.Start:
+System.Diagnostics.Process.Start(string, string).
 OFR3108 (1)
   OFR3108 src/Behavior.Legacy/Rules/Behavior.cs:128 Legacy SQL Server client (System.Data.SqlClient):
 System.Data.SqlClient.SqlConnection.
@@ -74,7 +85,49 @@ OFR3119 (1)
   OFR3119 src/Behavior.Legacy/Rules/Behavior.cs:258 Timers and thread pool tuning: System.Timers.Timer.
 OFR3120 (1)
   OFR3120 src/Behavior.Legacy/Rules/Behavior.cs:271 Operating system check: System.Environment.OSVersion.
+OFR3121 (1)
+  OFR3121 src/Behavior.Legacy/Rules/Behavior.cs:284 System default encoding: System.Text.Encoding.Default.
+OFR3122 (1)
+  OFR3122 src/Behavior.Legacy/Rules/Behavior.cs:297 string.GetHashCode() differs per process on modern .NET; its value
+must not be stored or sent.
+OFR3123 (3)
+  OFR3123 src/Behavior.Legacy/Rules/Behavior.cs:348 Behavior.Rules.OFR3123.PingClient is created with the default
+endpoint from system.serviceModel in the configuration file; the WCF client on modern .NET does not read it and throws
+at runtime.
+  OFR3123 src/Behavior.Legacy/Rules/Behavior.cs:353 Behavior.Rules.OFR3123.PingClient is created with the endpoint named
+by 'endpointConfigurationName' from system.serviceModel in the configuration file; the WCF client on modern .NET does
+not read it and throws at runtime.
+  OFR3123 src/Behavior.Legacy/Rules/Behavior.cs:358 System.ServiceModel.ChannelFactory<Behavior.Rules.OFR3123.IPing> is
+created with the endpoint named by 'endpointConfigurationName' from system.serviceModel in the configuration file; the
+WCF channel factory on modern .NET does not read it and throws at runtime.
+OFR3124 (2)
+  OFR3124 src/Behavior.Legacy/Rules/Behavior.cs:376 Ambient transaction: System.Transactions.TransactionScope.
+  OFR3124 src/Behavior.Legacy/Rules/Behavior.cs:379 Ambient transaction:
+System.Transactions.TransactionScope.Complete().
+OFR3125 (2)
+  OFR3125 src/Behavior.Legacy/Rules/Behavior.cs:399 Machine certificate store or key container:
+System.Security.Cryptography.X509Certificates.StoreLocation.LocalMachine.
+  OFR3125 src/Behavior.Legacy/Rules/Behavior.cs:404 Machine certificate store or key container:
+System.Security.Cryptography.ProtectedData.
+OFR3126 (3)
+  OFR3126 src/Behavior.Legacy/Rules/Behavior.cs:115 System.Diagnostics.Process.Start(string) starts example.com, a
+Windows program.
+  OFR3126 src/Behavior.Legacy/Rules/Behavior.cs:120 System.Diagnostics.ProcessStartInfo.ProcessStartInfo(string) starts
+example.com, a Windows program.
+  OFR3126 src/Behavior.Legacy/Rules/Behavior.cs:417 System.Diagnostics.Process.Start(string, string) starts cmd.exe, a
+Windows program.
+OFR3127 (1)
+  OFR3127 src/Behavior.Legacy/Rules/Behavior.cs:436 Path built from the working directory or assembly location:
+System.Reflection.Assembly.CodeBase.
+OFR3128 (1)
+  OFR3128 src/Behavior.Legacy/Rules/Behavior.cs:449 Probing paths and AppDomain setup information:
+System.AppDomain.SetupInformation.
+OFR3129 (2)
+  OFR3129 src/Behavior.Legacy/Rules/Behavior.cs:462 "Rules/behavior.cs" names src/Behavior.Legacy/Rules/Behavior.cs,
+which differs in case; the file is not found on a case-sensitive file system.
+  OFR3129 src/Behavior.Legacy/Rules/Behavior.cs:467 "src/Behavior.Legacy/APP.CONFIG" names
+src/Behavior.Legacy/app.config, which differs in case; the file is not found on a case-sensitive file system.
 
 · OFR0052 offramp.yml:4:12 Override of OFR3101 has no reason; add `reason:` so the suppression stays attributable.
 
-1 error(s), 12 warning(s), 7 info
+1 error(s), 18 warning(s), 10 info

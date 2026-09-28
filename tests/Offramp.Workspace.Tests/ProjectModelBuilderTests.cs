@@ -100,14 +100,38 @@ public sealed class ProjectModelBuilderTests : IDisposable
         Assert.Equal(["src/A/A.csproj", "src/B/B.csproj"], withoutAssets.ProjectReferences);
     }
 
-    private ProjectInfo Build(EvaluatedProject evaluation) =>
-        ProjectModelBuilder.Build("src/Lib/Lib.csproj", [evaluation], new ProjectBuildContext
+    [Fact]
+    public void Declared_project_references_include_projects_outside_the_model_but_not_build_order_references()
+    {
+        var evaluation = Evaluation(new(), []) with
         {
-            Paths = CapturePathMapper.Local(_repo.Path),
-            Config = new OfframpConfig(),
-            CompilerCalls = new Dictionary<(string, string), CompilerCallRef>(),
-            Excluded = new PathGlobs([]),
-        });
+            Items = new Dictionary<string, IReadOnlyList<EvaluatedItem>>
+            {
+                ["ProjectReference"] =
+                [
+                    new(@"..\..\native\Interop.vcxproj", new Dictionary<string, string>()),
+                    new(@"..\A\A.csproj", new Dictionary<string, string>()),
+                    new(@"..\Setup\Setup.wixproj", new Dictionary<string, string> { ["ReferenceOutputAssembly"] = "false" }),
+                ],
+            },
+        };
+
+        var declared = ProjectModelBuilder.DeclaredProjectReferences([evaluation], Context());
+
+        Assert.Equal(["native/Interop.vcxproj", "src/A/A.csproj"], declared);
+        Assert.Equal(["native/Interop.vcxproj", "src/A/A.csproj", "src/Setup/Setup.wixproj"], Build(evaluation).ProjectReferences);
+    }
+
+    private ProjectInfo Build(EvaluatedProject evaluation) =>
+        ProjectModelBuilder.Build("src/Lib/Lib.csproj", [evaluation], Context());
+
+    private ProjectBuildContext Context() => new()
+    {
+        Paths = CapturePathMapper.Local(_repo.Path),
+        Config = new OfframpConfig(),
+        CompilerCalls = new Dictionary<(string, string), CompilerCallRef>(),
+        Excluded = new PathGlobs([]),
+    };
 
     private EvaluatedProject Evaluation(Dictionary<string, string> properties, string[] compile, EvaluatedItem[]? references = null)
     {
