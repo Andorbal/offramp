@@ -1,0 +1,9 @@
+<Project Sdk="MSBuild.SDK.SystemWeb/4.0.88">
+  <!-- The SDK imports $(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets unconditionally (OFR0116). -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Core\Core.csproj" />
+  </ItemGroup>
+</Project>

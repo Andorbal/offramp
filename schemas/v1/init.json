@@ -40,7 +40,9 @@
         "target",
         "solution",
         "verifyMode",
+        "verifyCommand",
         "cpmFile",
+        "cpmScope",
         "pins"
       ],
       "properties": {
@@ -61,8 +63,20 @@
             "none"
           ]
         },
+        "verifyCommand": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "cpmFile": {
           "type": "string"
+        },
+        "cpmScope": {
+          "enum": [
+            "solution",
+            "repo"
+          ]
         },
         "pins": {
           "type": "array",

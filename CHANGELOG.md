@@ -11,13 +11,68 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-28
+
+### Added
+- `OFR0116` (build step needs Windows: ASP.NET web application targets): a project that imports
+  `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets` from Visual Studio, such as
+  every `MSBuild.SDK.SystemWeb` project, or that sets `MvcBuildViews=true`. It is found from the
+  import, or from the MSB4019 error when evaluation stopped at that import, so `scan` and `doctor`
+  now name the cause instead of reporting a partial `library` and "No project needs Windows".
+- The compile-only block (`doctor --fix`, offered by `init`) has a second section for ASP.NET
+  (System.Web) projects, outside Windows only: the web targets come from the
+  `MSBuild.Microsoft.VisualStudio.Web.targets` package (an implicit reference, so it needs no
+  `PackageVersion` under central package management and stays out of package analysis),
+  `MvcBuildViews` is off, and the Web Deploy targets, which break `Clean` and rebuilds under
+  .NET's MSBuild, are not imported. A file with the first section from an earlier version gains
+  only the new one. ADR 0030; `docs/compiling-on-macos.md` explains it.
+- The `systemweb` fixture: an `MSBuild.SDK.SystemWeb` site, built by tests before and after the
+  block.
+- `init`'s result (`schemas/v1/init.json`) has `values.verifyCommand` and `values.cpmScope`.
+
 ### Changed
+- The HTML graph (`graph --format html`) routes edges orthogonally around the project boxes
+  instead of drawing curves through them (ADR 0033). An edge that skips layers gets a lane in
+  each layer it crosses; edges of one kind into one project share their lanes and arrive as one
+  line; tracks in each gap are ordered so that edges going the same way do not cross; rows are
+  ordered for fewer crossings and placed so long edges run straight. Drawings are larger and
+  orderly. Hovering a project highlights its edges. `GraphLayoutTests` runs the page's layout
+  with Node.js on the fixtures and a generated ninety-project solution and checks that no edge
+  crosses a box.
+- The `init` interview explains each question in a line above it and checks typed answers
+  (ADR 0032). The verify choices say what `build`, `command`, and `none` do, and `command` asks
+  for `verify.command`, which was never asked before. The central package versions question says
+  nothing is written until `deps consolidate --cpm`, suggests the path consolidation would use for
+  the chosen solution, and takes a path from the repository root (a folder gets
+  `Directory.Packages.props`, a bare name is written with `scope: repo`). A pin asks for a NuGet
+  package id, a version, an existing project or none, and a reason, with examples, and refuses
+  answers that are not one. `offramp.yml`'s comments for `verify`, `deps.pins`, and `deps.cpm`
+  say the same.
 - `docs/ROADMAP.md` marks M0 through M15 released: they first shipped in v0.15.0.
 - CI skips its build, test, container, VS Code extension, and pack jobs for a change that only
   adds or edits documentation: top-level Markdown files and `docs/`, except
   `docs/diagnostics.md` and `docs/spec/03-configuration.md`, which tests read. Deleting or
   renaming a file, or any other path, runs everything. `eng/ci-changes.sh` decides; the
   changelog check still runs.
+
+### Fixed
+- `deps consolidate` on projects already under central management wrote to the nearest
+  `Directory.Packages.props` even when the projects import another file, as `--cpm` sets them up
+  when OFR1301 fires. After such a conversion, the next consolidation edited the unrelated root
+  `Directory.Packages.props` (or reported it without writing). It now uses the props file with
+  `PackageVersion` items the project imports, then the recorded `DirectoryPackagesPropsPath`, then
+  the nearest `Directory.Packages.props` (ADR 0031).
+- `deps.cpm.file` with a folder (`eng/Packages.props`) is repository-relative, as the spec's
+  example shows; it was placed under the solution's folder, so `init` answers doubled up
+  (`apps/Legacy/apps/Legacy/Directory.Packages.props`). A bare name still goes where
+  `deps.cpm.scope` says.
+- `deps consolidate --cpm` checks a new `Directory.Packages.props` for projects outside the
+  solution below it before creating it (OFR1301), not only existing ones, so a repository with
+  unrelated projects no longer gets a root file that reaches all of them; the file is named
+  `<Solution>.Packages.props` instead and the solution's projects opt in. Opt-in also covers a
+  default-named file that is not in a folder above every project.
+- `init` detected a root `Directory.Packages.props` but wrote it as a bare name with
+  `scope: solution`, which pointed next to a solution in a folder instead.
 
 ## [0.15.0] - 2026-09-27
 
@@ -623,7 +678,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `Directory.Build.props` no longer produces a separate symbols package: PDBs
   are embedded, so `dotnet pack` failed with NU5017 when asked for a `.snupkg`.
 
-[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/Andorbal/offramp/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/Andorbal/offramp/compare/68f5511b14b047def139a5de50f8f0dd7919174e...v0.15.0
 [0.14.0]: https://github.com/Andorbal/offramp/compare/6f08ae0eb5cfccb69f7610cde61f4bf09943d081...68f5511b14b047def139a5de50f8f0dd7919174e
 [0.13.0]: https://github.com/Andorbal/offramp/compare/35ac927acc082f7b1015acb6e90271765a6fff8f...6f08ae0eb5cfccb69f7610cde61f4bf09943d081

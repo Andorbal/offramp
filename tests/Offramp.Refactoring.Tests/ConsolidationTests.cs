@@ -223,6 +223,111 @@ public sealed class ConsolidationTests
         Assert.True(verification.Passed, string.Join("\n", verification.Warnings));
     }
 
+    [Fact]
+    public async Task A_central_file_path_with_a_folder_is_repository_relative_and_opted_into()
+    {
+        using var repository = await FixtureRepository.CreateAsync("versions", git: false);
+        var model = FixtureModels.Load("versions") with { Solution = "src/Versions.slnx" };
+
+        var plan = (await PlanAsync(repository.Path, new DiagnosticBag(), r => r with
+        {
+            Model = model,
+            Cpm = true,
+            Config = WithCpm(r.Config, new CpmConfig { File = "eng/Packages.props" }),
+        }))!;
+
+        Assert.Equal("eng/Packages.props", plan.Result.Cpm!.File);
+        Assert.Contains(plan.ChangeSet!.Creates, c => c.Path == "eng/Packages.props");
+        Assert.Contains("<Import Project=\"$(MSBuildThisFileDirectory)..\\..\\eng\\Packages.props\" />", After(plan.ChangeSet!, "src/Billing/Billing.csproj"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_bare_central_file_name_goes_next_to_the_solution()
+    {
+        using var repository = await FixtureRepository.CreateAsync("versions", git: false);
+        File.Delete(Path.Combine(repository.Path, "Directory.Packages.props"));
+        var model = FixtureModels.Load("versions") with { Solution = "src/Versions.slnx" };
+
+        var plan = (await PlanAsync(repository.Path, new DiagnosticBag(), r => r with { Model = model, Cpm = true }))!;
+
+        Assert.Equal("src/Directory.Packages.props", plan.Result.Cpm!.File);
+        Assert.Empty(plan.Result.Cpm.OptIn);
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR1301")]
+    public async Task A_new_default_named_file_that_would_reach_projects_outside_the_solution_gets_its_own_name()
+    {
+        using var repository = await FixtureRepository.CreateAsync("versions", git: false);
+        File.Delete(Path.Combine(repository.Path, "Directory.Packages.props"));
+        Directory.CreateDirectory(Path.Combine(repository.Path, "src", "Stray"));
+        File.WriteAllText(Path.Combine(repository.Path, "src", "Stray", "Stray.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />\n");
+        var diagnostics = new DiagnosticBag();
+
+        var plan = (await PlanAsync(repository.Path, diagnostics, r => r with
+        {
+            Cpm = true,
+            Config = WithCpm(r.Config, new CpmConfig { File = "src/Directory.Packages.props" }),
+        }))!;
+
+        Assert.Equal("src/Versions.Packages.props", plan.Result.Cpm!.File);
+        Assert.Contains(plan.Result.Hazards, h => h.Code == "OFR1301" && h.Path == "src/Stray/Stray.csproj");
+        Assert.NotEmpty(plan.Result.Cpm.OptIn);
+        Assert.DoesNotContain(plan.ChangeSet!.Creates, c => c.Path == "src/Directory.Packages.props");
+    }
+
+    [Theory]
+    [InlineData("Directory.Packages.props", "solution", "src/Monolith.sln", "src/Directory.Packages.props")]
+    [InlineData("Directory.Packages.props", "repo", "src/Monolith.sln", "Directory.Packages.props")]
+    [InlineData("Directory.Packages.props", "solution", "Monolith.sln", "Directory.Packages.props")]
+    [InlineData("eng/Packages.props", "solution", "src/Monolith.sln", "eng/Packages.props")]
+    [InlineData("apps\\Legacy\\Directory.Packages.props", "solution", "apps/Legacy/Legacy.sln", "apps/Legacy/Directory.Packages.props")]
+    [InlineData("./Packages.props", "solution", "src/Monolith.sln", "src/Packages.props")]
+    public void The_central_file_path_resolves_a_bare_name_by_scope_and_keeps_a_path(string file, string scope, string solution, string expected)
+    {
+        Assert.Equal(expected, new CpmConfig { File = file, Scope = scope }.PathFor(solution));
+    }
+
+    [Fact]
+    public async Task After_a_conversion_to_a_named_file_the_next_consolidation_edits_that_file_not_the_root_one()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("cpm-shadowing");
+        using var _ = fixture.Repository;
+        var convert = (await Consolidator.PlanAsync(ShadowingRequest(fixture.Root, fixture.Outcome.Model!) with { Cpm = true }, TestContext.Current.CancellationToken))!;
+        WriteToDisk(fixture.Root, convert.ChangeSet!);
+
+        var rescanned = await Workspace.Scanning.ScanRunner.RunAsync(ScannedFixtures.Request(fixture.Root, new DiagnosticBag()), TestContext.Current.CancellationToken);
+        var again = (await Consolidator.PlanAsync(ShadowingRequest(fixture.Root, rescanned.Model!) with { Prefer = "newest" }, TestContext.Current.CancellationToken))!;
+
+        Assert.Equal(("existing", "CpmShadowing.Packages.props"), (again.Result.Cpm!.Mode, again.Result.Cpm.File));
+        Assert.Contains(again.ChangeSet!.Edits, e => e.Path == "CpmShadowing.Packages.props");
+        Assert.DoesNotContain(again.ChangeSet.Edits, e => e.Path == "Directory.Packages.props");
+    }
+
+    private static ConsolidateRequest ShadowingRequest(string root, Core.Model.WorkspaceModel model) => new()
+    {
+        RepositoryRoot = root,
+        Model = model,
+        Config = new OfframpConfig(),
+        Feeds = new RecordedPackageFeeds(VersionsFeed.Load()),
+        Cache = NullCache.Instance,
+        Diagnostics = new DiagnosticBag(),
+        Prefer = "lowest",
+    };
+
+    private static void WriteToDisk(string root, ChangeSet changeSet)
+    {
+        foreach (var edit in changeSet.Edits)
+        {
+            File.WriteAllBytes(Path.Combine(root, edit.Path), edit.After);
+        }
+
+        foreach (var create in changeSet.Creates)
+        {
+            File.WriteAllBytes(Path.Combine(root, create.Path), create.Content);
+        }
+    }
+
     private static Task<ConsolidationPlan?> PlanAsync(string root, DiagnosticBag diagnostics, Func<ConsolidateRequest, ConsolidateRequest>? customize = null)
     {
         var request = new ConsolidateRequest
@@ -254,6 +359,8 @@ public sealed class ConsolidationTests
         model with { Projects = [.. model.Projects.Select(p => p.Id == project ? p with { TargetFrameworks = [tfm] } : p)] };
 
     private static OfframpConfig Config(string root) => ConfigLoader.Load(new ConfigSources { RepositoryRoot = root }).Config;
+
+    private static OfframpConfig WithCpm(OfframpConfig config, CpmConfig cpm) => config with { Deps = config.Deps with { Cpm = cpm } };
 
     private static string After(ChangeSet changeSet, string path) =>
         System.Text.Encoding.UTF8.GetString(changeSet.Edits.FirstOrDefault(e => e.Path == path)?.After ?? changeSet.Creates.Single(c => c.Path == path).Content);

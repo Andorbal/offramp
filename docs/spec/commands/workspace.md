@@ -109,7 +109,7 @@ follows `--fail-on`. Diagnostics: `OFR0010` no SDK, `OFR0011` global.json SDK no
 installed, `OFR0012` SDK cannot target `--target`, `OFR0013` reference assemblies
 unresolvable, `OFR0014` git not found, `OFR0015` not a git repository, `OFR0016`
 no `offramp.yml` (info), `OFR0001` workspace model missing (reported as a warning
-by doctor), `OFR0002` model stale, `OFR0110`–`OFR0115` Windows-only build
+by doctor), `OFR0002` model stale, `OFR0110`–`OFR0116` Windows-only build
 steps (from the model), `OFR1301`–`OFR1303` CPM hazards, `OFR1006` feed
 unreachable, and the configuration codes `OFR0050`–`OFR0056`.
 

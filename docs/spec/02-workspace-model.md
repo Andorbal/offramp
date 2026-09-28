@@ -53,8 +53,11 @@ From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
   they are found even when the build failed or never ran them:
   `GenerateSerializationAssemblies=On` (or `Auto` when the sgen target ran),
   `COMReference`/`COMFileReference`, `EntityDeploy`, `TransformOnBuild` or the
-  TextTemplating targets, `Fakes` items, `.sqlproj` or SqlTasks targets, and
-  pre/post-build events calling Windows commands (`OFR0110`–`OFR0115`).
+  TextTemplating targets, `Fakes` items, `.sqlproj` or SqlTasks targets,
+  pre/post-build events calling Windows commands, and the ASP.NET web
+  application targets imported from Visual Studio's `VSToolsPath` (or an
+  MSB4019 error for that import, when evaluation stopped there) or
+  `MvcBuildViews=true` (`OFR0110`–`OFR0116`).
 - `project.assets.json` path per project → parsed with `NuGet.ProjectModel`
   for the resolved transitive package graph per target framework.
 

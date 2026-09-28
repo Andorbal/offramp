@@ -333,6 +333,7 @@ public static class ScanRunner
             CompilerCalls = calls,
             CompilerDefines = defines,
             Excluded = new PathGlobs(request.Config.Paths.Exclude),
+            Errors = data.Errors,
         };
 
         var projects = new List<ProjectInfo>();
@@ -362,6 +363,13 @@ public static class ScanRunner
                     new DiagnosticLocation(Project: missing.Project),
                     [KeyValuePair.Create<string, JsonNode?>("step", "ssdt")])!);
             }
+            else if (EvaluationError(data, mapper, missing.Project) is { } error && WindowsOnlyBuildSteps.FromEvaluationError(error.Code, error.Message) is { } step)
+            {
+                loading.Add(request.Diagnostics.Report(step.Descriptor,
+                    $"Needs Windows to build: {step.Evidence}.",
+                    new DiagnosticLocation(Project: missing.Project),
+                    [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", step.Evidence)])!);
+            }
         }
 
         foreach (var project in projects)
@@ -385,7 +393,8 @@ public static class ScanRunner
                     [KeyValuePair.Create<string, JsonNode?>("assetsFile", relativeAssets)])!);
             }
 
-            foreach (var step in WindowsOnlyBuildSteps.Detect(project.Id, evaluations))
+            var errors = data.Errors.Where(e => e.ProjectFile is not null && string.Equals(mapper.ToRelative(e.ProjectFile), project.Id, StringComparison.OrdinalIgnoreCase));
+            foreach (var step in WindowsOnlyBuildSteps.Detect(project.Id, evaluations, errors))
             {
                 loading.Add(request.Diagnostics.Report(step.Descriptor,
                     $"Needs Windows to build: {step.Evidence}.",
@@ -455,8 +464,7 @@ public static class ScanRunner
                 continue;
             }
 
-            var error = data.Errors.FirstOrDefault(e => e.ProjectFile is not null
-                && string.Equals(mapper.ToRelative(e.ProjectFile), id, StringComparison.OrdinalIgnoreCase));
+            var error = EvaluationError(data, mapper, id);
             var extension = Path.GetExtension(id).ToLowerInvariant();
             var reason = error is not null
                 ? $"{error.Code}: {error.Message}"
@@ -468,6 +476,11 @@ public static class ScanRunner
 
         return [.. result.OrderBy(r => r.Project, StringComparer.Ordinal)];
     }
+
+    /// <summary>The first error the log records for a project, which explains why it has no evaluation.</summary>
+    private static BuildError? EvaluationError(BinlogData data, CapturePathMapper mapper, string project) =>
+        data.Errors.FirstOrDefault(e => e.ProjectFile is not null
+            && string.Equals(mapper.ToRelative(e.ProjectFile), project, StringComparison.OrdinalIgnoreCase));
 
     private static SortedDictionary<string, PackageUsage> PackageIndex(IEnumerable<ProjectInfo> projects)
     {

@@ -34,9 +34,9 @@ public static partial class InitPlanner
                 data: [KeyValuePair.Create<string, JsonNode?>("candidates", new JsonArray([.. candidates.Select(c => (JsonNode?)c)]))]);
         }
 
-        var cpmFile = File.Exists(Path.Combine(repositoryRoot, "Directory.Packages.props"))
-            ? "Directory.Packages.props"
-            : config.Deps.Cpm.File;
+        // A Directory.Packages.props at the root is where central versions already live; scope: repo keeps
+        // it there when the solution is in a folder.
+        var rootCpm = File.Exists(Path.Combine(repositoryRoot, CpmConfig.DefaultFile));
 
         return new InitDetection
         {
@@ -45,11 +45,14 @@ public static partial class InitPlanner
                 Target = config.Target,
                 Solution = solution,
                 VerifyMode = config.Verify.Mode,
-                CpmFile = cpmFile,
+                VerifyCommand = config.Verify.Command,
+                CpmFile = rootCpm ? CpmConfig.DefaultFile : config.Deps.Cpm.File,
+                CpmScope = rootCpm ? "repo" : config.Deps.Cpm.Scope,
                 Pins = config.Deps.Pins,
             },
             SolutionCandidates = candidates,
             ConfigExists = File.Exists(Path.Combine(repositoryRoot, ConfigLoader.DefaultFileName)),
+            RepositoryRoot = repositoryRoot,
         };
     }
 
@@ -229,8 +232,15 @@ public static partial class InitPlanner
         b.Append("  exclude: []\n");
         b.Append("  state: .offramp\n\n");
         b.Append("verify:\n");
-        b.Append("  # build: dotnet build the affected projects | command: run verify.command | none\n");
+        b.Append("  # How Offramp checks each change it writes before keeping it:\n");
+        b.Append("  # build: dotnet build the affected projects | command: run verify.command | none: no check\n");
         b.Append("  mode: ").Append(Scalar(values.VerifyMode)).Append('\n');
+        if (values.VerifyCommand is not null)
+        {
+            b.Append("  # Run from the repository root; exit code 0 means the change is good.\n");
+            b.Append("  command: ").Append(Quote(values.VerifyCommand)).Append('\n');
+        }
+
         b.Append("  timeoutSeconds: 1800\n");
         b.Append("  configuration: Debug\n");
         b.Append("  # Extra -p: values for every verification build and for scan, for example:\n");
@@ -244,7 +254,7 @@ public static partial class InitPlanner
         b.Append("  # Packages that must share one version, for example:\n");
         b.Append("  #   - prefix: \"Microsoft.Extensions.\"\n");
         b.Append("  families: []\n");
-        b.Append("  # Hard version pins. Always give a reason.\n");
+        b.Append("  # Packages held at one version: consolidation and upgrades never change them. Always give a reason.\n");
         if (values.Pins.Count == 0)
         {
             b.Append("  #   - package: Newtonsoft.Json\n");
@@ -270,9 +280,10 @@ public static partial class InitPlanner
         }
 
         b.Append("  cpm:\n");
-        b.Append("    # Where `deps consolidate` writes PackageVersion items.\n");
+        b.Append("    # Where `deps consolidate --cpm` writes PackageVersion items: a path from the repository\n");
+        b.Append("    # root, or a bare name that goes in the solution's folder (scope: solution) or the root (repo).\n");
         b.Append("    file: ").Append(Scalar(values.CpmFile)).Append('\n');
-        b.Append("    scope: solution\n\n");
+        b.Append("    scope: ").Append(Scalar(values.CpmScope)).Append("\n\n");
         b.Append("move:\n");
         b.Append("  # none | per-project | batch:N | end\n");
         b.Append("  verify: end\n");

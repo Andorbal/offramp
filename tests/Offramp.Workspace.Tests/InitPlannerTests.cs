@@ -57,16 +57,22 @@ public sealed class InitPlannerTests : IDisposable
     }
 
     [Fact]
-    public void Existing_directory_packages_props_is_detected()
+    public void Existing_directory_packages_props_is_detected_and_kept_at_the_root()
     {
         _repo.Write("Directory.Packages.props", "<Project />");
-        Assert.Equal("Directory.Packages.props", Detect().Values.CpmFile);
+        _repo.Write("src/Monolith.sln", "");
+
+        var values = Detect().Values;
+
+        Assert.Equal(("Directory.Packages.props", "repo"), (values.CpmFile, values.CpmScope));
+        Assert.Equal("Directory.Packages.props", new CpmConfig { File = values.CpmFile, Scope = values.CpmScope }.PathFor(values.Solution));
     }
 
     public static TheoryData<InitValues> ValueSets => new()
     {
         new InitValues(),
         new InitValues { Target = 9, Solution = "src/My App/App.sln", VerifyMode = "none", CpmFile = "eng/Packages.props" },
+        new InitValues { VerifyMode = "command", VerifyCommand = "./build.sh --configuration \"Debug\"", CpmFile = "Packages.props", CpmScope = "repo" },
         new InitValues
         {
             Solution = "true",
@@ -92,7 +98,9 @@ public sealed class InitPlannerTests : IDisposable
         Assert.Equal(values.Target, loaded.Config.Target);
         Assert.Equal(values.Solution, loaded.Config.Solution);
         Assert.Equal(values.VerifyMode, loaded.Config.Verify.Mode);
+        Assert.Equal(values.VerifyCommand, loaded.Config.Verify.Command);
         Assert.Equal(values.CpmFile, loaded.Config.Deps.Cpm.File);
+        Assert.Equal(values.CpmScope, loaded.Config.Deps.Cpm.Scope);
         Assert.Equal(values.Pins, loaded.Config.Deps.Pins);
     }
 

@@ -118,7 +118,7 @@ internal sealed class ConsolidationWriter(ConsolidateRequest request)
             }
         }
 
-        return new CentralPackageManagement { Mode = "existing", File = files.FirstOrDefault() ?? DefaultCentralFile };
+        return new CentralPackageManagement { Mode = "existing", File = files.FirstOrDefault() ?? request.Config.Deps.Cpm.PathFor(Model.Solution) };
     }
 
     /// <summary>
@@ -129,9 +129,20 @@ internal sealed class ConsolidationWriter(ConsolidateRequest request)
     /// </summary>
     private (CentralPackageManagement, IReadOnlyList<CpmFinding>) WriteConversion(IReadOnlyList<PackageConsolidation> packages, List<ProjectInfo> projects)
     {
-        var solutionDirectory = Model.Solution is { } solution && solution.Contains('/', StringComparison.Ordinal) ? solution[..solution.LastIndexOf('/')] : "";
-        var directory = request.Config.Deps.Cpm.Scope == "repo" ? "" : solutionDirectory;
-        var found = CpmHazards.Find(Root, [.. Model.Projects.Select(p => p.Id)]);
+        var solutionProjects = Model.Projects.Select(p => p.Id).ToList();
+        var file = request.Config.Deps.Cpm.PathFor(Model.Solution);
+        var directory = DirectoryOf(file);
+        var found = CpmHazards.Find(Root, solutionProjects).ToList();
+        if (Path.GetFileName(file) == DefaultCentralFile && !File.Exists(RepoPaths.ToAbsolute(Root, file)))
+        {
+            // The file does not exist yet, so Find cannot see the projects it would reach once created.
+            found.AddRange(CpmHazards.ProjectsOutsideBelow(Root, solutionProjects, directory)
+                .Where(p => !found.Any(h => h.Descriptor == DiagnosticCatalog.OFR1301 && h.Path == p))
+                .Select(p => new CpmHazard(DiagnosticCatalog.OFR1301, p,
+                    $"Not in the solution, but {file}, which --cpm would create, would apply to it: its PackageReference versions would stop working under central package management.")));
+            found = [.. found.OrderBy(h => h.Descriptor.Code, StringComparer.Ordinal).ThenBy(h => h.Path, StringComparer.Ordinal)];
+        }
+
         var hazards = found.Select(h => new CpmFinding(h.Descriptor.Code, h.Path, h.Message)).ToList();
         foreach (var hazard in found)
         {
@@ -139,13 +150,12 @@ internal sealed class ConsolidationWriter(ConsolidateRequest request)
         }
 
         // A default-named central file would reach projects outside the solution (OFR1301): name it after the solution and opt in.
-        var name = request.Config.Deps.Cpm.File;
-        if (name == DefaultCentralFile && found.Any(h => h.Descriptor == DiagnosticCatalog.OFR1301))
+        if (Path.GetFileName(file) == DefaultCentralFile && found.Any(h => h.Descriptor == DiagnosticCatalog.OFR1301))
         {
-            name = Path.GetFileNameWithoutExtension(Model.Solution ?? "Solution") + ".Packages.props";
+            var name = Path.GetFileNameWithoutExtension(Model.Solution ?? "Solution") + ".Packages.props";
+            file = directory.Length == 0 ? name : directory + "/" + name;
         }
 
-        var file = directory.Length == 0 ? name : directory + "/" + name;
         var central = Editor(file, create: true);
         central.SetProperty("ManagePackageVersionsCentrally", "true");
 
@@ -181,11 +191,12 @@ internal sealed class ConsolidationWriter(ConsolidateRequest request)
             }
         }
 
-        // A non-default central file is opted into. A shared props file imported before the SDK's own
-        // (--opt-in-via) names it with DirectoryPackagesPropsPath; a project body comes too late for that
-        // property, so each project imports the file itself.
+        // A central file the SDK does not find by itself (another name, or not in a folder above every
+        // project) is opted into. A shared props file imported before the SDK's own (--opt-in-via) names it
+        // with DirectoryPackagesPropsPath; a project body comes too late for that property, so each project
+        // imports the file itself.
         var optIn = new List<string>();
-        if (name != DefaultCentralFile)
+        if (Path.GetFileName(file) != DefaultCentralFile || projects.Any(p => !IsAtOrBelow(p.Id, DirectoryOf(file))))
         {
             if (request.OptInVia is { } via)
             {
@@ -209,10 +220,27 @@ internal sealed class ConsolidationWriter(ConsolidateRequest request)
         return (new CentralPackageManagement { Mode = "convert", File = file, OptIn = optIn }, hazards);
     }
 
-    /// <summary>The nearest Directory.Packages.props at or above a project's folder, repository-relative.</summary>
+    /// <summary>
+    /// The file holding a project's central versions, repository-relative: a props file with
+    /// <c>PackageVersion</c> items that the project imports (how <c>--cpm</c> opts a project into a
+    /// named file), else its recorded <c>DirectoryPackagesPropsPath</c>, else the nearest
+    /// Directory.Packages.props at or above its folder.
+    /// </summary>
     private string? CentralFileOf(string project)
     {
-        var directory = project.Contains('/', StringComparison.Ordinal) ? project[..project.LastIndexOf('/')] : "";
+        if (ImportedCentralFile(project) is { } imported)
+        {
+            return imported;
+        }
+
+        var info = Model.Projects.FirstOrDefault(p => p.Id == project);
+        if (info is not null && info.Properties.TryGetValue("DirectoryPackagesPropsPath", out var recorded)
+            && File.Exists(RepoPaths.ToAbsolute(Root, recorded)))
+        {
+            return RepoPaths.Normalize(recorded);
+        }
+
+        var directory = DirectoryOf(project);
         while (true)
         {
             var candidate = directory.Length == 0 ? DefaultCentralFile : directory + "/" + DefaultCentralFile;
@@ -229,6 +257,56 @@ internal sealed class ConsolidationWriter(ConsolidateRequest request)
             directory = directory.Contains('/', StringComparison.Ordinal) ? directory[..directory.LastIndexOf('/')] : "";
         }
     }
+
+    /// <summary>The first file the project imports that has PackageVersion items; imports using other properties are skipped.</summary>
+    private string? ImportedCentralFile(string project)
+    {
+        var projectFile = RepoPaths.ToAbsolute(Root, project);
+        if (!File.Exists(projectFile))
+        {
+            return null;
+        }
+
+        foreach (var import in ProjectFileEditor.Load(File.ReadAllBytes(projectFile)).Imports)
+        {
+            var path = ResolveImport(project, import);
+            var absolute = path is null ? null : RepoPaths.ToAbsolute(Root, path);
+            if (absolute is not null && File.Exists(absolute) && ProjectFileEditor.Load(File.ReadAllBytes(absolute)).HasItems("PackageVersion"))
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>An import relative to the project's folder, as a repository path; null when it uses other properties or leaves the repository.</summary>
+    private string? ResolveImport(string project, string import)
+    {
+        var text = import.Replace('\\', '/');
+        foreach (var prefix in (string[])["$(MSBuildThisFileDirectory)", "$(MSBuildProjectDirectory)/"])
+        {
+            if (text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                text = text[prefix.Length..];
+                break;
+            }
+        }
+
+        if (text.Contains("$(", StringComparison.Ordinal) || Path.IsPathRooted(text))
+        {
+            return null;
+        }
+
+        var relative = RepoPaths.ToRepositoryRelative(Root, Path.GetFullPath(Path.Combine(RepoPaths.ToAbsolute(Root, DirectoryOf(project)), text)));
+        return relative.StartsWith("../", StringComparison.Ordinal) ? null : relative;
+    }
+
+    private static string DirectoryOf(string path) =>
+        path.Contains('/', StringComparison.Ordinal) ? path[..path.LastIndexOf('/')] : "";
+
+    private static bool IsAtOrBelow(string path, string directory) =>
+        directory.Length == 0 || path.StartsWith(directory + "/", StringComparison.OrdinalIgnoreCase);
 
     private ProjectFileEditor Editor(string path, bool create = false)
     {

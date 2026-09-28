@@ -8,6 +8,7 @@ using Offramp.Workspace.Cpm;
 using Offramp.Workspace.Environment;
 using Offramp.Workspace.Ingest;
 using Offramp.Workspace.Init;
+using Offramp.Workspace.Model;
 using Offramp.Workspace.Store;
 
 namespace Offramp.Workspace.Doctor;
@@ -322,7 +323,7 @@ public static class DoctorRunner
         }
 
         var stepDiagnostics = model.Diagnostics
-            .Where(d => string.CompareOrdinal(d.Code, "OFR0110") >= 0 && string.CompareOrdinal(d.Code, "OFR0115") <= 0)
+            .Where(d => WindowsOnlyBuildSteps.IsStepCode(d.Code))
             .ToList();
         var byProject = stepDiagnostics
             .Where(d => d.Project is not null)
@@ -340,8 +341,8 @@ public static class DoctorRunner
             context.Diagnostics.Add(diagnostic);
         }
 
-        var hasBlock = File.Exists(Path.Combine(context.Repository.Path, CompileOnlyConditional.FileName))
-            && File.ReadAllText(Path.Combine(context.Repository.Path, CompileOnlyConditional.FileName)).Contains(CompileOnlyConditional.Marker, StringComparison.Ordinal);
+        var propsPath = Path.Combine(context.Repository.Path, CompileOnlyConditional.FileName);
+        var hasBlock = CompileOnlyConditional.IsPresent(File.Exists(propsPath) ? File.ReadAllText(propsPath) : null);
         var remedy = hasBlock
             ? "The compile-only block is present; guard the remaining steps with Condition=\"'$(OfframpCompileOnly)' != 'true'\", or scan a compiler log captured on Windows."
             : "Run `offramp doctor --fix --apply` to add the compile-only block to Directory.Build.props, then guard the remaining steps with $(OfframpCompileOnly), or scan a compiler log captured on Windows.";

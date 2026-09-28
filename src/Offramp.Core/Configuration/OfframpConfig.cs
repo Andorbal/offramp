@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Offramp.Core.Diagnostics;
+using Offramp.Core.Paths;
 
 namespace Offramp.Core.Configuration;
 
@@ -163,10 +164,29 @@ public sealed record PackagePin
 
 public sealed record CpmConfig
 {
-    public string File { get; init; } = "Directory.Packages.props";
+    public const string DefaultFile = "Directory.Packages.props";
 
-    /// <summary><c>solution</c> or <c>repo</c>.</summary>
+    /// <summary>A file name, placed by <see cref="Scope"/>, or a repository-relative path with a folder.</summary>
+    public string File { get; init; } = DefaultFile;
+
+    /// <summary><c>solution</c> or <c>repo</c>: where a bare <see cref="File"/> name goes.</summary>
     public string Scope { get; init; } = "solution";
+
+    /// <summary>
+    /// The repository-relative path of the central file: <see cref="File"/> as given when it names
+    /// a folder, else that name in the solution's folder (<c>scope: solution</c>) or at the root (<c>repo</c>).
+    /// </summary>
+    public string PathFor(string? solution)
+    {
+        var file = RepoPaths.Normalize(File);
+        if (file.Contains('/', StringComparison.Ordinal) || Scope == "repo" || solution is null)
+        {
+            return file;
+        }
+
+        var slash = RepoPaths.Normalize(solution).LastIndexOf('/');
+        return slash < 0 ? file : RepoPaths.Normalize(solution)[..slash] + "/" + file;
+    }
 }
 
 public sealed record RedirectsConfig

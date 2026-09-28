@@ -6,6 +6,7 @@ using Offramp.Core.Output;
 using Offramp.Workspace;
 using Offramp.Workspace.Doctor;
 using Offramp.Workspace.Init;
+using Offramp.Workspace.Model;
 using Offramp.Workspace.Store;
 using Spectre.Console;
 
@@ -125,7 +126,13 @@ public sealed class InitCommand : ICommandHandler<InitOptions, InitResult>, INex
         table.AddRow("target", $"net{result.Values.Target}.0");
         table.AddRow("solution", Markup.Escape(result.Values.Solution ?? "(none)"));
         table.AddRow("verify.mode", Markup.Escape(result.Values.VerifyMode));
-        table.AddRow("deps.cpm.file", Markup.Escape(result.Values.CpmFile));
+        if (result.Values.VerifyCommand is { } command)
+        {
+            table.AddRow("verify.command", Markup.Escape(command));
+        }
+
+        var cpm = new Core.Configuration.CpmConfig { File = result.Values.CpmFile, Scope = result.Values.CpmScope }.PathFor(result.Values.Solution);
+        table.AddRow("deps.cpm.file", Markup.Escape(cpm == result.Values.CpmFile ? cpm : $"{result.Values.CpmFile} ({cpm})"));
         table.AddRow("deps.pins", result.Values.Pins.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
         output.Write(table);
         RenderGitignore(result, output, "added");
@@ -144,7 +151,7 @@ public sealed class InitCommand : ICommandHandler<InitOptions, InitResult>, INex
 
         try
         {
-            return WorkspaceStore.Read(workspacePath).Projects.Any(p => p.WindowsOnlyBuildSteps.Count > 0);
+            return WindowsOnlyBuildSteps.AnyIn(WorkspaceStore.Read(workspacePath));
         }
         catch (System.Text.Json.JsonException)
         {

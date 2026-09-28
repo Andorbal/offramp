@@ -187,7 +187,10 @@ Result: per package `{ id, current: [...], selected, reason, constraints: [...],
   Contoso.Serialization 2.0.0 → Newtonsoft.Json >= 13.0.3.`
 - **Where versions are written:**
   - Projects already on central management: the `PackageVersion` in the
-    nearest `Directory.Packages.props`, and `VersionOverride` for pins.
+    file that holds the project's central versions, and `VersionOverride` for
+    pins. That file is a props file with `PackageVersion` items the project
+    imports (how `--cpm` opts projects into a named file), else the recorded
+    `DirectoryPackagesPropsPath`, else the nearest `Directory.Packages.props`.
   - Without it and without `--cpm`: each `PackageReference`'s `Version`, in
     place.
   - `--cpm`: every direct package of the PackageReference projects gets a
@@ -195,9 +198,16 @@ Result: per package `{ id, current: [...], selected, reason, constraints: [...],
     the selection, the version in use, or the highest in use with
     `VersionOverride` where projects differ. References lose `Version`, and
     `packages.config` projects are left alone.
-- **Opting in to a non-default central file.** A non-default file (named
-  `<Solution>.Packages.props` when OFR1301 fires, or `deps.cpm.file`) needs
-  opting in. The SDK imports `Directory.Packages.props` before the project
+- **Where `--cpm` writes.** `deps.cpm.file` with a folder is a
+  repository-relative path; a bare file name goes in the solution's folder
+  (`scope: solution`) or at the repository root (`scope: repo`). A
+  default-named file that does not exist yet is checked like an existing one:
+  projects outside the solution below its folder are `OFR1301`, and the file
+  is then named `<Solution>.Packages.props` in the same folder.
+- **Opting in to a non-default central file.** A file the SDK does not find by
+  itself (named `<Solution>.Packages.props` when OFR1301 fires, another name
+  from `deps.cpm.file`, or a `Directory.Packages.props` that is not in a folder
+  above every project) needs opting in. The SDK imports `Directory.Packages.props` before the project
   body, so `DirectoryPackagesPropsPath` set in a project comes too late:
   - With `--opt-in-via PATH`, both properties go into that props file.
   - Otherwise each project gets `ManagePackageVersionsCentrally` and an
