@@ -4,6 +4,7 @@ using Offramp.Core.Configuration;
 using Offramp.Fixtures;
 using Offramp.Workspace.Doctor;
 using Offramp.Workspace.Init;
+using Spectre.Console.Testing;
 
 namespace Offramp.Cli.Tests;
 
@@ -100,6 +101,75 @@ public sealed class InitCommandTests : IDisposable
         Assert.Equal(9, loaded.Config.Target);
         Assert.Equal("b/B.sln", loaded.Config.Solution);
         Assert.Equal("log4net", loaded.Config.Deps.Pins.Single().Package);
+    }
+
+    [Fact]
+    public async Task The_terminal_interview_explains_each_question_and_checks_typed_answers()
+    {
+        _cli.Repo.Write("apps/Legacy/Legacy.sln", "");
+        _cli.Repo.Write("apps/Legacy/Api/Api.csproj", "<Project />");
+        _cli.Repo.Write("tools/Unrelated/Unrelated.csproj", "<Project />");
+        var console = new TestConsole().Interactive();
+        console.Profile.Width = 200;
+        console.Input.PushTextWithEnter("");                              // target: keep 10
+        console.Input.PushKey(ConsoleKey.Enter);                          // solution: the detected one
+        console.Input.PushKey(ConsoleKey.DownArrow);                      // verify: command
+        console.Input.PushKey(ConsoleKey.Enter);
+        console.Input.PushTextWithEnter("./build.sh --no-tests");
+        console.Input.PushTextWithEnter("");                              // central file: the suggestion
+        console.Input.PushTextWithEnter("y");
+        console.Input.PushTextWithEnter("Newtonsoft Json 9");             // refused
+        console.Input.PushTextWithEnter("Newtonsoft.Json");
+        console.Input.PushTextWithEnter("latest");                        // refused
+        console.Input.PushTextWithEnter("9.0.1");
+        console.Input.PushTextWithEnter("apps/Legacy/Missing.csproj");    // refused
+        console.Input.PushTextWithEnter("apps\\Legacy\\Api\\Api.csproj");
+        console.Input.PushTextWithEnter("Customers depend on 9.x serialization");
+        console.Input.PushTextWithEnter("n");
+        _cli.InputIsTerminal = true;
+        _cli.OutputIsTerminal = true;
+        _cli.InitPrompter = _ => new SpectreInitPrompter(console);
+
+        var run = await _cli.RunAsync("init");
+
+        Assert.Equal(0, run.ExitCode);
+        var screen = string.Join(' ', console.Output.Split((char[])[' ', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries));
+        Assert.Contains("Offramp checks every change it writes", screen, StringComparison.Ordinal);
+        Assert.Contains("build Build the projects a change touches with dotnet build (recommended)", screen, StringComparison.Ordinal);
+        Assert.Contains("nothing is written now", screen, StringComparison.Ordinal);
+        Assert.Contains("(apps/Legacy/Directory.Packages.props)", screen, StringComparison.Ordinal);
+        Assert.Contains("Most people answer No", screen, StringComparison.Ordinal);
+        Assert.Contains("That is not a NuGet package id", screen, StringComparison.Ordinal);
+        Assert.Contains("That is not a version", screen, StringComparison.Ordinal);
+        Assert.Contains("No project file at apps/Legacy/Missing.csproj", screen, StringComparison.Ordinal);
+        var config = ConfigLoader.Load(new ConfigSources { RepositoryRoot = _cli.Repo.Path }).Config;
+        Assert.Equal(("command", "./build.sh --no-tests"), (config.Verify.Mode, config.Verify.Command));
+        Assert.Equal("apps/Legacy/Directory.Packages.props", config.Deps.Cpm.PathFor(config.Solution));
+        var pin = Assert.Single(config.Deps.Pins);
+        Assert.Equal(("Newtonsoft.Json", "9.0.1", "apps/Legacy/Api/Api.csproj"), (pin.Package, pin.Version, pin.Project));
+    }
+
+    [Fact]
+    public async Task A_central_file_typed_at_the_root_stays_at_the_root_when_the_solution_is_in_a_folder()
+    {
+        _cli.Repo.Write("apps/Legacy/Legacy.sln", "");
+        var console = new TestConsole().Interactive();
+        console.Profile.Width = 200;
+        console.Input.PushTextWithEnter("");
+        console.Input.PushKey(ConsoleKey.Enter);
+        console.Input.PushKey(ConsoleKey.Enter);
+        console.Input.PushTextWithEnter("Legacy.Packages.props");
+        console.Input.PushTextWithEnter("n");
+        _cli.InputIsTerminal = true;
+        _cli.OutputIsTerminal = true;
+        _cli.InitPrompter = _ => new SpectreInitPrompter(console);
+
+        var run = await _cli.RunAsync("init");
+
+        Assert.Equal(0, run.ExitCode);
+        var config = ConfigLoader.Load(new ConfigSources { RepositoryRoot = _cli.Repo.Path }).Config;
+        Assert.Equal(("Legacy.Packages.props", "repo"), (config.Deps.Cpm.File, config.Deps.Cpm.Scope));
+        Assert.Equal("Legacy.Packages.props", config.Deps.Cpm.PathFor(config.Solution));
     }
 
     [Theory]

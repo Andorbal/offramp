@@ -11,7 +11,14 @@ public sealed record InitValues
 
     public string VerifyMode { get; init; } = "build";
 
-    public string CpmFile { get; init; } = "Directory.Packages.props";
+    /// <summary><c>verify.command</c>: what <c>verify.mode: command</c> runs; null otherwise.</summary>
+    public string? VerifyCommand { get; init; }
+
+    /// <summary><c>deps.cpm.file</c>: a bare name placed by <see cref="CpmScope"/>, or a repository-relative path.</summary>
+    public string CpmFile { get; init; } = CpmConfig.DefaultFile;
+
+    /// <summary><c>deps.cpm.scope</c>: <c>solution</c> or <c>repo</c>.</summary>
+    public string CpmScope { get; init; } = "solution";
 
     public IReadOnlyList<PackagePin> Pins { get; init; } = [];
 }
@@ -25,6 +32,9 @@ public sealed record InitDetection
     public IReadOnlyList<string> SolutionCandidates { get; init; } = [];
 
     public bool ConfigExists { get; init; }
+
+    /// <summary>The repository root, absolute; the interview resolves typed paths against it.</summary>
+    public string RepositoryRoot { get; init; } = "";
 }
 
 public sealed record GitignoreChange

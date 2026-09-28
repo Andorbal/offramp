@@ -26,14 +26,43 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   only the new one. ADR 0030; `docs/compiling-on-macos.md` explains it.
 - The `systemweb` fixture: an `MSBuild.SDK.SystemWeb` site, built by tests before and after the
   block.
+- `init`'s result (`schemas/v1/init.json`) has `values.verifyCommand` and `values.cpmScope`.
 
 ### Changed
+- The `init` interview explains each question in a line above it and checks typed answers
+  (ADR 0032). The verify choices say what `build`, `command`, and `none` do, and `command` asks
+  for `verify.command`, which was never asked before. The central package versions question says
+  nothing is written until `deps consolidate --cpm`, suggests the path consolidation would use for
+  the chosen solution, and takes a path from the repository root (a folder gets
+  `Directory.Packages.props`, a bare name is written with `scope: repo`). A pin asks for a NuGet
+  package id, a version, an existing project or none, and a reason, with examples, and refuses
+  answers that are not one. `offramp.yml`'s comments for `verify`, `deps.pins`, and `deps.cpm`
+  say the same.
 - `docs/ROADMAP.md` marks M0 through M15 released: they first shipped in v0.15.0.
 - CI skips its build, test, container, VS Code extension, and pack jobs for a change that only
   adds or edits documentation: top-level Markdown files and `docs/`, except
   `docs/diagnostics.md` and `docs/spec/03-configuration.md`, which tests read. Deleting or
   renaming a file, or any other path, runs everything. `eng/ci-changes.sh` decides; the
   changelog check still runs.
+
+### Fixed
+- `deps consolidate` on projects already under central management wrote to the nearest
+  `Directory.Packages.props` even when the projects import another file, as `--cpm` sets them up
+  when OFR1301 fires. After such a conversion, the next consolidation edited the unrelated root
+  `Directory.Packages.props` (or reported it without writing). It now uses the props file with
+  `PackageVersion` items the project imports, then the recorded `DirectoryPackagesPropsPath`, then
+  the nearest `Directory.Packages.props` (ADR 0031).
+- `deps.cpm.file` with a folder (`eng/Packages.props`) is repository-relative, as the spec's
+  example shows; it was placed under the solution's folder, so `init` answers doubled up
+  (`apps/Legacy/apps/Legacy/Directory.Packages.props`). A bare name still goes where
+  `deps.cpm.scope` says.
+- `deps consolidate --cpm` checks a new `Directory.Packages.props` for projects outside the
+  solution below it before creating it (OFR1301), not only existing ones, so a repository with
+  unrelated projects no longer gets a root file that reaches all of them; the file is named
+  `<Solution>.Packages.props` instead and the solution's projects opt in. Opt-in also covers a
+  default-named file that is not in a folder above every project.
+- `init` detected a root `Directory.Packages.props` but wrote it as a bare name with
+  `scope: solution`, which pointed next to a solution in a folder instead.
 
 ## [0.15.0] - 2026-09-27
 

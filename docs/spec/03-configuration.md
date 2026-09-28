@@ -66,8 +66,9 @@ deps:
     - prefix: "Contoso.Wcf."
       replacement: "Contoso.Grpc.* clients"
   cpm:
-    file: eng/Packages.props  # where consolidate writes; if not Directory.Packages.props, projects opt in via DirectoryPackagesPropsPath
-    scope: solution           # solution | repo
+    file: eng/Packages.props  # where consolidate --cpm writes: a path with a folder is repository-relative, a bare name goes where scope says;
+                              # a file the SDK does not find by itself (another name, or not above every project) is opted into
+    scope: solution           # solution | repo: the folder of a bare file name (the solution's folder, or the repository root)
   redirects:
     manage: [ "src/Web/Web.csproj" ]      # app/web.config files to keep in sync
 
@@ -148,7 +149,14 @@ value is `OFR0056`; with any of these a command stops with exit 2 (`doctor` and
 
 `offramp init` interviews on a TTY (target, solution, verify mode, pins,
 CPM file location), showing detected values as defaults, and writes the file
-with comments. `init --defaults` writes without asking. It also:
+with comments. Each question is preceded by a line saying what the setting
+does and what most people answer. Choosing `command` for the verify mode asks
+for `verify.command`. The CPM file is suggested where `deps consolidate --cpm`
+would put it for the chosen solution and is typed as a path from the
+repository root (a folder gets `Directory.Packages.props`; a bare name is
+written with `scope: repo`, so it stays at the root). Pins ask for a NuGet
+package id, a NuGet version, an optional existing project, and a reason, and
+refuse answers that are not one. `init --defaults` writes without asking. It also:
 
 - adds `.offramp/cache/`, `.offramp/*.binlog`, `.offramp/*.complog`, and
   `.offramp/journal/` to `.gitignore`;

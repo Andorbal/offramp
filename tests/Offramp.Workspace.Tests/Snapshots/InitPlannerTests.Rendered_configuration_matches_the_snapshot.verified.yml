@@ -15,7 +15,8 @@ paths:
   state: .offramp
 
 verify:
-  # build: dotnet build the affected projects | command: run verify.command | none
+  # How Offramp checks each change it writes before keeping it:
+  # build: dotnet build the affected projects | command: run verify.command | none: no check
   mode: build
   timeoutSeconds: 1800
   configuration: Debug
@@ -31,14 +32,15 @@ deps:
   # Packages that must share one version, for example:
   #   - prefix: "Microsoft.Extensions."
   families: []
-  # Hard version pins. Always give a reason.
+  # Packages held at one version: consolidation and upgrades never change them. Always give a reason.
   #   - package: Newtonsoft.Json
   #     project: src/Customer.Api/Customer.Api.csproj
   #     version: "9.0.1"
   #     reason: "Customer integrations depend on 9.x serialization behavior"
   pins: []
   cpm:
-    # Where `deps consolidate` writes PackageVersion items.
+    # Where `deps consolidate --cpm` writes PackageVersion items: a path from the repository
+    # root, or a bare name that goes in the solution's folder (scope: solution) or the root (repo).
     file: Directory.Packages.props
     scope: solution
 
