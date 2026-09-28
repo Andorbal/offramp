@@ -38,6 +38,13 @@ public sealed class ProjectFileEditor
     public bool HasItem(string itemType, string include) =>
         Items(itemType).Any(i => Same(i.Include, include));
 
+    /// <summary>True when the file has any item of the type, conditioned or not.</summary>
+    public bool HasItems(string itemType) =>
+        _root.ItemGroups.SelectMany(g => g.Items).Any(i => string.Equals(i.ItemType, itemType, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The <c>Project</c> of every <c>Import</c>, as written.</summary>
+    public IReadOnlyList<string> Imports => [.. _root.Imports.Select(i => i.Project)];
+
     /// <summary>Adds <c>&lt;ProjectReference Include="..\Bar\Bar.csproj" /&gt;</c> unless present.</summary>
     public void AddProjectReference(string relativePath) =>
         AddItem("ProjectReference", relativePath.Replace('/', '\\'), null);

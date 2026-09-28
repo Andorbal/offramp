@@ -67,6 +67,21 @@ public static class CpmHazards
         return [.. hazards.OrderBy(h => h.Descriptor.Code, StringComparer.Ordinal).ThenBy(h => h.Path, StringComparer.Ordinal)];
     }
 
+    /// <summary>
+    /// Projects outside the solution at or below <paramref name="directory"/>: a Directory.Packages.props
+    /// created there would govern them (OFR1301), sorted.
+    /// </summary>
+    public static IReadOnlyList<string> ProjectsOutsideBelow(string repositoryRoot, IReadOnlyCollection<string> solutionProjects, string directory)
+    {
+        var inSolution = solutionProjects.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var projects = new List<string>();
+        Walk(repositoryRoot, repositoryRoot, [], projects);
+        var prefix = directory.Length == 0 ? "" : directory.TrimEnd('/') + "/";
+        return [.. projects
+            .Where(p => !inSolution.Contains(p) && p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Order(StringComparer.Ordinal)];
+    }
+
     /// <summary>The nearest directory at or above <paramref name="path"/>'s directory that has a props file.</summary>
     private static string? Governing(string path, IReadOnlyList<string> propsDirectories)
     {
