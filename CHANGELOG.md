@@ -11,6 +11,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-28
+
 ### Added
 - `OFR0116` (build step needs Windows: ASP.NET web application targets): a project that imports
   `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets` from Visual Studio, such as
@@ -676,7 +678,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `Directory.Build.props` no longer produces a separate symbols package: PDBs
   are embedded, so `dotnet pack` failed with NU5017 when asked for a `.snupkg`.
 
-[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/Andorbal/offramp/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/Andorbal/offramp/compare/68f5511b14b047def139a5de50f8f0dd7919174e...v0.15.0
 [0.14.0]: https://github.com/Andorbal/offramp/compare/6f08ae0eb5cfccb69f7610cde61f4bf09943d081...68f5511b14b047def139a5de50f8f0dd7919174e
 [0.13.0]: https://github.com/Andorbal/offramp/compare/35ac927acc082f7b1015acb6e90271765a6fff8f...6f08ae0eb5cfccb69f7610cde61f4bf09943d081
