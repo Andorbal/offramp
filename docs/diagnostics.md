@@ -59,6 +59,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0102](#ofr0102) | info | project loading | project kind unknown |
 | [OFR0103](#ofr0103) | info | scan | model built from a compiler log alone |
 | [OFR0104](#ofr0104) | warning | project loading | package graph unavailable |
+| [OFR0105](#ofr0105) | warning | project loading | project reference outside the model |
+| [OFR0106](#ofr0106) | warning | project loading | target framework below net472 |
 | [OFR0110](#ofr0110) | warning | project loading | build step needs Windows: sgen |
 | [OFR0111](#ofr0111) | warning | project loading | build step needs Windows: COM reference |
 | [OFR0112](#ofr0112) | warning | project loading | build step needs Windows: EDMX EntityDeploy |
@@ -513,6 +515,24 @@ The project's `project.assets.json` does not exist in this checkout, so its reso
 
 - **Typical cause:** Scanning a log built on another machine or in another checkout without restoring here, or a restore that failed.
 - **Fix:** Run `dotnet restore` on the solution, then scan again.
+
+### OFR0105
+
+**project reference outside the model** · warning · project loading
+
+A `ProjectReference` points at a project the model does not contain, so the graph cannot follow it. The project is `blocked` in `plan`, `report`, and the guide until the reference is resolved, and so is every .NET Framework-only project that depends on it. The message names the referenced project and why it is missing.
+
+- **Typical cause:** A C++/CLI (`.vcxproj`), SQL Server (`.sqlproj`), or other unsupported project; a project that did not evaluate (OFR0101); or a project outside the solution or slice that was scanned.
+- **Fix:** Scan a solution or slice that contains the project, fix the evaluation error OFR0101 names, or plan that project's port outside Offramp. A reference kept only for build order (`ReferenceOutputAssembly="false"`) does not count.
+
+### OFR0106
+
+**target framework below net472** · warning · project loading
+
+The project targets a .NET Framework version older than 4.7.2. .NET Standard 2.0 libraries, which is what portable code in a dual-target or `netstandard2.0` project is to such a project, are consumed cleanly only from 4.7.2 on; older versions pull in facade packages and need binding redirects that break at runtime. The message names the target.
+
+- **Typical cause:** A project last retargeted years ago (`net45`, `net461`, `net47`).
+- **Fix:** Raise the target to `net472` or `net48` first (`TargetFramework` in an SDK-style project, `TargetFrameworkVersion` and `<supportedRuntime>` in a legacy one; `offramp csproj modernize --project P --tfm net48` converts and retargets), rebuild, then port or reference portable projects.
 
 ### OFR0110
 

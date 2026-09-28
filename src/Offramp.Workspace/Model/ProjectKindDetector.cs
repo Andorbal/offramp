@@ -39,6 +39,12 @@ public static class ProjectKindDetector
     ];
 
     private const string TestProjectGuid = "3AC096D0-A1C2-E12C-1390-A8335801FDAB";
+
+    /// <summary>
+    /// MSTest v1's assembly, referenced from the GAC rather than a package; its namespace is the one
+    /// MSTest.TestFramework provides today.
+    /// </summary>
+    public const string MsTestV1Assembly = "Microsoft.VisualStudio.QualityTools.UnitTestFramework";
     private const string WpfProjectGuid = "60DC8134-EBA5-43B8-BCC9-BB4BC16C2548";
 
     private static readonly string[] WebProjectGuids =
@@ -68,6 +74,11 @@ public static class ProjectKindDetector
         if (testPackage is not null)
         {
             return (ProjectKind.Test, $"PackageReference {testPackage}");
+        }
+
+        if (facts.AssemblyReferences.Contains(MsTestV1Assembly))
+        {
+            return (ProjectKind.Test, $"Reference {MsTestV1Assembly}");
         }
 
         if (HasGuid(facts, TestProjectGuid))

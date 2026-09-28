@@ -10,9 +10,21 @@ assemblies:
   mscorlib: { kind: builtin, note: "The core library; what it lost on modern .NET (Remoting, Code Access Security, AppDomain creation) has no port." }
   Microsoft.CSharp: { kind: builtin }
   Microsoft.VisualBasic: { kind: builtin, note: "Most of Microsoft.VisualBasic is available; My.* and some legacy helpers are not." }
+  Microsoft.VisualStudio.QualityTools.UnitTestFramework: { kind: package, package: MSTest.TestFramework, note: "MSTest v1 from the GAC; the package has the same namespace. Add MSTest.TestAdapter and Microsoft.NET.Test.Sdk so the tests run (`offramp move tests --create` does)." }
+  Microsoft.Office.Interop.*: { kind: none, windowsOnly: true, note: "Office COM interop needs Office on a Windows machine; the Open XML SDK reads and writes the files without it." }
+  Microsoft.SqlServer.Types: { kind: package, package: Microsoft.SqlServer.Types, note: "Version 160 and later run on modern .NET; earlier versions need the SqlServerSpatial native library and Windows." }
+  Microsoft.SqlServer.Smo: { kind: package, package: Microsoft.SqlServer.SqlManagementObjects }
+  Microsoft.SqlServer.ConnectionInfo: { kind: package, package: Microsoft.SqlServer.SqlManagementObjects }
+  Microsoft.SqlServer.Management.Sdk.Sfc: { kind: package, package: Microsoft.SqlServer.SqlManagementObjects }
+  Oracle.DataAccess: { kind: package, package: Oracle.ManagedDataAccess.Core, note: "Unmanaged ODP.NET; the managed Core driver has the same API shape." }
+  PresentationFramework.*: { kind: builtin, windowsOnly: true, note: "WPF themes; target net10.0-windows with <UseWPF>true</UseWPF>." }
+  ReachFramework: { kind: builtin, windowsOnly: true, note: "XPS and printing come with WPF; target net10.0-windows with <UseWPF>true</UseWPF>." }
+  System.Printing: { kind: builtin, windowsOnly: true, note: "Comes with WPF; target net10.0-windows with <UseWPF>true</UseWPF>." }
   PresentationCore: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWPF>true</UseWPF>." }
   PresentationFramework: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWPF>true</UseWPF>." }
   System: { kind: builtin }
+  System.AddIn: { kind: none, note: "The Managed Add-in Framework has no port; load plugins with AssemblyLoadContext or run them out of process." }
+  System.AddIn.Contract: { kind: none, note: "The Managed Add-in Framework has no port; load plugins with AssemblyLoadContext or run them out of process." }
   System.ComponentModel.Composition: { kind: package, package: System.ComponentModel.Composition }
   System.ComponentModel.DataAnnotations: { kind: builtin }
   System.Configuration: { kind: package, package: System.Configuration.ConfigurationManager }
@@ -23,6 +35,8 @@ assemblies:
   System.Data.Entity: { kind: none, note: "Use the EntityFramework 6.4+ package or move to Entity Framework Core." }
   System.Data.Linq: { kind: none, note: "LINQ to SQL has no port; move to Entity Framework Core or Dapper." }
   System.Data.OracleClient: { kind: none, note: "Use Oracle.ManagedDataAccess.Core." }
+  System.Data.Services: { kind: none, note: "WCF Data Services has no port; serve OData with Microsoft.AspNetCore.OData." }
+  System.Data.Services.Client: { kind: package, package: Microsoft.OData.Client }
   System.Deployment: { kind: none, note: "ClickOnce APIs are not available." }
   System.Design: { kind: builtin, windowsOnly: true, note: "Windows Forms designer support; target net10.0-windows." }
   System.DirectoryServices: { kind: package, package: System.DirectoryServices, windowsOnly: true }
@@ -32,6 +46,7 @@ assemblies:
   System.Drawing.Design: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows." }
   System.EnterpriseServices: { kind: none, note: "COM+ services have no port; isolate behind a seam (`offramp seams`)." }
   System.IdentityModel: { kind: none, note: "Use System.IdentityModel.Tokens.Jwt or Microsoft.IdentityModel.*." }
+  System.IdentityModel.Services: { kind: none, note: "Windows Identity Foundation (WS-Federation session and claims modules) has no port; use ASP.NET Core authentication with Microsoft.AspNetCore.Authentication.WsFederation." }
   System.IO.Compression: { kind: builtin }
   System.IO.Compression.FileSystem: { kind: builtin }
   System.Management: { kind: package, package: System.Management, windowsOnly: true }
@@ -40,6 +55,7 @@ assemblies:
   System.Net: { kind: builtin }
   System.Net.Http: { kind: builtin }
   System.Net.Http.WebRequest: { kind: builtin }
+  System.Net.Http.Formatting: { kind: package, package: Microsoft.AspNet.WebApi.Client, note: "The Web API client formatters; the package targets .NET Standard 2.0." }
   System.Numerics: { kind: builtin }
   System.Runtime.Caching: { kind: package, package: System.Runtime.Caching }
   System.Runtime.Remoting: { kind: none, note: "Replace with gRPC or HTTP (`offramp remote`)." }
@@ -48,12 +64,17 @@ assemblies:
   System.Security: { kind: package, package: System.Security.Cryptography.Xml, note: "Also System.Security.Cryptography.Pkcs for CMS and ProtectedData for DPAPI (Windows)." }
   System.ServiceModel: { kind: package, package: System.ServiceModel.Http, note: "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF." }
   System.ServiceModel.Web: { kind: none, note: "WCF WebHttp services move to ASP.NET Core." }
+  System.ServiceModel.*: { kind: package, package: System.ServiceModel.Primitives, note: "Client-side channels, bindings, and discovery come from the System.ServiceModel.* packages; service hosting moves to CoreWCF." }
   System.ServiceProcess: { kind: package, package: System.ServiceProcess.ServiceController, windowsOnly: true, note: "Hosting a service moves to Microsoft.Extensions.Hosting.WindowsServices (`offramp service`)." }
   System.Speech: { kind: package, package: System.Speech, windowsOnly: true }
   System.Transactions: { kind: builtin }
   System.Web: { kind: none, note: "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)." }
   System.Web.*: { kind: none, note: "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)." }
   System.Windows.Forms: { kind: builtin, windowsOnly: true, note: "Target net10.0-windows with <UseWindowsForms>true</UseWindowsForms>." }
+  System.Windows.Forms.DataVisualization: { kind: package, package: WinForms.DataVisualization, windowsOnly: true, note: "The chart control's port; target net10.0-windows." }
+  UIAutomationClient: { kind: builtin, windowsOnly: true, note: "Comes with WPF; target net10.0-windows with <UseWPF>true</UseWPF>." }
+  UIAutomationProvider: { kind: builtin, windowsOnly: true, note: "Comes with WPF; target net10.0-windows with <UseWPF>true</UseWPF>." }
+  UIAutomationTypes: { kind: builtin, windowsOnly: true, note: "Comes with WPF; target net10.0-windows with <UseWPF>true</UseWPF>." }
   System.Activities: { kind: none, note: "Windows Workflow Foundation has no port; CoreWF covers WF4 workflows." }
   System.Activities.*: { kind: none, note: "Windows Workflow Foundation has no port; CoreWF covers WF4 workflows." }
   System.Workflow.*: { kind: none, note: "Windows Workflow Foundation has no port; CoreWF covers WF4 workflows." }

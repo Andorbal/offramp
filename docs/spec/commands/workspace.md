@@ -50,7 +50,8 @@ Diagnostics: `OFR0003` no binary log to reuse, `OFR0004` log not found or
 unreadable, `OFR0010` no `dotnet`, `OFR0020` several solutions, `OFR0022` no
 solution, `OFR0101` project not understood (reason), `OFR0102` kind unknown,
 `OFR0103` model from a compiler log alone, `OFR0104` assets file missing,
-`OFR0110`–`0115` Windows-only build step detected (one code per step family),
+`OFR0105` project reference outside the model, `OFR0106` target framework below
+net472, `OFR0110`–`0115` Windows-only build step detected (one code per step family),
 `OFR0120` project reference cycle, `OFR0130` build failed (with the first N
 errors; scan still produces a model for projects whose compiler call
 succeeded, and marks the rest `partial: true`), `OFR0131` build timed out,
@@ -103,13 +104,14 @@ Result (`schemas/v1/doctor.json`; decided in `docs/decisions/0006-doctor-contrac
 
 Check ids, in output order: `dotnet-sdk`, `global-json`, `target`,
 `reference-assemblies`, `git`, `git-repository`, `config`, `workspace`,
-`windows-only-build-steps`, `cpm`; M13 appends `llm`. A check's status
+`windows-only-build-steps`, `cpm`, `framework-floor` (projects targeting .NET
+Framework below 4.7.2, from the model's `OFR0106`); M13 appends `llm`. A check's status
 matches its diagnostic's severity (fail = error, warn = warning), so the exit code
 follows `--fail-on`. Diagnostics: `OFR0010` no SDK, `OFR0011` global.json SDK not
 installed, `OFR0012` SDK cannot target `--target`, `OFR0013` reference assemblies
 unresolvable, `OFR0014` git not found, `OFR0015` not a git repository, `OFR0016`
 no `offramp.yml` (info), `OFR0001` workspace model missing (reported as a warning
-by doctor), `OFR0002` model stale, `OFR0110`–`OFR0115` Windows-only build
+by doctor), `OFR0002` model stale, `OFR0106` target framework below net472, `OFR0110`–`OFR0115` Windows-only build
 steps (from the model), `OFR1301`–`OFR1303` CPM hazards, `OFR1006` feed
 unreachable, and the configuration codes `OFR0050`–`OFR0056`.
 
@@ -127,7 +129,11 @@ offramp plan [--frontier] [--for PROJECT] [--waves] [--exclude-kind test,...]
 
 - Default: every project, leaf-first, with its `frameworkClass`, blast radius
   (number of transitive dependents), blockers (the `framework`-only projects it
-  depends on, directly or transitively), readiness, and wave.
+  depends on, directly or transitively), unresolved references (project
+  references outside the model on itself or on a blocker,
+  `02-workspace-model.md#project-references-outside-the-model`), readiness, and
+  wave. A `framework`-only project is `ready` only when both lists are empty;
+  the wave counts blockers alone.
 - Waves: `0` for projects already portable (standard, modern, dual); `1` for
   framework-only projects that can be ported today; `n` for those whose
   framework-only dependencies are all in earlier waves. Members of a reference
@@ -145,7 +151,7 @@ offramp plan [--frontier] [--for PROJECT] [--waves] [--exclude-kind test,...]
 - `--exclude-kind`: leaves projects of those kinds out of the listing; blast
   radius, blockers, and readiness still come from the whole model.
 - Result (`schemas/v1/plan.json`): `for`, `frontier`, `excludeKinds`,
-  `order: [{ project, name, kind, frameworkClass, wave, blastRadius, blockers: [..], readiness: ready|blocked|done, inCycle }]`,
+  `order: [{ project, name, kind, frameworkClass, targetFrameworks: [..], wave, blastRadius, blockers: [..], unresolvedReferences: [..], readiness: ready|blocked|done, inCycle }]`,
   `cycles` (those touching a listed project), and
   `counts: { projects, done, ready, blocked, waves }`.
 

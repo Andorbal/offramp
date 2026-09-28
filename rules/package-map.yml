@@ -51,3 +51,79 @@ packages:
     replacement: built in (System.Net.Http)
   - prefix: Microsoft.Bcl
     replacement: built in on modern .NET
+  - package: Unity
+    replacement: Unity.Container, or Microsoft.Extensions.DependencyInjection
+  - prefix: Microsoft.Practices.Unity
+    replacement: Unity.Container, or Microsoft.Extensions.DependencyInjection
+  - prefix: Microsoft.Practices.EnterpriseLibrary
+    replacement: none; each block has a modern library (Polly for transient faults, Microsoft.Extensions.Logging for logging, Microsoft.Extensions.Caching for caching)
+  - package: Ninject
+    replacement: Microsoft.Extensions.DependencyInjection (or Autofac)
+  - package: StructureMap
+    replacement: Lamar
+  - package: CommonServiceLocator
+    replacement: Microsoft.Extensions.DependencyInjection
+  - package: Common.Logging
+    replacement: Microsoft.Extensions.Logging
+  - package: Microsoft.IdentityModel.Clients.ActiveDirectory
+    replacement: Microsoft.Identity.Client (MSAL)
+  - package: WindowsAzure.ServiceBus
+    replacement: Azure.Messaging.ServiceBus
+  - prefix: Microsoft.Azure.ServiceBus
+    replacement: Azure.Messaging.ServiceBus
+  - prefix: Microsoft.Azure.KeyVault
+    replacement: Azure.Security.KeyVault.Secrets, Azure.Security.KeyVault.Keys, Azure.Security.KeyVault.Certificates
+  - package: Microsoft.Azure.DocumentDB
+    replacement: Microsoft.Azure.Cosmos
+  - package: Microsoft.Azure.DocumentDB.Core
+    replacement: Microsoft.Azure.Cosmos
+  - prefix: Microsoft.Azure.Storage
+    replacement: Azure.Storage.Blobs, Azure.Storage.Queues, Azure.Storage.Files.Shares
+  - package: Oracle.ManagedDataAccess
+    replacement: Oracle.ManagedDataAccess.Core
+  - package: RhinoMocks
+    replacement: Moq or NSubstitute
+  - package: MiniProfiler
+    replacement: MiniProfiler.AspNetCore.Mvc
+  - package: elmah
+    replacement: ElmahCore
+  - package: Elmah.MVC
+    replacement: ElmahCore.Mvc
+  - package: Microsoft.AspNet.Web.Optimization
+    replacement: a bundler at build time (LibMan, esbuild, or WebOptimizer); ASP.NET Core has no bundling runtime
+  - package: WebGrease
+    replacement: none; it served Microsoft.AspNet.Web.Optimization
+  - package: Antlr
+    replacement: none; it served Microsoft.AspNet.Web.Optimization
+  - package: WebActivatorEx
+    replacement: none; startup code moves to Program.cs
+  - package: Microsoft.CodeDom.Providers.DotNetCompilerPlatform
+    replacement: none; ASP.NET Core compiles Razor at build time
+  - package: Microsoft.Net.Compilers
+    replacement: none; the SDK's compiler
+  - package: Microsoft.Net.Compilers.Toolset
+    replacement: none; the SDK's compiler
+  - prefix: Microsoft.jQuery.Unobtrusive
+    replacement: client libraries through LibMan or npm (jquery-validation-unobtrusive, jquery-ajax-unobtrusive)
+  - package: jQuery
+    replacement: client libraries through LibMan or npm
+  - package: jQuery.Validation
+    replacement: client libraries through LibMan or npm
+  - package: bootstrap
+    replacement: client libraries through LibMan or npm
+  - package: Modernizr
+    replacement: client libraries through LibMan or npm
+  - package: EntityFramework.SqlServerCompact
+    replacement: none; SQL Server Compact is discontinued, SQLite (Microsoft.EntityFrameworkCore.Sqlite) is the usual destination
+  - package: Microsoft.SqlServer.Compact
+    replacement: none; SQL Server Compact is discontinued, SQLite is the usual destination
+  - package: Microsoft.Data.OData
+    replacement: Microsoft.OData.Core
+  - package: Microsoft.Data.Edm
+    replacement: Microsoft.OData.Edm
+  - prefix: DotNetOpenAuth
+    replacement: ASP.NET Core authentication handlers (Microsoft.AspNetCore.Authentication.*)
+  - package: iTextSharp
+    replacement: itext (version 7 and later; the license changed to AGPL, check it)
+  - prefix: Glimpse
+    replacement: none; use ASP.NET Core's diagnostics middleware or MiniProfiler.AspNetCore

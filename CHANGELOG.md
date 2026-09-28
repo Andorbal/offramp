@@ -14,8 +14,37 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ### Added
 - `docs/reviews/2026-09-27-migration-gaps.md`: a review of what a real migration still needs from
   the tool as of v0.15.0, ordered by payoff, with proposals for each gap.
+- Project references the model cannot follow (a C++/CLI or SQL Server project, a project that did
+  not evaluate, or one outside the scanned solution or slice) are recorded on the referencing
+  project as `unresolvedReferences` with the reason and reported as OFR0105, instead of being
+  dropped from the graph. They block readiness like framework-only dependencies: `plan` lists
+  them per entry (`unresolvedReferences`) and in the `Waits on` column, `report` keeps such an
+  application out of `ready` and `next`, and the guide's port step does not offer the project.
+  References kept only for build order (`ReferenceOutputAssembly="false"`) and references on
+  projects that are already portable do not count (ADR 0030).
+- OFR0106 and the `framework-floor` doctor check: a project targeting .NET Framework below 4.7.2,
+  where .NET Standard 2.0 libraries are consumed cleanly, is flagged at scan time and listed by
+  `doctor`; `plan` shows every project's `targetFrameworks` in a `Targets` column.
+- MSTest v1 (`Microsoft.VisualStudio.QualityTools.UnitTestFramework`, a GAC reference) is
+  recognized: `move tests` finds its tests and gives a created test project the
+  `MSTest.TestFramework` package instead of a copy of the assembly reference, project kind
+  detection calls the project `test`, and `deps gac` maps the assembly to the package.
+- `rules/framework-assemblies.yml` maps more references (`System.Net.Http.Formatting`,
+  `System.ServiceModel.*`, `System.Data.Services*`, `System.IdentityModel.Services`,
+  `System.AddIn*`, WPF's printing and UI Automation assemblies, `System.Windows.Forms.DataVisualization`,
+  SMO, `Microsoft.SqlServer.Types`, `Oracle.DataAccess`, Office interop), and
+  `rules/package-map.yml` names successors for more Framework-era packages (Unity, Ninject,
+  StructureMap, Enterprise Library, ADAL, the legacy Azure SDKs, Rhino Mocks, MiniProfiler,
+  ELMAH, Web Optimization and its helpers, WebActivator, the CodeDom and compiler packages,
+  client libraries shipped as NuGet packages, SQL Server Compact, the old OData packages,
+  DotNetOpenAuth, iTextSharp, Glimpse).
 
 ### Changed
+- Readiness (`plan`, `report`, `graph`, the guide) counts unresolved project references as
+  blockers; a framework-only project is `ready` only when it has neither framework-only
+  dependencies nor unresolved references, on itself or on its blockers. `plan`'s JSON gains
+  `targetFrameworks` and `unresolvedReferences` per entry; the workspace model gains
+  `unresolvedReferences` per project (models without it still load).
 - `docs/ROADMAP.md` marks M0 through M15 released: they first shipped in v0.15.0.
 - CI skips its build, test, container, VS Code extension, and pack jobs for a change that only
   adds or edits documentation: top-level Markdown files and `docs/`, except

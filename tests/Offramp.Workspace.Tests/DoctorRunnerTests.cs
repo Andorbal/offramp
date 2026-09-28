@@ -284,6 +284,33 @@ public sealed class DoctorRunnerTests : IDisposable
 
         Assert.Equal(CheckStatus.Pass, Status(report, "windows-only-build-steps"));
         Assert.Equal(CheckStatus.Pass, Status(report, "cpm"));
+        Assert.Equal(CheckStatus.Pass, Status(report, "framework-floor"));
+    }
+
+    [Fact]
+    public async Task Projects_below_the_framework_floor_warn()
+    {
+        WriteFreshModel([Project("src/Old/Old.csproj"), Project("src/New/New.csproj")], diagnostics:
+        [
+            new Diagnostic
+            {
+                Code = "OFR0106",
+                Severity = Severity.Warning,
+                Message = "Targets net461, below net472: raise it before porting or referencing portable projects.",
+                Project = "src/Old/Old.csproj",
+                Help = "https://offramp.dev/diagnostics/OFR0106",
+                Data = new SortedDictionary<string, System.Text.Json.Nodes.JsonNode?>(StringComparer.Ordinal) { ["targetFramework"] = "net461", ["floor"] = "net472" },
+            },
+        ]);
+
+        var (report, bag) = await RunAsync(Healthy());
+
+        var check = report.Checks.Single(c => c.Id == "framework-floor");
+        Assert.Equal(CheckStatus.Warn, check.Status);
+        Assert.Equal("1 project(s) target .NET Framework below net472: src/Old/Old.csproj (net461).", check.Message);
+        Assert.Contains("csproj modernize", check.Remedy, StringComparison.Ordinal);
+        Assert.Equal(["OFR0106"], check.Codes);
+        Assert.Contains(bag.ToSortedList(), d => d.Code == "OFR0106");
     }
 
     [Fact]
@@ -309,7 +336,7 @@ public sealed class DoctorRunnerTests : IDisposable
         var (report, _) = await RunAsync(new FakeMachine { DotnetInstalled = false, GitVersion = null });
 
         Assert.Equal(
-            ["dotnet-sdk", "global-json", "target", "reference-assemblies", "git", "git-repository", "config", "workspace", "windows-only-build-steps", "cpm"],
+            ["dotnet-sdk", "global-json", "target", "reference-assemblies", "git", "git-repository", "config", "workspace", "windows-only-build-steps", "cpm", "framework-floor"],
             report.Checks.Select(c => c.Id));
         Assert.Equal(report.Checks.Count, report.Summary.Pass + report.Summary.Warn + report.Summary.Fail + report.Summary.Skip);
     }

@@ -80,6 +80,27 @@ public sealed partial class ReportTests
     }
 
     [Fact]
+    public void An_application_blocked_by_a_reference_outside_the_model_is_not_ready_or_next()
+    {
+        var interop = new UnresolvedReference { Path = "native/Interop.vcxproj", Reason = "unsupported project type (.vcxproj)" };
+        var model = ModelOf(
+            Project("src/Svc/Svc.csproj", ProjectKind.Service, FrameworkClass.Framework) with { UnresolvedReferences = [interop] },
+            Project("src/App/App.csproj", ProjectKind.Console, FrameworkClass.Framework, "src/Lib/Lib.csproj"),
+            Project("src/Lib/Lib.csproj", ProjectKind.Library, FrameworkClass.Framework) with { UnresolvedReferences = [interop] });
+
+        var report = ReportBuilder.Build(model, [], "Monolith", since: null);
+
+        var svc = report.Applications.Single(a => a.Name == "Svc");
+        Assert.Equal((ProjectReadiness.Blocked, 1), (svc.Status, svc.Remaining));
+        Assert.Empty(svc.Next);
+        var app = report.Applications.Single(a => a.Name == "App");
+        Assert.Equal(ProjectReadiness.Blocked, app.Status);
+        Assert.Empty(app.Next);
+        Assert.Empty(report.Frontier);
+        Assert.Equal(0, report.Headline.Ready);
+    }
+
+    [Fact]
     public void Applications_show_what_is_left_in_their_closure()
     {
         var byName = ReportBuilder.Build(Model, History, "Monolith", null).Applications.ToDictionary(a => a.Name);

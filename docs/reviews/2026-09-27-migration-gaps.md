@@ -10,6 +10,13 @@ Items are grouped by where they hurt and ordered within each group by how much
 time they would save on a real repository. Each has: what happens today, why it
 matters, a proposal, and a size (S: a day; M: a few days; L: a milestone).
 
+> Status, 2026-09-28: after review, the focus is on wrong answers, friction, and
+> cheap audit rules rather than new commands. A1, A2, and A3 shipped on this
+> branch (ADR 0030). Open in that focus: A4 (staleness granularity, per-project),
+> the `plan` caveat for .NET Framework-only DLLs and blocked packages, the OFR3001
+> flood from a package with no target version, and section C. B, D, and E are
+> parked.
+
 ## A. Answers that are wrong or misleading today
 
 These come first because a tool that says `ready` when a project is not loses

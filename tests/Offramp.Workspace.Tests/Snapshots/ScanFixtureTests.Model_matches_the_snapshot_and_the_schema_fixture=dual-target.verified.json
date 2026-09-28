@@ -62,6 +62,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [],
       "assemblyReferences": [],
       "comReferences": [],
@@ -160,6 +161,7 @@
       "projectReferences": [
         "src/Contracts/Contracts.csproj"
       ],
+      "unresolvedReferences": [],
       "packageReferences": [
         {
           "id": "Newtonsoft.Json",
@@ -277,6 +279,7 @@
         "src/Contracts/Contracts.csproj",
         "src/Shared/Shared.csproj"
       ],
+      "unresolvedReferences": [],
       "packageReferences": [],
       "assemblyReferences": [],
       "comReferences": [],

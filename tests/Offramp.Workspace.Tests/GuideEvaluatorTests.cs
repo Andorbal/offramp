@@ -180,7 +180,23 @@ public sealed class GuideEvaluatorTests
         Assert.Empty(status.Next);
         Assert.Equal(GuideStepStatus.Blocked, status.Step("port").Status);
         Assert.StartsWith("2 .NET Framework project(s) remain but none is ready", status.Step("port").Note, StringComparison.Ordinal);
+        Assert.Contains("outside the model (OFR0105)", status.Step("port").Note, StringComparison.Ordinal);
         Assert.Equal(GuideStageStatus.Upcoming, status.Stages[^1].Status);
+    }
+
+    [Fact]
+    public void Port_does_not_offer_a_project_that_depends_on_a_project_outside_the_model()
+    {
+        var interop = new UnresolvedReference { Path = "native/Interop.vcxproj", Reason = "unsupported project type (.vcxproj)" };
+        var model = ModelOf(
+            Project("src/Core/Core.csproj") with { UnresolvedReferences = [interop] },
+            Project("src/Tool/Tool.csproj", references: ["src/Core/Core.csproj"], kind: ProjectKind.Console),
+            Project("src/Free/Free.csproj"));
+
+        var port = GuideEvaluator.Evaluate(Facts(model), Done([.. SetupDone, .. Understand, .. Prepare])).Step("port");
+
+        Assert.Equal(GuideStepStatus.Open, port.Status);
+        Assert.Equal(["src/Free/Free.csproj"], port.Projects.Select(p => p.Project));
     }
 
     [Fact]

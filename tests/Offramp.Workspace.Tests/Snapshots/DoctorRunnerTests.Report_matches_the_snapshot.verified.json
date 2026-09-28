@@ -83,6 +83,14 @@
       "message": "Skipped: no workspace model or solution to compare against.",
       "remedy": null,
       "codes": []
+    },
+    {
+      "id": "framework-floor",
+      "title": ".NET Framework version floor",
+      "status": "skip",
+      "message": "Skipped: run `offramp scan` to check project targets.",
+      "remedy": null,
+      "codes": []
     }
   ],
   "environment": {
@@ -103,7 +111,7 @@
     "pass": 7,
     "warn": 1,
     "fail": 0,
-    "skip": 2
+    "skip": 3
   },
   "fix": null
 }

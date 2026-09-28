@@ -56,7 +56,7 @@ public static class GuideCatalog
 {
     private static readonly string[] TestAssemblies =
     [
-        "Microsoft.VisualStudio.QualityTools.UnitTestFramework", "Microsoft.VisualStudio.TestPlatform.TestFramework",
+        ProjectKindDetector.MsTestV1Assembly, "Microsoft.VisualStudio.TestPlatform.TestFramework",
         "nunit.framework", "TUnit.Core", "xunit.core", "xunit.v3.core",
     ];
 
@@ -248,7 +248,7 @@ public static class GuideCatalog
                 BlockedWithoutProjects = (_, model) =>
                 {
                     var left = model.Projects.Count(p => p.FrameworkClass == FrameworkClass.Framework && !IsHostedApplication(p));
-                    return $"{left} .NET Framework project(s) remain but none is ready: each depends on a web or service project or sits in a reference cycle. `offramp plan` shows what blocks each one.";
+                    return $"{left} .NET Framework project(s) remain but none is ready: each depends on a web or service project, on a project outside the model (OFR0105), or sits in a reference cycle. `offramp plan` shows what blocks each one.";
                 },
             },
             new GuideStep

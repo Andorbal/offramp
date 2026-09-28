@@ -77,6 +77,22 @@ public static partial class DiagnosticCatalog
         "Run `dotnet restore` on the solution, then scan again.",
         LoadingArea);
 
+    public static readonly DiagnosticDescriptor OFR0105 = new(
+        "OFR0105", Severity.Warning,
+        "project reference outside the model",
+        "A `ProjectReference` points at a project the model does not contain, so the graph cannot follow it. The project is `blocked` in `plan`, `report`, and the guide until the reference is resolved, and so is every .NET Framework-only project that depends on it. The message names the referenced project and why it is missing.",
+        "A C++/CLI (`.vcxproj`), SQL Server (`.sqlproj`), or other unsupported project; a project that did not evaluate (OFR0101); or a project outside the solution or slice that was scanned.",
+        "Scan a solution or slice that contains the project, fix the evaluation error OFR0101 names, or plan that project's port outside Offramp. A reference kept only for build order (`ReferenceOutputAssembly=\"false\"`) does not count.",
+        LoadingArea);
+
+    public static readonly DiagnosticDescriptor OFR0106 = new(
+        "OFR0106", Severity.Warning,
+        "target framework below net472",
+        "The project targets a .NET Framework version older than 4.7.2. .NET Standard 2.0 libraries, which is what portable code in a dual-target or `netstandard2.0` project is to such a project, are consumed cleanly only from 4.7.2 on; older versions pull in facade packages and need binding redirects that break at runtime. The message names the target.",
+        "A project last retargeted years ago (`net45`, `net461`, `net47`).",
+        "Raise the target to `net472` or `net48` first (`TargetFramework` in an SDK-style project, `TargetFrameworkVersion` and `<supportedRuntime>` in a legacy one; `offramp csproj modernize --project P --tfm net48` converts and retargets), rebuild, then port or reference portable projects.",
+        LoadingArea);
+
     public static readonly DiagnosticDescriptor OFR0110 = new(
         "OFR0110", Severity.Warning,
         "build step needs Windows: sgen",

@@ -31,9 +31,11 @@ public static class MigrationPlanner
                 Name = p.Name,
                 Kind = p.Kind,
                 FrameworkClass = p.FrameworkClass,
+                TargetFrameworks = p.TargetFrameworks,
                 Wave = waves[p.Id],
                 BlastRadius = standings[p.Id].Dependents,
                 Blockers = standings[p.Id].Blockers,
+                UnresolvedReferences = standings[p.Id].UnresolvedReferences,
                 Readiness = standings[p.Id].Readiness,
                 InCycle = cycleOf.ContainsKey(p.Id),
             })

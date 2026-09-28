@@ -336,6 +336,7 @@ public static class ScanRunner
         };
 
         var projects = new List<ProjectInfo>();
+        var declaredReferences = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
         foreach (var group in data.Evaluations.GroupBy(e => e.ProjectFile, StringComparer.Ordinal))
         {
             var id = mapper.ToRelative(group.Key);
@@ -344,12 +345,15 @@ public static class ScanRunner
                 continue;
             }
 
-            projects.Add(ProjectModelBuilder.Build(id, [.. group], context));
+            var evaluations = group.ToList();
+            projects.Add(ProjectModelBuilder.Build(id, evaluations, context));
+            declaredReferences[id] = ProjectModelBuilder.DeclaredProjectReferences(evaluations, context);
         }
 
         projects.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
         var notLoaded = await FindNotLoadedAsync(request, data, mapper, projects, solution, cancellationToken);
         var loading = new List<Diagnostic>();
+        projects = UnresolvedReferences.Resolve(projects, declaredReferences, notLoaded, request.Diagnostics, loading);
         foreach (var missing in notLoaded)
         {
             loading.Add(request.Diagnostics.Report(DiagnosticCatalog.OFR0101, $"Not loaded: {missing.Reason}.",
@@ -391,6 +395,11 @@ public static class ScanRunner
                     $"Needs Windows to build: {step.Evidence}.",
                     new DiagnosticLocation(Project: project.Id),
                     [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", step.Evidence)])!);
+            }
+
+            if (FrameworkFloor.Check(project, request.Diagnostics) is { } belowFloor)
+            {
+                loading.Add(belowFloor);
             }
         }
 

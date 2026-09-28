@@ -67,6 +67,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [],
       "assemblyReferences": [
         {
@@ -175,6 +176,7 @@
       ],
       "compileExplicit": false,
       "projectReferences": [],
+      "unresolvedReferences": [],
       "packageReferences": [],
       "assemblyReferences": [],
       "comReferences": [],

@@ -12,6 +12,7 @@
                                       → Run `offramp scan`.
 - Windows-only build steps            Skipped: run `offramp scan` to detect them.
 - Central package management          Skipped: no workspace model or solution to compare against.
+- .NET Framework version floor        Skipped: run `offramp scan` to check project targets.
 
 1 warning(s), 1 info
 Next: offramp init

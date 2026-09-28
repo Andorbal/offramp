@@ -75,6 +75,38 @@ public sealed class MigrationPlannerTests
         Assert.Equal(4, noTests.Order.Single(e => e.Project == "src/Core/Core.csproj").BlastRadius);
     }
 
+    /// <summary>
+    /// Core → native/Interop.vcxproj (not in the model), App → Core; Modern (dual) → native/Other.vcxproj,
+    /// Consumer → Modern. A reference outside the model blocks the project and its framework-only
+    /// dependents; one on an already portable project blocks nothing.
+    /// </summary>
+    [Fact]
+    public void References_outside_the_model_block_readiness_but_not_behind_portable_projects()
+    {
+        var model = ModelOf(
+            Project("src/Core/Core.csproj") with { UnresolvedReferences = [new UnresolvedReference { Path = "native/Interop.vcxproj", Reason = "unsupported project type (.vcxproj)" }] },
+            Project("src/App/App.csproj", references: ["src/Core/Core.csproj"], kind: ProjectKind.Console),
+            Project("src/Modern/Modern.csproj") with
+            {
+                FrameworkClass = FrameworkClass.Dual,
+                UnresolvedReferences = [new UnresolvedReference { Path = "native/Other.vcxproj", Reason = "unsupported project type (.vcxproj)" }],
+            },
+            Project("src/Consumer/Consumer.csproj", references: ["src/Modern/Modern.csproj"]));
+
+        var byId = MigrationPlanner.Plan(model, null, false, []).Order.ToDictionary(e => e.Project);
+
+        Assert.Equal((ProjectReadiness.Blocked, 1), (byId["src/Core/Core.csproj"].Readiness, byId["src/Core/Core.csproj"].Wave));
+        Assert.Equal(["native/Interop.vcxproj"], byId["src/Core/Core.csproj"].UnresolvedReferences);
+        Assert.Empty(byId["src/Core/Core.csproj"].Blockers);
+        Assert.Equal((ProjectReadiness.Blocked, 2), (byId["src/App/App.csproj"].Readiness, byId["src/App/App.csproj"].Wave));
+        Assert.Equal(["native/Interop.vcxproj"], byId["src/App/App.csproj"].UnresolvedReferences);
+        Assert.Equal(["src/Core/Core.csproj"], byId["src/App/App.csproj"].Blockers);
+        Assert.Equal(ProjectReadiness.Done, byId["src/Modern/Modern.csproj"].Readiness);
+        Assert.Empty(byId["src/Modern/Modern.csproj"].UnresolvedReferences);
+        Assert.Equal(ProjectReadiness.Ready, byId["src/Consumer/Consumer.csproj"].Readiness);
+        Assert.Equal(["src/Consumer/Consumer.csproj"], MigrationPlanner.Plan(model, null, true, []).Order.Select(e => e.Project));
+    }
+
     [Theory]
     [InlineData("dual-target")]
     [InlineData("netfx-only")]

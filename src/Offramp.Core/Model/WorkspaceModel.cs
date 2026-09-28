@@ -139,6 +139,22 @@ public sealed record ProjectInfo
 
     public IReadOnlyList<string> ProjectReferences { get; init; } = [];
 
+    /// <summary>
+    /// Declared project references to projects the model does not contain, with why: an
+    /// unsupported project type, a project that did not evaluate, or one outside the solution or
+    /// slice that was scanned. References kept only for build order (<c>ReferenceOutputAssembly=false</c>)
+    /// are left out. The graph cannot follow these, so they block readiness instead. Models written
+    /// before this property existed lack it, and the source-generated deserializer then sets null
+    /// rather than the initializer's value, so the setter keeps such a model readable.
+    /// </summary>
+    public IReadOnlyList<UnresolvedReference> UnresolvedReferences
+    {
+        get => _unresolvedReferences;
+        init => _unresolvedReferences = value ?? [];
+    }
+
+    private readonly IReadOnlyList<UnresolvedReference> _unresolvedReferences = [];
+
     public IReadOnlyList<PackageReferenceInfo> PackageReferences { get; init; } = [];
 
     public IReadOnlyList<AssemblyReferenceInfo> AssemblyReferences { get; init; } = [];
@@ -201,6 +217,16 @@ public sealed record AssemblyFileMetadata
     public string? TargetFramework { get; init; }
 
     public string? PublicKeyToken { get; init; }
+}
+
+/// <summary>A declared project reference the model cannot follow (<see cref="ProjectInfo.UnresolvedReferences"/>).</summary>
+public sealed record UnresolvedReference
+{
+    /// <summary>Repository-relative path of the referenced project file.</summary>
+    public required string Path { get; init; }
+
+    /// <summary>Why it is not in the model, in the words of the scan (<c>unsupported project type (.vcxproj)</c>, <c>not in the build log</c>, an evaluation error).</summary>
+    public required string Reason { get; init; }
 }
 
 public sealed record ComReferenceInfo

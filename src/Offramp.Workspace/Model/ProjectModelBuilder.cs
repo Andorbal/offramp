@@ -347,13 +347,7 @@ public static class ProjectModelBuilder
     /// </summary>
     private static List<string> ProjectReferences(IReadOnlyList<EvaluatedProject> evaluations, string projectDirectory, ProjectBuildContext context)
     {
-        var references = evaluations
-            .SelectMany(e => e.ItemsOf("ProjectReference"))
-            .Select(i => context.Paths.ToRelative(projectDirectory, i.Include))
-            .OfType<string>()
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        var references = Declared(evaluations, projectDirectory, context, buildOrderOnly: true);
         var assetsFile = context.Paths.ToLocal(evaluations.Select(e => e.Property("ProjectAssetsFile")).FirstOrDefault(p => p is not null));
         if (AssetsFileReader.DeclaredProjectReferences(assetsFile) is not { } declared)
         {
@@ -365,6 +359,26 @@ public static class ProjectModelBuilder
         var kept = declared.Select(local.ToRelative).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
         return [.. references.Where(kept.Contains)];
     }
+
+    /// <summary>
+    /// Every <c>ProjectReference</c> the evaluations declare, whether or not the referenced project is in
+    /// the model, except references kept only for build order (<c>ReferenceOutputAssembly=false</c>).
+    /// </summary>
+    public static IReadOnlyList<string> DeclaredProjectReferences(IReadOnlyList<EvaluatedProject> evaluations, ProjectBuildContext context)
+    {
+        var projectDirectory = Path.GetDirectoryName(evaluations[0].ProjectFile.Replace('\\', '/'))!;
+        return Declared(evaluations, projectDirectory, context, buildOrderOnly: false);
+    }
+
+    private static List<string> Declared(IReadOnlyList<EvaluatedProject> evaluations, string projectDirectory, ProjectBuildContext context, bool buildOrderOnly) =>
+        evaluations
+            .SelectMany(e => e.ItemsOf("ProjectReference"))
+            .Where(i => buildOrderOnly || !string.Equals(i.Get("ReferenceOutputAssembly"), "false", StringComparison.OrdinalIgnoreCase))
+            .Select(i => context.Paths.ToRelative(projectDirectory, i.Include))
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
 
     private static SortedDictionary<string, ResolvedFramework> Resolved(
         IReadOnlyList<EvaluatedProject> evaluations, IReadOnlyList<string> tfms, ProjectBuildContext context)
