@@ -7,4 +7,8 @@
     <ProjectReference Include="..\..\src\Offramp.Reporting\Offramp.Reporting.csproj" />
     <ProjectReference Include="..\Offramp.Fixtures\Offramp.Fixtures.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="GraphLayoutCheck.js" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

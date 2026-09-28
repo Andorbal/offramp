@@ -71,13 +71,16 @@ them.
   no shapes for everything; kinds map to the closest available and the legend
   lists the mapping. Large graphs emit `OFR0201` (Mermaid renders poorly above
   ~300 nodes; suggest `--focus` or HTML).
-- **HTML**: single self-contained file. Force-directed or layered layout
-  (ELK-style layering preferred for readability; ship the layout library
-  inline, no CDN). Features: search box, filter by kind and framework class,
+- **HTML**: single self-contained file. Layered layout (ELK-style, written
+  for the page and shipped inline, no CDN) with orthogonal edge routing: edges
+  run horizontally and vertically in lanes and tracks between the boxes and
+  never through one, and edges of one kind into one project share their lanes
+  (ADR 0033). Features: search box, filter by kind and framework class,
   click a node to focus with depth slider, hover for details (targets,
-  packages, LOC, blockers), toggle clusters, cycles list, "export PNG/SVG",
-  light/dark, legend. The file embeds the JSON so other tools can read it
-  back from the page (`<script type="application/json" id="offramp-graph">`).
+  packages, LOC, blockers) and to highlight the node's edges, toggle clusters,
+  cycles list, "export PNG/SVG", light/dark, legend. The file embeds the JSON
+  so other tools can read it back from the page
+  (`<script type="application/json" id="offramp-graph">`).
 
 ## Options
 

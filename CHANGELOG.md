@@ -29,6 +29,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `init`'s result (`schemas/v1/init.json`) has `values.verifyCommand` and `values.cpmScope`.
 
 ### Changed
+- The HTML graph (`graph --format html`) routes edges orthogonally around the project boxes
+  instead of drawing curves through them (ADR 0033). An edge that skips layers gets a lane in
+  each layer it crosses; edges of one kind into one project share their lanes and arrive as one
+  line; tracks in each gap are ordered so that edges going the same way do not cross; rows are
+  ordered for fewer crossings and placed so long edges run straight. Drawings are larger and
+  orderly. Hovering a project highlights its edges. `GraphLayoutTests` runs the page's layout
+  with Node.js on the fixtures and a generated ninety-project solution and checks that no edge
+  crosses a box.
 - The `init` interview explains each question in a line above it and checks typed answers
   (ADR 0032). The verify choices say what `build`, `command`, and `none` do, and `command` asks
   for `verify.command`, which was never asked before. The central package versions question says

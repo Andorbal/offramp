@@ -1,6 +1,6 @@
 # 0013. Graph views: readiness, output routing, and an in-page layout
 
-- Status: accepted
+- Status: accepted; the HTML layout bullet is superseded by 0033
 - Date: 2026-09-26
 - Spec section: `docs/spec/commands/graph.md`
 
