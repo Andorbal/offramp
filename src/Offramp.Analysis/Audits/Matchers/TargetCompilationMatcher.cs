@@ -77,12 +77,13 @@ public sealed class TargetCompilationMatcher : IAuditMatcher
             }
 
             var node = root.FindNode(error.Location.SourceSpan, getInnermostNodeForTie: true);
-            if (TypeOrMember(recordedModel, Rightmost(node)) is not var (name, symbol) || !FromMetadata(symbol))
+            if (TypeOrMember(recordedModel, Rightmost(node)) is not var (name, symbol) || !FromMetadata(symbol) || ExistsOnTarget(symbol, targetModel.Compilation))
             {
                 continue;
             }
 
-            var assembly = symbol.ContainingAssembly?.Name ?? "";
+            var owner = MissingReceiver(symbol, targetModel.Compilation) ?? symbol;
+            var assembly = owner.ContainingAssembly?.Name ?? "";
             var mapping = FrameworkAssemblyMap.Find(assembly);
             var details = new SortedDictionary<string, string>(StringComparer.Ordinal)
             {
@@ -105,10 +106,50 @@ public sealed class TargetCompilationMatcher : IAuditMatcher
                 details["windowsOnly"] = "true";
             }
 
+            if (!ReferenceEquals(owner, symbol))
+            {
+                details["extensionAssembly"] = symbol.ContainingAssembly?.Name ?? "";
+            }
+
             var qualified = AuditEngine.Name(symbol);
             var message = $"{qualified} ({assembly}) does not exist on the target. " + Mapping(mapping);
-            yield return new RawFinding(rule, name.GetLocation(), qualified, message, details) { Namespace = AuditEngine.NamespaceOf(symbol) };
+            yield return new RawFinding(rule, name.GetLocation(), qualified, message, details) { Namespace = AuditEngine.NamespaceOf(owner) };
         }
+    }
+
+    /// <summary>
+    /// For an extension method called on a type the target does not have (<c>request.IsHttps()</c>
+    /// over <c>System.Web.HttpRequestBase</c>), that type: the method is missing because its
+    /// receiver is, so the finding belongs to the receiver's assembly, not the solution's one
+    /// that declares the method. Null otherwise.
+    /// </summary>
+    private static INamedTypeSymbol? MissingReceiver(ISymbol symbol, Compilation target)
+    {
+        if (symbol is not IMethodSymbol { IsExtensionMethod: true } method
+            || (method.ReducedFrom is not null ? method.ReceiverType : method.Parameters.FirstOrDefault()?.Type) is not INamedTypeSymbol receiver)
+        {
+            return null;
+        }
+
+        var definition = receiver.OriginalDefinition;
+        if (SymbolEqualityComparer.Default.Equals(definition.ContainingAssembly, method.ContainingAssembly))
+        {
+            return null;
+        }
+
+        return target.GetTypesByMetadataName(MetadataName(definition)).IsEmpty ? definition : null;
+    }
+
+    /// <summary>The name <see cref="Compilation.GetTypeByMetadataName"/> takes: namespace, nested types joined by <c>+</c>, arity suffixes.</summary>
+    private static string MetadataName(INamedTypeSymbol type)
+    {
+        var name = type.MetadataName;
+        for (var outer = type.ContainingType; outer is not null; outer = outer.ContainingType)
+        {
+            name = outer.MetadataName + "+" + name;
+        }
+
+        return type.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() + "." + name : name;
     }
 
     private static IEnumerable<RawFinding> WindowsOnly(AuditRule rule, SyntaxTree targetTree, SemanticModel targetModel)
@@ -188,6 +229,29 @@ public sealed class TargetCompilationMatcher : IAuditMatcher
         var info = targetModel.GetSymbolInfo(name);
         return info.Symbol is { Kind: not SymbolKind.ErrorType } || !info.CandidateSymbols.IsEmpty;
     }
+
+    /// <summary>
+    /// Whether the API the recorded compilation names exists on the target all the same: the
+    /// error is then about something else, typically a missing base type through which the name
+    /// was looked up (<c>Component.DesignMode</c> inside a class deriving from a missing
+    /// <c>Control</c>). An API whose signature has a type the target lacks does not exist.
+    /// </summary>
+    private static bool ExistsOnTarget(ISymbol symbol, Compilation target)
+    {
+        var definition = symbol is IMethodSymbol { ReducedFrom: { } reduced } ? reduced : symbol.OriginalDefinition;
+        return definition.GetDocumentationCommentId() is { } id
+            && DocumentationCommentId.GetFirstSymbolForDeclarationId(id, target) is { } found
+            && !Signature(found).Any(t => t.TypeKind == TypeKind.Error);
+    }
+
+    private static IEnumerable<ITypeSymbol> Signature(ISymbol symbol) => symbol switch
+    {
+        IMethodSymbol method => method.Parameters.Select(p => p.Type).Append(method.ReturnType),
+        IPropertySymbol property => property.Parameters.Select(p => p.Type).Append(property.Type),
+        IFieldSymbol field => [field.Type],
+        IEventSymbol @event => [@event.Type],
+        _ => [],
+    };
 
     /// <summary>
     /// <c>OFR3003</c> on a <c>-windows</c> target: the Windows Forms types .NET keeps only for

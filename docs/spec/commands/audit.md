@@ -197,7 +197,15 @@ Decisions behind the four code audits (ADR 0021).
     chain contains it, and at calls to methods whose signatures contain it (the method
     is a candidate that failed overload resolution). The type is reported where the code
     names it or reaches its members.
+  - An API the target has by documentation ID is not a finding either, unless its
+    signature names a type the target lacks: inside a class whose missing base derives
+    from a type the target has, the members inherited from that type
+    (`Component.DesignMode`) cannot be looked up, but exist.
   - The finding carries the assembly and its `rules/framework-assemblies.yml` mapping.
+  - An extension method declared in another assembly (the solution's own) whose
+    receiver type the target does not have (`request.IsHttps()` over
+    `System.Web.HttpRequestBase`) is attributed to the receiver's assembly and
+    namespace; `details.extensionAssembly` names the assembly that declares it.
 - OFR3003 on a `-windows` target also comes from the target compilation: a name that
   binds to a symbol, or a member of a type, marked `[Obsolete]` with `DiagnosticId`
   `WFDEV006` (the Windows Forms types .NET keeps only for binary compatibility, which

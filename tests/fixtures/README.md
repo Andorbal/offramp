@@ -29,7 +29,7 @@ Offramp's own settings when a fixture is built in place.
 | `legacy-shared` | csproj modernize of a legacy solution's shared build pieces (a linked SharedAssemblyInfo.cs, generated version files, NuGet 2 restore, a reference chain, package versions that would downgrade); see its README |
 | `mvc5` | web inventory, web scaffold (controllers that port and ones that do not, routes, a module, a handler, Web Forms); see its README |
 | `systemweb` | an `MSBuild.SDK.SystemWeb` site: the missing Visual Studio web targets (OFR0116) and the compile-only block that supplies them; see its README |
-| `webforms` | audit api (a missing base type reached through another project), audit dead-code (classes named only by markup); see its README |
+| `webforms` | audit api (a missing base type reached through another project, an extension method over a System.Web type), audit dead-code (classes named only by markup); see its README |
 | `winforms-library` | audit api (a Windows Forms class library compiled for `-windows`, the controls .NET keeps only as throwing shims); see its README |
 
 `hollow` is generated, not checked in (`GeneratedFixtures.Hollow` in

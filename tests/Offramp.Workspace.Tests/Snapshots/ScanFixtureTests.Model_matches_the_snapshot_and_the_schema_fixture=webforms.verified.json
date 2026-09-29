@@ -64,6 +64,7 @@
       "packagesConfig": false,
       "compile": [
         "src/Portal.Controls/ModuleBase.cs",
+        "src/Portal.Controls/RequestExtensions.cs",
         "src/Portal.Controls/RouteRegistry.cs"
       ],
       "compileExplicit": false,
@@ -90,7 +91,7 @@
           "index": 0
         }
       },
-      "loc": 42,
+      "loc": 55,
       "config": {
         "kindOverride": null,
         "excluded": false
@@ -147,7 +148,9 @@
         "src/Portal.Modules/Default.aspx.cs",
         "src/Portal.Modules/EditSettings.ascx.cs",
         "src/Portal.Modules/Leftover.cs",
+        "src/Portal.Modules/LinkBuilder.cs",
         "src/Portal.Modules/ModuleRoutes.cs",
+        "src/Portal.Modules/PortalException.cs",
         "src/Portal.Modules/UpgradeController.cs"
       ],
       "compileExplicit": false,
@@ -177,7 +180,7 @@
           "index": 0
         }
       },
-      "loc": 65,
+      "loc": 101,
       "config": {
         "kindOverride": null,
         "excluded": false

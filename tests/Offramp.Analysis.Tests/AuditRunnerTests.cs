@@ -181,6 +181,15 @@ public sealed class AuditRunnerTests
         Assert.Single(missing, f => f.Symbol == "System.Web.UI.UserControl" && f.File == "src/Portal.Controls/ModuleBase.cs");
         Assert.All(missing, f => Assert.Equal("System.Web", f.Details["assembly"]));
 
+        // PortalException derives from the missing HttpException; ErrorCode, inherited from
+        // ExternalException, exists on the target although the name cannot be looked up there.
+        Assert.Contains(missing, f => f.Symbol == "System.Web.HttpException" && f.File == "src/Portal.Modules/PortalException.cs");
+        Assert.DoesNotContain(missing, f => f.Symbol.Contains("ErrorCode", StringComparison.Ordinal));
+
+        // Portal.Controls' extension of HttpRequestBase is missing because HttpRequestBase is: it belongs to System.Web.
+        var extension = Assert.Single(missing, f => f.Symbol == "System.Web.HttpRequestBase.IsSecure()");
+        Assert.Equal(("Portal.Controls", "System.Web"), (extension.Details["extensionAssembly"], extension.Namespace));
+
         // The Visual Basic library is not audited, and says so.
         Assert.Equal(["src/Portal.Utilities/Portal.Utilities.vbproj: audits read C# only."], result.Skipped);
         var skipped = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR3012");
