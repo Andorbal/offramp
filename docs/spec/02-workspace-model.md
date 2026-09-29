@@ -133,6 +133,7 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
       "isTestProject": false,
       "properties": { "LangVersion": "latest", "Nullable": "disable", "GenerateSerializationAssemblies": "On" },
       "defineConstants": { "net48": ["TRACE", "DEBUG", "NETFRAMEWORK", "NET48", "NET48_OR_GREATER"] },  // what the compiler saw
+                                                  // (a legacy project's call too); without a call, DefineConstants split on ; and , as csc does
       "windowsOnlyBuildSteps": ["sgen"],          // ids: sgen, com, entity-deploy, t4, fakes, ssdt, build-event, web-targets, aspnet-compiler, path-case, inline-task, resources
       "packagesConfig": false,                    // a packages.config sits beside the project
       "packagesConfigPackages": [                 // what it lists (direct and transitive), sorted; absent without one
@@ -162,7 +163,7 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
         "net10.0": { "complog": ".offramp/build.complog", "project": "src/Foo/Foo.csproj", "targetFramework": "net10.0" }
       },                                          // a legacy project's call has "targetFramework": null
       "loc": 18234,                               // lines in Compile items, cheap count
-      "partial": true,                            // only when a target framework has no compiler call
+      "partial": true,                            // only when a target framework has no compiler call, or its call logged errors
       "config": { "kindOverride": null, "excluded": false }
     }
   ],

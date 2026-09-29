@@ -198,6 +198,15 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   instead of 1,439, 6,989 of them `System.Web.Mvc` and 714 `System.Web.Http`, and `OFR3011`
   names the packages without target support in 23 projects (the audit takes 201 s instead of
   142 s). This was the `audit api` part of DotNetNuke's P1 #7.
+- A project whose compiler call logged errors is `partial` in the workspace model and in `scan`'s
+  result: the compiler log records the call, but its compilation is broken. NHibernate compiled
+  with an error (a generated file missing) and Open Live Writer's MSTest project with 363 errors,
+  and both were `partial: false`, so the audits analyzed them as if complete.
+- `defineConstants` lists the symbols the compiler saw for legacy projects too (their compiler
+  call records no target framework, so the model fell back to the evaluated property), and
+  without a call it splits `DefineConstants` on `,` as well as `;`, as the compiler does:
+  NHibernate's `NET,NET_2_0` was one symbol. A legacy Visual Basic project now lists its implicit
+  symbols (`CONFIG`, `TARGET`, `_MyType`) instead of none.
 - The files the projects import from the repository (Open Live Writer's `writer.build.settings`)
   and `NuGet.config` are inputs of the workspace model (ADR 0049). Editing them did not make the
   model stale, and the scratch copies `csproj modernize` and `deps consolidate` verify in had the

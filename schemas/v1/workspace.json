@@ -229,7 +229,7 @@
           }
         },
         "loc": { "type": "integer", "minimum": 0 },
-        "partial": { "const": true, "description": "Present only when some target frameworks have no compiler call." },
+        "partial": { "const": true, "description": "Present only when some target frameworks have no compiler call, or their compiler call logged errors." },
         "config": {
           "type": "object",
           "additionalProperties": false,

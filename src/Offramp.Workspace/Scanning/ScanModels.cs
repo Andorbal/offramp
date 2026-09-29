@@ -76,7 +76,7 @@ public sealed record ScanResult
 
     public IReadOnlyList<NotLoadedProject> NotLoaded { get; init; } = [];
 
-    /// <summary>Projects with target frameworks that have no compiler call.</summary>
+    /// <summary>Projects with target frameworks that have no compiler call, or whose compilation failed.</summary>
     public IReadOnlyList<string> Partial { get; init; } = [];
 
     /// <summary>Repository-relative path of the ledger snapshot written by this scan.</summary>

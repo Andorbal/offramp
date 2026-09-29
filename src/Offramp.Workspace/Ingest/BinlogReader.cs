@@ -19,7 +19,16 @@ public sealed record BinlogData
     public string? SdkVersion { get; init; }
 
     public string? RuntimeIdentifier { get; init; }
+
+    /// <summary>
+    /// Compilations whose compiler task logged an error, as captured: the compiler log records their calls,
+    /// but what the compiler saw does not compile.
+    /// </summary>
+    public IReadOnlyList<FailedCompilation> FailedCompilations { get; init; } = [];
 }
+
+/// <summary>A project and target framework (null when none is known) whose compiler task logged an error.</summary>
+public sealed record FailedCompilation(string ProjectFile, string? TargetFramework);
 
 /// <summary>Reads evaluations, items, targets, and errors from a binary log with MSBuild.StructuredLogger.</summary>
 public static class BinlogReader
@@ -69,6 +78,7 @@ public static class BinlogReader
 
         // Last build (non-restore) evaluation wins per project and target framework.
         var chosen = new Dictionary<(string File, string? Tfm), EvaluatedProject>();
+        var tfmByEvaluation = new Dictionary<int, string?>();
         foreach (var evaluation in evaluations.OrderBy(e => e.Id))
         {
             if (evaluation.ProjectFile is null || evaluation.ProjectFile.EndsWith(".metaproj", StringComparison.OrdinalIgnoreCase))
@@ -86,6 +96,7 @@ public static class BinlogReader
                 ?? (Get(properties, "TargetFrameworks") is null
                     ? Tfm.FromIdentifier(Get(properties, "TargetFrameworkIdentifier"), Get(properties, "TargetFrameworkVersion"))
                     : null);
+            tfmByEvaluation[evaluation.Id] = tfm;
             chosen[(evaluation.ProjectFile, tfm)] = new EvaluatedProject
             {
                 ProjectFile = evaluation.ProjectFile,
@@ -106,8 +117,25 @@ public static class BinlogReader
             SolutionPath = chosen.Values.Select(e => e.Property("SolutionPath")).FirstOrDefault(p => p is not null && !p.Contains('*', StringComparison.Ordinal)),
             SdkVersion = any?.Property("NETCoreSdkVersion"),
             RuntimeIdentifier = any?.Property("NETCoreSdkRuntimeIdentifier"),
+            FailedCompilations = FailedCompilations(errors, tfmByEvaluation),
         };
     }
+
+    private static readonly HashSet<string> CompilerTasks = new(StringComparer.OrdinalIgnoreCase) { "Csc", "Vbc", "Fsc" };
+
+    /// <summary>The project and target framework of every compiler task that logged an error, sorted.</summary>
+    private static List<FailedCompilation> FailedCompilations(IEnumerable<Error> errors, Dictionary<int, string?> tfmByEvaluation) =>
+        [.. errors
+            .Where(e => e.GetNearestParent<Microsoft.Build.Logging.StructuredLogger.Task>() is { } task && CompilerTasks.Contains(task.Name))
+            .Select(e => e.GetNearestParent<LoggedProject>())
+            .OfType<LoggedProject>()
+            .Where(p => p.ProjectFile is not null)
+            .Select(p => new FailedCompilation(
+                p.ProjectFile,
+                tfmByEvaluation.TryGetValue(p.EvaluationId, out var tfm) ? tfm : Tfm.Normalize(p.TargetFramework)))
+            .Distinct()
+            .OrderBy(f => f.ProjectFile, StringComparer.Ordinal)
+            .ThenBy(f => f.TargetFramework, StringComparer.Ordinal)];
 
     /// <summary>
     /// Reads the log. <c>BinaryLog.ReadBuild</c> returns its result through a static field

@@ -143,9 +143,10 @@ public static class ScanRunner
             // log from another OS (D:\a\repo on Linux reads as /code/a/repo).
             var callMapper = calls.Count == 0 ? mapper : CapturePathMapper.Infer(root, calls.Select(c => c.ProjectFile));
             var callMap = MapCalls(calls, callMapper, RepoPaths.ToRepositoryRelative(root, complog));
+            // Keyed like the calls: "" for a legacy project's call, which records no target framework.
             var defines = calls
-                .Where(c => callMapper.ToRelative(c.ProjectFile) is not null && c.TargetFramework is not null)
-                .GroupBy(c => (callMapper.ToRelative(c.ProjectFile)!, c.TargetFramework!))
+                .Where(c => callMapper.ToRelative(c.ProjectFile) is not null)
+                .GroupBy(c => (callMapper.ToRelative(c.ProjectFile)!, c.TargetFramework ?? ""))
                 .ToDictionary(g => g.Key, g => g.First().Defines);
             // A log Offramp built differs with every build of the same inputs; only a supplied one is an input.
             var source = new WorkspaceSource(kind, Display(root, binlog), kind == WorkspaceSourceKind.Build ? null : ContentHash.Sha256File(binlog))
@@ -461,6 +462,11 @@ public static class ScanRunner
             CompilerDefines = defines,
             Excluded = new PathGlobs(request.Config.Paths.Exclude),
             Errors = data.Errors,
+            FailedCompilations = data.FailedCompilations
+                .Select(f => (Project: mapper.ToRelative(f.ProjectFile), Tfm: f.TargetFramework ?? ""))
+                .Where(f => f.Project is not null)
+                .Select(f => (f.Project!, f.Tfm))
+                .ToHashSet(),
         };
 
         var projects = new List<ProjectInfo>();

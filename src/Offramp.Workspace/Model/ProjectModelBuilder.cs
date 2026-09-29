@@ -23,6 +23,9 @@ public sealed record ProjectBuildContext
 
     /// <summary>Errors the log records, with capture paths; a project's evaluation errors name some Windows-only steps.</summary>
     public IReadOnlyList<BuildError> Errors { get; init; } = [];
+
+    /// <summary>(project id, target framework) of compilations whose compiler task logged errors; "" when the log names no target framework.</summary>
+    public IReadOnlySet<(string Project, string Tfm)> FailedCompilations { get; init; } = new HashSet<(string, string)>();
 }
 
 /// <summary>Turns one project's evaluations into a <see cref="ProjectInfo"/> (docs/spec/02-workspace-model.md).</summary>
@@ -140,7 +143,7 @@ public static class ProjectModelBuilder
             Resolved = Resolved(all, tfms, context),
             CompilerCalls = calls,
             Loc = CountLines(compile, context.Paths.RepositoryRoot),
-            Partial = language is "csharp" or "vb" && tfms.Any(t => !calls.ContainsKey(t)),
+            Partial = language is "csharp" or "vb" && tfms.Any(t => !calls.ContainsKey(t) || CompilationFailed(projectId, t, tfms.Count, context)),
             Config = new ProjectConfigState
             {
                 KindOverride = kindOverride,
@@ -149,6 +152,14 @@ public static class ProjectModelBuilder
             },
         };
     }
+
+    /// <summary>
+    /// True when the compiler call for a target framework logged errors: the call is recorded, but its compilation
+    /// is incomplete (NHibernate, Open Live Writer's MSTest projects).
+    /// </summary>
+    private static bool CompilationFailed(string projectId, string tfm, int targets, ProjectBuildContext context) =>
+        context.FailedCompilations.Contains((projectId, tfm))
+        || (targets == 1 && context.FailedCompilations.Contains((projectId, "")));
 
     public static string Language(string projectFile) => Path.GetExtension(projectFile).ToLowerInvariant() switch
     {
@@ -203,22 +214,33 @@ public static class ProjectModelBuilder
 
     /// <summary>
     /// The symbols the compiler saw when there is a compiler call (they include the
-    /// SDK's implicit ones, such as NETFRAMEWORK); otherwise the evaluated property.
+    /// SDK's implicit ones, such as NETFRAMEWORK; a legacy project's call records no target
+    /// framework and is its only one); otherwise the evaluated property, read as the compiler reads it.
     /// </summary>
     private static SortedDictionary<string, IReadOnlyList<string>> DefineConstants(
-        string projectId, IEnumerable<EvaluatedProject> inner, ProjectBuildContext context)
+        string projectId, List<EvaluatedProject> inner, ProjectBuildContext context)
     {
         var result = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
         foreach (var e in inner)
         {
             var tfm = e.TargetFramework!;
             result[tfm] = context.CompilerDefines.TryGetValue((projectId, tfm), out var defines)
+                || (inner.Count == 1 && context.CompilerDefines.TryGetValue((projectId, ""), out defines))
                 ? [.. defines.Distinct(StringComparer.Ordinal)]
-                : [.. SplitList(e.Property("DefineConstants")).Distinct(StringComparer.Ordinal)];
+                : [.. DefinedSymbols(e.Property("DefineConstants")).Distinct(StringComparer.Ordinal)];
         }
 
         return result;
     }
+
+    /// <summary>
+    /// The symbols a <c>DefineConstants</c> value defines: the compiler separates them with <c>;</c> or <c>,</c>
+    /// (NHibernate's <c>NET,NET_2_0</c> is two), and a Visual Basic symbol may carry a value (<c>DEBUG=-1</c>).
+    /// </summary>
+    internal static IEnumerable<string> DefinedSymbols(string? value) =>
+        (value ?? "").Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(symbol => symbol.Split('=')[0].Trim())
+            .Where(symbol => symbol.Length > 0);
 
     private static IReadOnlyList<PackageReferenceInfo> PackageReferences(IReadOnlyList<EvaluatedProject> evaluations)
     {

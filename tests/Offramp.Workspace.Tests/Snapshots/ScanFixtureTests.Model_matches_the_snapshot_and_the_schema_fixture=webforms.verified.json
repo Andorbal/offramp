@@ -208,7 +208,15 @@
         "ManagePackageVersionsCentrally": "false"
       },
       "defineConstants": {
-        "net48": []
+        "net48": [
+          "TRACE",
+          "_MyType",
+          "CONFIG",
+          "PLATFORM",
+          "DEBUG",
+          "VBC_VER",
+          "TARGET"
+        ]
       },
       "windowsOnlyBuildSteps": [],
       "packagesConfig": false,

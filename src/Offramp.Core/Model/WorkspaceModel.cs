@@ -172,7 +172,10 @@ public sealed record ProjectInfo
 
     public int Loc { get; init; }
 
-    /// <summary>True when the analysis build failed for this project and parts of the model are missing.</summary>
+    /// <summary>
+    /// True when the analysis build failed for this project: a target framework has no compiler call, or its
+    /// compiler call logged errors, so parts of the model or of its compilation are missing.
+    /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Partial { get; init; }
 
