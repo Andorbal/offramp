@@ -14,9 +14,21 @@ public sealed record ModernizeVerification
     /// <summary>Target frameworks the converted project compiles and the original did not (not compared).</summary>
     public IReadOnlyList<string> AddedTargets { get; init; } = [];
 
-    /// <summary>The first errors of a converted build that failed; empty when it built.</summary>
+    /// <summary>True when the converted project built, false when it did not, null when it was not built (the scan's log is gone).</summary>
+    public bool? Built { get; init; }
+
+    /// <summary>How many distinct errors the converted build reported; 0 when it built.</summary>
+    public int BuildErrorCount { get; init; }
+
+    /// <summary>The converted build's errors by code, the most frequent first (then by code).</summary>
+    public IReadOnlyList<BuildErrorCode> BuildErrorCodes { get; init; } = [];
+
+    /// <summary>The first 10 errors of a converted build that failed, with paths relative to the repository; empty when it built.</summary>
     public IReadOnlyList<string> BuildErrors { get; init; } = [];
 }
+
+/// <summary>How many of a failed converted build's errors have one code (<c>CS0246</c>, <c>MSB4019</c>).</summary>
+public sealed record BuildErrorCode(string Code, int Count);
 
 /// <summary>What <c>csproj modernize</c> does to one project.</summary>
 public sealed record ModernizedProject

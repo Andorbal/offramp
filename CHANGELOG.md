@@ -83,6 +83,15 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `csproj modernize` reports what its verification found in full. A converted build that failed
+  showed its first 10 errors and nothing else (NHibernate 4.1.2's `netstandard2.0` conversion had
+  71): the result's `verification` now has `built`, `buildErrorCount`, and `buildErrorCodes` (the
+  count per code, most frequent first), `OFR4303`'s message gives the count by code, and error
+  paths are repository-relative instead of the scratch copy's. The terminal view says a project
+  "does not build" instead of "compiles different inputs" when its converted build failed, with
+  the error count by code (SmartStoreNET 4.2.0). `--all` passes every project to the conversion,
+  so a legacy Visual Basic project is reported as not converted (`OFR4304`); it left NHibernate's
+  `.vbproj` out without a word.
 - `csproj modernize` converts to a project that compiles what the legacy one did (ADR 0043):
   - An SDK-style project compiles against its references' references too, so NHibernate 4.1.2's
     `TestDatabaseSetup` (which references `Test`, which references `DomainModel`) failed

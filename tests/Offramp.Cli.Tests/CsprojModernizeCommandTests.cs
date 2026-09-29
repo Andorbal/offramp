@@ -1,5 +1,8 @@
 using System.Text.Json.Nodes;
+using Offramp.Cli.Commands;
+using Offramp.Cli.Rendering;
 using Offramp.Fixtures;
+using Offramp.Scaffolding.Csproj;
 
 namespace Offramp.Cli.Tests;
 
@@ -68,7 +71,17 @@ public sealed class CsprojModernizeCommandTests
         Assert.False(node["result"]!["applied"]!.GetValue<bool>());
         var failure = Assert.Single(node["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR4303");
         Assert.Contains("does not build", failure!["message"]!.GetValue<string>(), StringComparison.Ordinal);
-        Assert.NotEmpty(node["result"]!["projects"]![0]!["verification"]!["buildErrors"]!.AsArray());
+        var verification = node["result"]!["projects"]![0]!["verification"]!;
+        Assert.NotEmpty(verification["buildErrors"]!.AsArray());
+        Assert.Contains(verification["buildErrors"]!.AsArray(), e => e!.GetValue<string>().StartsWith("src/Billing/BillingSection.cs(", StringComparison.Ordinal));
+
+        // NHibernate 4.1.2 (P1 #7): the error count by code, not only the first errors.
+        Assert.False(verification["built"]!.GetValue<bool>());
+        var count = verification["buildErrorCount"]!.GetValue<int>();
+        var codes = verification["buildErrorCodes"]!.AsArray();
+        Assert.Contains(codes, c => c!["code"]!.GetValue<string>().StartsWith("CS", StringComparison.Ordinal));
+        Assert.Equal(count, codes.Sum(c => c!["count"]!.GetValue<int>()));
+        Assert.Contains($"{count} error", failure["message"]!.GetValue<string>(), StringComparison.Ordinal);
         Assert.Equal(before, MoveCommandTests.Tree(fixture.Root));
     }
 
@@ -201,6 +214,65 @@ public sealed class CsprojModernizeCommandTests
 
     private static List<JsonNode> Diagnostics(string envelope, string code) =>
         [.. JsonNode.Parse(envelope)!["diagnostics"]!.AsArray().OfType<JsonNode>().Where(d => d["code"]!.GetValue<string>() == code)];
+
+    /// <summary>NHibernate 4.1.2 (P2): <c>--all</c> left the Visual Basic project out without a word.</summary>
+    [Fact]
+    public async Task All_names_the_legacy_projects_it_does_not_convert()
+    {
+        var fixture = await ScannedFixtures.GetAsync("webforms");
+        using var cli = new CliHarness(fixture.Repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--all", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        SchemaAssert.ValidEnvelope(run.Out, "csproj-modernize");
+        var vb = Assert.Single(JsonNode.Parse(run.Out)!["result"]!["projects"]!.AsArray(), p => p!["project"]!.GetValue<string>() == "src/Portal.Utilities/Portal.Utilities.vbproj")!;
+        Assert.Contains("vb project", vb["skipped"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Contains(Diagnostics(run.Out, "OFR4304"), d => d["project"]!.GetValue<string>() == "src/Portal.Utilities/Portal.Utilities.vbproj");
+    }
+
+    /// <summary>SmartStoreNET 4.2.0 (P2): the terminal said "compiles different inputs" for a conversion that did not build.</summary>
+    [Fact]
+    public void The_terminal_view_tells_a_failed_build_from_a_different_compile_set()
+    {
+        using var cli = new CliHarness();
+        var writer = new StringWriter { NewLine = "\n" };
+        var output = new HumanOutput(ConsoleFactory.Create(cli.Host(writer, TextWriter.Null), writer, isTerminal: false));
+        var result = new ModernizeResult
+        {
+            Projects =
+            [
+                new ModernizedProject
+                {
+                    Project = "src/Broken/Broken.csproj", Style = "legacy", Changed = true, TargetFrameworks = ["net48"],
+                    Verification = new ModernizeVerification
+                    {
+                        Passed = false, Built = false, BuildErrorCount = 71,
+                        BuildErrorCodes = [new BuildErrorCode("CS0246", 50), new BuildErrorCode("CS0234", 21)],
+                        BuildErrors = ["src/Broken/Emit.cs(12,5): error CS0246: The type or namespace name 'ILGenerator' could not be found"],
+                    },
+                },
+                new ModernizedProject
+                {
+                    Project = "src/Different/Different.csproj", Style = "legacy", Changed = true, TargetFrameworks = ["net48"],
+                    Verification = new ModernizeVerification
+                    {
+                        Passed = false, Built = true,
+                        Targets = [new CompileSetDifference { TargetFramework = "net48", ReferencesAdded = ["NHibernate.DomainModel"] }],
+                    },
+                },
+            ],
+        };
+
+        new CsprojModernizeCommand().Render(result, null!, output);
+
+        var lines = writer.ToString().Split('\n');
+        Assert.Contains("1 does not build; 1 compiles different inputs", lines[0], StringComparison.Ordinal);
+        Assert.Contains(lines, l => l.Contains("src/Broken/Broken.csproj", StringComparison.Ordinal) && l.Contains("does not build", StringComparison.Ordinal));
+        Assert.DoesNotContain(lines, l => l.Contains("src/Broken/Broken.csproj", StringComparison.Ordinal) && l.Contains("different compile set", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains("build errors: 71 (50 CS0246, 21 CS0234)", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains("src/Different/Different.csproj", StringComparison.Ordinal) && l.Contains("different compile set", StringComparison.Ordinal));
+    }
 
     [Fact]
     [ProducesDiagnostic("OFR4304")]

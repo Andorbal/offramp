@@ -91,7 +91,7 @@ public static class ModernizeVerifier
         // Restoring the PackageReference way turns NuGet audit on. When known vulnerabilities, made
         // errors by TreatWarningsAsErrors, are all that failed, the conversion is not at fault:
         // report them and verify with audit off.
-        if (build.ExitCode != 0 && Errors(build) is { Count: > 0 } auditErrors && auditErrors.All(IsAudit))
+        if (build.ExitCode != 0 && Errors(build, scratch) is { Count: > 0 } auditErrors && auditErrors.All(IsAudit))
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR4305,
                 $"{project}: the converted project restores its packages the PackageReference way, which turns NuGet audit on, and its warnings are errors: {string.Join(" | ", auditErrors.Take(3))}",
@@ -103,7 +103,8 @@ public static class ModernizeVerifier
         var frameworks = request.Model.Projects.FirstOrDefault(p => p.Id == project)?.TargetFrameworks ?? [];
         var before = CompileSets.Read(beforeLog, RepoPaths.ToAbsolute(request.RepositoryRoot, project), request.RepositoryRoot, frameworks.Count == 1 ? frameworks[0] : "");
         var after = File.Exists(binlog) ? CompileSets.Read(binlog, scratch.Resolve(project), scratch.Path) : [];
-        var errors = build.ExitCode == 0 ? [] : Errors(build);
+        var errors = build.ExitCode == 0 ? [] : Errors(build, scratch);
+        var codes = ErrorCodes(errors);
         var targets = new List<CompileSetDifference>();
         var missing = new List<string>();
         foreach (var (framework, set) in before)
@@ -124,7 +125,7 @@ public static class ModernizeVerifier
             var reasons = new List<string>();
             if (build.ExitCode != 0)
             {
-                reasons.Add("the converted project does not build" + (errors.Count > 0 ? ": " + string.Join(" | ", errors.Take(3)) : ""));
+                reasons.Add("the converted project does not build" + (errors.Count > 0 ? $" ({Count(errors.Count, codes)}): " + string.Join(" | ", errors.Take(3).Select(Shorten)) : ""));
             }
 
             if (missing.Count > 0)
@@ -145,7 +146,10 @@ public static class ModernizeVerifier
             Passed = passed,
             Targets = targets,
             AddedTargets = [.. after.Keys.Except(before.Keys, StringComparer.Ordinal)],
-            BuildErrors = errors,
+            Built = build.ExitCode == 0,
+            BuildErrorCount = errors.Count,
+            BuildErrorCodes = codes,
+            BuildErrors = [.. errors.Take(10).Select(Shorten)],
         };
     }
 
@@ -225,13 +229,41 @@ public static class ModernizeVerifier
     private static bool IsAudit(string error) =>
         AuditCodes.Any(code => error.Contains(": error " + code + ":", StringComparison.Ordinal));
 
-    private static List<string> Errors(ProcessResult build) =>
-        [.. (build.StandardOutput + "\n" + build.StandardError).Split('\n')
+    /// <summary>Every distinct error line of a build, in order, with the scratch copy's paths made repository-relative.</summary>
+    private static List<string> Errors(ProcessResult build, ScratchWorktree scratch)
+    {
+        var prefixes = new[] { scratch.Path.TrimEnd('/', '\\') + "/", scratch.Path.TrimEnd('/', '\\') + "\\" };
+        return [.. (build.StandardOutput + "\n" + build.StandardError).Split('\n')
             .Select(l => l.Trim())
             .Where(l => l.Contains(": error ", StringComparison.Ordinal))
-            .Select(l => l.Length > 300 ? l[..300] : l)
-            .Distinct(StringComparer.Ordinal)
-            .Take(10)];
+            .Select(l => prefixes.Aggregate(l, (line, prefix) => line.Replace(prefix, "", StringComparison.Ordinal)))
+            .Distinct(StringComparer.Ordinal)];
+    }
+
+    private static string Shorten(string error) => error.Length > 300 ? error[..300] : error;
+
+    /// <summary>The errors by code (<c>... : error CS0246: ...</c>), the most frequent first.</summary>
+    private static List<BuildErrorCode> ErrorCodes(IReadOnlyList<string> errors) =>
+        [.. errors.GroupBy(Code, StringComparer.Ordinal)
+            .Select(g => new BuildErrorCode(g.Key, g.Count()))
+            .OrderByDescending(c => c.Count).ThenBy(c => c.Code, StringComparer.Ordinal)];
+
+    /// <summary>The code after <c>: error </c>, or <c>other</c> when the message has none.</summary>
+    private static string Code(string error)
+    {
+        var rest = error[(error.IndexOf(": error ", StringComparison.Ordinal) + ": error ".Length)..];
+        var colon = rest.IndexOf(':', StringComparison.Ordinal);
+        var code = colon > 0 ? rest[..colon].Trim() : "";
+        return code.Length > 0 && code.All(char.IsAsciiLetterOrDigit) ? code : "other";
+    }
+
+    /// <summary>"71 errors: 21 CS0246, 8 CS0234, 6 CS0012, and 4 more codes".</summary>
+    private static string Count(int count, List<BuildErrorCode> codes)
+    {
+        var shown = string.Join(", ", codes.Take(5).Select(c => string.Create(CultureInfo.InvariantCulture, $"{c.Count} {c.Code}")));
+        var more = codes.Count > 5 ? string.Create(CultureInfo.InvariantCulture, $", and {codes.Count - 5} more code{(codes.Count - 5 == 1 ? "" : "s")}") : "";
+        return string.Create(CultureInfo.InvariantCulture, $"{count} error{(count == 1 ? "" : "s")}: {shown}{more}");
+    }
 
     private static void Fail(ModernizeVerifyRequest request, string project, string message) =>
         request.Diagnostics.Report(DiagnosticCatalog.OFR4303, $"{project}: {message}", new DiagnosticLocation(project));

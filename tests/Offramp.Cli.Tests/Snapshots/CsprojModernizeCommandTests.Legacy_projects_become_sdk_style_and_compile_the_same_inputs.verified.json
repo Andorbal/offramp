@@ -184,6 +184,9 @@
             }
           ],
           "addedTargets": [],
+          "built": true,
+          "buildErrorCount": 0,
+          "buildErrorCodes": [],
           "buildErrors": []
         }
       },
@@ -272,6 +275,9 @@
             }
           ],
           "addedTargets": [],
+          "built": true,
+          "buildErrorCount": 0,
+          "buildErrorCodes": [],
           "buildErrors": []
         }
       }

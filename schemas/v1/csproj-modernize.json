@@ -48,7 +48,7 @@
               {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["passed", "targets", "addedTargets", "buildErrors"],
+                "required": ["passed", "targets", "addedTargets", "built", "buildErrorCount", "buildErrorCodes", "buildErrors"],
                 "properties": {
                   "passed": { "type": "boolean" },
                   "targets": {
@@ -73,7 +73,19 @@
                     }
                   },
                   "addedTargets": { "type": "array", "items": { "type": "string" }, "description": "Target frameworks only the converted project has (not compared)." },
-                  "buildErrors": { "type": "array", "items": { "type": "string" } }
+                  "built": { "type": ["boolean", "null"], "description": "The converted project built; false when it did not (OFR4303), null when it was not built because the scan's log is gone." },
+                  "buildErrorCount": { "type": "integer", "minimum": 0, "description": "Distinct errors of the converted build; 0 when it built." },
+                  "buildErrorCodes": {
+                    "type": "array",
+                    "description": "The converted build's errors by code (other: no code), the most frequent first, then by code.",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["code", "count"],
+                      "properties": { "code": { "type": "string" }, "count": { "type": "integer", "minimum": 1 } }
+                    }
+                  },
+                  "buildErrors": { "type": "array", "items": { "type": "string" }, "description": "The first 10 errors, with paths relative to the repository." }
                 }
               }
             ]

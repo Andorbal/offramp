@@ -274,6 +274,7 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
     `TargetFrameworkVersion`, `OutputPath`, `IntermediateOutputPath`, `MSBuildExtensionsPath`,
     or the like without a condition.
   - ASP.NET web application projects and non-C# projects are not converted (`OFR4304`).
+    `--all` takes every project of the model, so each one it does not convert is named.
   - AssemblyInfo attributes the SDK generates are removed with the `assemblyinfo` codemod
     (the SDK generates them from properties instead), from the project's own files only. A file
     outside the project's folder, compiled by another project, ignored by git, added to the
@@ -290,7 +291,11 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   refuses unless `--accept-diff`. A build that fails only on NuGet audit (NU1901–NU1904,
   known vulnerabilities, which `PackageReference` restore reports and
   `TreatWarningsAsErrors` makes errors) is not the conversion's fault: it is reported as
-  `OFR4305` and the verification build runs again with `NuGetAudit=false`. Schema:
+  `OFR4305` and the verification build runs again with `NuGetAudit=false`. A failed build is
+  reported in full: `verification.built` is false, `buildErrorCount` counts its distinct
+  errors, `buildErrorCodes` gives the count per code (most frequent first, then by code), and
+  `buildErrors` holds the first 10, with paths relative to the repository; `OFR4303`'s message
+  gives the count by code, and the terminal view says the project does not build. Schema:
   `schemas/v1/csproj-modernize.json`.
 
 ## `config convert`
