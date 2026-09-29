@@ -126,7 +126,7 @@ public sealed class CsprojModernizeCommandTests
         var node = JsonNode.Parse(single.Out)!;
         var data = Assert.Single(node["result"]!["projects"]!.AsArray())!;
         Assert.True(data["verification"]!["passed"]!.GetValue<bool>(), single.Out);
-        Assert.Equal(["src/Layers.Data/Properties/AssemblyInfo.cs"], data["files"]!.AsArray().Select(f => f!.GetValue<string>()));
+        Assert.Equal(["src/Layers.Data/Properties/AssemblyInfo.cs", "src/Layers.Data/packages.config"], data["files"]!.AsArray().Select(f => f!.GetValue<string>()));
         Assert.DoesNotContain("a/src/SharedAssemblyInfo.cs", node["result"]!["preview"]!.GetValue<string>(), StringComparison.Ordinal);
         Assert.Equal(
             ["AssemblyTitle=Layers data access", "GenerateAssemblyCompanyAttribute=false", "GenerateAssemblyFileVersionAttribute=false", "GenerateAssemblyProductAttribute=false", "GenerateAssemblyVersionAttribute=false"],
@@ -152,6 +152,51 @@ public sealed class CsprojModernizeCommandTests
         var domain = repository.Directory.Read("src/Layers.Domain/Layers.Domain.csproj");
         Assert.Contains("<GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>", domain, StringComparison.Ordinal);
         Assert.Contains("<AssemblyTitle>Layers domain model</AssemblyTitle>", domain, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// NHibernate 4.1.2 (P1 #11), SmartStoreNET 4.2.0 (P1 #6), Open Live Writer 0.6.3 (P1 #9): conversions
+    /// that failed verification because of what the SDK passes on or dropped (transitive project
+    /// references, the NuGet 2 restore import, a package downgrade), and a build event that lost its condition.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR4307")]
+    [ProducesDiagnostic("OFR4308")]
+    public async Task Conversions_compile_what_the_legacy_projects_did()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared");
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--all", "--apply", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        SchemaAssert.ValidEnvelope(run.Out, "csproj-modernize");
+        var result = JsonNode.Parse(run.Out)!["result"]!;
+        Assert.Equal(3, result["projects"]!.AsArray().Count);
+        Assert.All(result["projects"]!.AsArray(), p => Assert.True(p!["verification"]!["passed"]!.GetValue<bool>(), p.ToJsonString()));
+        Assert.True(result["applied"]!.GetValue<bool>());
+        List<string> Lines(string project) => [.. repository.Directory.Read(project).Split('\n').Select(l => l.Trim())];
+        var tests = Lines("src/Layers.Tests/Layers.Tests.csproj");
+        var data = Lines("src/Layers.Data/Layers.Data.csproj");
+        var domain = Lines("src/Layers.Domain/Layers.Domain.csproj");
+
+        // Layers.Tests → Layers.Data → Layers.Domain: Tests still compiles against Data alone.
+        Assert.Contains("<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>", tests);
+        Assert.DoesNotContain("<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>", data);
+        // NuGet 2's restore import goes; SolutionDir stays in Tests only, whose build event uses it.
+        Assert.DoesNotContain(data, l => l.Contains("NuGet.targets", StringComparison.OrdinalIgnoreCase) || l.Contains("SolutionDir", StringComparison.Ordinal));
+        Assert.Contains(tests, l => l.StartsWith("<SolutionDir Condition=", StringComparison.Ordinal));
+        Assert.Contains("<Target Name=\"PostBuild\" AfterTargets=\"PostBuildEvent\" Condition=\"'$(Configuration)' == 'Debug'\">", tests);
+        // Data's Newtonsoft.Json 12.0.1 would be downgraded from Domain's 13.0.3.
+        Assert.Contains("<PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.3\" />", data);
+        Assert.Contains("<PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.3\" />", domain);
+        var raised = Assert.Single(Diagnostics(run.Out, "OFR4307"));
+        Assert.Equal("src/Layers.Data/Layers.Data.csproj", raised["project"]!.GetValue<string>());
+        Assert.Equal(("12.0.1", "13.0.3", "src/Layers.Domain/Layers.Domain.csproj"),
+            (raised["data"]!["from"]!.GetValue<string>(), raised["data"]!["to"]!.GetValue<string>(), raised["data"]!["source"]!.GetValue<string>()));
+        Assert.Equal(["src/Layers.Domain/Layers.Domain.csproj", "src/Layers.Tests/Layers.Tests.csproj"],
+            Diagnostics(run.Out, "OFR4308").Select(d => d["project"]!.GetValue<string>()).Order(StringComparer.Ordinal));
     }
 
     private static List<JsonNode> Diagnostics(string envelope, string code) =>

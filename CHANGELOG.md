@@ -83,6 +83,32 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `csproj modernize` converts to a project that compiles what the legacy one did (ADR 0043):
+  - An SDK-style project compiles against its references' references too, so NHibernate 4.1.2's
+    `TestDatabaseSetup` (which references `Test`, which references `DomainModel`) failed
+    verification with "references added: NHibernate.DomainModel" (`OFR4303`). A converted project
+    whose referenced projects have project references of their own sets
+    `DisableTransitiveProjectReferences`.
+  - The NuGet 2 restore import (`$(SolutionDir)\.nuget\NuGet.targets`) is removed with
+    `RestorePackages`. It stayed while `SolutionDir` went, so 10 of SmartStoreNET 4.2.0's 11
+    conversions failed with MSB4019. `SolutionDir`'s definition now stays while a build event or
+    import still uses it (SmartStore.Data.Tests' post-build step uses
+    `$(SolutionDir)packages\...`).
+  - A `packages.config` version lower than the one a referenced project brings is raised to it,
+    with `OFR4307` (warning): with `PackageReference` the higher version flows in, and the lower
+    one is a package downgrade, NU1605, an error. It failed 5 of Open Live Writer 0.6.3's
+    conversions (Newtonsoft.Json 10.0.2 in `PostEditor`, 13.0.1 from `BlogClient`).
+  - A build event in a conditioned property group keeps the condition on its target; Open Live
+    Writer's installer step, conditioned off for compile-only builds, ran unconditioned
+    (MSB3073).
+  - With a `-windows` target (`--tfm "net461;net10.0-windows"`), a project that references
+    Windows Forms or WPF gets `UseWindowsForms` or `UseWPF`, and its .NET Framework references
+    are conditioned on the .NET Framework target instead of applying to every target.
+  - `OFR4308` (warning) names a target in the project body that a common target of the same name
+    now overrides (Open Live Writer's empty `_CopyFilesMarkedCopyLocal`, which turned copy-local
+    off), and an imported file that sets `TargetFrameworkVersion`, `OutputPath`,
+    `IntermediateOutputPath`, or `MSBuildExtensionsPath` unconditionally (`writer.build.settings`).
+    Both stopped working without a word.
 - `csproj modernize` and `codemod run --mod assemblyinfo` edit only a project's own AssemblyInfo
   files (ADR 0039). They stripped the version, company, and product attributes from any file the
   project compiled: NHibernate 4.1.2's git-ignored `SharedAssemblyInfo.cs`, which NAnt writes

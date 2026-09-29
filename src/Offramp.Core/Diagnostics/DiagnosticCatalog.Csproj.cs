@@ -51,4 +51,20 @@ public static partial class DiagnosticCatalog
         "A linked SharedAssemblyInfo.cs, GlobalAssemblyInfo.cs, or VersionInfo.cs that versions a whole solution, often written by the build (NAnt, Cake, GitVersion).",
         "Nothing, if the file should keep versioning every project that compiles it. To move the values into project properties, do it once every project that compiles the file is SDK-style: set the properties (in Directory.Build.props for all of them), remove the file, and drop the GenerateAssembly<Name>Attribute properties.",
         CsprojArea);
+
+    public static readonly DiagnosticDescriptor OFR4307 = new(
+        "OFR4307", Severity.Warning,
+        "package version raised to the one a referenced project brings",
+        "The project's packages.config asks for a lower version of a package than a project it references (directly or through others) passes on once it restores the PackageReference way. PackageReference would bring the higher version in, and the lower direct one would be a package downgrade (NU1605, an error by default), so the converted project asks for the higher version. The message names the project it comes from.",
+        "Projects that each installed their own version of a common package (Newtonsoft.Json, log4net) with packages.config, which never passed packages on.",
+        "Check that the project works with the newer version (the verification build compiles it); better, give the whole solution one version with `offramp deps consolidate`.",
+        CsprojArea);
+
+    public static readonly DiagnosticDescriptor OFR4308 = new(
+        "OFR4308", Severity.Warning,
+        "build customization the SDK overrides",
+        "A target in the project body has the name of a target the common targets define (other than BeforeBuild and AfterBuild, which the conversion renames and hooks), or a file the project imports sets properties the SDK owns (TargetFrameworkVersion, OutputPath, IntermediateOutputPath, MSBuildExtensionsPath, and the like) without a condition. In an SDK-style project the SDK's targets come after the project body and win, and the SDK sets those properties itself, so the customization stops working or fights the SDK.",
+        "An empty `_CopyFilesMarkedCopyLocal` target that turned copy-local off, an `AfterCompile` step, a shared settings file that every legacy project imports.",
+        "Hook a target of another name to the one it replaced (BeforeTargets or AfterTargets); condition the imported properties on '$(UsingMicrosoftNETSdk)' != 'true', or remove them.",
+        CsprojArea);
 }

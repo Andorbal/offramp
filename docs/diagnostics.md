@@ -219,6 +219,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4304](#ofr4304) | warning | csproj | project not converted |
 | [OFR4305](#ofr4305) | warning | csproj | converted project fails NuGet audit |
 | [OFR4306](#ofr4306) | info | csproj | shared or generated assembly info file left as is |
+| [OFR4307](#ofr4307) | warning | csproj | package version raised to the one a referenced project brings |
+| [OFR4308](#ofr4308) | warning | csproj | build customization the SDK overrides |
 | [OFR4401](#ofr4401) | warning | config convert | setting not representable |
 | [OFR4402](#ofr4402) | warning | config convert | WCF configuration |
 | [OFR4403](#ofr4403) | info | config convert | system.web settings belong to the web migration |
@@ -1969,6 +1971,24 @@ A file that declares assembly attributes the SDK generates is outside the projec
 
 - **Typical cause:** A linked SharedAssemblyInfo.cs, GlobalAssemblyInfo.cs, or VersionInfo.cs that versions a whole solution, often written by the build (NAnt, Cake, GitVersion).
 - **Fix:** Nothing, if the file should keep versioning every project that compiles it. To move the values into project properties, do it once every project that compiles the file is SDK-style: set the properties (in Directory.Build.props for all of them), remove the file, and drop the GenerateAssembly<Name>Attribute properties.
+
+### OFR4307
+
+**package version raised to the one a referenced project brings** · warning · csproj
+
+The project's packages.config asks for a lower version of a package than a project it references (directly or through others) passes on once it restores the PackageReference way. PackageReference would bring the higher version in, and the lower direct one would be a package downgrade (NU1605, an error by default), so the converted project asks for the higher version. The message names the project it comes from.
+
+- **Typical cause:** Projects that each installed their own version of a common package (Newtonsoft.Json, log4net) with packages.config, which never passed packages on.
+- **Fix:** Check that the project works with the newer version (the verification build compiles it); better, give the whole solution one version with `offramp deps consolidate`.
+
+### OFR4308
+
+**build customization the SDK overrides** · warning · csproj
+
+A target in the project body has the name of a target the common targets define (other than BeforeBuild and AfterBuild, which the conversion renames and hooks), or a file the project imports sets properties the SDK owns (TargetFrameworkVersion, OutputPath, IntermediateOutputPath, MSBuildExtensionsPath, and the like) without a condition. In an SDK-style project the SDK's targets come after the project body and win, and the SDK sets those properties itself, so the customization stops working or fights the SDK.
+
+- **Typical cause:** An empty `_CopyFilesMarkedCopyLocal` target that turned copy-local off, an `AfterCompile` step, a shared settings file that every legacy project imports.
+- **Fix:** Hook a target of another name to the one it replaced (BeforeTargets or AfterTargets); condition the imported properties on '$(UsingMicrosoftNETSdk)' != 'true', or remove them.
 
 ### OFR4401
 

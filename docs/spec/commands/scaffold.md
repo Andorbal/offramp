@@ -241,6 +241,14 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
     With a single target framework the result sets `AppendTargetFrameworkToOutputPath` to
     `false`, so the output stays in the folder the legacy project wrote it to (build steps
     and `HintPath`s into it keep working).
+  - The converted project compiles against what the legacy one did (ADR 0043). When a
+    referenced project has project references of its own (or is not in the model), it sets
+    `DisableTransitiveProjectReferences` to `true`: an SDK-style project would also compile
+    against its references' references. NuGet 2's restore import (`.nuget\NuGet.targets`)
+    goes with `RestorePackages`, since `PackageReference` restore replaces it; `SolutionDir`
+    is dropped too, unless something the conversion keeps (a build event, an import) still
+    uses `$(SolutionDir)`: then its definition, with its fallback for builds outside the
+    solution, stays.
   - `Compile`, `.resx` `EmbeddedResource`, and `None` items become the SDK's globs when
     those give the same files; otherwise the Compile list stays with
     `EnableDefaultCompileItems` false (`OFR4301`). `Link`, `DependentUpon`, `Generator`,
@@ -249,9 +257,22 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
     only `Project` and `Name` (a source generator's `OutputItemType="Analyzer"` stays).
   - `packages.config` becomes `PackageReference` items (development dependencies with
     `PrivateAssets="all"`; versions omitted under central package management); `HintPath`
-    references into `packages/` are dropped with it. Framework `Reference` items stay.
+    references into `packages/` are dropped with it. Framework `Reference` items stay; when a
+    target framework is not .NET Framework (`--tfm "net48;net10.0-windows"`), they go in an
+    item group conditioned on `'$(TargetFrameworkIdentifier)' == '.NETFramework'`, and a
+    `-windows` target gets `UseWindowsForms` (a `System.Windows.Forms` reference) or `UseWPF`
+    (`PresentationFramework`, `PresentationCore`, `WindowsBase`, `System.Xaml`). A package
+    that a project in the ProjectReference closure passes on at a higher version (converted in
+    the same run, or restoring the `PackageReference` way already) raises the project's own
+    version to it, since the lower one would be a package downgrade (NU1605): `OFR4307`.
   - `PreBuildEvent`/`PostBuildEvent` and `BeforeBuild`/`AfterBuild` become targets hooked
-    at the same point (`OFR4302`).
+    at the same point (`OFR4302`). A build event keeps its property group's condition, and its
+    own, as the target's `Condition`.
+  - `OFR4308` names what the SDK overrides without a word: a target in the body with the name
+    of a common target (`AfterCompile`, `_CopyFilesMarkedCopyLocal`, ...), which the SDK's
+    targets, imported after the body, replace; and an imported file in the repository that sets
+    `TargetFrameworkVersion`, `OutputPath`, `IntermediateOutputPath`, `MSBuildExtensionsPath`,
+    or the like without a condition.
   - ASP.NET web application projects and non-C# projects are not converted (`OFR4304`).
   - AssemblyInfo attributes the SDK generates are removed with the `assemblyinfo` codemod
     (the SDK generates them from properties instead), from the project's own files only. A file
