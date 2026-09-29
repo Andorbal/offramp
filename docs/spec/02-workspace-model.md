@@ -183,15 +183,19 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
 
 The model records `inputs`: the SHA-256 of every project file (`.csproj`,
 `.vbproj`, `.fsproj`, `.sqlproj`), solution (`.sln`, `.slnx`, and the model's own
-`.slnf`), `Directory.*.props/targets`, and `packages.config` in the repository
-(outside `bin/`, `obj/`, `packages/`, dot-directories, and the state directory).
-Every command that reads the model compares them, and `source.sha256` for a
-supplied log, with the files on disk (a log `scan` built itself has no hash: every
-build of the same inputs writes a different log, and the inputs already say what
-the model was built from; `docs/decisions/0049-what-the-workspace-model-records.md`);
-any changed, added, or removed input
-produces `OFR0002` naming what changed (warning by default; `--fail-on-stale`
-makes it an error). Content hashes, not modification times, so a fresh clone of
+`.slnf`), `Directory.*.props/targets`, `packages.config`, and `NuGet.config` in the
+repository, and of every other file the evaluations imported from the repository
+(a shared `build.settings` or `.targets`), all outside `bin/`, `obj/`, `packages/`,
+dot-directories, and the state directory. Imported files are hashed again by path;
+the others are found by name. Every command that reads the model compares them, and
+`source.sha256` for a supplied log, with the files on disk (a log `scan` built itself
+has no hash: every build of the same inputs writes a different log, and the inputs
+already say what the model was built from;
+`docs/decisions/0049-what-the-workspace-model-records.md`); any changed, added, or
+removed input produces `OFR0002` naming what changed (warning by default;
+`--fail-on-stale` makes it an error). The scratch copies of the repository that
+verification builds in (`csproj modernize`, `deps consolidate`) take the inputs from
+the working tree, so uncommitted edits to them count. Content hashes, not modification times, so a fresh clone of
 the same commit is fresh (`docs/decisions/0009-staleness-by-content-hash.md`).
 `scan --if-stale` rescans only when needed.
 

@@ -198,6 +198,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   instead of 1,439, 6,989 of them `System.Web.Mvc` and 714 `System.Web.Http`, and `OFR3011`
   names the packages without target support in 23 projects (the audit takes 201 s instead of
   142 s). This was the `audit api` part of DotNetNuke's P1 #7.
+- The files the projects import from the repository (Open Live Writer's `writer.build.settings`)
+  and `NuGet.config` are inputs of the workspace model (ADR 0049). Editing them did not make the
+  model stale, and the scratch copies `csproj modernize` and `deps consolidate` verify in had the
+  committed versions, so on Open Live Writer converting `LocEdit` failed with MSB3644 in the
+  scratch copy where the working tree built, and restores there used the feed the fixed
+  `NuGet.config` had replaced.
 - Two full scans of the same tree write the same model (ADR 0049). The compiler-call index
   followed the order the parallel build finished its compilations (10 of SmartStoreNET's 25
   projects differed between two scans), and `source.sha256` hashed the binary log, which differs

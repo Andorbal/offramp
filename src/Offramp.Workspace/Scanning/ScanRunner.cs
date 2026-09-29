@@ -546,11 +546,15 @@ public static class ScanRunner
             Projects = projects,
             Graph = graph,
             Packages = PackageIndex(projects),
-            Inputs = WorkspaceInputs.Collect(root, state, solution),
+            Inputs = WorkspaceInputs.Collect(root, state, solution, ImportedFiles(data, mapper)),
             Diagnostics = [.. loading.Where(d => d is not null).OrderBy(d => d, DiagnosticOrder.Instance)],
         };
         return (model, notLoaded);
     }
+
+    /// <summary>The files the evaluations imported from inside the repository, repository-relative (they shape the model too).</summary>
+    private static IEnumerable<string> ImportedFiles(BinlogData data, CapturePathMapper mapper) =>
+        data.Evaluations.SelectMany(e => e.Imports).Distinct(StringComparer.Ordinal).Select(mapper.ToRelative).OfType<string>();
 
     private static async Task<IReadOnlyList<NotLoadedProject>> FindNotLoadedAsync(
         ScanRequest request, BinlogData data, CapturePathMapper mapper, List<ProjectInfo> projects, string? solution,

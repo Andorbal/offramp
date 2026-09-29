@@ -36,6 +36,39 @@ public sealed class WorkspaceStoreTests : IDisposable
         Assert.Contains("slices/other.slnf", WorkspaceInputs.Collect(_repo.Path, State, "slices/other.slnf").Select(i => i.Path));
     }
 
+    /// <summary>
+    /// Open Live Writer P1 #9: an imported settings file and NuGet.config shape the model too, so editing them makes
+    /// it stale (and scratch copies of the repository take them from the working tree).
+    /// </summary>
+    [Fact]
+    public void Imported_files_inside_the_repository_and_nuget_config_are_inputs()
+    {
+        _repo.Write("src/managed/writer.sln", "");
+        _repo.Write("src/managed/A/A.csproj", "<Project />");
+        _repo.Write("src/managed/writer.build.settings", "<Project />");
+        _repo.Write("NuGet.config", "<configuration />");
+        _repo.Write("src/managed/A/obj/A.csproj.nuget.g.props", "<Project />");
+        _repo.Write("src/managed/packages/Bcl.Build/build/Bcl.Build.targets", "<Project />");
+        _repo.Write(".offramp/generated.props", "<Project />");
+        string[] imports =
+        [
+            "src/managed/writer.build.settings", "src/managed/A/obj/A.csproj.nuget.g.props", "src/managed/packages/Bcl.Build/build/Bcl.Build.targets",
+            ".offramp/generated.props", "src/managed/missing.props", "src/managed/A/A.csproj",
+        ];
+
+        var model = Model(WorkspaceInputs.Collect(_repo.Path, State, "src/managed/writer.sln", imports));
+
+        Assert.Equal(["NuGet.config", "src/managed/A/A.csproj", "src/managed/writer.build.settings", "src/managed/writer.sln"], model.Inputs.Select(i => i.Path));
+        Assert.False(WorkspaceInputs.Compare(model, _repo.Path, State).IsStale);
+
+        _repo.Write("src/managed/writer.build.settings", "<Project><PropertyGroup /></Project>");
+        _repo.Write("NuGet.config", "<configuration><packageSources /></configuration>");
+        Assert.Equal(["NuGet.config", "src/managed/writer.build.settings"], WorkspaceInputs.Compare(model, _repo.Path, State).Changed);
+
+        File.Delete(_repo.Combine("src", "managed", "writer.build.settings"));
+        Assert.Equal(["src/managed/writer.build.settings"], WorkspaceInputs.Compare(model, _repo.Path, State).Removed);
+    }
+
     [Fact]
     public void A_model_with_the_same_inputs_is_fresh_and_any_change_makes_it_stale()
     {

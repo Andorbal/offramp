@@ -48,4 +48,37 @@ public sealed class ScanModelTests
         Assert.Null(again.Model!.Source.Sha256);
         Assert.Equal(first, scanned.ModelJson);
     }
+
+    /// <summary>Open Live Writer P1 #9: a settings file the projects import is an input of the model, and so is NuGet.config.</summary>
+    [Fact]
+    public async Task Files_the_projects_import_are_inputs_of_the_model()
+    {
+        using var repo = new ScratchDirectory("scan-imports");
+        repo.Write("Directory.Build.props", "<Project />");
+        repo.Write("Directory.Build.targets", "<Project />");
+        repo.Write("NuGet.config", "<configuration><packageSources><clear /></packageSources></configuration>");
+        repo.Write("build/common.props", "<Project><PropertyGroup><LangVersion>latest</LangVersion></PropertyGroup></Project>");
+        repo.Write("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <Import Project="..\build\common.props" />
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+        repo.Write("App/Code.cs", "namespace App; public static class Code { }\n");
+        repo.Write("App.slnx", "<Solution>\n  <Project Path=\"App/App.csproj\" />\n</Solution>\n");
+
+        var outcome = await ScanRunner.RunAsync(ScannedFixtures.Request(repo.Path, new DiagnosticBag()), CancellationToken.None);
+
+        Assert.Equal(ScanFailure.None, outcome.Failure);
+        var inputs = outcome.Model!.Inputs.Select(i => i.Path).ToList();
+        Assert.Contains("build/common.props", inputs);
+        Assert.Contains("NuGet.config", inputs);
+        Assert.DoesNotContain(inputs, i => i.Contains("/obj/", StringComparison.Ordinal));
+
+        repo.Write("build/common.props", "<Project><PropertyGroup><LangVersion>12</LangVersion></PropertyGroup></Project>");
+        var staleness = Store.WorkspaceInputs.Compare(outcome.Model, repo.Path, System.IO.Path.Combine(repo.Path, ".offramp"));
+        Assert.Equal(["build/common.props"], staleness.Changed);
+    }
 }

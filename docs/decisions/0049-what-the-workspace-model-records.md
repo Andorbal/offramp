@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-29
-- Spec section: `docs/spec/02-workspace-model.md` (schema, staleness)
+- Spec section: `docs/spec/02-workspace-model.md` (schema, staleness); extends ADR 0009
 
 ## Context
 
@@ -20,6 +20,13 @@ NHibernate P2), against non-negotiable 1 of `CLAUDE.md`:
 
 Basic.CompilerLog has no public way to write a compiler log with its calls in another order.
 
+The model's `inputs` (ADR 0009) were the files found by name: project files, solutions,
+`Directory.*.props/targets`, and `packages.config`. Open Live Writer's projects import
+`writer.build.settings`, and its restore reads `NuGet.config`; editing either did not make the
+model stale, and the scratch copies `csproj modernize` verifies in (HEAD plus the model's inputs)
+had HEAD's versions, so the verification builds failed where the working tree did not (field test
+P1 #9).
+
 ## Decision
 
 A compiler call is named by what identifies it, not by where it is: `compilerCalls.<tfm>` is
@@ -31,6 +38,11 @@ project files) and target framework, the first call winning when a project was c
 one target, as `scan` already chose. `source.sha256` is the hash of a supplied log and `null` for
 `kind: build`; staleness of a built model comes from `inputs` alone, as before.
 
+The inputs are also every file the evaluations imported from inside the repository (outside
+`bin/`, `obj/`, `packages/`, dot-directories, and the state directory, as for the others), and
+every `NuGet.config`. The comparison hashes the recorded imported files again by path, since their
+names say nothing.
+
 ## Alternatives considered
 
 - Sort the compiler log's calls when creating it. Not possible with Basic.CompilerLog's public
@@ -41,6 +53,8 @@ one target, as `scan` already chose. `source.sha256` is the hash of a supplied l
   log embeds the calls in build order, so its bytes differ between builds too.
 - Hash the inputs into `source.sha256`. `inputs` already carries the same information file by
   file, and the field would mean two different things depending on `kind`.
+- Take the imported files at every comparison from the evaluations. Commands other than `scan`
+  have no evaluations, only the model.
 
 ## Consequences
 
@@ -49,4 +63,6 @@ tests no longer scrub compiler calls. The model's JSON contract changes: `index`
 `source.sha256` can be `null`. A model an older Offramp wrote is stale ("an older Offramp wrote
 it", `OFR0002`), since its numbered calls cannot be found any more; `scan --if-stale` rescans it.
 Loading a compilation now reads the compiler log's call list once per log and process, which
-costs milliseconds.
+costs milliseconds. The inputs extend ADR 0009's list; the scratch copies verification builds in
+take the imported files and `NuGet.config` from the working tree, and a model scanned before this
+change becomes stale once, as its inputs gain the new files.

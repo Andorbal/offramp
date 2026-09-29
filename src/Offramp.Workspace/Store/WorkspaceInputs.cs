@@ -48,9 +48,12 @@ public static class WorkspaceInputs
     /// <summary>
     /// Hashes the inputs. Solution filters are included only when <paramref name="solution"/>
     /// is one (the model was built from it); other filters, such as those <c>slice</c>
-    /// writes, do not make the model stale.
+    /// writes, do not make the model stale. <paramref name="imports"/> are further files, repository-relative,
+    /// that the evaluations imported (a shared <c>build.settings</c>); those outside the repository or in a folder
+    /// the walk skips (<c>obj/</c>'s generated props, <c>packages/</c>' targets) are left out, as are ones that
+    /// do not exist.
     /// </summary>
-    public static IReadOnlyList<InputFile> Collect(string repositoryRoot, string stateDirectory, string? solution = null)
+    public static IReadOnlyList<InputFile> Collect(string repositoryRoot, string stateDirectory, string? solution = null, IEnumerable<string>? imports = null)
     {
         var state = Path.GetFullPath(stateDirectory);
         var inputs = new List<InputFile>();
@@ -89,18 +92,53 @@ public static class WorkspaceInputs
             }
         }
 
+        // An import may spell a file the walk found in another letter case (Windows, macOS): one entry.
+        var collected = inputs.Select(i => i.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var import in (imports ?? []).Select(RepoPaths.Normalize).Distinct(StringComparer.Ordinal))
+        {
+            var file = RepoPaths.ToAbsolute(repositoryRoot, import);
+            if (!collected.Contains(import) && IsInRepository(import, repositoryRoot, state) && File.Exists(file))
+            {
+                inputs.Add(new InputFile(import, ContentHash.Sha256File(file)));
+                collected.Add(import);
+            }
+        }
+
         return [.. inputs.OrderBy(i => i.Path, StringComparer.Ordinal)];
     }
 
+    /// <summary>True for a repository-relative path the walk would reach: inside the repository, outside skipped and dot folders and the state directory.</summary>
+    private static bool IsInRepository(string relative, string repositoryRoot, string state)
+    {
+        if (relative.Length == 0 || relative.StartsWith("../", StringComparison.Ordinal) || relative == ".." || Path.IsPathRooted(relative))
+        {
+            return false;
+        }
+
+        var folders = relative.Split('/')[..^1];
+        return !folders.Any(f => f.StartsWith('.') || SkippedDirectories.Contains(f))
+            && !Path.GetFullPath(RepoPaths.ToAbsolute(repositoryRoot, relative)).StartsWith(state.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A file the walk records wherever it is: project files, solutions, <c>packages.config</c>,
+    /// <c>Directory.*.props/targets</c>, and <c>NuGet.config</c> (feeds and the packages folder shape the restore).
+    /// </summary>
     public static bool IsInput(string fileName) =>
         ProjectExtensions.Contains(Path.GetExtension(fileName))
         || fileName.Equals("packages.config", StringComparison.OrdinalIgnoreCase)
+        || fileName.Equals("nuget.config", StringComparison.OrdinalIgnoreCase)
         || (fileName.StartsWith("Directory.", StringComparison.OrdinalIgnoreCase)
             && (fileName.EndsWith(".props", StringComparison.OrdinalIgnoreCase) || fileName.EndsWith(".targets", StringComparison.OrdinalIgnoreCase)));
 
+    /// <summary>
+    /// Compares the recorded inputs with the files on disk. Recorded files the walk does not find by name (the
+    /// imported ones) are hashed again by path, so a changed import makes the model stale, and a deleted one too.
+    /// </summary>
     public static Staleness Compare(WorkspaceModel model, string repositoryRoot, string stateDirectory)
     {
-        var current = Collect(repositoryRoot, stateDirectory, model.Solution).ToDictionary(i => i.Path, i => i.Sha256, StringComparer.Ordinal);
+        var current = Collect(repositoryRoot, stateDirectory, model.Solution, model.Inputs.Select(i => i.Path))
+            .ToDictionary(i => i.Path, i => i.Sha256, StringComparer.Ordinal);
         var recorded = model.Inputs.ToDictionary(i => i.Path, i => i.Sha256, StringComparer.Ordinal);
         var changed = recorded.Where(r => current.TryGetValue(r.Key, out var hash) && hash != r.Value).Select(r => r.Key);
         var added = current.Keys.Where(k => !recorded.ContainsKey(k));

@@ -39,7 +39,8 @@ public sealed record WorkspaceModel
 
     /// <summary>
     /// Content hashes of the files that shape the model (project files,
-    /// Directory.*.props/targets, solutions, packages.config), for staleness checks.
+    /// Directory.*.props/targets, solutions, packages.config, NuGet.config, and the other
+    /// files the evaluations imported from inside the repository), for staleness checks.
     /// </summary>
     public IReadOnlyList<InputFile> Inputs { get; init; } = [];
 

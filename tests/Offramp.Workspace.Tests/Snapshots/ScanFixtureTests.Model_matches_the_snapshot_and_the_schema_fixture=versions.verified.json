@@ -1042,6 +1042,10 @@
       "sha256": "{Sha256}"
     },
     {
+      "path": "nuget.config",
+      "sha256": "{Sha256}"
+    },
+    {
       "path": "src/Billing/Billing.csproj",
       "sha256": "{Sha256}"
     },
