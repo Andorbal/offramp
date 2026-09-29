@@ -21,6 +21,15 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   against `mscorlib` and 4,060 against DotNetNuke's own assemblies.
 - `audit api` references a Visual Basic project from a C# project's target compilation as
   recorded, instead of leaving it out and reporting every type used from it as missing.
+- `audit dead-code` reads ASP.NET markup. A class a page or control names in `Inherits`
+  (and a handler's `Class`, a Razor view's `@model`) is used, not dead: on DotNetNuke the page
+  class behind `Default.aspx` was a high-confidence candidate. Other names in markup, `Page_`
+  handlers that `AutoEventWireup` calls by name, `Application_` handlers of `Global.asax`, types
+  a plugin host finds with `typeof(X).IsAssignableFrom(t)`, and names in XML under other
+  extensions (plugin manifests) now rate `low`.
+- `audit dead-code` no longer stops at a file it cannot read (OFR0099); it lists it under
+  `skipped`. Build output is left out in any letter case (`Bin/`), so documentation XML copied
+  there no longer counts as a mention.
 - Compilations of legacy (non-SDK) Visual Basic projects rebuilt from the compiler log get
   `mscorlib` from the recorded `/sdkpath`; `vbc` adds it by itself, so the log did not name it
   and nothing in them bound.

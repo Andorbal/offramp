@@ -301,6 +301,9 @@ Decisions behind the two commands (ADR 0022).
   - A member's use also counts for the types containing it, since extension methods are
     called without naming their class.
   - Uses inside a symbol's own declaration do not count.
+  - ASP.NET markup (`.aspx`, `.ascx`, `.master`, `.ashx`, `.asmx`, `.asax`, `.svc`, Razor
+    views) in a project folder uses the types its directives name for the runtime to
+    create: `Inherits`, `Class`, and `Service` in `<%@ … %>`, and `@inherits` and `@model`.
 - **Candidates.** Types, methods, properties, fields, and events declared in non-test C#
   projects, generated files aside. Never candidates:
   - overrides, abstract and virtual members
@@ -316,7 +319,15 @@ Decisions behind the two commands (ADR 0022).
     (`medium`)
 - **`low` overrides the base level** when any of these holds:
   - the name appears as a word in a string literal, or in a `.resx`, `.config`, `.xaml`,
-    `.xml`, or `.json` file in a project folder
+    `.xml`, or `.json` file, an ASP.NET markup file, or another XML file (one that starts
+    with `<` and parses, such as a plugin manifest) in a project folder. `bin`, `obj`,
+    `node_modules`, and `packages` folders are not read, in any letter case, and a file
+    that cannot be read is listed in `skipped`
+  - it is a `Page_` method of a page or control (`AutoEventWireup` calls it by name), or an
+    `Application_` or `Session_` method of an `HttpApplication`
+  - the type derives from or implements a type the solution finds types by with
+    reflection: `typeof(X).IsAssignableFrom(t)`, `t.IsSubclassOf(typeof(X))`, or
+    `t.IsAssignableTo(typeof(X))`, the way plugin hosts discover implementations
   - the type implements an interface declared in the solution, and the solution calls a
     convention registration (`Scan`, `RegisterAssemblyTypes`, `AddMediatR`,
     `AddControllers`, `AddMvc`, `AddClasses`, `FromAssemblyOf`, ...)

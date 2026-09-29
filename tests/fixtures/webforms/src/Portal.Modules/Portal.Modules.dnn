@@ -1,0 +1,13 @@
+<dotnetnuke type="Package" version="6.0">
+  <packages>
+    <package name="Portal.Modules" type="Module" version="1.0.0">
+      <components>
+        <component type="Module">
+          <desktopModule>
+            <businessControllerClass>Portal.Modules.UpgradeController, Portal.Modules</businessControllerClass>
+          </desktopModule>
+        </component>
+      </components>
+    </package>
+  </packages>
+</dotnetnuke>

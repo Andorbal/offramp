@@ -80,7 +80,9 @@ public static class DeadCodeAnalyzer
             index = Index.Build(request.RepositoryRoot, compilations, phase);
         }
 
-        var strings = Strings(request, compilations);
+        var files = ProjectFiles.Read(request.RepositoryRoot, compilations.Select(c => c.Project), skipped);
+        index.AddMarkup(files);
+        var strings = Strings(request, compilations, files);
         var projects = new List<DeadCodeProject>();
         using (var phase = request.Progress.BeginPhase("dead code: candidates", 2, 2))
         {
@@ -154,8 +156,35 @@ public static class DeadCodeAnalyzer
         public List<(string Project, bool Test, string File, int Position)> UsesOf(ISymbol symbol) =>
             symbol.OriginalDefinition.GetDocumentationCommentId() is { } id && _uses.TryGetValue(id, out var uses) ? uses : [];
 
+        private readonly Dictionary<string, string> _discovered = new(StringComparer.Ordinal);
+
         /// <summary>The convention registration calls found, as "Type.Method at file:line".</summary>
         public List<string> ConventionRegistrations { get; } = [];
+
+        /// <summary>Where the solution first looks for types assignable to <paramref name="type"/> by reflection, or null.</summary>
+        public string? DiscoveryOf(INamedTypeSymbol type) =>
+            type.OriginalDefinition.GetDocumentationCommentId() is { } id && _discovered.TryGetValue(id, out var where) ? where : null;
+
+        /// <summary>
+        /// The type a reflection check finds types by: <c>typeof(X).IsAssignableFrom(t)</c>,
+        /// <c>t.IsSubclassOf(typeof(X))</c>, or <c>t.IsAssignableTo(typeof(X))</c>, the way plugin
+        /// hosts discover implementations in the assemblies they load.
+        /// </summary>
+        private static INamedTypeSymbol? DiscoveredBy(SemanticModel model, InvocationExpressionSyntax invocation, IMethodSymbol called)
+        {
+            if (called.ContainingType?.ToDisplayString() != "System.Type")
+            {
+                return null;
+            }
+
+            var typeOf = called.Name switch
+            {
+                "IsAssignableFrom" => (invocation.Expression as MemberAccessExpressionSyntax)?.Expression as TypeOfExpressionSyntax,
+                "IsSubclassOf" or "IsAssignableTo" => invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression as TypeOfExpressionSyntax,
+                _ => null,
+            };
+            return typeOf is not null && model.GetTypeInfo(typeOf.Type).Type is INamedTypeSymbol { TypeKind: not TypeKind.Error } type ? type : null;
+        }
 
         public static Index Build(string root, List<Loaded> compilations, IProgressPhase phase)
         {
@@ -180,16 +209,41 @@ public static class DeadCodeAnalyzer
                         index.Add(symbol, project, file, node.SpanStart);
                     }
 
-                    if (node is InvocationExpressionSyntax invocation && AuditEngine.Bound(model, invocation) is IMethodSymbol called && ConventionCalls.Contains(called.Name))
+                    if (node is InvocationExpressionSyntax invocation && AuditEngine.Bound(model, invocation) is IMethodSymbol called)
                     {
                         var line = invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                        index.ConventionRegistrations.Add($"{called.ContainingType?.Name}.{called.Name} at {file}:{line}");
+                        if (ConventionCalls.Contains(called.Name))
+                        {
+                            index.ConventionRegistrations.Add($"{called.ContainingType?.Name}.{called.Name} at {file}:{line}");
+                        }
+
+                        if (DiscoveredBy(model, invocation, called) is { } discovered && discovered.OriginalDefinition.GetDocumentationCommentId() is { } discoveredId)
+                        {
+                            index._discovered.TryAdd(discoveredId, $"typeof({discovered.Name}).{called.Name} at {file}:{line}");
+                        }
                     }
                 }
             }
 
             index.ConventionRegistrations.Sort(StringComparer.Ordinal);
             return index;
+        }
+
+        /// <summary>
+        /// The types ASP.NET markup names for the runtime to create (a page's <c>Inherits</c>, a
+        /// handler's <c>Class</c>): uses from the markup file, as real as a use in code.
+        /// </summary>
+        public void AddMarkup(IEnumerable<ProjectFile> files)
+        {
+            foreach (var file in files.Where(f => f.Markup))
+            {
+                foreach (var type in ProjectFiles.NamedTypes(file.Text).Distinct(StringComparer.Ordinal))
+                {
+                    var id = "T:" + type;
+                    var uses = _uses.TryGetValue(id, out var list) ? list : _uses[id] = [];
+                    uses.Add((file.Project, false, file.Relative, 0));
+                }
+            }
         }
 
         private void Add(ISymbol symbol, ProjectInfo project, string file, int position)
@@ -274,8 +328,8 @@ public static class DeadCodeAnalyzer
         };
     }
 
-    /// <summary>String literals and resource or configuration text, with where each is.</summary>
-    private static List<(string Text, string Where)> Strings(DeadCodeRequest request, List<Loaded> compilations)
+    /// <summary>String literals, and the text of resource, configuration, and markup files, with where each is.</summary>
+    private static List<(string Text, string Where)> Strings(DeadCodeRequest request, List<Loaded> compilations, List<ProjectFile> files)
     {
         var strings = new List<(string, string)>();
         foreach (var tree in compilations.SelectMany(c => c.Compilation.SyntaxTrees).DistinctBy(t => t.FilePath))
@@ -290,25 +344,7 @@ public static class DeadCodeAnalyzer
             }
         }
 
-        foreach (var project in compilations.Select(c => c.Project))
-        {
-            var directory = Path.GetDirectoryName(RepoPaths.ToAbsolute(request.RepositoryRoot, project.Id))!;
-            if (!Directory.Exists(directory))
-            {
-                continue;
-            }
-
-            foreach (var path in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
-            {
-                var relative = RepoPaths.ToRepositoryRelative(request.RepositoryRoot, path);
-                var extension = Path.GetExtension(path).ToLowerInvariant();
-                if (extension is ".resx" or ".config" or ".xaml" or ".xml" or ".json" && !relative.Contains("/obj/", StringComparison.Ordinal) && !relative.Contains("/bin/", StringComparison.Ordinal))
-                {
-                    strings.Add((System.IO.File.ReadAllText(path), relative));
-                }
-            }
-        }
-
+        strings.AddRange(files.Select(f => (f.Text, f.Relative)));
         return strings;
     }
 
@@ -534,6 +570,11 @@ public static class DeadCodeAnalyzer
             yield return "entry point";
         }
 
+        if (symbol is IMethodSymbol method && CalledByName(method) is { } byName)
+        {
+            yield return byName;
+        }
+
         foreach (var attribute in symbol.GetAttributes().Select(a => a.AttributeClass?.ToDisplayString()).OfType<string>().Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             if (SerializationAttributes.Contains(attribute))
@@ -550,6 +591,45 @@ public static class DeadCodeAnalyzer
         {
             yield return "public data member: serializers, ORMs, and data binding use them by reflection";
         }
+    }
+
+    /// <summary>
+    /// Why ASP.NET calls a method by its name, or null: the <c>Page_</c> handlers of pages and
+    /// controls (<c>AutoEventWireup</c>), and the <c>Application_</c> and <c>Session_</c>
+    /// handlers of <c>Global.asax</c>.
+    /// </summary>
+    private static string? CalledByName(IMethodSymbol method)
+    {
+        if (method.Name.StartsWith("Page_", StringComparison.Ordinal) && DerivesFrom(method.ContainingType, "System.Web.UI.TemplateControl"))
+        {
+            return "ASP.NET calls the Page_ handlers of pages and controls by name (AutoEventWireup)";
+        }
+
+        return (method.Name.StartsWith("Application_", StringComparison.Ordinal) || method.Name.StartsWith("Session_", StringComparison.Ordinal))
+            && DerivesFrom(method.ContainingType, "System.Web.HttpApplication")
+            ? "ASP.NET calls the Application_ and Session_ handlers of Global.asax by name"
+            : null;
+    }
+
+    private static IEnumerable<INamedTypeSymbol> BaseTypes(INamedTypeSymbol type)
+    {
+        for (var current = type.BaseType; current is not null; current = current.BaseType)
+        {
+            yield return current;
+        }
+    }
+
+    private static bool DerivesFrom(INamedTypeSymbol? type, string baseType)
+    {
+        for (var current = type?.BaseType; current is not null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == baseType)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Why a type may be created by convention, or null.</summary>
@@ -571,6 +651,14 @@ public static class DeadCodeAnalyzer
         if (type.AllInterfaces.Any(i => i.Name is "IRequestHandler" or "INotificationHandler" or "IConsumer" or "IHostedService"))
         {
             return "implements a handler interface that containers discover";
+        }
+
+        foreach (var discoverable in BaseTypes(type).Concat(type.AllInterfaces))
+        {
+            if (index.DiscoveryOf(discoverable) is { } where)
+            {
+                return $"{(discoverable.TypeKind == TypeKind.Interface ? "implements" : "derives from")} {AuditEngine.Name(discoverable)}, which the solution finds types by with reflection ({where})";
+            }
         }
 
         var solutionInterface = type.AllInterfaces.FirstOrDefault(i => i.Locations.Any(l => l.IsInSource));

@@ -19,4 +19,9 @@ projects so it builds on every OS:
     compile against the target.
   - `Default.aspx` / `Default.aspx.cs`: `DefaultPage` is named only by the page's
     `Inherits` attribute, so `audit dead-code` must not report it.
+  - `ModuleRoutes.cs`: named by nothing, but it implements `IModuleRoutes`, which
+    `RouteRegistry` finds types by with `typeof(IModuleRoutes).IsAssignableFrom(t)`, as
+    DotNetNuke finds its `IServiceRouteMapper`s: `audit dead-code` rates it low.
+  - `UpgradeController.cs`: named only by `Portal.Modules.dnn`, a DotNetNuke manifest (XML
+    under its own extension, without an XML declaration): `audit dead-code` rates it low.
   - `Leftover.cs`: named by nothing, in code or markup, so it is dead code.

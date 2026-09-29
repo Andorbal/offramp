@@ -8,7 +8,7 @@ namespace Portal.Modules
     {
         protected void Page_Load(object sender, EventArgs e)
         {
-            Title = "Portal";
+            Title = "Portal " + Portal.Controls.RouteRegistry.Discover(GetType().Assembly).Count;
         }
     }
 }
