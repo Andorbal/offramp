@@ -107,6 +107,22 @@ public sealed class AuditRunnerTests
     }
 
     [Fact]
+    public async Task A_base_type_missing_on_the_target_is_not_blamed_on_the_names_inside_a_derived_class()
+    {
+        // EditSettings, in a web project, derives from System.Web.UI.UserControl through another
+        // project's ModuleBase. On the target, Roslyn reports "UserControl could not be found" at
+        // every name looked up inside it, including Convert, EventArgs, and ModuleBase itself.
+        var (result, _) = await RunAsync("webforms", AuditKind.Api);
+
+        var missing = result.Findings.Where(f => f.Rule == "OFR3001").ToList();
+        Assert.Equal(
+            ["System.Web.UI.Control.ClientID", "System.Web.UI.Control.ViewState"],
+            missing.Where(f => f.File == "src/Portal.Modules/EditSettings.ascx.cs").Select(f => f.Symbol).Order(StringComparer.Ordinal));
+        Assert.Single(missing, f => f.Symbol == "System.Web.UI.UserControl" && f.File == "src/Portal.Controls/ModuleBase.cs");
+        Assert.All(missing, f => Assert.Equal("System.Web", f.Details["assembly"]));
+    }
+
+    [Fact]
     public async Task Audit_api_on_netfx_only_maps_system_web_and_system_drawing()
     {
         var (result, _) = await RunAsync("netfx-only", AuditKind.Api);

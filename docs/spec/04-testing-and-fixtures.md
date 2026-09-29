@@ -30,6 +30,7 @@ macos, and windows GitHub runners.
 | `mvc5` | ASP.NET MVC 5 + Web API 2 app with filters, routes, an `HttpModule`, an `HttpHandler`, Web Forms pages, `Global.asax`; builds on any OS like `legacy-csproj` | web inventory/scaffold (the scaffolded app is built and run against a stand-in legacy server) |
 | `systemweb` | an `MSBuild.SDK.SystemWeb` site that `dotnet build` cannot evaluate without Visual Studio's web targets, and a `net48` library; built by tests before and after `doctor --fix` | scan and doctor (OFR0116), the compile-only block's web targets section |
 | `legacy-csproj` | old-style csproj with packages.config, `AssemblyInfo.cs`, explicit `Compile` items; builds on any OS (reference assemblies as a package, `packages/` filled by the tests; ADR 0026) | csproj modernize, config convert |
+| `webforms` | a Web Forms web project whose `.ascx` control derives from `UserControl` through another `net48` project and calls a Visual Basic library, a page named only by `Default.aspx`'s `Inherits`, and an unused class | audit api (a base type missing on the target is not blamed on the names inside the derived class), audit dead-code (markup references) |
 
 The fixture generator (`tests/Offramp.Fixtures`) is a small library that can
 also write parameterized fixtures to a temp directory for property-style tests

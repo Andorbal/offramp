@@ -11,6 +11,24 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Fixed
+- `audit api` no longer blames the wrong API when a type is missing on the target. Roslyn
+  reports a missing base type (a Web Forms `UserControl` or `Page`) at every name looked up
+  inside the derived class, and a missing parameter type at every call of the method, so
+  `System.Convert`, `System.Exception`, and the solution's own types were reported as
+  "does not exist on the target". A name that still exists on the target is no longer a
+  finding. On DotNetNuke 9.13 this removed about 5,200 false findings, among them 1,240
+  against `mscorlib` and 4,060 against DotNetNuke's own assemblies.
+- `audit api` references a Visual Basic project from a C# project's target compilation as
+  recorded, instead of leaving it out and reporting every type used from it as missing.
+- Compilations of legacy (non-SDK) Visual Basic projects rebuilt from the compiler log get
+  `mscorlib` from the recorded `/sdkpath`; `vbc` adds it by itself, so the log did not name it
+  and nothing in them bound.
+
+### Added
+- The `webforms` fixture: a Web Forms web project whose control derives from `UserControl`
+  through another project and calls a legacy Visual Basic library, as DotNetNuke modules do.
+
 ## [0.16.0] - 2026-09-28
 
 ### Added

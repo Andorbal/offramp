@@ -166,14 +166,20 @@ Decisions behind the four code audits (ADR 0021).
   version. It swaps the .NET Framework preprocessor symbols (`NETFRAMEWORK`, `NET48`,
   ...) for the target's (`NET`, `NET10_0`, `NET10_0_OR_GREATER`, ...).
 - Project references become the referenced project's own target compilation
-  (`framework` class) or its recorded modern or standard build. `HintPath` DLLs are
-  referenced as they are.
+  (`framework` class) or its recorded modern or standard build. A `framework` project
+  that is not C# (Visual Basic) is referenced as recorded, like a DLL. `HintPath` DLLs
+  are referenced as they are.
 - OFR3001 comes from CS0234, CS0246, CS0103, CS1061, CS0117, and CS1069 (a type
   forwarded to an assembly the target does not reference). It is reported when the
   same position binds, in the recorded compilation, to a type or member from metadata.
   - When the error names a namespace (`System.Web.UI.Page` on a target without
     `System.Web.UI`), the finding is the first type or member to its right.
   - An attribute or constructor is reported as its type.
+  - An error at a name that still exists on the target is not a finding: a type missing
+    on the target is also reported at every name looked up inside a class whose base
+    chain contains it, and at calls to methods whose signatures contain it (the method
+    is a candidate that failed overload resolution). The type is reported where the code
+    names it or reaches its members.
   - The finding carries the assembly and its `rules/framework-assemblies.yml` mapping.
 - OFR3002: a symbol from metadata marked `[SupportedOSPlatform("windows")]` on itself,
   a containing type, or its assembly. `OperatingSystem.IsWindows()` guards are not
