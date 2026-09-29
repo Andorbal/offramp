@@ -48,6 +48,14 @@ public sealed class AuditRunState
 {
     /// <summary>Documentation IDs of the types some serializer in the solution receives.</summary>
     public HashSet<string> SerializedTypes { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The subset of <see cref="SerializedTypes"/> that a serialized value is declared as (the
+    /// argument's type, a field's type), so the object can be any type deriving from it or
+    /// implementing it. A base type reached only as a base is not one: its other subclasses are
+    /// not serialized through it.
+    /// </summary>
+    public HashSet<string> DeclaredSerializedTypes { get; } = new(StringComparer.Ordinal);
 }
 
 /// <summary>A named matcher (<c>matcher:</c> in a rule pack) over a whole compilation.</summary>

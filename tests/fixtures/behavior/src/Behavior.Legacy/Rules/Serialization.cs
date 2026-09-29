@@ -134,6 +134,8 @@ namespace Behavior.Rules
 
         [NonSerialized]
         public Action Changed;
+
+        public IAttachment Attachment;
     }
 
     [Serializable]
@@ -172,5 +174,23 @@ namespace Behavior.Rules
     internal sealed class Receipt
     {
         public string Number;
+    }
+
+    /// <summary>Serialized through Invoice.Attachment: any implementation can be the value.</summary>
+    internal interface IAttachment
+    {
+    }
+
+    [Serializable]
+    internal sealed class PdfAttachment : IAttachment
+    {
+        public PdfPage[] Pages;
+    }
+
+    /// <summary>Serialized as a field of PdfAttachment.</summary>
+    [Serializable]
+    internal sealed class PdfPage
+    {
+        public int Number;
     }
 }

@@ -265,7 +265,9 @@ Decisions behind the four code audits (ADR 0021).
   - the cast applied to `Deserialize`
 - OFR3205: a `[Serializable]` class or struct that no formatter call in any audited
   project reaches. A type is reached when it is carried, or is a base type or the type
-  of a non-`[NonSerialized]` field of a reached type.
+  of a non-`[NonSerialized]` field of a reached type, or when it derives from or
+  implements a type a reached value is declared as (a carried type, a field's type):
+  a serialized `ISession` can be a `SessionImpl`. `object` does not count.
 
 **`audit native`.**
 - Every `[DllImport]` declared in the project is inventoried (OFR3301), with library,

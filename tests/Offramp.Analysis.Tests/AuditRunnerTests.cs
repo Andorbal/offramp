@@ -91,7 +91,9 @@ public sealed class AuditRunnerTests
         Assert.Equal("Compute", types["Behavior.Rules.Payload"].Details["delegates"]);
         Assert.False(types["Behavior.Rules.Invoice"].Details.ContainsKey("delegates"), "a [NonSerialized] delegate is not serialized");
 
-        // Line is serialized through Invoice.Body's field; OFR3205.Positive by nobody.
+        // Line is serialized through Invoice.Body's field; PdfAttachment as an implementation of
+        // IAttachment, the type of Invoice.Attachment, and PdfPage through PdfAttachment's field;
+        // OFR3205.Positive by nobody.
         Assert.Equal(["Behavior.Rules.OFR3205.Positive"], result.Findings.Where(f => f.Rule == "OFR3205").Select(f => f.Symbol));
     }
 

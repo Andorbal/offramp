@@ -11,7 +11,8 @@ numbers of existing findings (and the snapshots that show them) alone.
   other assemblies the rules name, plus `Microsoft.Web.Infrastructure` (a package with
   only .NET Framework assets, left out of the target compilation: OFR3011).
   - `Rules/Api.cs`, `Rules/Behavior.cs`, `Rules/Serialization.cs`, `Rules/Native.cs`:
-    one file per audit.
+    one file per audit. `Serialization.cs` has `[Serializable]` types serialized only as
+    the implementation of an interface-typed field (`PdfAttachment`) and through its field.
   - `app.config`: `<gcServer>` and `<gcConcurrent>` (OFR3116).
 - `Behavior.Clean`: `net48` library that no rule matches, with an `app.config` that
   has no runtime settings: the negative project.

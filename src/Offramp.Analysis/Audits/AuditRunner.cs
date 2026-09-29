@@ -111,6 +111,7 @@ public static class AuditRunner
         }
 
         // Serializable-but-unused needs every project's serialized types first.
+        SerializableUnusedMatcher.ExtendToImplementations(contexts);
         foreach (var context in contexts)
         {
             raw.AddRange(SerializableUnused.Run(context).Select(f => (context.Project, f)));
