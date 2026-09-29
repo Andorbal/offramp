@@ -57,6 +57,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `netstandard2.0;net472` project referencing three unconditionally, were wave 0 and `done`
   while their `blockers` listed framework-only projects. A dual project's `net4x`-only
   references no longer block it or the projects that reference it.
+- `doctor`'s reference assemblies check no longer passes for legacy (non-SDK) projects outside
+  Windows because the package is in the cache: the SDK gives it to SDK-style projects only. It
+  now warns (`OFR0017`) until the compile-only block has its legacy section.
+- The evidence of Windows-only build steps in `scan`'s messages uses repository-relative paths
+  (a `PostBuildEvent` quoted the checkout's absolute path).
+- `schemas/v1/workspace.json` accepts the `aspnet-compiler` Windows-only build step.
 - Compilations of legacy (non-SDK) Visual Basic projects rebuilt from the compiler log get
   `mscorlib` from the recorded `/sdkpath`; `vbc` adds it by itself, so the log did not name it
   and nothing in them bound.
@@ -69,6 +75,27 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   Server Compact) and the ASP.NET packages to replace. A test framework or Topshelf listed in
   `packages.config` sets the project's kind, which moved 12 DotNetNuke projects from `library`
   to `test`.
+- Legacy (non-SDK) solutions build on macOS and Linux (ADR 0036). On a fresh DotNetNuke 9.13
+  checkout, `doctor --fix --apply` and `scan` now load all 71 projects (6 were not loaded and 51
+  partial), and name every remaining blocker:
+  - The compile-only block has a third section, for legacy projects outside Windows: they
+    restore the `PackageReference` way and take the .NET Framework reference assemblies and the
+    Visual Studio web targets from packages, as SDK-style projects do; a legacy Visual Basic
+    project gets its runtime from the reference assemblies. `doctor --fix` adds it to a file
+    with the first two sections.
+  - `scan` restores what `packages.config` files list into the solution's packages folder,
+    laid out as `nuget restore` lays it out, from the global packages folder or the feeds in
+    `nuget.config`, and never overwrites a folder: `OFR0106` (info) lists what it wrote,
+    `OFR0105` (warning) each package it could not find.
+  - Outside Windows, the builds of `scan`, verification, and `csproj modernize` pass
+    `RestorePackages=false`, so a `.nuget/NuGet.targets` does not run `NuGet.exe` through Mono.
+  - New Windows-only build steps found from a failed build's errors: `OFR0117` (`path-case`) a
+    path that exists only in another letter case (Linux), `OFR0118` (`inline-task`)
+    `CodeTaskFactory`, as in `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`, and
+    `OFR0119` (`resources`) non-string resources. An `Exec` command written for cmd.exe that
+    failed is `OFR0115` (`build-event`) also when a target runs it.
+  - `docs/compiling-on-macos.md` explains each, with the `Directory.Build.targets` fix for the
+    CodeDom provider's inline tasks.
 - `OFR0121` (warning): a standard, modern, or dual project's portable target references a
   project that targets only .NET Framework. It builds only because a legacy project skips
   NuGet's compatibility check, and fails at run time.

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
@@ -38,9 +39,10 @@ public static class DoctorRunner
         checks.Add(CheckSdkSelection(context, sdk, globalJson));
         checks.Add(CheckTarget(context, sdk, target, targetMoniker));
 
+        var model = TryReadModel(context);
         using (context.Progress.BeginPhase("Checking .NET Framework reference assemblies", 2, PhaseCount))
         {
-            checks.Add(await CheckReferenceAssembliesAsync(context, cancellationToken));
+            checks.Add(LegacyReferenceAssemblies(context, model) ?? await CheckReferenceAssembliesAsync(context, cancellationToken));
         }
 
         string? gitVersion;
@@ -52,7 +54,6 @@ public static class DoctorRunner
         checks.Add(CheckGit(context, gitVersion));
         checks.Add(CheckRepository(context, gitVersion));
         checks.Add(CheckConfig(context));
-        var model = TryReadModel(context);
         checks.Add(CheckWorkspace(context, model));
         checks.Add(CheckWindowsOnlySteps(context, model));
         checks.Add(await CheckCpmAsync(context, model, cancellationToken));
@@ -157,6 +158,26 @@ public static class DoctorRunner
         }
 
         return Pass(id, title, $"SDK {sdk.Selected} can build {moniker}.");
+    }
+
+    /// <summary>
+    /// Outside Windows, legacy projects get the reference assemblies only through the compile-only block's
+    /// legacy section (docs/decisions/0036-legacy-projects-outside-windows.md); a cached package does not reach them.
+    /// </summary>
+    private static DoctorCheck? LegacyReferenceAssemblies(DoctorContext context, WorkspaceModel? model)
+    {
+        var legacy = model?.Projects.Count(p => !p.SdkStyle && p.FrameworkClass != FrameworkClass.Modern && p.FrameworkClass != FrameworkClass.Standard) ?? 0;
+        var propsPath = Path.Combine(context.Repository.Path, CompileOnlyConditional.FileName);
+        if (OperatingSystem.IsWindows() || legacy == 0 || CompileOnlyConditional.HasLegacySection(File.Exists(propsPath) ? File.ReadAllText(propsPath) : null))
+        {
+            return null;
+        }
+
+        var message = string.Create(CultureInfo.InvariantCulture,
+            $"{legacy} legacy (non-SDK) project(s) get no reference assemblies from the SDK, and {CompileOnlyConditional.FileName} has no legacy section to supply them.");
+        Report(context, DiagnosticCatalog.OFR0017, message);
+        return Warn("reference-assemblies", ".NET Framework reference assemblies", message,
+            "Run `offramp doctor --fix --apply` to add the compile-only block's legacy section.", DiagnosticCatalog.OFR0017);
     }
 
     private static async Task<DoctorCheck> CheckReferenceAssembliesAsync(DoctorContext context, CancellationToken cancellationToken)

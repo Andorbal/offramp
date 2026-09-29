@@ -197,7 +197,7 @@ public static partial class VerifyRunner
             arguments.Add("--no-restore");
         }
 
-        arguments.AddRange(config.Properties.Select(p => $"-p:{p.Key}={p.Value}"));
+        arguments.AddRange(BuildProperties.Arguments(config));
         if (config.WarnAsError.Count > 0)
         {
             arguments.Add("-warnaserror:" + string.Join(';', config.WarnAsError));

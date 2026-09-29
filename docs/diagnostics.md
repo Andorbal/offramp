@@ -39,6 +39,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0014](#ofr0014) | warning | environment | git not found |
 | [OFR0015](#ofr0015) | warning | environment | not a git repository |
 | [OFR0016](#ofr0016) | info | configuration | no offramp.yml; built-in defaults in effect |
+| [OFR0017](#ofr0017) | warning | environment | legacy projects get no reference assemblies outside Windows |
 | [OFR0020](#ofr0020) | error | workspace | more than one solution found |
 | [OFR0021](#ofr0021) | error | workspace | project not in the workspace model |
 | [OFR0022](#ofr0022) | error | workspace | no solution found |
@@ -59,6 +60,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0102](#ofr0102) | info | project loading | project kind unknown |
 | [OFR0103](#ofr0103) | info | scan | model built from a compiler log alone |
 | [OFR0104](#ofr0104) | warning | project loading | package graph unavailable |
+| [OFR0105](#ofr0105) | warning | scan | packages.config package not restored |
+| [OFR0106](#ofr0106) | info | scan | packages.config packages restored |
 | [OFR0110](#ofr0110) | warning | project loading | build step needs Windows: sgen |
 | [OFR0111](#ofr0111) | warning | project loading | build step needs Windows: COM reference |
 | [OFR0112](#ofr0112) | warning | project loading | build step needs Windows: EDMX EntityDeploy |
@@ -66,6 +69,9 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0114](#ofr0114) | warning | project loading | build step needs Windows: SSDT |
 | [OFR0115](#ofr0115) | warning | project loading | build step needs Windows: build event calling a Windows executable |
 | [OFR0116](#ofr0116) | warning | project loading | build step needs Windows: ASP.NET web application targets |
+| [OFR0117](#ofr0117) | warning | project loading | build step needs a case-insensitive file system |
+| [OFR0118](#ofr0118) | warning | project loading | build step needs Windows: inline task |
+| [OFR0119](#ofr0119) | warning | project loading | build step needs Windows: non-string resources |
 | [OFR0120](#ofr0120) | warning | project loading | project reference cycle |
 | [OFR0121](#ofr0121) | warning | project loading | portable target references a framework-only project |
 | [OFR0130](#ofr0130) | error | scan | analysis build failed; model partial |
@@ -338,6 +344,15 @@ No configuration file was found at the repository root, so every setting has its
 - **Typical cause:** `offramp init` has not been run.
 - **Fix:** Run `offramp init` to write `offramp.yml` with detected values.
 
+### OFR0017
+
+**legacy projects get no reference assemblies outside Windows** · warning · environment
+
+The .NET SDK gives SDK-style projects the .NET Framework reference assemblies as a package; legacy (non-SDK) projects get them only from the compile-only block's legacy section, which `Directory.Build.props` does not have. Their `net4x` builds fail outside Windows (MSB3644).
+
+- **Typical cause:** A legacy solution checked out on macOS or Linux, or a compile-only block added by an Offramp version before the legacy section.
+- **Fix:** Run `offramp doctor --fix --apply`; it adds only the sections the file lacks.
+
 ### OFR0020
 
 **more than one solution found** · error · workspace
@@ -518,6 +533,24 @@ The project's `project.assets.json` does not exist in this checkout, so its reso
 - **Typical cause:** Scanning a log built on another machine or in another checkout without restoring here, or a restore that failed.
 - **Fix:** Run `dotnet restore` on the solution, then scan again.
 
+### OFR0105
+
+**packages.config package not restored** · warning · scan
+
+Outside Windows, `scan` restores what `packages.config` files list into the solution's packages folder, as `nuget restore` does on Windows, because `dotnet restore` skips `packages.config`. This package is neither in the NuGet global packages folder nor on a feed `nuget.config` enables, so references into its folder stay unresolved.
+
+- **Typical cause:** A package from a private feed that `nuget.config` does not list, a feed that needs credentials, or no network.
+- **Fix:** Add the feed (and its credentials) to `nuget.config`, or restore the solution once with `nuget restore` and scan again.
+
+### OFR0106
+
+**packages.config packages restored** · info · scan
+
+Outside Windows, `scan` restored the packages that `packages.config` files list into the solution's packages folder (`packages/<Id>.<Version>/`), as `nuget restore` does on Windows. It never overwrites a folder that exists. The message names the folder; `data.packages` lists what was written.
+
+- **Typical cause:** A legacy solution scanned on macOS or Linux for the first time.
+- **Fix:** Nothing to do. The folder is `nuget restore`'s, which `.gitignore` files of such repositories exclude.
+
 ### OFR0110
 
 **build step needs Windows: sgen** · warning · project loading
@@ -580,6 +613,33 @@ An ASP.NET (System.Web) project imports `$(VSToolsPath)/WebApplications/Microsof
 
 - **Typical cause:** A project on the `MSBuild.SDK.SystemWeb` SDK, which imports the web targets unconditionally, or a legacy web application project; a Release build of either, which turns `MvcBuildViews` on.
 - **Fix:** Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`). Outside Windows it takes the web targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package and turns `MvcBuildViews` off. Build with the .NET SDK (`dotnet build`), not Mono's `msbuild`.
+
+### OFR0117
+
+**build step needs a case-insensitive file system** · warning · project loading
+
+An import, source file, or copied file is spelled in another letter case than the file on disk. Windows and macOS file systems ignore case by default; Linux does not, so the build fails there (MSB4019, CS2001, MSB3030). The message names the first differing path segment and counts the rest.
+
+- **Typical cause:** `..\Build\` in a project file for a folder named `build`, or a `Compile` item written as `Default.aspx.CS`.
+- **Fix:** Rename the reference to the spelling on disk (or the file to the reference's spelling). Offramp does not edit either.
+
+### OFR0118
+
+**build step needs Windows: inline task** · warning · project loading
+
+A target defines a task with `CodeTaskFactory` (or another task factory only .NET Framework's MSBuild has), which .NET's MSBuild cannot run (MSB4801). The build targets of `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`, in nearly every ASP.NET site, do this.
+
+- **Typical cause:** An older package's build targets, or a hand-written inline task in a `.targets` file.
+- **Fix:** In your own targets, use `RoslynCodeTaskFactory`, which runs on both, or guard the target with `Condition="'$(OfframpCompileOnly)' != 'true'"`. For a package's targets, redefine the targets that call the task as empty ones in a file that `Directory.Build.targets` imports only when `'$(OfframpCompileOnly)' == 'true'` (for `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`: `KillVBCSCompilerBeforeCopy` and `KillVBCSCompilerBeforeClean`).
+
+### OFR0119
+
+**build step needs Windows: non-string resources** · warning · project loading
+
+A `.resx` file holds non-string resources (images, icons, serialized objects). .NET's MSBuild embeds those only as preserialized resources (MSB3822, MSB3823).
+
+- **Typical cause:** Images or icons in a WinForms or Web Forms `.resx` file.
+- **Fix:** Set `GenerateResourceUsePreserializedResources` to `true` and reference the `System.Resources.Extensions` package, which .NET Framework applications then need at run time.
 
 ### OFR0120
 

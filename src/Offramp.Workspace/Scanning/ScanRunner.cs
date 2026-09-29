@@ -9,7 +9,9 @@ using Offramp.Core.Processes;
 using Offramp.Workspace.Ingest;
 using Offramp.Workspace.Init;
 using Offramp.Workspace.Model;
+using Offramp.Workspace.Restore;
 using Offramp.Workspace.Store;
+using Offramp.Workspace.Verification;
 
 namespace Offramp.Workspace.Scanning;
 
@@ -89,6 +91,11 @@ public static class ScanRunner
             kind = WorkspaceSourceKind.Build;
             using (request.Progress.BeginPhase($"Building {solution}", ++phase, plan))
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    await RestorePackagesConfigAsync(request, solution, cancellationToken);
+                }
+
                 var built = await BuildAsync(request, solution, binlog, cancellationToken);
                 if (built is null)
                 {
@@ -177,6 +184,51 @@ public static class ScanRunner
         return null;
     }
 
+    /// <summary>
+    /// Outside Windows, fills the packages folder from the solution's packages.config files, as
+    /// <c>nuget restore</c> does on Windows: nothing else will, and every HintPath into it would dangle
+    /// (<c>docs/decisions/0036-legacy-projects-outside-windows.md</c>).
+    /// </summary>
+    private static async Task RestorePackagesConfigAsync(ScanRequest request, string solution, CancellationToken cancellationToken)
+    {
+        SolutionProjects listed;
+        try
+        {
+            listed = await SolutionReader.ReadAsync(RepoPaths.ToAbsolute(request.RepositoryRoot, solution), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return; // The build reports an unreadable solution.
+        }
+
+        var result = await PackagesConfigRestorer.RestoreAsync(listed.SolutionFile, listed.ProjectPaths, cancellationToken);
+        if (result is null)
+        {
+            return;
+        }
+
+        var folder = RepoPaths.ToRepositoryRelative(request.RepositoryRoot, result.PackagesFolder);
+        if (result.Restored.Count > 0)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR0106,
+                string.Create(CultureInfo.InvariantCulture, $"Restored {result.Restored.Count} packages.config package(s) into {folder}/, as nuget restore does on Windows."),
+                data: [
+                    KeyValuePair.Create<string, JsonNode?>("folder", folder),
+                    KeyValuePair.Create<string, JsonNode?>("packages", new JsonArray([.. result.Restored.Select(p => (JsonNode?)p)])),
+                ]);
+        }
+
+        foreach (var failure in result.Failed)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR0105,
+                $"{failure.Id} {failure.Version} from packages.config could not be restored into {folder}/: {failure.Reason}",
+                data: [
+                    KeyValuePair.Create<string, JsonNode?>("package", failure.Id),
+                    KeyValuePair.Create<string, JsonNode?>("version", failure.Version),
+                ]);
+        }
+    }
+
     private static async Task<ProcessResult?> BuildAsync(ScanRequest request, string solution, string binlog, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(binlog)!);
@@ -190,10 +242,7 @@ public static class ScanRunner
             // needs every project's compiler call.
             "--no-incremental",
         };
-        foreach (var (name, value) in request.Config.Verify.Properties)
-        {
-            arguments.Add($"-p:{name}={value}");
-        }
+        arguments.AddRange(BuildProperties.Arguments(request.Config.Verify));
 
         var result = await request.Processes.RunAsync(new ProcessSpec("dotnet", arguments)
         {
@@ -363,12 +412,9 @@ public static class ScanRunner
                     new DiagnosticLocation(Project: missing.Project),
                     [KeyValuePair.Create<string, JsonNode?>("step", "ssdt")])!);
             }
-            else if (EvaluationError(data, mapper, missing.Project) is { } error && WindowsOnlyBuildSteps.FromEvaluationError(error.Code, error.Message) is { } step)
+            else if (EvaluationError(data, mapper, missing.Project) is { } error && WindowsOnlyBuildSteps.Detect(missing.Project, [], [error]).FirstOrDefault() is { } step)
             {
-                loading.Add(request.Diagnostics.Report(step.Descriptor,
-                    $"Needs Windows to build: {step.Evidence}.",
-                    new DiagnosticLocation(Project: missing.Project),
-                    [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", step.Evidence)])!);
+                loading.Add(ReportStep(request, step, missing.Project, mapper));
             }
         }
 
@@ -396,10 +442,7 @@ public static class ScanRunner
             var errors = data.Errors.Where(e => e.ProjectFile is not null && string.Equals(mapper.ToRelative(e.ProjectFile), project.Id, StringComparison.OrdinalIgnoreCase));
             foreach (var step in WindowsOnlyBuildSteps.Detect(project.Id, evaluations, errors))
             {
-                loading.Add(request.Diagnostics.Report(step.Descriptor,
-                    $"Needs Windows to build: {step.Evidence}.",
-                    new DiagnosticLocation(Project: project.Id),
-                    [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", step.Evidence)])!);
+                loading.Add(ReportStep(request, step, project.Id, mapper));
             }
         }
 
@@ -480,6 +523,18 @@ public static class ScanRunner
     }
 
     /// <summary>The first error the log records for a project, which explains why it has no evaluation.</summary>
+    /// <summary>A Windows-only build step's diagnostic, with the build's paths made repository-relative.</summary>
+    private static Diagnostic ReportStep(ScanRequest request, WindowsOnlyStep step, string project, CapturePathMapper mapper)
+    {
+        var evidence = Scrub(step.Evidence, mapper);
+        var message = step.Id == "path-case"
+            ? $"Does not build on a case-sensitive file system: {evidence}."
+            : $"Needs Windows to build: {evidence}.";
+        return request.Diagnostics.Report(step.Descriptor, message,
+            new DiagnosticLocation(Project: project),
+            [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", evidence)])!;
+    }
+
     private static BuildError? EvaluationError(BinlogData data, CapturePathMapper mapper, string project) =>
         data.Errors.FirstOrDefault(e => e.ProjectFile is not null
             && string.Equals(mapper.ToRelative(e.ProjectFile), project, StringComparison.OrdinalIgnoreCase));

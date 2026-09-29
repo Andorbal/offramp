@@ -57,7 +57,11 @@ From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
   pre/post-build events calling Windows commands, and the ASP.NET web
   application targets imported from Visual Studio's `VSToolsPath` (or an
   MSB4019 error for that import, when evaluation stopped there) or
-  `MvcBuildViews=true` (`OFR0110`–`OFR0116`).
+  `MvcBuildViews=true` (`OFR0110`–`OFR0116`). A failed build's errors add
+  what only a build shows: a path that exists only in another letter case
+  (`path-case`, `OFR0117`), an inline task factory only .NET Framework's MSBuild
+  has (`inline-task`, `OFR0118`), non-string resources (`resources`, `OFR0119`),
+  and an `Exec` command written for cmd.exe (`build-event`, `OFR0115`).
 - `project.assets.json` path per project → parsed with `NuGet.ProjectModel`
   for the resolved transitive package graph per target framework.
 
@@ -119,7 +123,7 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
       "isTestProject": false,
       "properties": { "LangVersion": "latest", "Nullable": "disable", "GenerateSerializationAssemblies": "On" },
       "defineConstants": { "net48": ["TRACE", "DEBUG", "NETFRAMEWORK", "NET48", "NET48_OR_GREATER"] },  // what the compiler saw
-      "windowsOnlyBuildSteps": ["sgen"],          // ids: sgen, com, entity-deploy, t4, fakes, ssdt, build-event, web-targets
+      "windowsOnlyBuildSteps": ["sgen"],          // ids: sgen, com, entity-deploy, t4, fakes, ssdt, build-event, web-targets, aspnet-compiler, path-case, inline-task, resources
       "packagesConfig": false,                    // a packages.config sits beside the project
       "packagesConfigPackages": [                 // what it lists (direct and transitive), sorted; absent without one
         { "id": "Newtonsoft.Json", "version": "13.0.3", "targetFramework": "net472", "developmentDependency": false }

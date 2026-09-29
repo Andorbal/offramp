@@ -20,12 +20,12 @@ public sealed class CompileOnlyConditionalTests : IDisposable
 
         Assert.StartsWith("<Project>\n  <!-- keep me -->\n  <PropertyGroup>\n    <LangVersion>latest</LangVersion>\n  </PropertyGroup>\n", updated, StringComparison.Ordinal);
         Assert.Contains("    <OfframpCompileOnly>true</OfframpCompileOnly>\n  </PropertyGroup>\n", updated, StringComparison.Ordinal);
-        Assert.EndsWith("IsImplicitlyDefined=\"true\" PrivateAssets=\"all\" />\n  </ItemGroup>\n</Project>\n", updated, StringComparison.Ordinal);
+        Assert.EndsWith("    </PropertyGroup>\n  </Target>\n</Project>\n", updated, StringComparison.Ordinal);
         AssertValidProject(updated);
     }
 
     [Fact]
-    public void A_file_with_the_first_section_gains_only_the_web_targets_section()
+    public void A_file_with_the_first_section_gains_only_the_sections_it_lacks()
     {
         var earlier = "<Project>\n" + string.Concat(CompileOnlyConditional.CompileOnlyLines.Select(l => "  " + l + "\n")) + "</Project>\n";
 
@@ -34,10 +34,41 @@ public sealed class CompileOnlyConditionalTests : IDisposable
         Assert.StartsWith(earlier[..^"</Project>\n".Length], updated, StringComparison.Ordinal);
         Assert.Single(XDocument.Parse(updated).Descendants("OfframpCompileOnly"));
         Assert.Single(XDocument.Parse(updated).Descendants("MvcBuildViews"));
+        Assert.Single(XDocument.Parse(updated).Descendants("OfframpLegacyPackages"));
         Assert.False(CompileOnlyConditional.IsPresent(earlier));
         Assert.True(CompileOnlyConditional.IsPresent(updated));
         Assert.Null(CompileOnlyConditional.Apply(updated));
         AssertValidProject(updated);
+    }
+
+    [Fact]
+    public void A_file_from_before_the_legacy_section_gains_only_that_section()
+    {
+        var earlier = "<Project>\n" + string.Concat(CompileOnlyConditional.CompileOnlyLines.Concat(CompileOnlyConditional.WebTargetsLines).Select(l => "  " + l + "\n")) + "</Project>\n";
+
+        var updated = CompileOnlyConditional.Apply(earlier)!;
+
+        Assert.StartsWith(earlier[..^"</Project>\n".Length], updated, StringComparison.Ordinal);
+        Assert.Single(XDocument.Parse(updated).Descendants("MvcBuildViews"));
+        Assert.Single(XDocument.Parse(updated).Descendants("OfframpLegacyPackages"));
+        Assert.False(CompileOnlyConditional.HasLegacySection(earlier));
+        Assert.True(CompileOnlyConditional.HasLegacySection(updated));
+        Assert.Null(CompileOnlyConditional.Apply(updated));
+    }
+
+    [Fact]
+    public void A_web_targets_package_referenced_by_hand_counts_as_the_web_section_but_not_as_the_legacy_one()
+    {
+        // The legacy section names the web targets package too; only a second mention is the web section.
+        const string current = "<Project>\n  <ItemGroup>\n    <PackageReference Include=\"MSBuild.Microsoft.VisualStudio.Web.targets\" Version=\"14.0.0.3\" />\n  </ItemGroup>\n</Project>\n";
+        var withCompileOnly = CompileOnlyConditional.Apply(current)!;
+
+        Assert.DoesNotContain("<MvcBuildViews>", withCompileOnly, StringComparison.Ordinal);
+        Assert.Contains(CompileOnlyConditional.LegacyMarker, withCompileOnly, StringComparison.Ordinal);
+        Assert.Null(CompileOnlyConditional.Apply(withCompileOnly));
+
+        var legacyOnly = "<Project>\n" + string.Concat(CompileOnlyConditional.CompileOnlyLines.Concat(CompileOnlyConditional.LegacyLines).Select(l => "  " + l + "\n")) + "</Project>\n";
+        Assert.Contains("<MvcBuildViews>", CompileOnlyConditional.Apply(legacyOnly), StringComparison.Ordinal);
     }
 
     [Fact]

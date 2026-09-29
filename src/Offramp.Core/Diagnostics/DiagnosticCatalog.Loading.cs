@@ -77,6 +77,22 @@ public static partial class DiagnosticCatalog
         "Run `dotnet restore` on the solution, then scan again.",
         LoadingArea);
 
+    public static readonly DiagnosticDescriptor OFR0105 = new(
+        "OFR0105", Severity.Warning,
+        "packages.config package not restored",
+        "Outside Windows, `scan` restores what `packages.config` files list into the solution's packages folder, as `nuget restore` does on Windows, because `dotnet restore` skips `packages.config`. This package is neither in the NuGet global packages folder nor on a feed `nuget.config` enables, so references into its folder stay unresolved.",
+        "A package from a private feed that `nuget.config` does not list, a feed that needs credentials, or no network.",
+        "Add the feed (and its credentials) to `nuget.config`, or restore the solution once with `nuget restore` and scan again.",
+        ScanArea);
+
+    public static readonly DiagnosticDescriptor OFR0106 = new(
+        "OFR0106", Severity.Info,
+        "packages.config packages restored",
+        "Outside Windows, `scan` restored the packages that `packages.config` files list into the solution's packages folder (`packages/<Id>.<Version>/`), as `nuget restore` does on Windows. It never overwrites a folder that exists. The message names the folder; `data.packages` lists what was written.",
+        "A legacy solution scanned on macOS or Linux for the first time.",
+        "Nothing to do. The folder is `nuget restore`'s, which `.gitignore` files of such repositories exclude.",
+        ScanArea);
+
     public static readonly DiagnosticDescriptor OFR0110 = new(
         "OFR0110", Severity.Warning,
         "build step needs Windows: sgen",
@@ -131,6 +147,30 @@ public static partial class DiagnosticCatalog
         "An ASP.NET (System.Web) project imports `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets`, which only Visual Studio installs, so evaluation fails elsewhere (MSB4019); or `MvcBuildViews=true` precompiles views with `AspNetCompiler`, which .NET's MSBuild does not have (MSB4803).",
         "A project on the `MSBuild.SDK.SystemWeb` SDK, which imports the web targets unconditionally, or a legacy web application project; a Release build of either, which turns `MvcBuildViews` on.",
         "Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`). Outside Windows it takes the web targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package and turns `MvcBuildViews` off. Build with the .NET SDK (`dotnet build`), not Mono's `msbuild`.",
+        LoadingArea);
+
+    public static readonly DiagnosticDescriptor OFR0117 = new(
+        "OFR0117", Severity.Warning,
+        "build step needs a case-insensitive file system",
+        "An import, source file, or copied file is spelled in another letter case than the file on disk. Windows and macOS file systems ignore case by default; Linux does not, so the build fails there (MSB4019, CS2001, MSB3030). The message names the first differing path segment and counts the rest.",
+        "`..\\Build\\` in a project file for a folder named `build`, or a `Compile` item written as `Default.aspx.CS`.",
+        "Rename the reference to the spelling on disk (or the file to the reference's spelling). Offramp does not edit either.",
+        LoadingArea);
+
+    public static readonly DiagnosticDescriptor OFR0118 = new(
+        "OFR0118", Severity.Warning,
+        "build step needs Windows: inline task",
+        "A target defines a task with `CodeTaskFactory` (or another task factory only .NET Framework's MSBuild has), which .NET's MSBuild cannot run (MSB4801). The build targets of `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`, in nearly every ASP.NET site, do this.",
+        "An older package's build targets, or a hand-written inline task in a `.targets` file.",
+        "In your own targets, use `RoslynCodeTaskFactory`, which runs on both, or guard the target with `Condition=\"'$(OfframpCompileOnly)' != 'true'\"`. For a package's targets, redefine the targets that call the task as empty ones in a file that `Directory.Build.targets` imports only when `'$(OfframpCompileOnly)' == 'true'` (for `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`: `KillVBCSCompilerBeforeCopy` and `KillVBCSCompilerBeforeClean`).",
+        LoadingArea);
+
+    public static readonly DiagnosticDescriptor OFR0119 = new(
+        "OFR0119", Severity.Warning,
+        "build step needs Windows: non-string resources",
+        "A `.resx` file holds non-string resources (images, icons, serialized objects). .NET's MSBuild embeds those only as preserialized resources (MSB3822, MSB3823).",
+        "Images or icons in a WinForms or Web Forms `.resx` file.",
+        "Set `GenerateResourceUsePreserializedResources` to `true` and reference the `System.Resources.Extensions` package, which .NET Framework applications then need at run time.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0120 = new(

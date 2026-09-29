@@ -25,8 +25,10 @@ Rider and VS Code with C# Dev Kit drive the same SDK build for IntelliSense,
 and you switch the view between `net48` and `net10.0` in a dual-target
 project with the target framework picker.
 
-Legacy (non-SDK) csproj files need Windows MSBuild to evaluate. Convert them
-first (`offramp csproj modernize`) or use the compiler-log route below.
+Legacy (non-SDK) csproj files get neither the package nor the rest of what
+Visual Studio installs. The compile-only block's legacy section and
+`offramp scan` supply what they need; see
+[Legacy (non-SDK) projects](#legacy-non-sdk-projects) below.
 
 ## What does not work
 
@@ -42,6 +44,10 @@ first (`offramp csproj modernize`) or use the compiler-log route below.
 | WPF / WinForms on modern targets | need Windows targeting packs | set `EnableWindowsTargeting=true`; they then build on macOS |
 | ASP.NET (System.Web) web application targets, including every `MSBuild.SDK.SystemWeb` project | `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets` ships with Visual Studio only; evaluation stops with MSB4019 | the compile-only block takes them from a package (below) |
 | Precompiled MVC views (`MvcBuildViews=true`, on by default in Release for `MSBuild.SDK.SystemWeb`) | `AspNetCompiler` exists only in .NET Framework's MSBuild (MSB4803) | the compile-only block turns it off |
+| `packages.config` packages | `dotnet restore` skips `packages.config`, and `NuGet.exe` needs Mono | `offramp scan` restores them into `packages/` (below) |
+| Paths in another letter case than the file on disk (Linux only) | Windows and macOS file systems ignore case; Linux does not (MSB4019, CS2001, MSB3030) | rename the reference or the file; `scan` names each project (`OFR0117`) |
+| `CodeTaskFactory` inline tasks, as in `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` | only .NET Framework's MSBuild has the factory (MSB4801) | redefine the targets that use it (below); `OFR0118` |
+| Non-string `.resx` resources (images, icons) | .NET's MSBuild embeds them only preserialized (MSB3822, MSB3823) | `GenerateResourceUsePreserializedResources=true` and the `System.Resources.Extensions` package; `OFR0119` |
 
 ## The compile-only conditional
 
@@ -63,6 +69,22 @@ Put this in the repository's root `Directory.Build.props` (`offramp doctor
 <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' == 'true' And '$(VSToolsPath)' != ''">
   <PackageReference Include="MSBuild.Microsoft.VisualStudio.Web.targets" Version="14.0.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
 </ItemGroup>
+<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects; offramp scan restores packages.config (added by offramp doctor). -->
+<PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'">
+  <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+  <OfframpLegacyPackages>true</OfframpLegacyPackages>
+</PropertyGroup>
+<ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'">
+  <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
+  <PackageReference Include="MSBuild.Microsoft.VisualStudio.Web.targets" Version="14.0.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
+  <Reference Include="Microsoft.VisualBasic" Condition="'$(MSBuildProjectExtension)' == '.vbproj'" />
+</ItemGroup>
+<Target Name="OfframpLegacyVisualBasicRuntime" BeforeTargets="CoreCompile" Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true' And '$(Language)' == 'VB' And '$(VBRuntime)' == ''">
+  <PropertyGroup>
+    <VBRuntime Condition="'%(ReferencePath.FileName)' == 'Microsoft.VisualBasic'">%(ReferencePath.Identity)</VBRuntime>
+    <DisableSdkPath>true</DisableSdkPath>
+  </PropertyGroup>
+</Target>
 ```
 
 Then guard anything else that needs Windows with
@@ -71,8 +93,8 @@ builds pass the properties from `offramp.yml` (`verify.properties`), so
 verification of the first section works even before you edit any props file;
 the ASP.NET section needs the file, because it adds a package.
 
-If your `Directory.Build.props` has the first section from an earlier Offramp,
-`offramp doctor --fix` adds only the ASP.NET section.
+If your `Directory.Build.props` has sections from an earlier Offramp,
+`offramp doctor --fix` adds only the ones it lacks.
 
 ### ASP.NET (System.Web) projects
 
@@ -105,6 +127,64 @@ no longer maintained, and Offramp neither uses nor supports it.
 
 `offramp scan` reports these projects as `OFR0116`, and `offramp doctor` lists
 them under Windows-only build steps.
+
+### Legacy (non-SDK) projects
+
+Most .NET Framework codebases are legacy projects on `packages.config`
+(DotNetNuke 9.13: 64 of 71). Outside Windows they lack four things, and
+Offramp supplies each (`docs/decisions/0036-legacy-projects-outside-windows.md`):
+
+- **Reference assemblies.** The legacy section restores legacy projects the
+  `PackageReference` way (`RestoreProjectStyle`), so they take
+  `Microsoft.NETFramework.ReferenceAssemblies` from a package as SDK-style
+  projects do. Their `packages.config` stays as it is; `dotnet restore` just
+  does not read it.
+- **The web targets**, from the same package the ASP.NET section uses. Its
+  props set `VSToolsPath` only when it is empty, which is the condition legacy
+  web projects use for their own default.
+- **The Visual Basic runtime.** The reference assemblies package wires it for
+  SDK-style projects only; the legacy section references `Microsoft.VisualBasic`
+  and passes it to the compiler the way the SDK does.
+- **The `packages.config` packages.** `offramp scan` restores them into the
+  solution's packages folder (`repositoryPath` from `nuget.config`, else
+  `packages/` beside the solution) as `nuget restore` lays it out
+  (`packages/<Id>.<Version>/`), from the NuGet global packages folder when it
+  has them and otherwise from the feeds in `nuget.config`. It never overwrites a
+  folder. It reports what it wrote (`OFR0106`) and what it could not find
+  (`OFR0105`). Its builds, and Offramp's verification builds, pass
+  `RestorePackages=false`, so a `.nuget/NuGet.targets` from the NuGet 2 era
+  does not try to run `NuGet.exe` through Mono (MSB3073).
+
+`offramp doctor` warns when the workspace has legacy projects and the file has
+no legacy section (`OFR0017`).
+
+What is left is the repository's own, and `scan` names each case with the file
+to change:
+
+- **Letter case** (`OFR0117`, Linux only): a reference spelled `Package.Targets`
+  for `Package.targets` on disk. Offramp does not rename anything.
+- **Inline tasks** (`OFR0118`): `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`
+  runs `CodeTaskFactory` tasks from its build targets. Redefine the two targets
+  that call them as empty ones, in a file only compile-only builds import. In
+  `Directory.Build.targets` (which MSBuild imports after the package's props):
+
+  ```xml
+  <Import Project="compile-only.targets" Condition="'$(OfframpCompileOnly)' == 'true'" />
+  ```
+
+  and in `compile-only.targets`:
+
+  ```xml
+  <Project>
+    <Target Name="KillVBCSCompilerBeforeCopy" />
+    <Target Name="KillVBCSCompilerBeforeClean" />
+  </Project>
+  ```
+
+- **Build events and `Exec` commands written for cmd.exe** (`OFR0115`), such as
+  `XCOPY` in a `PostBuild` target: add
+  `Condition="'$(OfframpCompileOnly)' != 'true'"` to the target.
+- **Non-string resources** (`OFR0119`).
 
 ## The compiler-log fallback
 

@@ -84,7 +84,7 @@ public static class ModernizeVerifier
             "build", scratch.Resolve(project), "-bl:" + binlog, "-c", request.Config.Verify.Configuration,
             "-nologo", "-v:minimal", "-clp:NoSummary", "-nodeReuse:false", "--no-incremental",
         };
-        arguments.AddRange(request.Config.Verify.Properties.Select(p => $"-p:{p.Key}={p.Value}"));
+        arguments.AddRange(BuildProperties.Arguments(request.Config.Verify));
         var build = await request.Processes.RunAsync(new ProcessSpec("dotnet", arguments)
         {
             WorkingDirectory = scratch.Path,

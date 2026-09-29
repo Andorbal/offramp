@@ -11,6 +11,17 @@ offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH 
 - Runs `dotnet build -bl` unless a log is supplied. Uses `verify.properties`
   and `verify.configuration` from config so the analysis build matches
   verification builds, and `verify.timeoutSeconds` as the build timeout.
+  Outside Windows, every build Offramp runs also passes `RestorePackages=false`
+  unless `verify.properties` sets it, so a legacy `.nuget/NuGet.targets` does
+  not run `NuGet.exe` through Mono.
+- Outside Windows, before that build, restores the packages the solution's
+  `packages.config` files list into its packages folder (`repositoryPath` from
+  `nuget.config`, else `packages/` beside the solution), laid out as
+  `nuget restore` lays it out, because `dotnet restore` skips `packages.config`.
+  A package comes from the NuGet global packages folder, else from the feeds in
+  `nuget.config`. A folder that exists in any letter case is never touched.
+  `OFR0106` (info) lists what was written, `OFR0105` each package that could not
+  be found (`docs/decisions/0036-legacy-projects-outside-windows.md`).
 - Converts the binlog to a complog (`.offramp/build.complog`) so compilations
   can be rebuilt without MSBuild. With `--complog`, copies that one instead.
 - `--no-build` reuses `.offramp/msbuild.binlog` from the previous scan
@@ -50,8 +61,11 @@ Diagnostics: `OFR0003` no binary log to reuse, `OFR0004` log not found or
 unreadable, `OFR0010` no `dotnet`, `OFR0020` several solutions, `OFR0022` no
 solution, `OFR0101` project not understood (reason), `OFR0102` kind unknown,
 `OFR0103` model from a compiler log alone, `OFR0104` assets file missing,
-`OFR0110`–`0115` Windows-only build step detected (one code per step family),
-`OFR0120` project reference cycle, `OFR0130` build failed (with the first N
+`OFR0105` packages.config package not restored, `OFR0106` packages.config
+packages restored, `OFR0110`–`0119` Windows-only build step detected (one code
+per step family; `OFR0117`–`0119` and `Exec` commands written for cmd.exe
+are found from the failed build's errors), `OFR0120` project reference cycle,
+`OFR0121` portable target references a framework-only project, `OFR0130` build failed (with the first N
 errors; scan still produces a model for projects whose compiler call
 succeeded, and marks the rest `partial: true`), `OFR0131` build timed out,
 `OFR0132` compiler calls unavailable.
@@ -69,6 +83,9 @@ Checks, each with pass/warn/fail and a remedy:
 - SDKs installed and which one `global.json` selects; whether it can target
   `--target`.
 - `Microsoft.NETFramework.ReferenceAssemblies` resolvable (offline cache or feed).
+  Outside Windows, when the model has legacy (non-SDK) projects, the check
+  warns (`OFR0017`) unless the compile-only block has its legacy section, the
+  only way those projects get the package.
 - git present; repo detected; `git mv` will be used.
 - `offramp.yml` valid; unknown keys; pins without reasons.
 - Workspace model present and fresh (`OFR0002` names what changed).
@@ -108,8 +125,9 @@ matches its diagnostic's severity (fail = error, warn = warning), so the exit co
 follows `--fail-on`. Diagnostics: `OFR0010` no SDK, `OFR0011` global.json SDK not
 installed, `OFR0012` SDK cannot target `--target`, `OFR0013` reference assemblies
 unresolvable, `OFR0014` git not found, `OFR0015` not a git repository, `OFR0016`
-no `offramp.yml` (info), `OFR0001` workspace model missing (reported as a warning
-by doctor), `OFR0002` model stale, `OFR0110`–`OFR0116` Windows-only build
+no `offramp.yml` (info), `OFR0017` legacy projects without the legacy section,
+`OFR0001` workspace model missing (reported as a warning
+by doctor), `OFR0002` model stale, `OFR0110`–`OFR0119` Windows-only build
 steps (from the model), `OFR1301`–`OFR1303` CPM hazards, `OFR1006` feed
 unreachable, and the configuration codes `OFR0050`–`OFR0056`.
 
