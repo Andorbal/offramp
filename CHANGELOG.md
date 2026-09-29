@@ -25,6 +25,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `scan`; the compiler call it recorded can lack sources or references.
 - `OFR3015` (info): `audit api` could not find one of a project's packages on the feeds (NU1101,
   NU1102, NU1103), so it references the package's DLLs as recorded and does not check them.
+- `init` and `scan` choose among several solutions when none is at the root (ADR 0050): setting
+  aside solutions with a Web Site project (which .NET's MSBuild cannot build) when others have
+  none, the one that contains every other one's projects, else the one with the most projects;
+  `OFR0023` (info) says which and why, and a tie stays `OFR0020` with each solution's project
+  count. `init --defaults` left `solution: null` on SmartStoreNET (now `src/SmartStoreNET.sln`,
+  which contains `SmartStoreNET.Minimal.sln`), Open Live Writer (`src/managed/writer.sln`, 29
+  projects against 4 or fewer), and NHibernate (`src/NHibernate.sln`: `NHibernate.Everything.sln`
+  has one project more, but it is a Web Site project that stops the whole build).
 - `OFR0024` (info): a solution project that is not C#, Visual Basic, or F# (C++, WiX, a database or
   JavaScript project) is named once and left out of the model; `OFR0025` (warning): a C++/CLI
   project (`CLRSupport` set), which compiles .NET code that Offramp does not migrate.

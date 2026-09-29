@@ -22,16 +22,15 @@ public static partial class InitPlanner
         "bin", "obj", "node_modules", "packages", "artifacts", "TestResults",
     };
 
-    public static InitDetection Detect(string repositoryRoot, OfframpConfig config, DiagnosticBag diagnostics)
+    public static async Task<InitDetection> DetectAsync(string repositoryRoot, OfframpConfig config, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
         var candidates = FindSolutions(repositoryRoot);
-        var solution = config.Solution ?? ChooseSolution(candidates);
-        if (solution is null && candidates.Count(IsSolutionFile) > 1)
+        var solution = config.Solution;
+        if (solution is null)
         {
-            diagnostics.Report(DiagnosticCatalog.OFR0020,
-                $"Found {candidates.Count} solutions and none is at the repository root alone; `solution:` is left empty. Pass --solution to choose.",
-                severity: Severity.Warning,
-                data: [KeyValuePair.Create<string, JsonNode?>("candidates", new JsonArray([.. candidates.Select(c => (JsonNode?)c)]))]);
+            var choice = await SolutionChooser.ChooseAsync(repositoryRoot, candidates, cancellationToken);
+            solution = choice.Solution;
+            ReportSolutionChoice(diagnostics, choice, candidates, Severity.Warning, "`solution:` is left empty. Pass --solution to choose.");
         }
 
         // A Directory.Packages.props at the root is where central versions already live; scope: repo keeps
@@ -150,23 +149,27 @@ public static partial class InitPlanner
     }
 
     /// <summary>
-    /// The only <c>.sln</c>/<c>.slnx</c> in the repository; otherwise the only one at
-    /// the root; otherwise null. Solution filters are never chosen automatically.
+    /// Says which solution was chosen among several and why (<c>OFR0023</c>), or that none was (<c>OFR0020</c>, with
+    /// <paramref name="tieSeverity"/> and <paramref name="advice"/>); says nothing when there was nothing to choose.
     /// </summary>
-    public static string? ChooseSolution(IReadOnlyList<string> candidates)
+    public static void ReportSolutionChoice(
+        DiagnosticBag diagnostics, SolutionChoice choice, IReadOnlyList<string> candidates, Severity? tieSeverity, string advice)
     {
-        var solutions = candidates.Where(IsSolutionFile).ToList();
-        if (solutions.Count == 1)
+        var data = new[] { KeyValuePair.Create<string, JsonNode?>("candidates", new JsonArray([.. candidates.Select(c => (JsonNode?)c)])) };
+        if (choice.Solution is not null && choice.Reason is not null)
         {
-            return solutions[0];
+            diagnostics.Report(DiagnosticCatalog.OFR0023,
+                $"Chose {choice.Solution} among {candidates.Count(SolutionChooser.IsSolutionFile)} solutions: {choice.Reason}. Pass --solution or set `solution:` in offramp.yml for another.",
+                data: [.. data, KeyValuePair.Create<string, JsonNode?>("reason", choice.Reason)]);
         }
-
-        var atRoot = solutions.Where(s => !s.Contains('/', StringComparison.Ordinal)).ToList();
-        return atRoot.Count == 1 ? atRoot[0] : null;
+        else if (choice.Solution is null && candidates.Count(SolutionChooser.IsSolutionFile) > 1)
+        {
+            diagnostics.Report(DiagnosticCatalog.OFR0020,
+                $"Found {candidates.Count} solutions and none is the one to choose ({choice.Tie ?? "none is at the repository root alone"}); {advice}",
+                severity: tieSeverity,
+                data: data);
+        }
     }
-
-    private static bool IsSolutionFile(string path) =>
-        path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase);
 
     private static GitignoreChange PlanGitignore(string repositoryRoot, string stateDirectory)
     {

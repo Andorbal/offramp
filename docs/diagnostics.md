@@ -44,6 +44,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0020](#ofr0020) | error | workspace | more than one solution found |
 | [OFR0021](#ofr0021) | error | workspace | project not in the workspace model |
 | [OFR0022](#ofr0022) | error | workspace | no solution found |
+| [OFR0023](#ofr0023) | info | workspace | solution chosen among several |
 | [OFR0024](#ofr0024) | info | scan | project is not C#, Visual Basic, or F# |
 | [OFR0025](#ofr0025) | warning | scan | C++/CLI project needs migrating |
 | [OFR0030](#ofr0030) | error | configuration | offramp.yml already exists |
@@ -380,9 +381,9 @@ The .NET SDK gives SDK-style projects the .NET Framework reference assemblies as
 
 **more than one solution found** · error · workspace
 
-The repository contains several solution files and none was chosen, so Offramp cannot tell which one to work on.
+The repository contains several solution files and none was chosen, so Offramp cannot tell which one to work on. With several solutions below the root, one is chosen when it is the only one without a Web Site project, contains every other one's projects, or has the most projects (`OFR0023`); this is the tie, and the message gives the project counts.
 
-- **Typical cause:** A repository with several `.sln`, `.slnx`, or `.slnf` files and no `solution:` in `offramp.yml`.
+- **Typical cause:** A repository with several `.sln` or `.slnx` files of the same size, none at the root alone, or only solution filters, and no `solution:` in `offramp.yml`.
 - **Fix:** Pass `--solution PATH` or set `solution:` in `offramp.yml`. `init` reports this as a warning and leaves `solution:` empty.
 
 ### OFR0021
@@ -402,6 +403,15 @@ A project named on the command line is not part of the scanned solution.
 
 - **Typical cause:** A repository without `.sln`/`.slnx` files, or one where the solution lives outside the repository root.
 - **Fix:** Pass `--solution PATH`, set `solution:` in `offramp.yml`, or pass `--binlog`/`--complog` from a build made elsewhere.
+
+### OFR0023
+
+**solution chosen among several** · info · workspace
+
+No solution was configured and the repository has several, none alone at the root; `init` and `scan` chose one and say why: the only one without a Web Site project (which .NET's MSBuild cannot build), the one that contains every other one's projects, or the one with the most projects. `data.candidates` lists the solutions found.
+
+- **Typical cause:** A repository with a main solution next to smaller ones (a minimal or sample solution, utilities), all below the root.
+- **Fix:** Nothing to do when the choice is right. Otherwise pass `--solution PATH` or set `solution:` in `offramp.yml`.
 
 ### OFR0024
 

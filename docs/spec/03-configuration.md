@@ -13,7 +13,7 @@ merged result is echoed in every JSON envelope as `effectiveConfig`.
 version: 1
 
 target: 10                     # integer; --target overrides
-solution: src/Monolith.sln     # optional when the repo has exactly one
+solution: src/Monolith.sln     # optional: see `init` for how one is chosen
 
 paths:
   exclude:                     # globs, repo-relative; excluded projects stay in the model but are never modified
@@ -161,6 +161,15 @@ repository root (a folder gets `Directory.Packages.props`; a bare name is
 written with `scope: repo`, so it stays at the root). Pins ask for a NuGet
 package id, a NuGet version, an optional existing project, and a reason, and
 refuse answers that are not one. `init --defaults` writes without asking. It also:
+
+- detects the solution: the only `.sln`/`.slnx`, else the only one at the
+  root, else, among the solutions that can be read and setting aside those with
+  a Web Site project when others have none, the one that contains every other
+  one's projects, else the one with the most projects (`OFR0023`, info, says
+  which and why); a tie leaves `solution: null` with `OFR0020` (warning) and
+  each solution's project count. Filters are never chosen
+  (`docs/decisions/0050-choose-among-several-solutions.md`). `scan` without
+  `solution:` chooses the same way;
 
 - adds `.offramp/cache/`, `.offramp/*.binlog`, `.offramp/*.complog`, and
   `.offramp/journal/` to `.gitignore`;

@@ -84,7 +84,7 @@ public static class ScanRunner
         }
         else
         {
-            solution ??= ResolveSolution(request);
+            solution ??= await ResolveSolutionAsync(request, cancellationToken);
             if (solution is null)
             {
                 return new ScanOutcome(null, null, request.Diagnostics.Contains("OFR0020") ? ScanFailure.Usage : ScanFailure.Environment);
@@ -171,28 +171,28 @@ public static class ScanRunner
         return new ScanOutcome(Summarize(model, request, ledgerPath, upToDate: false, buildSucceeded, notLoaded), model, ScanFailure.None);
     }
 
-    private static string? ResolveSolution(ScanRequest request)
+    /// <summary>The solution to build when none is configured (docs/decisions/0050-choose-among-several-solutions.md).</summary>
+    private static async Task<string?> ResolveSolutionAsync(ScanRequest request, CancellationToken cancellationToken)
     {
         var candidates = InitPlanner.FindSolutions(request.RepositoryRoot);
-        var chosen = InitPlanner.ChooseSolution(candidates);
-        if (chosen is not null)
-        {
-            return chosen;
-        }
-
-        if (candidates.Count == 0)
+        var choice = await SolutionChooser.ChooseAsync(request.RepositoryRoot, candidates, cancellationToken);
+        if (choice.Solution is null && candidates.Count == 0)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR0022,
                 "No .sln or .slnx file in the repository. Pass --solution, or scan a log with --binlog.");
         }
-        else
+        else if (choice.Solution is null && !candidates.Any(SolutionChooser.IsSolutionFile))
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR0020,
-                $"Found {candidates.Count} solutions ({string.Join(", ", candidates.Take(5))}); pass --solution or set solution: in offramp.yml.",
+                $"Found {candidates.Count} solution filter(s) ({string.Join(", ", candidates.Take(5))}) and no solution; pass --solution or set solution: in offramp.yml.",
                 data: [KeyValuePair.Create<string, JsonNode?>("candidates", new JsonArray([.. candidates.Select(c => (JsonNode?)c)]))]);
         }
+        else
+        {
+            InitPlanner.ReportSolutionChoice(request.Diagnostics, choice, candidates, tieSeverity: null, "pass --solution or set solution: in offramp.yml.");
+        }
 
-        return null;
+        return choice.Solution;
     }
 
     /// <summary>The solution's projects, or null when it cannot be read (the build reports that).</summary>

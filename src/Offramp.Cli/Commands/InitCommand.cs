@@ -65,10 +65,10 @@ public sealed class InitCommand : ICommandHandler<InitOptions, InitResult>, INex
         return command;
     }
 
-    public Task<CommandOutcome<InitResult>> ExecuteAsync(InitOptions options, CommandContext context, CancellationToken cancellationToken)
+    public async Task<CommandOutcome<InitResult>> ExecuteAsync(InitOptions options, CommandContext context, CancellationToken cancellationToken)
     {
         var root = context.Repository.Path;
-        var detection = InitPlanner.Detect(root, context.Config.Config, context.Diagnostics);
+        var detection = await InitPlanner.DetectAsync(root, context.Config.Config, context.Diagnostics, cancellationToken);
         var interactive = context.Interactive && !options.Defaults && !context.Settings.Yes;
         var values = detection.Values;
         IInitPrompter? prompter = null;
@@ -98,7 +98,7 @@ public sealed class InitCommand : ICommandHandler<InitOptions, InitResult>, INex
             context.Diagnostics.AddRange(context.Config.Diagnostics.Where(d => d.Code != "OFR0016"));
         }
 
-        return Task.FromResult(CommandOutcome<InitResult>.Completed(result));
+        return CommandOutcome<InitResult>.Completed(result);
     }
 
     public void Render(InitResult result, CommandContext context, HumanOutput output)

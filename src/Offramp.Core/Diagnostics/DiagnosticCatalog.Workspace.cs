@@ -90,8 +90,8 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR0020 = new(
         "OFR0020", Severity.Error,
         "more than one solution found",
-        "The repository contains several solution files and none was chosen, so Offramp cannot tell which one to work on.",
-        "A repository with several `.sln`, `.slnx`, or `.slnf` files and no `solution:` in `offramp.yml`.",
+        "The repository contains several solution files and none was chosen, so Offramp cannot tell which one to work on. With several solutions below the root, one is chosen when it is the only one without a Web Site project, contains every other one's projects, or has the most projects (`OFR0023`); this is the tie, and the message gives the project counts.",
+        "A repository with several `.sln` or `.slnx` files of the same size, none at the root alone, or only solution filters, and no `solution:` in `offramp.yml`.",
         "Pass `--solution PATH` or set `solution:` in `offramp.yml`. `init` reports this as a warning and leaves `solution:` empty.",
         WorkspaceArea);
 

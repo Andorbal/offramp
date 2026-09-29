@@ -8,6 +8,9 @@ Builds the workspace model. See `02-workspace-model.md` for inputs and schema.
 offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH | --no-build | --msbuild | --msbuild-path PATH] [--if-stale]
 ```
 
+- Without `--solution` or `solution:`, builds the solution `init` would choose
+  (`OFR0023` says which and why; a tie is `OFR0020`, exit 2;
+  `docs/decisions/0050-choose-among-several-solutions.md`).
 - Runs `dotnet build -bl` unless a log is supplied. Uses `verify.properties`
   and `verify.configuration` from config so the analysis build matches
   verification builds, and `verify.timeoutSeconds` as the build timeout.
@@ -82,7 +85,7 @@ or times out exits 3.
 
 Diagnostics: `OFR0003` no binary log to reuse, `OFR0004` log not found or
 unreadable, `OFR0010` no `dotnet`, `OFR0017` no MSBuild.exe (with `--msbuild`),
-`OFR0020` several solutions, `OFR0022` no
+`OFR0020` several solutions and none chosen, `OFR0023` solution chosen among several, `OFR0022` no
 solution, `OFR0101` project not understood (reason: its evaluation error, or,
 when MSBuild never evaluated it, the referenced project that failed), `OFR0102` kind unknown,
 `OFR0103` model from a compiler log alone, `OFR0104` assets file missing,

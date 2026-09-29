@@ -2,6 +2,14 @@ namespace Offramp.Core.Diagnostics;
 
 public static partial class DiagnosticCatalog
 {
+    public static readonly DiagnosticDescriptor OFR0023 = new(
+        "OFR0023", Severity.Info,
+        "solution chosen among several",
+        "No solution was configured and the repository has several, none alone at the root; `init` and `scan` chose one and say why: the only one without a Web Site project (which .NET's MSBuild cannot build), the one that contains every other one's projects, or the one with the most projects. `data.candidates` lists the solutions found.",
+        "A repository with a main solution next to smaller ones (a minimal or sample solution, utilities), all below the root.",
+        "Nothing to do when the choice is right. Otherwise pass `--solution PATH` or set `solution:` in `offramp.yml`.",
+        WorkspaceArea);
+
     public static readonly DiagnosticDescriptor OFR0024 = new(
         "OFR0024", Severity.Info,
         "project is not C#, Visual Basic, or F#",

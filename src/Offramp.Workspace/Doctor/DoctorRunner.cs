@@ -410,7 +410,8 @@ public static class DoctorRunner
         IReadOnlyCollection<string>? projects = model?.Projects.Select(p => p.Id).ToList();
         if (projects is null)
         {
-            var solution = context.Config.Config.Solution ?? InitPlanner.ChooseSolution(InitPlanner.FindSolutions(root));
+            var solution = context.Config.Config.Solution
+                ?? (await SolutionChooser.ChooseAsync(root, InitPlanner.FindSolutions(root), cancellationToken)).Solution;
             var solutionPath = solution is null ? null : RepoPaths.ToAbsolute(root, solution);
             if (solutionPath is null || !File.Exists(solutionPath))
             {
