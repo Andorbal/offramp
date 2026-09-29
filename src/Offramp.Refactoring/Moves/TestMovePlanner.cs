@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Offramp.Analysis.Compilations;
+using Offramp.Analysis.DeadCode;
 using Offramp.Analysis.TestCode;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
@@ -111,7 +112,8 @@ public static class TestMovePlanner
             .ToList();
 
         var files = source.Compile.ToDictionary(f => f, f => RepoPaths.ToAbsolute(request.RepositoryRoot, f), StringComparer.Ordinal);
-        var classified = TestCodeClassifier.Classify(sourceCompilation, files, consumers, target.Project);
+        var shipped = ShippedProjects.Read(request.RepositoryRoot, model, request.Config.DeadCode.ExternalConsumers).Of(source)?.Reason;
+        var classified = TestCodeClassifier.Classify(sourceCompilation, files, consumers, target.Project, shipped);
         var context = new Context(request, source, target.Project, target.Create, sourceCompilation, destination, destinationCompilation, classified);
         return await BuildAsync(context, cancellationToken);
     }
@@ -181,14 +183,19 @@ public static class TestMovePlanner
             changeSet);
     }
 
-    /// <summary>Tests and helpers at or above the confidence asked for, less those production code uses.</summary>
+    /// <summary>Tests and helpers at or above the confidence asked for, less those production code uses and a shipped library's public API.</summary>
     private static List<ClassifiedFile> Choose(Context context, List<SkippedFile> skipped, List<CandidateFile> candidates)
     {
         var chosen = new List<ClassifiedFile>();
         var threshold = context.Request.IncludeHelpers;
         foreach (var file in context.Classified.Where(c => c.Kind != TestFileKind.Production))
         {
-            if (file.ProductionReferrers.Count > 0)
+            if (file.ShippedApi)
+            {
+                // Public API of a shipped library: listed for review whatever --include-helpers says, never moved.
+                candidates.Add(new CandidateFile(file.File, file.Confidence!.Value, file.Reasons));
+            }
+            else if (file.ProductionReferrers.Count > 0)
             {
                 Skip(context, skipped, file.File, DiagnosticCatalog.OFR2201,
                     $"{(file.Kind == TestFileKind.Test ? "A test" : "A helper")} that {string.Join(", ", file.ProductionReferrers)} use{(file.ProductionReferrers.Count == 1 ? "s" : "")}; it stays.",

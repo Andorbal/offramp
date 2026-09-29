@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-09-29
-- Spec section: `docs/spec/commands/audit.md#audit-dead-code-ofr3400-3499`, `docs/spec/03-configuration.md`
+- Spec section: `docs/spec/commands/audit.md#audit-dead-code-ofr3400-3499`, `docs/spec/commands/move.md#move-tests`, `docs/spec/03-configuration.md`
 
 ## Context
 
@@ -48,7 +48,7 @@ A project is **shipped** when the first of these holds, and that rule is the evi
 
 `audit dead-code` rates the public symbols of a shipped project `medium` with that evidence
 ("public in an assembly packed by src/NHibernate/NHibernate.nuspec.template: other repositories
-may use it").
+may use it"). `move tests` never moves a public type of a shipped project (ADR 0045).
 
 **Type discovery the solution does itself.** A method is a discovery method for one of its
 type parameters or `Type` parameters when it passes it to `IsAssignableFrom`,

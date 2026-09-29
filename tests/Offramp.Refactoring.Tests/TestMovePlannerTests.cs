@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Offramp.Analysis.TestCode;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Fixtures;
@@ -30,9 +31,27 @@ public sealed class TestMovePlannerTests
             [("src/Common/SharedTests.cs", "OFR2206"), ("src/Foo/Health/StartupChecks.cs", "OFR2201"), ("src/Foo/Web/Tests/UrlTests.cs", "OFR2103")],
             result.Skipped.Select(s => (s.File, s.Code)));
         Assert.Equal(["src/Foo/Testing/FakeClock.cs"], result.Candidates.Select(c => c.File));
+
+        // Foo is a library no application uses, so its public FakeClock may be someone's API: low, and it stays.
+        Assert.Equal(TestConfidence.Low, result.Candidates[0].Confidence);
+        Assert.Equal(
+            "public API of a shipped library (no application in the solution uses it): other repositories may use FakeClock, so it is never moved",
+            result.Candidates[0].Reasons[0]);
         Assert.Contains(result.ProjectEdits, e => e.Kind == ProjectEditKind.AddInternalsVisibleTo && e.Value == "Foo.Tests");
         Assert.Empty(result.Prunable);
         Assert.Equal(2, plan.ChangeSet!.Renames.Count);
+    }
+
+    [Fact]
+    public async Task Public_api_of_a_shipped_library_never_moves_even_with_low_helpers()
+    {
+        var fixture = await ScannedFixtures.GetAsync("tests-in-prod");
+
+        var plan = await Plan(fixture, "src/Foo/Foo.csproj", new DiagnosticBag(), helpers: TestConfidence.Low);
+
+        Assert.DoesNotContain(plan!.Result.Moves, m => m.File == "src/Foo/Testing/FakeClock.cs");
+        Assert.Contains("src/Foo/TestData/Builders.cs", plan.Result.Moves.Select(m => m.File));
+        Assert.Equal(["src/Foo/Testing/FakeClock.cs"], plan.Result.Candidates.Select(c => c.File));
     }
 
     [Fact]
@@ -106,7 +125,8 @@ public sealed class TestMovePlannerTests
         Assert.Equal("Bar.Tests/Bar.Tests.csproj", TestTargets.CreatedPath("Bar/Bar.csproj", "Bar.Tests"));
     }
 
-    private static Task<MoveTestsPlan?> Plan(ScannedFixture fixture, string source, DiagnosticBag diagnostics, bool create = false) =>
+    private static Task<MoveTestsPlan?> Plan(
+        ScannedFixture fixture, string source, DiagnosticBag diagnostics, bool create = false, TestConfidence? helpers = TestConfidence.High) =>
         TestMovePlanner.PlanAsync(new MoveTestsRequest
         {
             RepositoryRoot = fixture.Root,
@@ -114,6 +134,7 @@ public sealed class TestMovePlannerTests
             Config = new OfframpConfig(),
             Source = source,
             Create = create,
+            IncludeHelpers = helpers,
             Diagnostics = diagnostics,
         }, TestContext.Current.CancellationToken);
 }

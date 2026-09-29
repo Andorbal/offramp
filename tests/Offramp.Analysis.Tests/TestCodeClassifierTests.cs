@@ -75,6 +75,51 @@ public sealed class TestCodeClassifierTests
         Assert.Empty(parser.ProductionReferrers);
     }
 
+    [Fact]
+    public void A_public_type_of_a_shipped_library_is_never_test_support()
+    {
+        var (source, files) = Source(
+            ("src/Foo/Tests/QueryTests.cs", "[Xunit.Fact] public class QueryTests { public void T() { Foo.Criterion.QueryOverBuilderExtensions.Eager(1); new Foo.Testing.FakeRepo(); } }"),
+            ("src/Foo/Criterion/QueryOverBuilderExtensions.cs", "namespace Foo.Criterion { public static class QueryOverBuilderExtensions { public static int Eager(int x) => x; } }"),
+            ("src/Foo/Testing/FakeRepo.cs", "namespace Foo.Testing { public class FakeRepo { } }"));
+
+        var shipped = Classify(source, files, [], "Foo.Test", shipped: "packed by src/Foo/Foo.nuspec.template").ToDictionary(c => c.File);
+        var unshipped = Classify(source, files, [], "Foo.Test").ToDictionary(c => c.File);
+
+        // NHibernate's QueryOver API: public, used only by tests in the repository, and named "Builder".
+        // The name says nothing about a public type outside a test namespace: it is the code under test.
+        Assert.Equal(TestFileKind.Production, shipped["src/Foo/Criterion/QueryOverBuilderExtensions.cs"].Kind);
+        Assert.Equal(TestFileKind.Production, unshipped["src/Foo/Criterion/QueryOverBuilderExtensions.cs"].Kind);
+
+        // Test support by folder and name, but public in a shipped library: listed at low, never moved.
+        var fake = shipped["src/Foo/Testing/FakeRepo.cs"];
+        Assert.Equal((TestFileKind.Helper, TestConfidence.Low), Pair(fake));
+        Assert.True(fake.ShippedApi);
+        Assert.Equal("public API of a shipped library (packed by src/Foo/Foo.nuspec.template): other repositories may use FakeRepo, so it is never moved", fake.Reasons[0]);
+        Assert.Equal((TestFileKind.Helper, TestConfidence.High), Pair(unshipped["src/Foo/Testing/FakeRepo.cs"]));
+        Assert.False(unshipped["src/Foo/Testing/FakeRepo.cs"].ShippedApi);
+    }
+
+    [Theory]
+    [InlineData("internal class OrderBuilder { }", true)]
+    [InlineData("internal class FakesRegistry { }", true)]
+    [InlineData("internal class Stubborn { }", false)]
+    [InlineData("internal class Mockingbird { }", false)]
+    [InlineData("public class LinqContainsPredicateBuilder { }", false)]
+    [InlineData("public class LocalizationExpressionBuilder { }", false)]
+    [InlineData("namespace Foo.TestData { public class OrderBuilder { } }", true)]
+    [InlineData("namespace Foo.UnitTests { public class ClockStub { } }", true)]
+    public void A_name_says_test_support_as_a_whole_word_of_a_type_that_is_not_public_api(string declaration, bool hinted)
+    {
+        var (source, files) = Source(
+            ("src/Foo/Tests/UseTests.cs", "[Xunit.Fact] public class UseTests { }"),
+            ("src/Foo/Support.cs", declaration));
+
+        var support = Classify(source, files, [], "Foo.Tests").Single(c => c.File == "src/Foo/Support.cs");
+
+        Assert.Equal(hinted, support.Reasons.Any(r => r.StartsWith("name suggests test support", StringComparison.Ordinal)));
+    }
+
     private static (CSharpCompilation, Dictionary<string, string>) Source(params (string File, string Code)[] files)
     {
         var xunit = CSharpSyntaxTree.ParseText("namespace Xunit { public class FactAttribute : System.Attribute { } }");
@@ -89,8 +134,9 @@ public sealed class TestCodeClassifierTests
         new(name, CSharpCompilation.Create(name, [CSharpSyntaxTree.ParseText(code, path: $"/r/src/{name}/{name}.cs")], [Corlib, source.ToMetadataReference()],
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)));
 
-    private static IReadOnlyList<ClassifiedFile> Classify(CSharpCompilation source, Dictionary<string, string> files, IReadOnlyList<ConsumerCompilation> consumers, string destination) =>
-        TestCodeClassifier.Classify(source, files, consumers, destination);
+    private static IReadOnlyList<ClassifiedFile> Classify(
+        CSharpCompilation source, Dictionary<string, string> files, IReadOnlyList<ConsumerCompilation> consumers, string destination, string? shipped = null) =>
+        TestCodeClassifier.Classify(source, files, consumers, destination, shipped);
 
     private static readonly MetadataReference Corlib = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
 

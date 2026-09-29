@@ -235,8 +235,11 @@ Detection (semantic, C# only; another language is `OFR2205`):
   compilations of every project that depends on it). A candidate is a non-test
   file with test-support evidence: it uses a test framework, assertion, or
   mocking library (`xunit.assert`, Moq, NSubstitute, FakeItEasy, AutoFixture,
-  Bogus, FluentAssertions, Shouldly), a declared type's name contains `Builder`,
-  `Fake`, `Stub`, `Mock`, `Fixture`, `TestData`, or `Harness`, or it lives under
+  Bogus, FluentAssertions, Shouldly), a declared type's name has `Builder`,
+  `Fake`, `Stub`, `Mock`, `Fixture`, `TestData`, or `Harness` as a whole word
+  (`OrderBuilder`, `FakesRegistry`; not `Stubborn`) and the type is not public or
+  lives in a test namespace (a segment from the folder list below, or ending in
+  `Tests`), or it lives under
   a `Tests`, `Test`, `Testing`, `TestSupport`, `TestData`, `TestHelpers`,
   `Fakes`, or `Mocks` folder. A candidate is a helper when every user of what
   it declares is a test or another helper (or the destination project) and a
@@ -244,7 +247,14 @@ Detection (semantic, C# only; another language is `OFR2205`):
   evidence is the code under test and stays
   (`docs/decisions/0018-move-tests.md`).
 - Used by nothing at all: `medium` with evidence (listed for review as
-  `candidates`), `low` without (unused code, not listed). A helper whose type
+  `candidates`), `low` without (unused code, not listed).
+- **Public API of a shipped library** (ADR 0045): when the source project is
+  shipped (the rule of ADR 0041: listed in `deadCode.externalConsumers`,
+  packable, packed from a `.nuspec`, or a library no application uses), a file
+  that declares a public type and has test-support evidence is never a helper:
+  it is listed in `candidates` at `low` with the reason ("public API of a
+  shipped library (…): other repositories may use X, so it is never moved"),
+  and `--include-helpers` never moves it. Test files still move. A helper whose type
   name appears in a string literal (`Type.GetType("...")`) is never above
   `medium`.
 - Files used by production code, or by a project other than the destination,

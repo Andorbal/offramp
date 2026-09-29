@@ -317,6 +317,16 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
     `PackageReference` to `System.Resources.Extensions` is restored but never referenced under the
     .NET SDK: a target that references the DLL, with the version per target framework (6.0.0 for
     .NET Framework 4.6.1, which 8.0.0 does not support).
+- `move tests` never moves a public type of a shipped library (ADR 0045; shipped as in ADR 0041):
+  it is listed in `candidates` at `low`, with the reason, and `--include-helpers` does not move it.
+  On NHibernate 4.1, `move tests --project src/NHibernate/NHibernate.csproj --to
+  src/NHibernate.Test/NHibernate.Test.csproj` planned to move `QueryOverBuilderExtensions`, part of
+  the QueryOver API that only the repository's tests call, into the test project at `high`
+  confidence; the next NuGet package would have lost it. A type's name now suggests test support
+  only when the hint (`Builder`, `Fake`, `Stub`, ...) is a whole word of it and the type is not
+  public or lives in a test namespace, so `QueryOverBuilderExtensions`, DotNetNuke's
+  `LocalizationExpressionBuilder`, and SmartStoreNET's `LinqContainsPredicateBuilder` are no longer
+  test support by name.
 - `audit dead-code` rates `low` what test runners, COM, and page scripts find by name (ADR 0041):
   a type whose methods (or a base type's) carry a test framework's attribute, since NUnit 2.5 and
   later run a class with `[Test]` methods and no `[TestFixture]` (245 of NHibernate's fixture

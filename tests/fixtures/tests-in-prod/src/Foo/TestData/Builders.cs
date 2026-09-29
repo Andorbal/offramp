@@ -3,8 +3,8 @@ using Foo.Service;
 
 namespace Foo.TestData
 {
-    /// <summary>Used only by tests.</summary>
-    public sealed class OrderBuilder
+    /// <summary>Used only by tests. Internal: public types of a library other repositories may use never move (ADR 0045).</summary>
+    internal sealed class OrderBuilder
     {
         private decimal _amount = 10m;
         private int _daysAgo;

@@ -8,8 +8,8 @@
 Stays: src/Common/SharedTests.cs OFR2206
 Stays: src/Foo/Health/StartupChecks.cs OFR2201
 Stays: src/Foo/Web/Tests/UrlTests.cs OFR2103
-Review: src/Foo/Testing/FakeClock.cs (medium: used by nothing in the project or its consumers; name suggests test
-support (FakeClock); in a Testing folder; --include-helpers medium moves it)
+Review: src/Foo/Testing/FakeClock.cs (low: public API of a shipped library (no application in the solution uses it):
+other repositories may use FakeClock, so it is never moved; name suggests test support (FakeClock); in a Testing folder)
 
 --- a/src/Foo/Foo.csproj
 +++ b/src/Foo/Foo.csproj
