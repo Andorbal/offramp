@@ -205,6 +205,53 @@ public sealed class ProjectFileEditor
         return matches.Count;
     }
 
+    /// <summary>
+    /// Replaces every <c>Reference</c> item for the assembly with an item of <paramref name="itemType"/>
+    /// (with a <c>Version</c> when one is given). A conditioned Reference (its own condition, its item
+    /// group's, or a <c>Choose</c>) is replaced in place, so the new item keeps the condition; an
+    /// unconditioned one is removed and the new item goes next to the items of its type. Returns how
+    /// many References were replaced.
+    /// </summary>
+    public int ReplaceReference(string assemblyName, string itemType, string include, string? version)
+    {
+        include = include.Replace('/', '\\');
+        var matches = _root.ItemGroups.SelectMany(g => g.Items)
+            .Where(i => string.Equals(i.ItemType, "Reference", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(i.Include.Split(',')[0].Trim(), assemblyName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var unconditioned = false;
+        foreach (var item in matches)
+        {
+            var group = (ProjectItemGroupElement)item.Parent;
+            var conditioned = !string.IsNullOrEmpty(item.Condition) || !string.IsNullOrEmpty(group.Condition) || group.Parent is not ProjectRootElement;
+            if (conditioned && !group.Items.Any(i => string.Equals(i.ItemType, itemType, StringComparison.OrdinalIgnoreCase) && Same(i.Include, include) && i.Condition == item.Condition))
+            {
+                var replacement = _root.CreateItemElement(itemType, include);
+                group.InsertBeforeChild(replacement, item);
+                if (version is not null)
+                {
+                    replacement.AddMetadata("Version", version, expressAsAttribute: true);
+                }
+
+                replacement.Condition = item.Condition;
+            }
+
+            unconditioned |= !conditioned;
+            group.RemoveChild(item);
+            if (group.Count == 0 && group.Parent is not null)
+            {
+                group.Parent.RemoveChild(group);
+            }
+        }
+
+        if (unconditioned)
+        {
+            AddItem(itemType, include, version is null ? null : [("Version", version)]);
+        }
+
+        return matches.Count;
+    }
+
     public void AddEmbeddedResource(string include) => AddItem("EmbeddedResource", include.Replace('/', '\\'), null);
 
     /// <summary>

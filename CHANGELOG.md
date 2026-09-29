@@ -427,6 +427,17 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `.exe` is an application's installer (Open Live Writer's Squirrel package carries every DLL of
   the application) and ships nothing. `deadCode.externalConsumers` is now documented in
   `docs/spec/03-configuration.md`.
+- `deps resolve-dlls` chooses a package version by the DLL's file (ADR 0042): a package asset
+  with the same SHA-256, then the same file version, then the same informational version, then
+  the lowest version with the assembly version, then the lowest newer one. On NHibernate 4.1 it
+  proposed Iesi.Collections 4.0.0.4000 for a DLL byte-identical to 4.0.1.4000 (both ship
+  assembly version 4.0.0.0), which `--apply` would have written as a downgrade in 3 projects.
+  `OFR1402` says what matched ("the same file, byte for byte", "the closest build", "is newer
+  ...: an upgrade" for FirebirdSql.Data.FirebirdClient 2.5.2 → 2.6.5, which it called "is"), and
+  the result has `match` and the DLL's `fileVersion`. An exact unlisted version counts (log4net
+  1.2.10), an unsigned DLL is matched only by its file, not by the package id alone (`OFR1403`),
+  and `--apply` keeps a `Reference`'s condition and its item group's: NHibernate's Debug-only
+  Antlr3.Runtime and Remotion.Linq references became unconditional.
 - `deps audit` no longer proposes a version without assemblies, or an older one, as an upgrade
   (ADR 0046). On SmartStoreNET 4.2 it told the user to "upgrade" EntityFramework.SqlServerCompact
   6.4.4 to 4.3.1, a release with only content transforms and an install script; the package is

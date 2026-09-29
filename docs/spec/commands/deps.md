@@ -263,11 +263,29 @@ Details (M6, ADR 0020):
 - **Candidates.** NuGet feeds cannot be searched by assembly name, so the only
   candidate is the package whose id is the assembly name, confirmed by
   inspecting its versions' assets.
-- **Match rules.**
-  - A candidate DLL must have the same public key token.
-  - The exact assembly version wins over the lowest package version above
-    it.
-  - Every target framework of the project must be supported.
+- **Match rules** (ADR 0042). The DLL is read from disk: its identity, its
+  `AssemblyFileVersion` and `AssemblyInformationalVersion` attributes, and its
+  SHA-256; the model's metadata stands in when the file cannot be read.
+  - A candidate assembly must have the DLL's name and the same public key
+    token (none for an unsigned DLL), at the referenced assembly version or
+    higher, and the package version must support every target framework of
+    the project.
+  - Candidates rank by what matches (`match`): `identical` (a package asset is
+    the same file), then `fileVersion`, then `informationalVersion`, then
+    `assemblyVersion` (the closest build: the lowest package version shipping
+    the assembly version), then `newer` (the lowest package version with a
+    higher assembly version: an upgrade). Within a rank a listed version wins
+    over an unlisted one, then the lower version.
+  - Unlisted versions are candidates when they ship the referenced assembly
+    version (log4net 1.2.10 is unlisted on nuget.org), never as an upgrade.
+  - An unsigned DLL is matched only by its file (`identical`, `fileVersion`,
+    `informationalVersion`): a name alone does not identify it. Otherwise it
+    is `OFR1403`, and the message names the package that has the name.
+  - A DLL whose version is unknown (the file cannot be read) matches no
+    package.
+  - `OFR1402`'s message says what matched: "is ... the same file, byte for
+    byte", "the same file version", "the closest build is in", or "is newer
+    ...: an upgrade".
 - **Blockers and unmatched DLLs.** A .NET Framework DLL with no replacement is
   reported only as a blocker (`OFR1404`). Other unmatched DLLs are `OFR1403`,
   with their metadata.
@@ -278,7 +296,10 @@ Details (M6, ADR 0020):
   The folder, not the assembly version, names the version: Newtonsoft.Json
   13.0.1 to 13.0.3 all ship assembly version 13.0.0.0.
 - **`--apply`** replaces the `Reference` with the `ProjectReference` or
-  `PackageReference`; versionless under central management. A `packages.config`
+  `PackageReference`; versionless under central management. A conditioned
+  `Reference` (its own condition, its item group's, or a `Choose`) is replaced
+  in place, so the new item keeps the condition; NHibernate references two DLLs
+  in Debug only because its Release build merges them. A `packages.config`
   project gets `ProjectReference`s only (NuGet does not mix the two styles in a
   project; `csproj modernize` converts it). It writes through a journal.
 - **Schema:** `schemas/v1/deps-resolve-dlls.json`.

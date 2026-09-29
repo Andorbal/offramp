@@ -20,23 +20,28 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "hintPath", "assemblyVersion", "targetFramework", "publicKeyToken", "resolution", "blocker"],
+              "required": ["name", "hintPath", "assemblyVersion", "fileVersion", "targetFramework", "publicKeyToken", "resolution", "blocker"],
               "properties": {
                 "name": { "type": "string" },
                 "hintPath": { "type": "string" },
                 "assemblyVersion": { "type": ["string", "null"] },
+                "fileVersion": { "type": ["string", "null"], "description": "The DLL's AssemblyFileVersionAttribute." },
                 "targetFramework": { "type": ["string", "null"] },
                 "publicKeyToken": { "type": ["string", "null"] },
                 "blocker": { "type": "boolean" },
                 "resolution": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["kind", "project", "package", "version", "reason"],
+                  "required": ["kind", "project", "package", "version", "match", "reason"],
                   "properties": {
                     "kind": { "enum": ["project", "package", "packagesConfig", "none"] },
                     "project": { "type": ["string", "null"] },
                     "package": { "type": ["string", "null"] },
                     "version": { "type": ["string", "null"] },
+                    "match": {
+                      "enum": ["identical", "fileVersion", "informationalVersion", "assemblyVersion", "newer", null],
+                      "description": "For a package, what matched, strongest first: the same file (SHA-256), the file version, the informational version, the assembly version (the closest build), or only a higher assembly version (an upgrade). ADR 0042."
+                    },
                     "reason": { "type": "string" }
                   }
                 }

@@ -93,7 +93,7 @@ public sealed class DepsResolveDllsCommand : ICommandHandler<DepsResolveDllsOpti
                 var target = dll.Resolution.Kind switch
                 {
                     DllResolutionKind.Project => $"[{Theme.ReadyStyle}]project[/] {Markup.Escape(dll.Resolution.Project!)}",
-                    DllResolutionKind.Package => $"[{Theme.ReadyStyle}]package[/] {Markup.Escape(dll.Resolution.Package!)} {Markup.Escape(dll.Resolution.Version!)}",
+                    DllResolutionKind.Package => $"[{(dll.Resolution.Match == DllMatch.Newer ? Theme.DecisionStyle : Theme.ReadyStyle)}]package[/] {Markup.Escape(dll.Resolution.Package!)} {Markup.Escape(dll.Resolution.Version!)} [dim]({Matched(dll.Resolution.Match)})[/]",
                     _ => dll.Blocker ? $"[{Theme.BlockingStyle}]blocker[/]" : $"[{Theme.DecisionStyle}]unmatched[/]",
                 };
                 output.MarkupLine($"  {Markup.Escape(dll.HintPath)} [dim]({Markup.Escape(dll.AssemblyVersion ?? "?")}, {Markup.Escape(dll.TargetFramework ?? "?")})[/] → {target}");
@@ -108,4 +108,14 @@ public sealed class DepsResolveDllsCommand : ICommandHandler<DepsResolveDllsOpti
             output.MarkupLine("[dim]Dry run. Apply with[/] --apply");
         }
     }
+
+    private static string Matched(DllMatch? match) => match switch
+    {
+        DllMatch.Identical => "the same file",
+        DllMatch.FileVersion => "same file version",
+        DllMatch.InformationalVersion => "same informational version",
+        DllMatch.AssemblyVersion => "closest build",
+        DllMatch.Newer => "newer: an upgrade",
+        _ => "",
+    };
 }

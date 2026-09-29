@@ -34,6 +34,26 @@ public enum DllResolutionKind
     None,
 }
 
+/// <summary>How a package was matched to a DLL, from the strongest evidence to the weakest (ADR 0042).</summary>
+[JsonConverter(typeof(CamelCaseEnumConverter<DllMatch>))]
+public enum DllMatch
+{
+    /// <summary>The package ships the same file, byte for byte (SHA-256).</summary>
+    Identical,
+
+    /// <summary>The package ships the assembly with the DLL's file version: the same build, other bytes.</summary>
+    FileVersion,
+
+    /// <summary>The package ships the assembly with the DLL's informational version.</summary>
+    InformationalVersion,
+
+    /// <summary>The package ships the assembly version, but not this build: the closest one, the lowest package version with it.</summary>
+    AssemblyVersion,
+
+    /// <summary>No package ships the assembly version; the lowest with a higher one is an upgrade.</summary>
+    Newer,
+}
+
 public sealed record DllResolution
 {
     public required DllResolutionKind Kind { get; init; }
@@ -43,6 +63,9 @@ public sealed record DllResolution
     public string? Package { get; init; }
 
     public string? Version { get; init; }
+
+    /// <summary>For a package: what matched (<see cref="DllMatch"/>); null otherwise.</summary>
+    public DllMatch? Match { get; init; }
 
     public required string Reason { get; init; }
 }
@@ -55,6 +78,9 @@ public sealed record LooseDll
     public required string HintPath { get; init; }
 
     public string? AssemblyVersion { get; init; }
+
+    /// <summary>The DLL's <c>AssemblyFileVersionAttribute</c>, or null.</summary>
+    public string? FileVersion { get; init; }
 
     public string? TargetFramework { get; init; }
 
@@ -108,8 +134,10 @@ public sealed record ResolveDllsPlan(ResolveDllsResult Result, ChangeSet? Change
 /// <c>offramp deps resolve-dlls</c> (docs/spec/commands/deps.md): turns loose assembly references
 /// (a <c>HintPath</c> to a DLL) into project or package references. A DLL named like a project's
 /// assembly is that project's output. Otherwise the package named like the assembly is searched,
-/// by inspecting its versions' assets: the lowest version shipping the assembly at the referenced
-/// version or higher, with the same public key, for every target framework of the project.
+/// by inspecting its versions' assets for the assembly with the same public key, for every
+/// target framework of the project, and ranked by what matches (ADR 0042): the same file, the
+/// same file version, the same informational version, the assembly version (the lowest package
+/// version shipping it), and last a higher assembly version (an upgrade).
 /// </summary>
 public static class DllResolver
 {
@@ -151,14 +179,17 @@ public static class DllResolver
 
     private static async Task<LooseDll> ResolveAsync(ResolveDllsRequest request, PackageInspections inspections, ProjectInfo project, AssemblyReferenceInfo reference, CancellationToken cancellationToken)
     {
+        // The file as it is now; the model's metadata when it cannot be read.
+        var facts = AssemblyFacts.ReadFile(RepoPaths.ToAbsolute(request.RepositoryRoot, reference.HintPath!));
         var metadata = reference.Metadata;
         var dll = new LooseDll
         {
             Name = reference.Name,
             HintPath = reference.HintPath!,
-            AssemblyVersion = metadata?.AssemblyVersion,
-            TargetFramework = metadata?.TargetFramework,
-            PublicKeyToken = metadata?.PublicKeyToken,
+            AssemblyVersion = facts?.Version ?? metadata?.AssemblyVersion,
+            FileVersion = facts?.FileVersion,
+            TargetFramework = facts is null ? metadata?.TargetFramework : facts.TargetFramework,
+            PublicKeyToken = facts is null ? metadata?.PublicKeyToken : facts.PublicKeyToken,
             Resolution = new DllResolution { Kind = DllResolutionKind.None, Reason = "" },
         };
         var location = new DiagnosticLocation(project.Id, reference.HintPath);
@@ -185,26 +216,48 @@ public static class DllResolver
             };
         }
 
-        if (await FindPackageAsync(request, inspections, project, dll, cancellationToken) is { } found)
+        var found = await FindPackageAsync(request, inspections, project, dll, facts, cancellationToken);
+        if (found is not null && (dll.PublicKeyToken is not null || found.Match <= DllMatch.InformationalVersion))
         {
-            request.Diagnostics.Report(DiagnosticCatalog.OFR1402, $"{reference.HintPath} is {reference.Name} {dll.AssemblyVersion} from package {found.Package} {found.Version}.", location);
-            return dll with { Resolution = found };
+            request.Diagnostics.Report(DiagnosticCatalog.OFR1402, Matched(dll, found), location,
+                [KeyValuePair.Create<string, JsonNode?>("package", found.Package), KeyValuePair.Create<string, JsonNode?>("version", found.Version.ToNormalizedString()),
+                 KeyValuePair.Create<string, JsonNode?>("match", Wire(found.Match))]);
+            return dll with { Resolution = found.ToResolution(dll, project) };
         }
 
         var described = $"{reference.Name} {dll.AssemblyVersion ?? "(no version)"} for {dll.TargetFramework ?? "no recorded framework"}{(dll.PublicKeyToken is null ? "" : $", public key token {dll.PublicKeyToken}")}";
-        var isFramework = dll.TargetFramework?.StartsWith(".NETFramework", StringComparison.OrdinalIgnoreCase) == true;
-        var none = new DllResolution { Kind = DllResolutionKind.None, Reason = $"No project builds it and no package named {reference.Name} ships it." };
-        if (isFramework)
+        var reason = found is null
+            ? $"No project builds it and no package named {reference.Name} ships it."
+            : $"No project builds it. It is unsigned, and package {found.Package} ships an assembly of that name but not this file or file version; a name alone does not identify it.";
+        var none = new DllResolution { Kind = DllResolutionKind.None, Reason = reason };
+        if (dll.TargetFramework?.StartsWith(".NETFramework", StringComparison.OrdinalIgnoreCase) == true)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR1404, $"{reference.HintPath} ({described}) is built for .NET Framework and nothing replaces it; it blocks the move to the target.", location,
                 [KeyValuePair.Create<string, JsonNode?>("assembly", reference.Name)]);
             return dll with { Resolution = none, Blocker = true };
         }
 
-        request.Diagnostics.Report(DiagnosticCatalog.OFR1403, $"{reference.HintPath} ({described}) matches no project or package.", location,
+        var unsigned = found is null ? "" : $": it is unsigned, and package {found.Package} ships an assembly of that name but not this file or file version; a name alone does not identify it";
+        request.Diagnostics.Report(DiagnosticCatalog.OFR1403, $"{reference.HintPath} ({described}) matches no project or package{unsigned}.", location,
             [KeyValuePair.Create<string, JsonNode?>("assembly", reference.Name)]);
         return dll with { Resolution = none };
     }
+
+    /// <summary>The <c>OFR1402</c> message, worded by what matched.</summary>
+    private static string Matched(LooseDll dll, PackageCandidate found)
+    {
+        var package = $"package {found.Package} {found.Version.ToNormalizedString()}{(found.Listed ? "" : " (unlisted)")}";
+        return found.Match switch
+        {
+            DllMatch.Identical => $"{dll.HintPath} is {dll.Name} {dll.FileVersion ?? dll.AssemblyVersion} from {package}: the same file, byte for byte.",
+            DllMatch.FileVersion => $"{dll.HintPath} is {dll.Name} {dll.FileVersion} from {package}: the same file version, not the same bytes.",
+            DllMatch.InformationalVersion => $"{dll.HintPath} is {dll.Name} {found.InformationalVersion} from {package}: the same informational version, not the same bytes.",
+            DllMatch.AssemblyVersion => $"{dll.HintPath} ({dll.Name} {dll.AssemblyVersion}{(dll.FileVersion is null ? "" : $", file version {dll.FileVersion}")}): no package ships this build; the closest build is in {package}, the lowest with assembly version {dll.AssemblyVersion}.",
+            _ => $"{dll.HintPath} ({dll.Name} {dll.AssemblyVersion}): no package ships this version; {package} is newer, with {dll.Name} {found.ShippedVersion}: an upgrade.",
+        };
+    }
+
+    private static string Wire(DllMatch match) => char.ToLowerInvariant(match.ToString()[0]) + match.ToString()[1..];
 
     /// <summary>
     /// The package in the project's packages.config whose <c>packages/&lt;Id&gt;.&lt;Version&gt;/</c> folder the
@@ -226,54 +279,106 @@ public static class DllResolver
         return null;
     }
 
-    /// <summary>
-    /// The lowest version of the package named like the assembly that ships it at the referenced
-    /// version or higher (an exact version first), with the same public key token, for every
-    /// target framework of the project; null when there is none.
-    /// </summary>
-    private static async Task<DllResolution?> FindPackageAsync(ResolveDllsRequest request, PackageInspections inspections, ProjectInfo project, LooseDll dll, CancellationToken cancellationToken)
+    /// <summary>A package version that ships the DLL's assembly, and how well it matches.</summary>
+    private sealed record PackageCandidate(string Package, NuGetVersion Version, bool Listed, DllMatch Match, string ShippedVersion, string? InformationalVersion)
     {
-        var available = await request.Feeds.GetVersionsAsync(dll.Name, cancellationToken);
-        var referenced = Version.TryParse(dll.AssemblyVersion, out var parsed) ? parsed : new Version(0, 0);
-        var tfms = project.TargetFrameworks.Select(NuGetFramework.Parse).ToList();
-        (NuGetVersion Version, bool Exact)? best = null;
-        foreach (var version in available.Versions.Where(v => v.Listed && (request.IncludePrerelease || !v.Version.IsPrerelease)).Select(v => v.Version).Order())
+        /// <summary>Stronger evidence first; within the same evidence a listed version before an unlisted one; else the earlier (lower) one stays.</summary>
+        public bool Beats(PackageCandidate? other) =>
+            other is null || Match < other.Match || (Match == other.Match && Listed && !other.Listed);
+
+        public DllResolution ToResolution(LooseDll dll, ProjectInfo project) => new()
         {
-            if (await inspections.GetAsync(dll.Name, version, cancellationToken) is not { } inspection || !tfms.All(t => TargetSupport.Supports(inspection, t)))
+            Kind = DllResolutionKind.Package,
+            Package = Package,
+            Version = Version.ToNormalizedString(),
+            Match = Match,
+            Reason = Match switch
+            {
+                DllMatch.Identical => $"{Package} {Version.ToNormalizedString()} ships this file, byte for byte, for {string.Join(", ", project.TargetFrameworks)}.",
+                DllMatch.FileVersion => $"{Package} {Version.ToNormalizedString()} ships {dll.Name} file version {dll.FileVersion} for {string.Join(", ", project.TargetFrameworks)}.",
+                DllMatch.InformationalVersion => $"{Package} {Version.ToNormalizedString()} ships {dll.Name} {InformationalVersion} for {string.Join(", ", project.TargetFrameworks)}.",
+                DllMatch.AssemblyVersion => $"{Package} {Version.ToNormalizedString()} is the lowest version that ships {dll.Name} {dll.AssemblyVersion} for {string.Join(", ", project.TargetFrameworks)}; no version ships this build.",
+                _ => $"No version ships {dll.Name} {dll.AssemblyVersion}; {Package} {Version.ToNormalizedString()} is the lowest with a higher one ({ShippedVersion}) for {string.Join(", ", project.TargetFrameworks)}: an upgrade.",
+            } + (Listed ? "" : " The version is unlisted on the feed."),
+        };
+    }
+
+    /// <summary>
+    /// The best version of the package named like the assembly: one that ships the assembly with
+    /// the same public key token (none for an unsigned DLL), at the referenced version or higher,
+    /// for every target framework of the project, ranked by <see cref="DllMatch"/>. Unlisted versions
+    /// count when they ship the referenced assembly version (a checked-in DLL is often of a version
+    /// its authors unlisted later), never as an upgrade. Null when none ships it, or when the DLL's
+    /// version is unknown.
+    /// </summary>
+    private static async Task<PackageCandidate?> FindPackageAsync(
+        ResolveDllsRequest request, PackageInspections inspections, ProjectInfo project, LooseDll dll, AssemblyFacts? facts, CancellationToken cancellationToken)
+    {
+        if (!Version.TryParse(dll.AssemblyVersion, out var referenced))
+        {
+            return null;
+        }
+
+        var id = dll.Name;
+        var available = await request.Feeds.GetVersionsAsync(id, cancellationToken);
+        var tfms = project.TargetFrameworks.Select(NuGetFramework.Parse).ToList();
+        PackageCandidate? best = null;
+        var exactSeen = false;
+        foreach (var info in available.Versions.Where(v => request.IncludePrerelease || !v.Version.IsPrerelease).OrderBy(v => v.Version))
+        {
+            if (await inspections.GetAsync(id, info.Version, cancellationToken) is not { } inspection || !tfms.All(t => TargetSupport.Supports(inspection, t)))
             {
                 continue;
             }
 
             var shipped = inspection.Assemblies
                 .Where(a => string.Equals(a.Name, dll.Name, StringComparison.OrdinalIgnoreCase) && Version.TryParse(a.Version, out var v) && v >= referenced)
-                .Where(a => dll.PublicKeyToken is null || string.Equals(a.PublicKeyToken, dll.PublicKeyToken, StringComparison.OrdinalIgnoreCase))
+                .Where(a => string.Equals(a.PublicKeyToken, dll.PublicKeyToken, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(a => a.Path, StringComparer.Ordinal)
                 .ToList();
             if (shipped.Count == 0)
             {
                 continue;
             }
 
-            var exact = shipped.Any(a => Version.Parse(a.Version!) == referenced);
-            if (best is null || (exact && !best.Value.Exact))
+            var exact = shipped.Where(a => Version.Parse(a.Version!) == referenced).ToList();
+            if (exactSeen && exact.Count == 0)
             {
-                best = (version, exact);
+                // Past the versions that ship the referenced assembly version: the rest can only be upgrades.
+                break;
             }
 
-            if (exact)
+            exactSeen |= exact.Count > 0;
+            var candidate = Candidate(id, info, shipped, exact, facts);
+            if (candidate is not null && candidate.Beats(best))
+            {
+                best = candidate;
+            }
+
+            if (best?.Match == DllMatch.Identical)
             {
                 break;
             }
         }
 
-        return best is { } chosen
-            ? new DllResolution
-            {
-                Kind = DllResolutionKind.Package,
-                Package = dll.Name,
-                Version = chosen.Version.ToNormalizedString(),
-                Reason = $"{dll.Name} {chosen.Version.ToNormalizedString()} ships {dll.Name} {(chosen.Exact ? dll.AssemblyVersion : "at or above " + dll.AssemblyVersion)} for {string.Join(", ", project.TargetFrameworks)}.",
-            }
-            : null;
+        return best;
+    }
+
+    /// <summary>How one package version's assets match the DLL; null for an unlisted version that is only an upgrade.</summary>
+    private static PackageCandidate? Candidate(string id, PackageVersionInfo info, List<InspectedAssembly> shipped, List<InspectedAssembly> exact, AssemblyFacts? facts)
+    {
+        var match = exact.Count == 0 ? DllMatch.Newer
+            : facts is not null && shipped.Any(a => string.Equals(a.Sha256, facts.Sha256, StringComparison.Ordinal)) ? DllMatch.Identical
+            : facts?.FileVersion is { } file && exact.Any(a => a.FileVersion == file) ? DllMatch.FileVersion
+            : facts?.InformationalVersion is { } informational && exact.Any(a => a.InformationalVersion == informational) ? DllMatch.InformationalVersion
+            : DllMatch.AssemblyVersion;
+        if (match == DllMatch.Newer && !info.Listed)
+        {
+            return null;
+        }
+
+        var shippedVersion = shipped.Select(a => Version.Parse(a.Version!)).Min()!.ToString();
+        return new PackageCandidate(id, info.Version, info.Listed, match, shippedVersion, facts?.InformationalVersion);
     }
 
     /// <summary>
@@ -295,14 +400,14 @@ public static class DllResolver
         var central = project.Properties.TryGetValue("ManagePackageVersionsCentrally", out var value) && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
         foreach (var dll in resolved)
         {
-            editor.RemoveReference(dll.Name);
+            // In place, keeping the Reference's condition and its item group's, when it has one.
             if (dll.Resolution.Kind == DllResolutionKind.Project)
             {
-                editor.AddProjectReference(Relative(project.Id, dll.Resolution.Project!));
+                editor.ReplaceReference(dll.Name, "ProjectReference", Relative(project.Id, dll.Resolution.Project!), null);
             }
             else
             {
-                editor.AddPackageReference(dll.Resolution.Package!, central ? null : dll.Resolution.Version);
+                editor.ReplaceReference(dll.Name, "PackageReference", dll.Resolution.Package!, central ? null : dll.Resolution.Version);
             }
         }
 

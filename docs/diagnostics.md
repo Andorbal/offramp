@@ -989,7 +989,7 @@ A `Reference` with a `HintPath` points at a DLL whose assembly name is a project
 
 **loose DLL matched to a package** · info · deps
 
-A `Reference` with a `HintPath` points at a DLL that a package ships (same assembly name and public key, at the referenced version or higher, for every target framework of the project).
+A `Reference` with a `HintPath` points at a DLL that a package ships (same assembly name and public key, at the referenced version or higher, for every target framework of the project). The message says what matched: the same file, the same file or informational version, the closest build (the assembly version only), or a newer version, which is an upgrade.
 
 - **Typical cause:** A package's DLL copied into a lib folder by hand.
 - **Fix:** Apply `deps resolve-dlls`, which swaps the reference for a `PackageReference`.
@@ -998,9 +998,9 @@ A `Reference` with a `HintPath` points at a DLL that a package ships (same assem
 
 **loose DLL unmatched** · warning · deps
 
-No project builds the DLL and no package named like the assembly ships it. Its metadata (version, target framework, public key token) is attached for a person to decide.
+No project builds the DLL and no package named like the assembly ships it. Its metadata (version, target framework, public key token) is attached for a person to decide. An unsigned DLL is matched only by its file (the same bytes, file version, or informational version), since anyone can publish an assembly of that name; the message names the package that has the name.
 
-- **Typical cause:** A vendor or in-house DLL with no package, or a package whose id differs from the assembly name.
+- **Typical cause:** A vendor or in-house DLL with no package, a package whose id differs from the assembly name, or an unsigned DLL built from source.
 - **Fix:** Find the package or source it came from, or publish it to a private feed.
 
 ### OFR1404
