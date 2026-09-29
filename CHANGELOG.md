@@ -73,6 +73,19 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   stops only at NuGet audit (known vulnerabilities, made errors by `TreatWarningsAsErrors`): 42
   of the 43 failures on DotNetNuke. They are reported as `OFR4305` and verification runs with
   audit off.
+- `move plan` names the first compiler error in `OFR2103`'s message (it was only in
+  `data.details`), and tells the destination's warning policy from portability: a file whose
+  only errors are warnings the destination treats as errors is `OFR2112`. On DotNetNuke, 287 of
+  389 `OFR2103` exclusions were CS1591 (missing XML comment) in a destination that builds its
+  documentation with warnings as errors.
+- `move plan` no longer plans moves that rely on an `InternalsVisibleTo` item a destination
+  ignores: an SDK-style project with `GenerateAssemblyInfo=false` (a shared `SolutionInfo.cs`)
+  does not turn the item into an attribute, so verification failed with CS0122 and rolled back.
+  Files that need internals then stay, with the reason; the same for a strong-named assembly or
+  a legacy project without `Properties/AssemblyInfo.cs`.
+- `codemod run` reports a skip reason once per project, with the number of sites, instead of at
+  every site (367 identical notices for `http-context` on a System.Web project); the result
+  still lists each site.
 - Compilations of legacy (non-SDK) Visual Basic projects rebuilt from the compiler log get
   `mscorlib` from the recorded `/sdkpath`; `vbc` adds it by itself, so the log did not name it
   and nothing in them bound.
@@ -106,6 +119,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
     failed is `OFR0115` (`build-event`) also when a target runs it.
   - `docs/compiling-on-macos.md` explains each, with the `Directory.Build.targets` fix for the
     CodeDom provider's inline tasks.
+- `OFR2112` (warning): a file compiles in the destination but raises warnings it treats as
+  errors.
 - `OFR4305` (warning): a converted project's build fails NuGet audit under warnings as errors.
 - `OFR0121` (warning): a standard, modern, or dual project's portable target references a
   project that targets only .NET Framework. It builds only because a legacy project skips

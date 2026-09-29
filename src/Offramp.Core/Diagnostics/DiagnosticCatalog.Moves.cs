@@ -196,6 +196,14 @@ public static partial class DiagnosticCatalog
         "Adjust the destination's Remove pattern in a separate change, then plan again.",
         MovesArea);
 
+    public static readonly DiagnosticDescriptor OFR2112 = new(
+        "OFR2112", Severity.Warning,
+        "file breaks the destination's warning policy",
+        "The file compiles in the destination, but raises warnings the destination treats as errors (`TreatWarningsAsErrors`, `WarningsAsErrors`), so it stays where it is. The message names the warnings and the first one; the file is portable.",
+        "A destination that generates documentation (CS1591 for public members without XML comments), enables nullable warnings, or runs analyzers the source does not, with warnings as errors.",
+        "Fix the warnings in the source project first (they are the destination's rules), or relax them for the moved code in the destination (`NoWarn`, `WarningsNotAsErrors`, an `.editorconfig` section), then plan the move again.",
+        MovesArea);
+
     public static readonly DiagnosticDescriptor OFR2120 = new(
         "OFR2120", Severity.Warning,
         "namespace differs from destination root namespace",

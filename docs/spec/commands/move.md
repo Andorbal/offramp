@@ -56,7 +56,10 @@ frameworks:
    Compilation, add the moved trees (and co-moves), add metadata references for
    references that would be added, and read diagnostics for the added trees
    only. Any error → excluded with the first three errors (`OFR2103 does not
-   compile in destination`). Then take `SRC`'s Compilation, remove the trees,
+   compile in destination`, the first one in the message). When every error is
+   a warning `DEST` treats as an error (`TreatWarningsAsErrors`,
+   `WarningsAsErrors`), the file is portable and `DEST`'s policy is the reason:
+   `OFR2112`, with the warnings. Then take `SRC`'s Compilation, remove the trees,
    and read diagnostics for the remaining trees: new errors mean the source
    still needs the code → resolved by `SRC → DEST` reference if acyclic, else
    `OFR2104 source still depends on moved code`.
@@ -74,7 +77,13 @@ frameworks:
 7. **Internals.** Moved code using `internal` members of `SRC` needs
    `InternalsVisibleTo(DEST)` in `SRC` (`addInternalsVisibleTo`, an edit to
    `SRC`'s csproj or `AssemblyInfo`, never to a moved file) or is excluded when
-   `SRC` cannot be edited (`frozen`).
+   `SRC` cannot be edited (`frozen`). It is also excluded (`OFR2103`, with the
+   reason) when the attribute could not take effect: an SDK-style project that
+   does not generate its assembly info (`GenerateAssemblyInfo=false`, usual with
+   a shared `SolutionInfo.cs`) ignores `InternalsVisibleTo` items, a legacy
+   project needs a `Properties/AssemblyInfo.cs`, and a strong-named assembly
+   needs the friend's public key. The same holds for `DEST` when code staying
+   in `SRC` uses moved internals.
 
 Plan file:
 
@@ -426,6 +435,7 @@ offramp forwarders --from SRC.csproj --to DEST.csproj [--since GIT_REF] [--apply
 | OFR2105 | Windows-only API used (CA1416) |
 | OFR2110 | partial type co-moved |
 | OFR2111 | destination excludes the file's path |
+| OFR2112 | file compiles but breaks the destination's warning policy |
 | OFR2120 | namespace differs from destination root namespace |
 | OFR2150 | file changed since plan |
 | OFR2151 | file changed since the move; rollback stopped |

@@ -120,6 +120,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR2105](#ofr2105) | warning | move | moved file uses Windows-only APIs |
 | [OFR2110](#ofr2110) | info | move | partial type co-moved |
 | [OFR2111](#ofr2111) | warning | move | destination excludes the file path |
+| [OFR2112](#ofr2112) | warning | move | file breaks the destination's warning policy |
 | [OFR2120](#ofr2120) | warning | move | namespace differs from destination root namespace |
 | [OFR2150](#ofr2150) | warning | move | file changed since plan |
 | [OFR2151](#ofr2151) | error | move | file changed since the move; rollback stopped |
@@ -1073,6 +1074,15 @@ The destination's project file removes the path the file would move to from its 
 
 - **Typical cause:** A `<Compile Remove="..." />` glob in the destination covering the moved folder.
 - **Fix:** Adjust the destination's Remove pattern in a separate change, then plan again.
+
+### OFR2112
+
+**file breaks the destination's warning policy** · warning · move
+
+The file compiles in the destination, but raises warnings the destination treats as errors (`TreatWarningsAsErrors`, `WarningsAsErrors`), so it stays where it is. The message names the warnings and the first one; the file is portable.
+
+- **Typical cause:** A destination that generates documentation (CS1591 for public members without XML comments), enables nullable warnings, or runs analyzers the source does not, with warnings as errors.
+- **Fix:** Fix the warnings in the source project first (they are the destination's rules), or relax them for the moved code in the destination (`NoWarn`, `WarningsNotAsErrors`, an `.editorconfig` section), then plan the move again.
 
 ### OFR2120
 

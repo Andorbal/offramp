@@ -214,7 +214,7 @@ public static class MovePlanner
                 }
 
                 needs = NeedsPerTarget(candidates);
-                if (!TrialCompile(candidates, needs) && !SourceCheck(candidates, needs) && !DependentsCheck(candidates))
+                if (!InternalsCheck(candidates) && !TrialCompile(candidates, needs) && !SourceCheck(candidates, needs) && !DependentsCheck(candidates))
                 {
                     break;
                 }
@@ -301,14 +301,11 @@ public static class MovePlanner
             foreach (var (tfm, compilation) in destinations)
             {
                 var trial = DestinationTrial(tfm, compilation, candidates, [], out var moved);
-                var errors = trial.GetSemanticModel(moved[file]).GetDiagnostics()
-                    .Where(d => d.Severity == DiagnosticSeverity.Error)
-                    .Take(3)
-                    .Select(e => $"{tfm}: {e.Id}: {e.GetMessage(CultureInfo.InvariantCulture)}")
-                    .ToList();
+                var errors = trial.GetSemanticModel(moved[file]).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
                 if (errors.Count > 0)
                 {
-                    return No(DiagnosticCatalog.OFR2103, $"Does not compile in {destination.Id}.", errors);
+                    var failure = CompileFailure(tfm, errors);
+                    return No(failure.Code, failure.Message, failure.Details);
                 }
             }
 
@@ -449,10 +446,83 @@ public static class MovePlanner
             return changed;
         }
 
+        /// <summary>
+        /// Files that need InternalsVisibleTo stay when it cannot take effect: moved files whose internal
+        /// members code staying in the source uses (the destination would grant the source), or, when the
+        /// destination is above the source, moved files that use the source's internal members. Returns
+        /// true when a file had to be excluded.
+        /// </summary>
+        private bool InternalsCheck(SortedSet<string> candidates)
+        {
+            var changed = false;
+            if (!DestinationAboveSource && InternalsBlocked(destination, destinations[0].Compilation, sourceCompilation.AssemblyName!, request.Create is not null) is { } destinationBlocked)
+            {
+                var usedFromSource = _uses.Where(u => !candidates.Contains(u.Key))
+                    .SelectMany(u => u.Value.Internals)
+                    .SelectMany(s => s.DeclaringSyntaxReferences)
+                    .Select(r => FileOf(r.SyntaxTree))
+                    .OfType<string>()
+                    .ToHashSet(StringComparer.Ordinal);
+                foreach (var file in candidates.Where(usedFromSource.Contains).ToList())
+                {
+                    changed |= Exclude(candidates, file, DiagnosticCatalog.OFR2103,
+                        $"Code staying in {source.Id} uses its internal members, and {destinationBlocked}.", []);
+                }
+            }
+
+            if (DestinationAboveSource && InternalsBlocked(source, sourceCompilation, destinations[0].Compilation.AssemblyName!, created: false) is { } sourceBlocked)
+            {
+                foreach (var file in candidates.Where(_uses.ContainsKey).ToList())
+                {
+                    var stays = _uses[file].Internals.Any(s => s.DeclaringSyntaxReferences.Any(r => FileOf(r.SyntaxTree) is { } f && !candidates.Contains(f)));
+                    if (stays)
+                    {
+                        changed |= Exclude(candidates, file, DiagnosticCatalog.OFR2103,
+                            $"Uses internal members that stay in {source.Id}, and {sourceBlocked}.", []);
+                    }
+                }
+            }
+
+            return changed;
+        }
+
+        /// <summary>
+        /// Why InternalsVisibleTo for <paramref name="friend"/> cannot take effect in <paramref name="project"/>, or null
+        /// when it can (or is there already). An SDK-style project turns InternalsVisibleTo items into attributes only
+        /// when it generates its assembly info, which a shared SolutionInfo.cs usually turns off
+        /// (<c>GenerateAssemblyInfo=false</c>); a legacy project needs a Properties/AssemblyInfo.cs; a strong-named
+        /// assembly needs the friend's public key.
+        /// </summary>
+        private static string? InternalsBlocked(ProjectInfo project, CSharpCompilation compilation, string friend, bool created)
+        {
+            if (created || compilation.Assembly.GetAttributes().Any(a => a.AttributeClass?.Name == "InternalsVisibleToAttribute"
+                && a.ConstructorArguments.FirstOrDefault().Value is string target
+                && string.Equals(target.Split(',')[0].Trim(), friend, StringComparison.OrdinalIgnoreCase)))
+            {
+                return null;
+            }
+
+            if (compilation.Assembly.Identity.IsStrongName)
+            {
+                return $"{project.Name} is strong-named, so InternalsVisibleTo would need {friend}'s public key";
+            }
+
+            if (project.SdkStyle)
+            {
+                var generated = compilation.SyntaxTrees.Any(t => t.FilePath.Replace('\\', '/').Contains("/obj/", StringComparison.OrdinalIgnoreCase)
+                    && t.FilePath.EndsWith(".AssemblyInfo.cs", StringComparison.OrdinalIgnoreCase));
+                return generated ? null : $"{project.Id} does not generate its assembly info (GenerateAssemblyInfo=false), so an InternalsVisibleTo item would have no effect";
+            }
+
+            return project.Compile.Any(f => f.EndsWith("/AssemblyInfo.cs", StringComparison.OrdinalIgnoreCase))
+                ? null
+                : $"{project.Id} is not SDK-style and has no Properties/AssemblyInfo.cs to add InternalsVisibleTo to";
+        }
+
         /// <summary>Compiles the moved files in every destination target; returns true when a file had to be excluded.</summary>
         private bool TrialCompile(SortedSet<string> candidates, Dictionary<string, List<ReferenceNeed>> needs)
         {
-            var failing = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
+            var failing = new SortedDictionary<string, (DiagnosticDescriptor Code, string Message, List<string> Details)>(StringComparer.Ordinal);
             foreach (var (tfm, compilation) in destinations)
             {
                 var trial = DestinationTrial(tfm, compilation, candidates, needs[tfm], out var moved);
@@ -461,14 +531,14 @@ public static class MovePlanner
                     var errors = trial.GetSemanticModel(tree).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
                     if (errors.Count > 0 && !failing.ContainsKey(file))
                     {
-                        failing[file] = [.. errors.Take(3).Select(e => $"{tfm}: {e.Id}: {e.GetMessage(CultureInfo.InvariantCulture)}")];
+                        failing[file] = CompileFailure(tfm, errors);
                     }
                 }
             }
 
-            foreach (var (file, errors) in failing)
+            foreach (var (file, failure) in failing)
             {
-                Exclude(candidates, file, DiagnosticCatalog.OFR2103, $"Does not compile in {destination.Id}.", errors);
+                Exclude(candidates, file, failure.Code, failure.Message, failure.Details);
             }
 
             return failing.Count > 0;
@@ -941,6 +1011,24 @@ public static class MovePlanner
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Why a file does not compile in a destination target, first error in the message: the file's
+        /// portability (<c>OFR2103</c>), or, when every error is a warning the destination treats as an
+        /// error, the destination's warning policy (<c>OFR2112</c>).
+        /// </summary>
+        private (DiagnosticDescriptor Code, string Message, List<string> Details) CompileFailure(string tfm, IReadOnlyList<RoslynDiagnostic> errors)
+        {
+            static string Line(string tfm, RoslynDiagnostic e) => $"{tfm}: {e.Id}: {e.GetMessage(CultureInfo.InvariantCulture)}";
+            var details = errors.OrderBy(e => e.IsWarningAsError).Take(3).Select(e => Line(tfm, e)).ToList();
+            if (errors.All(e => e.IsWarningAsError))
+            {
+                var ids = string.Join(", ", errors.Select(e => e.Id).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
+                return (DiagnosticCatalog.OFR2112, $"Compiles in {destination.Id}, which treats warnings as errors ({ids}): {details[0]}", details);
+            }
+
+            return (DiagnosticCatalog.OFR2103, $"Does not compile in {destination.Id}: {details[0]}", details);
         }
 
         private bool Exclude(SortedSet<string> candidates, string file, DiagnosticDescriptor code, string message, List<string> details)

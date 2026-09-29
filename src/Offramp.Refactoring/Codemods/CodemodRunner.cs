@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
@@ -158,10 +160,7 @@ public static class CodemodRunner
         };
         result = AddPackages(request, project, result, projectFiles);
         result = AddProperties(project, result, sites, projectFiles);
-        foreach (var site in result.Sites.Where(s => s.Outcome == CodemodSiteOutcome.Skipped))
-        {
-            request.Diagnostics.Report(DiagnosticCatalog.OFR4501, $"{site.Codemod}: {site.Reason}", new DiagnosticLocation(project.Id, site.File, site.Line, site.Column));
-        }
+        ReportSkipped(request.Diagnostics, project.Id, result.Sites);
 
         if (result.Sites.Any(s => s.Codemod == Catalog.SqlClient.Name && s.Outcome == CodemodSiteOutcome.Rewritten))
         {
@@ -171,6 +170,24 @@ public static class CodemodRunner
         }
 
         return result.Sites.Count == 0 ? null : result;
+    }
+
+    /// <summary>
+    /// One <c>OFR4501</c> per codemod and reason in a project, at its first site: a reason about the
+    /// project (it does not reference ASP.NET Core) would otherwise repeat at every site. The result
+    /// lists each site.
+    /// </summary>
+    internal static void ReportSkipped(DiagnosticBag diagnostics, string project, IEnumerable<CodemodSite> sites)
+    {
+        foreach (var group in sites.Where(s => s.Outcome == CodemodSiteOutcome.Skipped).GroupBy(s => (s.Codemod, s.Reason)))
+        {
+            var site = group.First();
+            var count = group.Count();
+            diagnostics.Report(DiagnosticCatalog.OFR4501,
+                count == 1 ? $"{site.Codemod}: {site.Reason}" : string.Create(CultureInfo.InvariantCulture, $"{site.Codemod}: {site.Reason} ({count} sites in {project}; the result lists each.)"),
+                new DiagnosticLocation(project, site.File, site.Line, site.Column),
+                count == 1 ? null : [KeyValuePair.Create<string, JsonNode?>("sites", count)]);
+        }
     }
 
     /// <summary>Analyzes the project as it is now, records every site, and fixes the fixable ones document by document.</summary>
