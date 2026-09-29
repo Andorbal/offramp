@@ -25,6 +25,9 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `scan`; the compiler call it recorded can lack sources or references.
 - `OFR3015` (info): `audit api` could not find one of a project's packages on the feeds (NU1101,
   NU1102, NU1103), so it references the package's DLLs as recorded and does not check them.
+- `OFR0024` (info): a solution project that is not C#, Visual Basic, or F# (C++, WiX, a database or
+  JavaScript project) is named once and left out of the model; `OFR0025` (warning): a C++/CLI
+  project (`CLRSupport` set), which compiles .NET code that Offramp does not migrate.
 - The workspace model records the packages each `packages.config` lists
   (`packagesConfigPackages`: id, version, target framework, development dependency), and the
   `packages` index includes them (ADR 0035). `deps audit` audits them: on DotNetNuke 9.13 it
@@ -198,6 +201,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   instead of 1,439, 6,989 of them `System.Web.Mvc` and 714 `System.Web.Http`, and `OFR3011`
   names the packages without target support in 23 projects (the audit takes 201 s instead of
   142 s). This was the `audit api` part of DotNetNuke's P1 #7.
+- A project that is not C#, Visual Basic, or F# is never in the workspace model, its framework
+  counts, `plan`, or `report` (ADR 0049). When MSBuild evaluated Open Live Writer's
+  `OpenLiveWriter.Ribbon.vcxproj`, it was a .NET Framework library (`language: other`, no target
+  frameworks classified as `framework`), `plan` put it in wave 1 as `ready`, and `report` counted
+  it; when MSBuild did not, it was `OFR0101` "unsupported project type". Now it is `OFR0024`
+  either way, or `OFR0025` for C++/CLI.
 - A project whose compiler call logged errors is `partial` in the workspace model and in `scan`'s
   result: the compiler log records the call, but its compilation is broken. NHibernate compiled
   with an error (a generated file missing) and Open Live Writer's MSTest project with 363 errors,

@@ -152,4 +152,56 @@ public sealed class ScanModelTests
         Assert.Equal(["NET", "NET_2_0", "DEBUG", "TRACE", "LEGACY"], compiled.DefineConstants["net40"]);
         Assert.Equal(["DEBUG", "TRACE", "_MyType"], ProjectModelBuilder.DefinedSymbols("DEBUG=-1,TRACE=-1,_MyType=\"Windows\""));
     }
+
+    /// <summary>
+    /// Open Live Writer P1 #8: a native project MSBuild evaluated entered the model as a .NET Framework library
+    /// (<c>language: other</c>, <c>frameworkClass: framework</c>), and <c>plan</c> and <c>report</c> counted it; one it
+    /// did not evaluate was "not loaded". Neither is in the model now; each is named once, and C++/CLI is a warning.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR0024")]
+    [ProducesDiagnostic("OFR0025")]
+    public async Task Projects_that_are_not_csharp_visual_basic_or_fsharp_stay_out_of_the_model()
+    {
+        using var repo = new ScratchDirectory("scan-native");
+        repo.Write("Directory.Build.props", "<Project />");
+        repo.Write("Directory.Build.targets", "<Project />");
+        repo.Write("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+        repo.Write("App/Code.cs", "namespace App; public static class Code { }\n");
+
+        // MSBuild cannot evaluate a C++ project outside Visual Studio (MSB4278); it evaluates this one.
+        repo.Write("Native/Native.vcxproj", """
+            <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+                <ConfigurationType>DynamicLibrary</ConfigurationType>
+                <CLRSupport>true</CLRSupport>
+              </PropertyGroup>
+              <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+            </Project>
+            """);
+        repo.Write("Web/Web.esproj", "<Project>\n  <Target Name=\"Build\" />\n  <Target Name=\"Restore\" />\n  <Target Name=\"Rebuild\" />\n</Project>\n");
+        repo.Write("App.slnx", "<Solution>\n  <Project Path=\"App/App.csproj\" />\n  <Project Path=\"Native/Native.vcxproj\" />\n  <Project Path=\"Web/Web.esproj\" />\n</Solution>\n");
+        var bag = new DiagnosticBag();
+
+        var outcome = await ScanRunner.RunAsync(ScannedFixtures.Request(repo.Path, bag), CancellationToken.None);
+
+        Assert.Equal(ScanFailure.None, outcome.Failure);
+        Assert.Equal(["App/App.csproj"], outcome.Model!.Projects.Select(p => p.Id));
+        Assert.Empty(outcome.Result!.NotLoaded);
+        Assert.Equal(1, outcome.Result.ByFrameworkClass.Values.Sum());
+        var diagnostics = bag.ToSortedList();
+        var native = Assert.Single(diagnostics, d => d.Project == "Native/Native.vcxproj");
+        Assert.Equal("OFR0025", native.Code);
+        Assert.Contains("CLRSupport=true", native.Message, StringComparison.Ordinal);
+        var web = Assert.Single(diagnostics, d => d.Project == "Web/Web.esproj");
+        Assert.Equal("OFR0024", web.Code);
+        Assert.Contains("JavaScript project", web.Message, StringComparison.Ordinal);
+        Assert.Contains(outcome.Model.Diagnostics, d => d.Code == "OFR0024");
+    }
 }

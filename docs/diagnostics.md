@@ -44,6 +44,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0020](#ofr0020) | error | workspace | more than one solution found |
 | [OFR0021](#ofr0021) | error | workspace | project not in the workspace model |
 | [OFR0022](#ofr0022) | error | workspace | no solution found |
+| [OFR0024](#ofr0024) | info | scan | project is not C#, Visual Basic, or F# |
+| [OFR0025](#ofr0025) | warning | scan | C++/CLI project needs migrating |
 | [OFR0030](#ofr0030) | error | configuration | offramp.yml already exists |
 | [OFR0040](#ofr0040) | error | guide | guide progress file unreadable |
 | [OFR0041](#ofr0041) | error | guide | guide step needs a project |
@@ -400,6 +402,24 @@ A project named on the command line is not part of the scanned solution.
 
 - **Typical cause:** A repository without `.sln`/`.slnx` files, or one where the solution lives outside the repository root.
 - **Fix:** Pass `--solution PATH`, set `solution:` in `offramp.yml`, or pass `--binlog`/`--complog` from a build made elsewhere.
+
+### OFR0024
+
+**project is not C#, Visual Basic, or F#** · info · scan
+
+The solution has a project of another kind (C++, an installer, a database, JavaScript). Offramp does not migrate it, so it is left out of the workspace model, its framework counts, `plan`, and `report`, whether MSBuild evaluated it or not. `data.kind` names the kind; a C++ project built for .NET with `CLRSupport=NetCore` is named here too.
+
+- **Typical cause:** A native C++ project, a WiX or Visual Studio Installer project, a SQL Server Database Project evaluated on Windows, a Node.js or Python project, or a shared project (`.shproj`) in the solution.
+- **Fix:** Nothing to do for Offramp. Such a project keeps building as it does; migrate the .NET projects around it.
+
+### OFR0025
+
+**C++/CLI project needs migrating** · warning · scan
+
+A C++ project sets `CLRSupport` (`true`, `Pure`, or `Safe`): it compiles .NET Framework code (C++/CLI), so it is part of the migration, but Offramp does not analyze or convert it and leaves it out of the model and the plan. .NET runs C++/CLI on Windows only, built with `CLRSupport=NetCore`, and does not support `Pure` or `Safe`.
+
+- **Typical cause:** A mixed-mode assembly that wraps a native library for the .NET projects of the solution.
+- **Fix:** Port it to .NET's C++/CLI support (`CLRSupport=NetCore` with a `TargetFramework`, Windows only), or replace it with P/Invoke or a .NET library, before migrating the projects that reference it.
 
 ### OFR0030
 

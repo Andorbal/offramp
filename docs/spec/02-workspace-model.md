@@ -37,6 +37,13 @@ There is no `--fast` mode: a build that skips the compiler produces no
 assemblies for project references, so dependents lose their compiler calls
 (`docs/decisions/0008-no-fast-scan.md`).
 
+The model holds the solution's C#, Visual Basic, and F# projects. A project of
+another kind (C++, an installer, a database project, JavaScript) is never in it,
+its counts, or the plan, whether MSBuild evaluated it or not: `scan` names it once
+(`OFR0024`, info), and a C++/CLI project (`CLRSupport` set), which compiles .NET
+code and does need migrating, as `OFR0025` (warning)
+(`docs/decisions/0049-what-the-workspace-model-records.md`).
+
 ## Ingest
 
 From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
@@ -122,7 +129,7 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
       "name": "Foo",
       "assemblyName": "Foo",
       "rootNamespace": "Foo",
-      "language": "csharp",                       // csharp | vb | fsharp | other, from the extension
+      "language": "csharp",                       // csharp | vb | fsharp, from the extension (other: never written by scan)
       "kind": "library",
       "kindEvidence": "OutputType=Library",
       "sdkStyle": true,

@@ -470,6 +470,7 @@ public static class ScanRunner
         };
 
         var projects = new List<ProjectInfo>();
+        var others = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var group in data.Evaluations.GroupBy(e => e.ProjectFile, StringComparer.Ordinal))
         {
             var id = mapper.ToRelative(group.Key);
@@ -478,12 +479,27 @@ public static class ScanRunner
                 continue;
             }
 
+            if (!OtherProjects.IsDotNet(id))
+            {
+                others.Add(id);
+                continue;
+            }
+
             projects.Add(ProjectModelBuilder.Build(id, [.. group], context));
         }
 
         projects.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
         var notLoaded = await FindNotLoadedAsync(request, data, mapper, projects, solution, cancellationToken);
+
+        // Projects that are not C#, Visual Basic, or F# are named once, evaluated or not, and never loaded.
+        others.UnionWith(notLoaded.Select(n => n.Project).Where(p => others.Contains(p) || OtherProjects.IsOtherListed(p)));
+        notLoaded = [.. notLoaded.Where(n => !others.Contains(n.Project))];
         var loading = new List<Diagnostic>();
+        foreach (var other in others)
+        {
+            loading.Add(OtherProjects.Report(request.Diagnostics, root, other)!);
+        }
+
         foreach (var missing in notLoaded)
         {
             loading.Add(request.Diagnostics.Report(DiagnosticCatalog.OFR0101, $"Not loaded: {missing.Reason}.",
