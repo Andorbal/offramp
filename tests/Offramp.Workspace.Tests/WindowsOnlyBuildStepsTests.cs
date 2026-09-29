@@ -84,9 +84,9 @@ public sealed class WindowsOnlyBuildStepsTests
     [ProducesDiagnostic("OFR0117")]
     public void A_path_that_exists_only_in_another_letter_case_is_named_with_its_spelling_on_disk()
     {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows file systems ignore case, so every spelling exists.");
         using var repo = new ScratchDirectory("path-case");
         repo.Write("build/Scripts/Package.targets", "<Project />");
+        Assert.SkipWhen(Directory.Exists(Path.Combine(repo.Path, "BUILD")), "This file system ignores letter case (Windows, macOS), so every spelling exists.");
         repo.Write("src/A/Layout/XMLLayout.cs", "class L {}");
         var import = Path.Combine(repo.Path, "Build", "Scripts", "Package.Targets");
         var source = Path.Combine(repo.Path, "src", "A", "Layout", "XmlLayout.cs");
