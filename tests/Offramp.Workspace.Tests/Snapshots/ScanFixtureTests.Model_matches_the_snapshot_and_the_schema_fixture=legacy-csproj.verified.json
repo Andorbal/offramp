@@ -75,12 +75,6 @@
           "hintPath": null,
           "kind": "framework",
           "metadata": null
-        },
-        {
-          "name": "System.Core",
-          "hintPath": null,
-          "kind": "framework",
-          "metadata": null
         }
       ],
       "comReferences": [],
@@ -200,12 +194,6 @@
         },
         {
           "name": "System.Configuration",
-          "hintPath": null,
-          "kind": "framework",
-          "metadata": null
-        },
-        {
-          "name": "System.Core",
           "hintPath": null,
           "kind": "framework",
           "metadata": null

@@ -177,6 +177,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - Compilations of legacy (non-SDK) Visual Basic projects rebuilt from the compiler log get
   `mscorlib` from the recorded `/sdkpath`; `vbc` adds it by itself, so the log did not name it
   and nothing in them bound.
+- A legacy (non-SDK) project's `assemblyReferences` no longer lists `System.Core`, which
+  MSBuild adds to every legacy project (`AdditionalExplicitAssemblyReferences`), declared or not.
+  An evaluation on Windows listed it for a project that does not declare it and one on Linux did
+  not, so the same project had a different model on each.
 
 ## [0.16.0] - 2026-09-28
 

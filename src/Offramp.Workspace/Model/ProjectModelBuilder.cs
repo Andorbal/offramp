@@ -265,6 +265,7 @@ public static class ProjectModelBuilder
         var implicitReferences = evaluations
             .SelectMany(e => e.ItemsOf("_SDKImplicitReference"))
             .Select(i => i.Include)
+            .Concat(evaluations.SelectMany(e => SplitList(e.Property("AdditionalExplicitAssemblyReferences"))))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var item in evaluations.SelectMany(e => e.ItemsOf("Reference")))
         {
@@ -329,10 +330,12 @@ public static class ProjectModelBuilder
     }
 
     /// <summary>
-    /// Implicit references: SDK-defined ones, mscorlib, and references a package's build
-    /// targets inject (NuGetPackageId metadata, or Pack=false without a HintPath). Those vary
-    /// with the machine (the reference-assemblies package on macOS/Linux, the targeting pack
-    /// on Windows, NETStandard.Library's facades) and are the package's, not the project's.
+    /// Implicit references: SDK-defined ones, the ones MSBuild adds to every legacy project
+    /// (<c>AdditionalExplicitAssemblyReferences</c>, System.Core, declared or not), mscorlib,
+    /// and references a package's build targets inject (NuGetPackageId metadata, or Pack=false
+    /// without a HintPath). Those vary with the machine (the reference-assemblies package on
+    /// macOS/Linux, the targeting pack on Windows, NETStandard.Library's facades, System.Core
+    /// in a legacy project's evaluation on Windows only) and are not the project's.
     /// </summary>
     private static bool IsImplicitReference(EvaluatedItem item, HashSet<string> implicitReferences)
     {

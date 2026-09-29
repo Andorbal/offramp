@@ -71,7 +71,9 @@ From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
 Toolchain items are left out so the model is the same on every OS
 (`docs/decisions/0011-workspace-model-rules.md`): references the SDK or a
 package's build files inject (`IsImplicitlyDefined`, `_SDKImplicitReference`,
-`NuGetPackageId` metadata, `Pack=false` without a hint path, `mscorlib`), and
+`NuGetPackageId` metadata, `Pack=false` without a hint path, `mscorlib`), those
+MSBuild adds to every legacy project (`AdditionalExplicitAssemblyReferences`:
+System.Core, declared or not), and
 resolved packages reachable only from `autoReferenced` dependencies
 (NETStandard.Library, Microsoft.NETFramework.ReferenceAssemblies).
 
