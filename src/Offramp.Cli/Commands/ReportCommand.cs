@@ -93,6 +93,16 @@ public sealed class ReportCommand : ICommandHandler<ReportOptions, ReportResult>
                 new DiagnosticLocation(File: file), [KeyValuePair.Create<string, JsonNode?>("file", file)]);
         }
 
+        var (kept, otherSolutions) = ReportBuilder.OfModelSolution(model, ledger.Snapshots);
+        if (otherSolutions.Count > 0)
+        {
+            var left = ledger.Snapshots.Count - kept.Count;
+            var names = string.Join(", ", otherSolutions.Select(s => s ?? "(no solution)"));
+            context.Diagnostics.Report(DiagnosticCatalog.OFR0203,
+                string.Create(CultureInfo.InvariantCulture, $"{left} ledger snapshot(s) of another solution ({names}) are left out of the trend of {model.Solution ?? "(no solution)"}."),
+                data: [KeyValuePair.Create<string, JsonNode?>("solutions", new JsonArray([.. otherSolutions.Select(s => (JsonNode?)s)])), KeyValuePair.Create<string, JsonNode?>("snapshots", left)]);
+        }
+
         var title = options.Title ?? config.Report.Title ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(root));
         var report = ReportBuilder.Build(model, ledger.Snapshots, title, options.Since);
         string? graphHtml = null;

@@ -125,6 +125,24 @@ public sealed class ReportCommandTests : IDisposable
         Assert.Equal(2, JsonNode.Parse(run.Out)!["result"]!["report"]!["series"]!.AsArray().Count);
     }
 
+    /// <summary>NHibernate P2: snapshots of another solution are named and left out of the trend.</summary>
+    [Fact]
+    [ProducesDiagnostic("OFR0203")]
+    public async Task Snapshots_of_another_solution_are_reported_and_left_out()
+    {
+        var model = FixtureModels.Load("dual-target");
+        Ledger.Write(Ledger.Snapshot(model with { CreatedAt = "2026-09-01T10:00:00Z", Solution = "Other.slnf", Projects = [.. model.Projects.Take(1)] }),
+            _cli.Repo.Combine(".offramp", "ledger"), _cli.Repo.Path);
+
+        var run = await _cli.RunAsync("report", "--json");
+
+        Assert.Equal(0, run.ExitCode);
+        var envelope = JsonNode.Parse(run.Out)!;
+        var diagnostic = Assert.Single(envelope["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR0203")!;
+        Assert.Contains("1 ledger snapshot(s) of another solution (Other.slnf)", diagnostic["message"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Equal(2, envelope["result"]!["report"]!["series"]!.AsArray().Count);
+    }
+
     private void SaveFresh(WorkspaceModel model) =>
         WorkspaceStore.Save(_cli.Repo.Combine(".offramp", "workspace.json"), model with
         {

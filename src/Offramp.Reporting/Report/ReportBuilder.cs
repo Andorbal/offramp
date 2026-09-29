@@ -18,7 +18,7 @@ public static class ReportBuilder
     private static readonly ProjectKind[] ApplicationKinds = [ProjectKind.Console, ProjectKind.Service, ProjectKind.Web, ProjectKind.Winforms, ProjectKind.Wpf];
 
     /// <param name="model">The current model: the last point of the series, and the source of areas, applications, and the frontier.</param>
-    /// <param name="snapshots">Ledger snapshots in any order.</param>
+    /// <param name="snapshots">Ledger snapshots in any order; only those of the model's solution make the series.</param>
     /// <param name="title">The report's title.</param>
     /// <param name="since">Inclusive lower bound compared with each snapshot's <c>createdAt</c>: a date (<c>2026-09-01</c>) or a UTC timestamp.</param>
     public static ReportData Build(WorkspaceModel model, IReadOnlyList<LedgerSnapshot> snapshots, string title, string? since)
@@ -58,11 +58,24 @@ public static class ReportBuilder
         };
     }
 
-    /// <summary>Snapshots at or after <paramref name="since"/> and not newer than the model, then the model itself.</summary>
+    /// <summary>
+    /// The snapshots of the model's solution, and the other solutions the rest were taken of (sorted; null for a
+    /// snapshot without a solution). A trend across solutions compares different sets of projects: NHibernate's
+    /// report said "down 232" after scans of a solution filter and then of the solution.
+    /// </summary>
+    public static (IReadOnlyList<LedgerSnapshot> Kept, IReadOnlyList<string?> OtherSolutions) OfModelSolution(
+        WorkspaceModel model, IReadOnlyList<LedgerSnapshot> snapshots) =>
+        ([.. snapshots.Where(s => SameSolution(s, model))],
+            [.. snapshots.Where(s => !SameSolution(s, model)).Select(s => s.Solution).Distinct().Order(StringComparer.Ordinal)]);
+
+    private static bool SameSolution(LedgerSnapshot snapshot, WorkspaceModel model) =>
+        string.Equals(snapshot.Solution, model.Solution, StringComparison.Ordinal);
+
+    /// <summary>Snapshots of the model's solution at or after <paramref name="since"/> and not newer than the model, then the model itself.</summary>
     private static List<ReportPoint> Series(WorkspaceModel model, IReadOnlyList<LedgerSnapshot> snapshots, string? since)
     {
         var current = Ledger.Snapshot(model);
-        var points = snapshots
+        var points = OfModelSolution(model, snapshots).Kept
             .Where(s => since is null || string.CompareOrdinal(s.CreatedAt, since) >= 0)
             .Where(s => string.CompareOrdinal(s.CreatedAt, current.CreatedAt) < 0)
             .OrderBy(s => s.CreatedAt, StringComparer.Ordinal)

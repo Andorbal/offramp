@@ -51,6 +51,24 @@ public sealed partial class ReportTests
         Assert.Equal(0, none.Headline.FrameworkLocChange);
     }
 
+    /// <summary>
+    /// NHibernate P2: after scans of a solution filter and then of the solution, the trend compared the two ("down 232
+    /// since"); only snapshots of the model's solution make the series.
+    /// </summary>
+    [Fact]
+    public void Snapshots_of_another_solution_are_left_out_of_the_series()
+    {
+        var filter = Ledger.Snapshot(Model with { CreatedAt = "2026-09-01T09:00:00Z", Solution = "Everything.slnf", Projects = [.. Model.Projects.Take(2)] });
+        var unnamed = Ledger.Snapshot(Model with { CreatedAt = "2026-09-02T09:00:00Z", Solution = null });
+
+        var report = ReportBuilder.Build(Model, [.. History, filter, unnamed], "Monolith", since: null);
+
+        Assert.Equal(["2026-06-02T09:00:00Z", "2026-07-15T09:00:00Z", "2026-08-30T09:00:00Z", Model.CreatedAt], report.Series.Select(p => p.CreatedAt));
+        var (kept, others) = ReportBuilder.OfModelSolution(Model, [.. History, filter, unnamed]);
+        Assert.Equal(3, kept.Count);
+        Assert.Equal([null, "Everything.slnf"], others);
+    }
+
     [Fact]
     public void Snapshots_newer_than_the_model_or_repeating_it_are_left_out()
     {

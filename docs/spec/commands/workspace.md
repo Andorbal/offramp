@@ -304,8 +304,9 @@ offramp report [--format html|json|markdown] [--out PATH] [--since DATE] [--titl
 
 - Reads ledger snapshots (`report.ledger`, default `.offramp/ledger`) for the
   series, and the current model for everything else. The series is every
-  snapshot at or after `--since` and older than the model, then the model
-  itself; per point: projects and lines of code by framework class and by kind.
+  snapshot of the model's solution at or after `--since` and older than the
+  model, then the model itself (snapshots of another solution or filter are
+  left out, with `OFR0203`, info); per point: projects and lines of code by framework class and by kind.
   `asOf` is the model's `createdAt` (`docs/decisions/0016-report.md`).
 - Areas: projects and lines by framework class per directory holding project
   folders (the `graph --cluster directory` rule).
