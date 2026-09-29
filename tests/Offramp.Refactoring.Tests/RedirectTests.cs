@@ -109,6 +109,26 @@ public sealed class RedirectTests
     }
 
     [Fact]
+    [ProducesDiagnostic("OFR1506")]
+    public async Task An_application_with_a_partial_model_is_left_alone_even_with_prune()
+    {
+        // As on a fresh DotNetNuke checkout on Linux: a project whose build failed has no references in the
+        // model, so Newtonsoft.Json looked unused and --prune would have removed its live redirect.
+        var scanned = await ScannedFixtures.GetAsync("legacy-csproj");
+        var model = scanned.Outcome.Model!;
+        var partial = model with { Projects = [.. model.Projects.Select(p => p.Id == "src/Billing/Billing.csproj" ? p with { Partial = true } : p)] };
+        var diagnostics = new DiagnosticBag();
+
+        var plan = RedirectPlanner.Plan(Request(scanned.Root, partial, diagnostics, prune: true) with { Apps = ["src/Billing.Tool/Billing.Tool.csproj"] });
+
+        var app = Assert.Single(plan.Result.Apps);
+        Assert.Empty(app.Redirects);
+        Assert.Equal("src/Billing/Billing.csproj, which it references, is partial in the workspace model (its build failed), so what it deploys is not known", app.Skipped);
+        Assert.Null(plan.ChangeSet);
+        Assert.Equal("src/Billing.Tool/Billing.Tool.csproj", Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR1506").Project);
+    }
+
+    [Fact]
     [ProducesDiagnostic("OFR1505")]
     public async Task A_redirect_down_to_an_older_deployed_version_is_never_written()
     {

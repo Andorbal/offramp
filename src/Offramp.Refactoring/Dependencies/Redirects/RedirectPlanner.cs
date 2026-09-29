@@ -115,6 +115,16 @@ public static class RedirectPlanner
             .OrderBy(p => p.Id, StringComparer.Ordinal);
         foreach (var project in projects)
         {
+            if (PartialIn(request.Model, project) is { } partial)
+            {
+                var reason = partial == project.Id
+                    ? "it is partial in the workspace model (its build failed), so its references are not known"
+                    : $"{partial}, which it references, is partial in the workspace model (its build failed), so what it deploys is not known";
+                request.Diagnostics.Report(DiagnosticCatalog.OFR1506, $"{project.Id} is skipped: {reason}.", new DiagnosticLocation(project.Id));
+                apps.Add(new AppRedirects { Project = project.Id, TargetFramework = project.TargetFrameworks.First(IsFramework), Redirects = [], Skipped = reason });
+                continue;
+            }
+
             apps.Add(Sync(request, project, packagesFolder, changeSet));
         }
 
@@ -269,6 +279,29 @@ public static class RedirectPlanner
     /// brings them along, and no restored graph has them). An application without a restored graph
     /// also gets the restored packages of the projects it references.
     /// </summary>
+    /// <summary>The first partial project among <paramref name="project"/> and everything it references (projects and HintPaths), or null.</summary>
+    private static string? PartialIn(WorkspaceModel model, ProjectInfo project)
+    {
+        var byId = model.Projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        var references = model.Graph.Edges.ToLookup(e => e.From, e => e.To, StringComparer.Ordinal);
+        var seen = new SortedSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>([project.Id]);
+        while (pending.TryPop(out var id))
+        {
+            if (seen.Add(id))
+            {
+                foreach (var next in references[id].Concat(byId.GetValueOrDefault(id)?.ProjectReferences ?? []))
+                {
+                    pending.Push(next);
+                }
+            }
+        }
+
+        return byId.GetValueOrDefault(project.Id)?.Partial == true
+            ? project.Id
+            : seen.FirstOrDefault(id => byId.TryGetValue(id, out var p) && p.Partial);
+    }
+
     private static IEnumerable<(string Id, string Version)> DeployedPackages(WorkspaceModel model, ProjectInfo project, string tfm)
     {
         var restored = project.Resolved.GetValueOrDefault(tfm)?.Packages;

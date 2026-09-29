@@ -116,7 +116,7 @@
           "destination": "src/ModernF/Web/CookieReader.cs",
           "referenced": true,
           "code": "OFR2103",
-          "message": "Does not compile in src/ModernF/ModernF.csproj.",
+          "message": "Does not compile in src/ModernF/ModernF.csproj: netstandard2.0: CS0103: The name 'HttpContext' does not exist in the current context",
           "details": [
             "netstandard2.0: CS0103: The name 'HttpContext' does not exist in the current context",
             "netstandard2.0: CS0103: The name 'HttpContext' does not exist in the current context"
@@ -128,7 +128,7 @@
           "destination": "src/Shared/Web/CookieReader.cs",
           "referenced": true,
           "code": "OFR2103",
-          "message": "Does not compile in src/Shared/Shared.csproj.",
+          "message": "Does not compile in src/Shared/Shared.csproj: netstandard2.0: CS0103: The name 'HttpContext' does not exist in the current context",
           "details": [
             "netstandard2.0: CS0103: The name 'HttpContext' does not exist in the current context",
             "netstandard2.0: CS0103: The name 'HttpContext' does not exist in the current context"

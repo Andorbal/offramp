@@ -203,4 +203,12 @@ public static partial class DiagnosticCatalog
         "packages.config lists a package at a lower version than a package depending on it needs (installed with dependencies ignored), or a build step copies a newer DLL in from elsewhere.",
         "Update the package that ships the assembly to the version its dependents reference, then run `offramp redirects sync` again.",
         DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1506 = new(
+        "OFR1506", Severity.Warning,
+        "application skipped: partial model",
+        "The application, or a project it references, is partial in the workspace model: its build failed during `scan`, so its references and packages are not all known. Redirects computed from that would be wrong, and `--prune` would remove live ones, so the application's configuration file is left alone.",
+        "A build that fails outside Windows (letter case, Windows-only steps), or a missing package.",
+        "Fix the build errors `scan` reported (`OFR0130` and the step diagnostics), run `offramp scan` again, then `offramp redirects sync`.",
+        DependenciesArea);
 }

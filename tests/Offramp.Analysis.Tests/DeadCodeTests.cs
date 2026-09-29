@@ -97,9 +97,12 @@ public sealed class DeadCodeTests
     [Fact]
     public async Task Types_named_by_markup_are_used_and_page_handlers_are_called_by_name()
     {
-        var (result, _) = await AnalyzeAsync(fixture: "webforms");
+        var (result, diagnostics) = await AnalyzeAsync(fixture: "webforms");
 
         var all = result.Projects.SelectMany(p => p.Candidates).ToDictionary(c => c.Symbol);
+
+        // The Visual Basic library's uses of C# code are not seen, and the analysis says so.
+        Assert.Equal("src/Portal.Utilities/Portal.Utilities.vbproj", Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR3012").Project);
 
         // Default.aspx and EditSettings.ascx name their classes in Inherits: ASP.NET creates them.
         Assert.DoesNotContain("Portal.Modules.DefaultPage", all.Keys);

@@ -24,6 +24,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   the projects it references), read from the solution's `packages/` folder. It called the
   redirects of every `packages.config` application stale, and `--prune` would have removed live
   ones (Newtonsoft.Json, BouncyCastle) from DotNetNuke's `web.config`.
+- `redirects sync` skips an application whose model is partial, itself or through a project it
+  references (new `OFR1506`). On a fresh DotNetNuke checkout on Linux, module projects whose
+  evaluation failed had no references in the model, so `--prune` would have removed their live
+  Newtonsoft.Json and BouncyCastle redirects.
 - `redirects sync` never writes a redirect down to an older deployed version than one referenced
   (new `OFR1505`, warning), and a configuration file naming an assembly twice no longer ends the
   command with an exception.
@@ -86,6 +90,19 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `codemod run` reports a skip reason once per project, with the number of sites, instead of at
   every site (367 identical notices for `http-context` on a System.Web project); the result
   still lists each site.
+- `doctor`'s global.json check names the least permissive `rollForward` that selects an
+  installed SDK. With `latestMinor` and only SDK 10 installed it suggested `latestFeature`, which
+  is stricter; its message no longer embeds a cut-off line of `dotnet`'s output.
+- `doctor`'s CPM check reports `packages.config` projects (`OFR1303`) only once central package
+  management is in use; it raised 64 warnings on a repository without a `Directory.Packages.props`.
+- `OFR0101` names the referenced project that failed when MSBuild never evaluated a project,
+  instead of "no evaluation for it in the build log".
+- `OFR0130` counts the errors per code (`CS2001 ×99, MSB4019 ×37, ...`) in its message and
+  `data.byCode`.
+- `scan` writes no ledger snapshot when the build failed, so `report`'s trend no longer shows
+  a partial model as a drop in framework code (`ledgerSnapshot` is null).
+- `audit` and `audit dead-code` report a project they cannot read (Visual Basic, F#, or no
+  compiler call) as `OFR3012` instead of listing it silently under `skipped`.
 - Compilations of legacy (non-SDK) Visual Basic projects rebuilt from the compiler log get
   `mscorlib` from the recorded `/sdkpath`; `vbc` adds it by itself, so the log did not name it
   and nothing in them bound.
@@ -98,9 +115,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   Server Compact) and the ASP.NET packages to replace. A test framework or Topshelf listed in
   `packages.config` sets the project's kind, which moved 12 DotNetNuke projects from `library`
   to `test`.
-- Legacy (non-SDK) solutions build on macOS and Linux (ADR 0036). On a fresh DotNetNuke 9.13
-  checkout, `doctor --fix --apply` and `scan` now load all 71 projects (6 were not loaded and 51
-  partial), and name every remaining blocker:
+- Legacy (non-SDK) solutions build on macOS and Linux (ADR 0036): Offramp now supplies what
+  they lack there, and `scan` names what it cannot supply. On a fresh DotNetNuke 9.13 checkout,
+  the build still stops at DotNetNuke's own problems (`XCOPY` build targets, and on Linux paths
+  in the wrong letter case), each named; with those fixed, all 71 projects load and 4 are partial,
+  where before no legacy project could compile at all:
   - The compile-only block has a third section, for legacy projects outside Windows: they
     restore the `PackageReference` way and take the .NET Framework reference assemblies and the
     Visual Studio web targets from packages, as SDK-style projects do; a legacy Visual Basic
@@ -119,6 +138,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
     failed is `OFR0115` (`build-event`) also when a target runs it.
   - `docs/compiling-on-macos.md` explains each, with the `Directory.Build.targets` fix for the
     CodeDom provider's inline tasks.
+- `OFR3012` (warning): a project an audit cannot read.
+- `OFR1506` (warning): `redirects sync` skipped an application with a partial model.
 - `OFR2112` (warning): a file compiles in the destination but raises warnings it treats as
   errors.
 - `OFR4305` (warning): a converted project's build fails NuGet audit under warnings as errors.
@@ -132,6 +153,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `rules/package-map.yml` maps `Microsoft.NETFramework.ReferenceAssemblies*` and
   `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` (not needed on modern .NET), SQL Server
   Compact, and the rest of the ASP.NET Web Pages packages.
+- `tests/Offramp.Corpus.Tests`: the first `Category=Corpus` test, which `corpus.yml` runs. It
+  clones DotNetNuke Platform 9.13.10, runs `doctor --fix --apply`, `scan`, `plan`,
+  `deps resolve-dlls`, `redirects sync --prune`, and `deps audit` as a user would, and checks the
+  field test's findings stay fixed. The weekly job matched no test before and could not fail.
 - The `webforms` fixture: a Web Forms web project whose control derives from `UserControl`
   through another project and calls a legacy Visual Basic library, as DotNetNuke modules do.
 

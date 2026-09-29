@@ -57,7 +57,7 @@ catalog has no such test. Test stack: `docs/decisions/0005-test-stack.md`.
 | (none) | every CI run, all three OSes |
 | `Category=Windows` | windows runner only |
 | `Category=Network` | needs nuget.org; CI runs it with a warm cache |
-| `Category=Corpus` | `corpus.yml` on manual dispatch: NHibernate 4.x, DotNetNuke 8.x tags cloned and scanned; asserts no crashes and records counts |
+| `Category=Corpus` | `corpus.yml` (weekly and on manual dispatch), `tests/Offramp.Corpus.Tests`: DotNetNuke Platform 9.13.10 cloned (cached under `tests/.cache/corpus/`), then `doctor --fix --apply`, `scan`, `plan`, `deps resolve-dlls`, `redirects sync --prune`, and `deps audit` run as a user would; asserts the findings of `docs/field-tests/2026-09-dnn-platform-9.13.10.md` stay fixed. NHibernate 4.x is still to add |
 | `Category=Slow` | > 60 s; nightly |
 
 ## Recorded feeds

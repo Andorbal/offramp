@@ -92,6 +92,14 @@ public static partial class DiagnosticCatalog
         "Run `offramp deps audit` for replacements; the APIs used from these packages are the ones to port.",
         AuditArea);
 
+    public static readonly DiagnosticDescriptor OFR3012 = new(
+        "OFR3012", Severity.Warning,
+        "project not audited",
+        "The audit read none of the project's code: audits read C# compilations, and the project is Visual Basic or F#, or the scan recorded no compiler call for it. The message gives the reason; the result lists it under `skipped`.",
+        "A Visual Basic library in a C# solution, or a project whose build failed during `scan`.",
+        "Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build and run `offramp scan` again.",
+        AuditArea);
+
     public static readonly DiagnosticDescriptor OFR3101 = new(
         "OFR3101", Severity.Warning,
         "culture-sensitive string operation",

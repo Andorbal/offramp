@@ -160,6 +160,9 @@ Decisions behind the four code audits (ADR 0021).
 - Implicit asset target fallback is off, so a package without assets for the target
   fails restore with NU1202. It is left out, together with every direct package that
   depends on it (OFR3011), and the APIs used from it become OFR3001 findings.
+- A project an audit cannot read (Visual Basic or F#, or no compiler call) is listed in
+  `skipped` and reported as OFR3012; `audit dead-code` does the same, since what such a
+  project uses from C# projects is not seen.
 - Any other restore failure leaves the project uncompiled (OFR3010). Its symbol rules
   still run.
 - The target compilation keeps the recorded sources, compilation options, and language

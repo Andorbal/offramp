@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Offramp.Corpus.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Built first, so the tests can run the tool as users do. -->
+    <ProjectReference Include="..\..\src\Offramp.Cli\Offramp.Cli.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Offramp.Fixtures\Offramp.Fixtures.csproj" />
+  </ItemGroup>
+</Project>

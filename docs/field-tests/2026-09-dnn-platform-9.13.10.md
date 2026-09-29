@@ -45,6 +45,33 @@ The common thread is that `packages.config`, legacy csproj files, Web Forms mark
 case-sensitive file system are barely covered by the fixtures. They are the norm in real .NET
 Framework codebases.
 
+## Status after the fixes
+
+Nearly every finding was a general problem with `packages.config`, legacy projects, Web Forms,
+or Linux, not something peculiar to DotNetNuke, so they were fixed on the branch that carries this
+report. The numbers are from the same codebase after the fixes.
+
+| Finding | Fix | On DotNetNuke now |
+|---|---|---|
+| P0 #1 `audit api` blames the wrong API | `dc4e8c7` | about 5,200 fewer false findings; 13 against `mscorlib` (was 1,254), 26 against DNN's own assemblies (was 4,085) |
+| P0 #2 `deps resolve-dlls` wrong versions | `064ed1d` | 565 DLLs recognized as `packages.config` packages and left alone, 0 version changes, 6 blockers (was 172) |
+| P0 #3 `redirects sync --prune` removes live redirects | `064ed1d`, this branch | live redirects kept (67 were called stale); a redirect down to an older version is `OFR1505`; an application with a partial model is skipped (`OFR1506`), since `--prune` on a fresh checkout's partial model removed live ones |
+| P0 #4 `audit dead-code` and Web Forms | `dc4e8c7`, `1c03a8a` | markup, `AutoEventWireup` handlers, plugin discovery, and XML manifests count; removable lines 25,964 (was 40,163) |
+| P0 #5 portable projects counted as done | `65de53f` | 3 projects `blocked`, each reference `OFR0121` |
+| P1 #6 legacy projects outside Windows | `05fcc77` | `doctor --fix --apply` and `scan` supply the reference assemblies, web targets, and 64 `packages.config` packages. A fresh checkout still stops at DNN's own `XCOPY` targets and letter case (65 loaded, 6 not loaded, most partial), now each named; with those fixed, all 71 load and 4 are partial |
+| P1 #7 `packages.config` invisible | `064ed1d` | `deps audit` sees 77 packages (was 23); 19 test projects (was 7) |
+| P1 #8 letter case on Linux | `05fcc77` | named per project (`OFR0117`); fixing them stays the repository's job |
+| P1 #9 .NET Framework-only MSBuild steps | `05fcc77` | `CodeTaskFactory` (`OFR0118`, with a documented fix that works), non-string resources (`OFR0119`), cmd.exe `Exec` (`OFR0115`) |
+| P1 #10 `csproj modernize` defects | `3a2c01d` | attribute metadata and output folders kept; NuGet audit reported apart (`OFR4305`) |
+| P1 #11 `move plan` on a large project | `4be7bff` | first error in the message; warning policy is `OFR2112`; inert `InternalsVisibleTo` items no longer planned |
+| P1 #12 the corpus job cannot fail | this branch | `tests/Offramp.Corpus.Tests` runs this codebase |
+| P2 polish | this branch | `doctor`'s global.json remedy and CPM noise, `OFR0101`'s reason, `OFR0130` counts per code, no ledger snapshot from a failed build, `OFR3012` for unaudited projects, one codemod notice per reason, relative paths in step evidence, `OFR1004`/`OFR1404` false positives, `audit dead-code` on unreadable files |
+
+Still open: the source-generator partials that make `move plan --all` plan nothing (P1 #11), the
+build phase's missing heartbeat, `report` counting every web project as an application, and the
+`move tests` naming and `Builder` heuristics (P2). The first two are general; the last two are
+closer to DotNetNuke's layout.
+
 ## What worked well
 
 - **Scan, once the build works:** deterministic, 66 seconds for the whole solution. It recognized

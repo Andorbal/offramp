@@ -29,7 +29,9 @@ offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH 
   `--complog` (exit 2).
 - `--if-stale` returns the existing model untouched (`upToDate: true`) when
   it is fresh (`02-workspace-model.md#staleness`).
-- Writes `.offramp/workspace.json` and a ledger snapshot.
+- Writes `.offramp/workspace.json` and, unless the build failed, a ledger
+  snapshot (`ledgerSnapshot` is null then): a partial model would put a false
+  step in `report`'s trend.
 - There is no `--fast` (`docs/decisions/0008-no-fast-scan.md`).
 
 Result (`schemas/v1/scan.json`):
@@ -59,13 +61,15 @@ or times out exits 3.
 
 Diagnostics: `OFR0003` no binary log to reuse, `OFR0004` log not found or
 unreadable, `OFR0010` no `dotnet`, `OFR0020` several solutions, `OFR0022` no
-solution, `OFR0101` project not understood (reason), `OFR0102` kind unknown,
+solution, `OFR0101` project not understood (reason: its evaluation error, or,
+when MSBuild never evaluated it, the referenced project that failed), `OFR0102` kind unknown,
 `OFR0103` model from a compiler log alone, `OFR0104` assets file missing,
 `OFR0105` packages.config package not restored, `OFR0106` packages.config
 packages restored, `OFR0110`–`0119` Windows-only build step detected (one code
 per step family; `OFR0117`–`0119` and `Exec` commands written for cmd.exe
 are found from the failed build's errors), `OFR0120` project reference cycle,
-`OFR0121` portable target references a framework-only project, `OFR0130` build failed (with the first N
+`OFR0121` portable target references a framework-only project, `OFR0130` build failed (with
+the count per error code, most first, and the first N
 errors; scan still produces a model for projects whose compiler call
 succeeded, and marks the rest `partial: true`), `OFR0131` build timed out,
 `OFR0132` compiler calls unavailable.
@@ -81,7 +85,9 @@ offramp doctor [--fix [--apply]]
 
 Checks, each with pass/warn/fail and a remedy:
 - SDKs installed and which one `global.json` selects; whether it can target
-  `--target`.
+  `--target`. When no installed SDK satisfies `global.json`, the remedy names
+  the least permissive `rollForward` that selects one (`latestFeature`,
+  `latestMinor`, `latestMajor`), or says none is new enough.
 - `Microsoft.NETFramework.ReferenceAssemblies` resolvable (offline cache or feed).
   Outside Windows, when the model has legacy (non-SDK) projects, the check
   warns (`OFR0017`) unless the compile-only block has its legacy section, the
@@ -95,7 +101,9 @@ Checks, each with pass/warn/fail and a remedy:
   terminal unless `--yes`), keeping every other byte of the file
   (`docs/decisions/0012-doctor-fix-and-slice.md`).
 - CPM shadowing hazards (see `deps.md`), against the model's projects or, before
-  the first scan, the solution's.
+  the first scan, the solution's. `packages.config` projects (`OFR1303`) count
+  only once a `Directory.Packages.props` (or `deps.cpm.file`) exists; before that
+  the check passes with "not in use".
 - LLM endpoint reachable (only when `llm.enabled`).
 
 Exit 0 when nothing failed; 1 when any check failed.

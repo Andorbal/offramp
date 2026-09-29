@@ -117,21 +117,45 @@ public static class DoctorRunner
         if (sdk.Selected is null)
         {
             var requested = globalJson?.Version ?? "?";
-            var message = $"{globalJsonPath ?? "global.json"} requests SDK {requested}, which is not installed: {sdk.SelectionError}";
+            var file = globalJsonPath ?? "global.json";
+            var message = $"{file} requests SDK {requested} (rollForward {globalJson?.RollForward ?? "default"}), and none of the installed SDKs ({string.Join(", ", sdk.Installed)}) satisfies it.";
             Report(context, DiagnosticCatalog.OFR0011, message, data:
             [
                 KeyValuePair.Create<string, JsonNode?>("requested", requested),
                 KeyValuePair.Create<string, JsonNode?>("rollForward", globalJson?.RollForward),
+                KeyValuePair.Create<string, JsonNode?>("dotnet", sdk.SelectionError),
             ]);
-            return Fail(id, title, message,
-                $"Install .NET SDK {requested}, or relax `sdk.rollForward` in {globalJsonPath ?? "global.json"} (for example `latestFeature`).",
-                DiagnosticCatalog.OFR0011);
+            var remedy = RollForwardFor(requested, sdk.Installed) is { } policy
+                ? $"Install .NET SDK {requested}, or set `sdk.rollForward` to `{policy}` in {file}, the least permissive setting that selects an installed SDK."
+                : $"Install .NET SDK {requested} or newer; no installed SDK is.";
+            return Fail(id, title, message, remedy, DiagnosticCatalog.OFR0011);
         }
 
         var detail = globalJson is null
             ? $"No global.json; dotnet uses the newest SDK, {sdk.Selected}."
             : $"{globalJsonPath} requests {globalJson.Version ?? "any"} (rollForward {globalJson.RollForward ?? "default"}); dotnet selects {sdk.Selected}.";
         return Pass(id, title, detail);
+    }
+
+    /// <summary>
+    /// The least permissive <c>rollForward</c> that lets <paramref name="requested"/> select an installed
+    /// SDK: <c>latestFeature</c> (same major and minor), <c>latestMinor</c> (same major), or
+    /// <c>latestMajor</c>; null when every installed SDK is older.
+    /// </summary>
+    internal static string? RollForwardFor(string requested, IReadOnlyList<string> installed)
+    {
+        if (Numeric(requested) is not { } wanted)
+        {
+            return null;
+        }
+
+        var newer = installed.Select(Numeric).OfType<Version>().Where(v => v >= wanted).ToList();
+        return newer.Count == 0 ? null
+            : newer.Any(v => v.Major == wanted.Major && v.Minor == wanted.Minor) ? "latestFeature"
+            : newer.Any(v => v.Major == wanted.Major) ? "latestMinor"
+            : "latestMajor";
+
+        static Version? Numeric(string version) => Version.TryParse(version.Split('-')[0], out var parsed) ? parsed : null;
     }
 
     private static DoctorCheck CheckTarget(DoctorContext context, DotnetSdkState sdk, int target, string moniker)
@@ -404,10 +428,14 @@ public static class DoctorRunner
             }
         }
 
+        // packages.config projects (OFR1303) matter only once central package management is in use;
+        // `deps consolidate --cpm` runs the full preflight itself.
         var hazards = CpmHazards.Find(root, projects);
+        var inUse = CpmHazards.AnyCentralVersions(root) || File.Exists(RepoPaths.ToAbsolute(root, context.Config.Config.Deps.Cpm.File));
+        hazards = [.. hazards.Where(h => inUse || h.Descriptor != DiagnosticCatalog.OFR1303)];
         if (hazards.Count == 0)
         {
-            return Pass(id, title, "No central package management hazards.");
+            return Pass(id, title, inUse ? "No central package management hazards." : "Central package management is not in use.");
         }
 
         foreach (var hazard in hazards)

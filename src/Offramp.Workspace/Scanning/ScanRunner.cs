@@ -150,11 +150,12 @@ public static class ScanRunner
             (model, notLoaded) = await BuildModelAsync(request, data, mapper, callMap, defines, source, solution, state, cancellationToken);
         }
 
-        string ledgerPath;
+        // A failed build gives a partial model, which would put a false step in report's trend.
+        string? ledgerPath;
         using (request.Progress.BeginPhase("Writing the model and ledger snapshot", ++phase, plan))
         {
             WorkspaceStore.Save(request.WorkspacePath, model);
-            ledgerPath = Ledger.Write(Ledger.Snapshot(model), Path.GetFullPath(request.Config.Report.Ledger, root), root);
+            ledgerPath = buildSucceeded == false ? null : Ledger.Write(Ledger.Snapshot(model), Path.GetFullPath(request.Config.Report.Ledger, root), root);
         }
 
         return new ScanOutcome(Summarize(model, request, ledgerPath, upToDate: false, buildSucceeded, notLoaded), model, ScanFailure.None);
@@ -287,13 +288,23 @@ public static class ScanRunner
             .Distinct(StringComparer.Ordinal)
             .ToList();
         var shown = string.Join("; ", errors.Take(MaxErrorsInMessage));
+
+        // Most first, then by code: one cause (a missing import, a letter case) often makes most of them.
+        var byCode = data.Errors
+            .DistinctBy(e => (e.Code, e.File, e.Line, e.Message))
+            .GroupBy(e => e.Code, StringComparer.Ordinal)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key, StringComparer.Ordinal)
+            .ToList();
+        var counts = string.Join(", ", byCode.Select(g => string.Create(CultureInfo.InvariantCulture, $"{g.Key} ×{g.Count()}")));
         request.Diagnostics.Report(DiagnosticCatalog.OFR0130,
             errors.Count == 0
                 ? "The build failed; the model is partial."
-                : $"The build failed with {errors.Count} error(s); the model is partial. First: {shown}",
+                : $"The build failed with {errors.Count} error(s) ({counts}); the model is partial. First: {shown}",
             data:
             [
                 KeyValuePair.Create<string, JsonNode?>("errorCount", errors.Count),
+                KeyValuePair.Create<string, JsonNode?>("byCode", new JsonObject(byCode.Select(g => KeyValuePair.Create<string, JsonNode?>(g.Key, g.Count())))),
                 KeyValuePair.Create<string, JsonNode?>("errors", new JsonArray([.. errors.Take(20).Select(e => (JsonNode?)e)])),
             ]);
     }
@@ -500,29 +511,30 @@ public static class ScanRunner
         }
 
         var loaded = projects.Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missing = listed.ProjectPaths.Select(p => RepoPaths.ToRepositoryRelative(request.RepositoryRoot, p)).Where(id => !loaded.Contains(id)).ToList();
+        var failed = data.Errors.Where(e => e.ProjectFile is not null)
+            .Select(e => mapper.ToRelative(e.ProjectFile))
+            .OfType<string>()
+            .Concat(missing)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var result = new List<NotLoadedProject>();
-        foreach (var path in listed.ProjectPaths)
+        foreach (var id in missing)
         {
-            var id = RepoPaths.ToRepositoryRelative(request.RepositoryRoot, path);
-            if (loaded.Contains(id))
-            {
-                continue;
-            }
-
             var error = EvaluationError(data, mapper, id);
             var extension = Path.GetExtension(id).ToLowerInvariant();
             var reason = error is not null
                 ? $"{error.Code}: {error.Message}"
-                : extension is ".csproj" or ".vbproj" or ".fsproj"
-                    ? "no evaluation for it in the build log"
-                    : $"unsupported project type ({extension})";
+                : extension is not (".csproj" or ".vbproj" or ".fsproj")
+                    ? $"unsupported project type ({extension})"
+                    : FailedReference(request.RepositoryRoot, id, failed) is { } reference
+                        ? $"not built: it references {reference}, which failed"
+                        : "no evaluation for it in the build log; MSBuild did not build it (check the solution configuration)";
             result.Add(new NotLoadedProject(id, reason));
         }
 
         return [.. result.OrderBy(r => r.Project, StringComparer.Ordinal)];
     }
 
-    /// <summary>The first error the log records for a project, which explains why it has no evaluation.</summary>
     /// <summary>A Windows-only build step's diagnostic, with the build's paths made repository-relative.</summary>
     private static Diagnostic ReportStep(ScanRequest request, WindowsOnlyStep step, string project, CapturePathMapper mapper)
     {
@@ -535,6 +547,36 @@ public static class ScanRunner
             [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", evidence)])!;
     }
 
+    /// <summary>
+    /// A project the project file references (read as XML, since there is no evaluation) that failed, which is
+    /// why MSBuild did not build it; letter case is ignored, as the reference may be the reason.
+    /// </summary>
+    internal static string? FailedReference(string root, string project, IReadOnlySet<string> failed)
+    {
+        var path = RepoPaths.ToAbsolute(root, project);
+        System.Xml.Linq.XDocument document;
+        try
+        {
+            document = System.Xml.Linq.XDocument.Load(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Xml.XmlException)
+        {
+            return null;
+        }
+
+        var directory = Path.GetDirectoryName(path)!;
+        return document.Descendants()
+            .Where(e => e.Name.LocalName == "ProjectReference")
+            .Select(e => e.Attribute("Include")?.Value)
+            .OfType<string>()
+            .Where(include => !include.Contains("$(", StringComparison.Ordinal))
+            .Select(include => RepoPaths.ToRepositoryRelative(root, Path.GetFullPath(Path.Combine(directory, include.Replace('\\', '/')))))
+            .Where(failed.Contains)
+            .Order(StringComparer.Ordinal)
+            .FirstOrDefault();
+    }
+
+    /// <summary>The first error the log records for a project, which explains why it has no evaluation.</summary>
     private static BuildError? EvaluationError(BinlogData data, CapturePathMapper mapper, string project) =>
         data.Errors.FirstOrDefault(e => e.ProjectFile is not null
             && string.Equals(mapper.ToRelative(e.ProjectFile), project, StringComparison.OrdinalIgnoreCase));

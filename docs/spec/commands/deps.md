@@ -328,9 +328,14 @@ offramp redirects sync [--app PATH ...] [--apply] [--prune]
   assemblies no longer referenced. Redirects the SDK would auto-generate for
   exe projects are still written for web projects, which the SDK does not
   handle.
+- An application that is partial in the model, or references a partial
+  project (its build failed during `scan`), is skipped with the reason
+  (`OFR1506`): its references are not known, so redirects computed from them
+  would be wrong and `--prune` would remove live ones.
 - Diagnostics: `OFR1501` redirect added, `OFR1502` redirect changed,
   `OFR1503` redirect pruned, `OFR1504` redirect points at a version not in the
-  graph (stale).
+  graph (stale), `OFR1505` deployed version older than a reference,
+  `OFR1506` application skipped (partial model).
 - After `deps consolidate`, `redirects sync` typically deletes most redirects;
   the summary says how many.
 

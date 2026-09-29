@@ -137,10 +137,22 @@ public sealed class DoctorRunnerTests : IDisposable
 
         var check = report.Checks.Single(c => c.Id == "global-json");
         Assert.Equal(CheckStatus.Fail, check.Status);
-        Assert.Contains("10.0.999", check.Message, StringComparison.Ordinal);
-        Assert.Contains("rollForward", check.Remedy!, StringComparison.Ordinal);
+        Assert.Equal("global.json requests SDK 10.0.999 (rollForward disable), and none of the installed SDKs (8.0.404, 10.0.100) satisfies it.", check.Message);
+        Assert.Equal("Install .NET SDK 10.0.999 or newer; no installed SDK is.", check.Remedy);
         Assert.Equal(new GlobalJsonInfo("global.json", "10.0.999", "disable"), report.Environment.GlobalJson);
         Assert.True(bag.Contains("OFR0011"));
+    }
+
+    [Theory]
+    [InlineData("9.0.202", new[] { "9.0.300" }, "latestFeature")]
+    [InlineData("9.0.202", new[] { "8.0.404", "9.1.100" }, "latestMinor")]
+    [InlineData("9.0.202", new[] { "10.0.112" }, "latestMajor")]
+    [InlineData("9.0.202", new[] { "8.0.404", "9.0.100" }, null)]
+    [InlineData("9.0.202", new[] { "10.0.100-rc.1.25451.107" }, "latestMajor")]
+    public void The_suggested_roll_forward_is_the_least_permissive_one_that_selects_an_installed_sdk(string requested, string[] installed, string? expected)
+    {
+        // DotNetNuke pins 9.0.202 with latestMinor; with only SDK 10 installed, latestFeature would change nothing.
+        Assert.Equal(expected, DoctorRunner.RollForwardFor(requested, installed));
     }
 
     [Fact]
@@ -323,6 +335,24 @@ public sealed class DoctorRunnerTests : IDisposable
         Assert.Equal(CheckStatus.Warn, check.Status);
         Assert.Equal(["OFR1301"], check.Codes);
         Assert.Equal("tools/B/B.csproj", bag.ToSortedList().Single(d => d.Code == "OFR1301").Project);
+    }
+
+    [Fact]
+    public async Task Packages_config_projects_are_a_cpm_hazard_only_once_central_versions_exist()
+    {
+        // DotNetNuke: 64 packages.config projects and no Directory.Packages.props were 64 warnings.
+        _repo.Write("src/A/A.csproj", "<Project />");
+        _repo.Write("src/A/packages.config", "<packages />");
+        _repo.Write("App.slnx", "<Solution>\n  <Project Path=\"src/A/A.csproj\" />\n</Solution>\n");
+
+        var (without, quiet) = await RunAsync(Healthy());
+        _repo.Write("Directory.Packages.props", "<Project />");
+        var (with, _) = await RunAsync(Healthy());
+
+        Assert.Equal(CheckStatus.Pass, Status(without, "cpm"));
+        Assert.Equal("Central package management is not in use.", without.Checks.Single(c => c.Id == "cpm").Message);
+        Assert.False(quiet.Contains("OFR1303"));
+        Assert.Equal(["OFR1303"], with.Checks.Single(c => c.Id == "cpm").Codes);
     }
 
     [Fact]

@@ -166,18 +166,17 @@ public static class AuditRunner
                 continue;
             }
 
-            if (project.Language != "csharp")
-            {
-                skipped.Add($"{project.Id}: audits read C# only.");
-            }
-            else if (project.CompilerCalls.Count == 0)
-            {
-                skipped.Add($"{project.Id}: no compiler call was recorded for it (run `offramp scan`).");
-            }
-            else
+            var reason = project.Language != "csharp" ? "audits read C# only."
+                : project.CompilerCalls.Count == 0 ? "no compiler call was recorded for it (run `offramp scan`)."
+                : null;
+            if (reason is null)
             {
                 projects.Add(project);
+                continue;
             }
+
+            skipped.Add($"{project.Id}: {reason}");
+            request.Diagnostics.Report(DiagnosticCatalog.OFR3012, $"Not audited: {reason}", new DiagnosticLocation(project.Id));
         }
 
         return (projects, skipped);

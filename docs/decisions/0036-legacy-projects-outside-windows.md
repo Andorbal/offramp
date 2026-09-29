@@ -9,7 +9,7 @@
 The compile-only block (ADR 0030) made SDK-style projects, including
 `MSBuild.SDK.SystemWeb` ones, build on macOS and Linux. Legacy projects, which most
 .NET Framework codebases still are, did not: on a fresh DotNetNuke 9.13 checkout (64
-legacy projects of 71), `scan` left 6 projects unloaded and 51 partial, and
+legacy projects of 71), `scan` stopped after 44 errors with 6 projects unloaded and 59 of 66 partial, and
 `doctor --fix` changed nothing that helped. A day of manual work showed what they need,
 and which of it Offramp can supply:
 
@@ -87,8 +87,12 @@ and which of it Offramp can supply:
 
 `scan` writes `packages/` folders, which `nuget restore` would have written; the
 `.gitignore` templates of such repositories exclude them. Restoring needs the feeds in
-`nuget.config` or a warm global packages folder. On DotNetNuke 9.13, a fresh checkout
-with `doctor --fix --apply` and `scan` loads all 71 projects, and once the case
-mismatches are fixed and the `XCOPY` targets guarded, the build stops only at the inline
-task (fixed as documented) and two projects with non-string resources. The case, task
-factory, `Exec`, and resource findings remain the user's to fix, one diagnostic each.
+`nuget.config` or a warm global packages folder. On a fresh DotNetNuke 9.13 checkout,
+`doctor --fix --apply` and `scan` supply everything above, but DotNetNuke's own
+problems still stop most of the build: an `XCOPY` target in `DotNetNuke.Abstractions`,
+which almost every project references, and on Linux 37 imports and about 100 source
+files spelled in the wrong letter case. `scan` names each (`OFR0115`, `OFR0117`), and
+the 6 projects MSBuild then skips name the reference that failed (`OFR0101`). With
+those fixed, all 71 projects load and the build stops only at the inline task (fixed as
+documented) and two projects with non-string resources. The case, task factory, `Exec`,
+and resource findings remain the user's to fix, one diagnostic each.

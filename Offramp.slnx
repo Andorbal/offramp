@@ -19,6 +19,7 @@
     <Project Path="tests/Offramp.Analyzers.Tests/Offramp.Analyzers.Tests.csproj" />
     <Project Path="tests/Offramp.Cli.Tests/Offramp.Cli.Tests.csproj" />
     <Project Path="tests/Offramp.Core.Tests/Offramp.Core.Tests.csproj" />
+    <Project Path="tests/Offramp.Corpus.Tests/Offramp.Corpus.Tests.csproj" />
     <Project Path="tests/Offramp.Fixtures/Offramp.Fixtures.csproj" />
     <Project Path="tests/Offramp.Ide.Tests/Offramp.Ide.Tests.csproj" />
     <Project Path="tests/Offramp.Llm.Tests/Offramp.Llm.Tests.csproj" />

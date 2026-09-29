@@ -104,6 +104,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1503](#ofr1503) | info | deps | binding redirect pruned |
 | [OFR1504](#ofr1504) | warning | deps | stale binding redirect |
 | [OFR1505](#ofr1505) | warning | deps | deployed assembly older than a reference to it |
+| [OFR1506](#ofr1506) | warning | deps | application skipped: partial model |
 | [OFR2001](#ofr2001) | warning | move | move would create a project reference cycle |
 | [OFR2002](#ofr2002) | error | move | destination equals source |
 | [OFR2003](#ofr2003) | error | move | project is frozen |
@@ -145,6 +146,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3009](#ofr3009) | error | audit | COM+, Code Access Security, or AppDomain sandboxing |
 | [OFR3010](#ofr3010) | warning | audit | project not compiled against the target |
 | [OFR3011](#ofr3011) | info | audit | packages without target support left out |
+| [OFR3012](#ofr3012) | warning | audit | project not audited |
 | [OFR3101](#ofr3101) | warning | audit | culture-sensitive string operation |
 | [OFR3102](#ofr3102) | warning | audit | non-Unicode code page |
 | [OFR3103](#ofr3103) | warning | audit | path assumes Windows separators or folders |
@@ -931,6 +933,15 @@ The application's packages deploy an assembly at a lower version than other depl
 - **Typical cause:** packages.config lists a package at a lower version than a package depending on it needs (installed with dependencies ignored), or a build step copies a newer DLL in from elsewhere.
 - **Fix:** Update the package that ships the assembly to the version its dependents reference, then run `offramp redirects sync` again.
 
+### OFR1506
+
+**application skipped: partial model** · warning · deps
+
+The application, or a project it references, is partial in the workspace model: its build failed during `scan`, so its references and packages are not all known. Redirects computed from that would be wrong, and `--prune` would remove live ones, so the application's configuration file is left alone.
+
+- **Typical cause:** A build that fails outside Windows (letter case, Windows-only steps), or a missing package.
+- **Fix:** Fix the build errors `scan` reported (`OFR0130` and the step diagnostics), run `offramp scan` again, then `offramp redirects sync`.
+
 ### OFR2001
 
 **move would create a project reference cycle** · warning · move
@@ -1299,6 +1310,15 @@ Some of the project's packages have no assets for the target, so the target comp
 
 - **Typical cause:** Packages that only ever shipped .NET Framework assemblies (for example Microsoft.AspNet.Mvc or Microsoft.Web.Infrastructure).
 - **Fix:** Run `offramp deps audit` for replacements; the APIs used from these packages are the ones to port.
+
+### OFR3012
+
+**project not audited** · warning · audit
+
+The audit read none of the project's code: audits read C# compilations, and the project is Visual Basic or F#, or the scan recorded no compiler call for it. The message gives the reason; the result lists it under `skipped`.
+
+- **Typical cause:** A Visual Basic library in a C# solution, or a project whose build failed during `scan`.
+- **Fix:** Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build and run `offramp scan` again.
 
 ### OFR3101
 

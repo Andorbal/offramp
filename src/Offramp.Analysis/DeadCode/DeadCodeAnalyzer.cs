@@ -133,19 +133,19 @@ public static class DeadCodeAnalyzer
                 continue;
             }
 
-            if (project.Language != "csharp")
+            var compilation = project.Language == "csharp" ? loader.LoadForProject(project) : null;
+            var reason = project.Language != "csharp" ? "dead-code analysis reads C# only; its references to C# projects are not seen."
+                : compilation is null ? "no compiler call was recorded for it (run `offramp scan`)."
+                : null;
+            if (reason is not null)
             {
-                skipped.Add($"{project.Id}: dead-code analysis reads C# only; its references to C# projects are not seen.");
+                skipped.Add($"{project.Id}: {reason}");
+                request.Diagnostics.Report(DiagnosticCatalog.OFR3012, $"Not audited: {reason}", new DiagnosticLocation(project.Id));
                 continue;
             }
 
-            if (loader.LoadForProject(project) is not { } compilation)
-            {
-                skipped.Add($"{project.Id}: no compiler call was recorded for it (run `offramp scan`).");
-                continue;
-            }
 
-            loaded.Add(new Loaded(project, compilation));
+            loaded.Add(new Loaded(project, compilation!));
         }
 
         return loaded;
