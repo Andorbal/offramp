@@ -30,6 +30,14 @@
         }
       }
     },
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "builder": { "enum": ["dotnet", "msbuild"], "description": "dotnet runs `dotnet build`; msbuild runs MSBuild.exe from Visual Studio or Build Tools." },
+        "msbuildPath": { "type": ["string", "null"], "minLength": 1, "description": "MSBuild.exe, a folder holding it, or a Visual Studio or Build Tools installation folder. Null: the Developer Command Prompt's installation, else the newest vswhere reports." }
+      }
+    },
     "verify": {
       "type": "object",
       "additionalProperties": false,

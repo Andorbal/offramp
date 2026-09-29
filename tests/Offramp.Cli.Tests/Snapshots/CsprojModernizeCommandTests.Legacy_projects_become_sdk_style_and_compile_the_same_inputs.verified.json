@@ -81,6 +81,10 @@
           "disable": []
         }
       },
+      "scan": {
+        "builder": "dotnet",
+        "msbuildPath": null
+      },
       "seams": {
         "hostFramework": "auto",
         "unportableSources": [

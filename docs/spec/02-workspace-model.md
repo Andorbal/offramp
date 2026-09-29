@@ -12,6 +12,9 @@ One of:
    -p:<verify.properties> --no-incremental` (restore included), ingests the binlog,
    and converts it to `.offramp/build.complog`. The build is never incremental: an
    up-to-date project would skip the compiler and have no compiler call to record. `--no-build` reuses the previous scan's binlog.
+   With `--msbuild` (`scan.builder: msbuild`), MSBuild.exe from Visual Studio or the
+   Build Tools runs the same build (`-restore -t:Rebuild`), for projects only it
+   builds (`commands/workspace.md#scan`).
 2. **`--binlog PATH`**: an existing MSBuild binary log, typically captured on a
    Windows agent with `dotnet build -bl` or `msbuild /bl`. A log from another
    checkout or machine is not converted to a compiler log here (its conversion

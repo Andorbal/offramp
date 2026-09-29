@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Offramp.Core.Processes;
 using Offramp.Fixtures;
 
 namespace Offramp.Cli.Tests;
@@ -48,6 +49,80 @@ public sealed class WorkspaceCommandTests : IDisposable
 
         Assert.Equal(2, run.ExitCode);
         Assert.Contains("--no-build cannot be combined", run.Error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--msbuild")]
+    [InlineData("--msbuild-path")]
+    public async Task Msbuild_cannot_be_combined_with_logs(string option)
+    {
+        var run = option == "--msbuild" ? await ScanAsync(option) : await ScanAsync(option, "tools/MSBuild.exe");
+
+        Assert.Equal(2, run.ExitCode);
+        Assert.Contains("--msbuild and --msbuild-path choose how scan builds", run.Error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("flag")]
+    [InlineData("config")]
+    [InlineData("environment")]
+    public async Task Msbuild_builds_the_solution_and_its_log_becomes_the_model(string chosenBy)
+    {
+        var msbuild = _cli.Repo.Write("tools/MSBuild.exe", "");
+        var builds = FakeMsbuild(msbuild);
+        string[] args = chosenBy switch
+        {
+            "flag" => ["scan", "--msbuild-path", "tools/MSBuild.exe", "--json"],
+            _ => ["scan", "--json"],
+        };
+        if (chosenBy == "config")
+        {
+            _cli.Repo.Write("offramp.yml", "scan:\n  builder: msbuild\n  msbuildPath: tools/MSBuild.exe\n");
+        }
+        else if (chosenBy == "environment")
+        {
+            _cli.Environment["OFFRAMP_SCAN__BUILDER"] = "msbuild";
+            _cli.Environment["OFFRAMP_SCAN__MSBUILD_PATH"] = "tools/MSBuild.exe";
+        }
+
+        var run = await _cli.RunAsync(args);
+
+        // The captured build failed (OFR0130, an error), so scan exits 1 with the model written.
+        Assert.Equal(1, run.ExitCode);
+        SchemaAssert.ValidEnvelope(run.Out, "scan");
+        var result = JsonNode.Parse(run.Out)!["result"]!;
+        Assert.Equal("build", result["source"]!["kind"]!.GetValue<string>());
+        Assert.Equal(".offramp/msbuild.binlog", result["source"]!["path"]!.GetValue<string>());
+        Assert.Equal(2, result["projects"]!.GetValue<int>());
+        var build = Assert.Single(builds);
+        Assert.Equal(_cli.Repo.Combine("WindowsOnly.sln"), build.Arguments[0]);
+        Assert.Contains("-t:Rebuild", build.Arguments);
+        Assert.Contains("-restore", build.Arguments);
+    }
+
+    [Fact]
+    public async Task Msbuild_without_a_path_uses_the_configured_one()
+    {
+        var msbuild = _cli.Repo.Write("BuildTools/MSBuild/Current/Bin/MSBuild.exe", "");
+        var builds = FakeMsbuild(msbuild);
+        _cli.Repo.Write("offramp.yml", "scan:\n  msbuildPath: BuildTools\n");
+
+        var dotnet = await _cli.RunAsync("scan", "--json");
+        var run = await _cli.RunAsync("scan", "--msbuild", "--json");
+
+        Assert.Equal(3, dotnet.ExitCode);
+        Assert.NotNull(Diagnostic(dotnet, "OFR0010"));
+        Assert.Equal(1, run.ExitCode);
+        Assert.Single(builds);
+    }
+
+    [Fact]
+    public async Task Msbuild_that_cannot_be_found_exits_3()
+    {
+        var run = await _cli.RunAsync("scan", "--msbuild", "--json");
+
+        Assert.Equal(3, run.ExitCode);
+        Assert.Contains("MSBuild was not found", Diagnostic(run, "OFR0017")["message"]!.GetValue<string>(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -176,6 +251,20 @@ public sealed class WorkspaceCommandTests : IDisposable
         Assert.Contains("Windows-only build steps", run.Out, StringComparison.Ordinal);
         Assert.Contains("3 project(s) need Windows to build", run.Out, StringComparison.Ordinal);
         Assert.Contains("offramp doctor --fix --apply", run.Out, StringComparison.Ordinal);
+    }
+
+    /// <summary>Stands in for MSBuild.exe: "builds" by writing the fixture's committed log (captured by MSBuild on Windows).</summary>
+    private List<ProcessSpec> FakeMsbuild(string msbuild)
+    {
+        var builds = new List<ProcessSpec>();
+        _cli.Machine.Setup.Add(r => r.On(spec => spec.FileName == msbuild, spec =>
+        {
+            builds.Add(spec);
+            var binlog = spec.Arguments.Single(a => a.StartsWith("-bl:", StringComparison.Ordinal))["-bl:".Length..];
+            File.Copy(_cli.Repo.Combine("msbuild.binlog"), binlog, overwrite: true);
+            return new ProcessResult(1, "", "");
+        }));
+        return builds;
     }
 
     private static JsonNode Diagnostic(CliRun run, string code) =>
