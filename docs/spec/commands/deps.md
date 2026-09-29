@@ -299,6 +299,10 @@ Details (M6, ADR 0020):
 - **Blockers and unmatched DLLs.** A .NET Framework DLL with no replacement is
   reported only as a blocker (`OFR1404`). Other unmatched DLLs are `OFR1403`,
   with their metadata.
+- **The global packages folder.** A `HintPath` into the NuGet global packages
+  folder (the model writes it `$(NuGetPackageRoot)<id>/<version>/...`; a legacy
+  project outside Windows can reference a package's DLL no other way) resolves
+  to that package and version (`match: path`), whatever the assembly version.
 - **Installed packages.** A `HintPath` through `packages/<Id>.<Version>/` for a
   package the project's `packages.config` lists resolves to that package and
   version (`packagesConfig`): NuGet manages it already, so it is neither
@@ -309,7 +313,12 @@ Details (M6, ADR 0020):
   `PackageReference`; versionless under central management. A conditioned
   `Reference` (its own condition, its item group's, or a `Choose`) is replaced
   in place, so the new item keeps the condition; NHibernate references two DLLs
-  in Debug only because its Release build merges them. A `packages.config`
+  in Debug only because its Release build merges them. A `Reference` the project
+  file does not declare (it comes from an import, such as a Directory.Build.props)
+  is left alone, since editing the project would add a second reference and remove
+  none: `OFR1406` names the declaring file (a Directory.Build.props or .targets in
+  the project's folder or above, or a file the project imports by a literal path)
+  once per assembly, with the projects it reaches. A `packages.config`
   project gets `ProjectReference`s only (NuGet does not mix the two styles in a
   project; `csproj modernize` converts it). It writes through a journal.
 - **Schema:** `schemas/v1/deps-resolve-dlls.json`.

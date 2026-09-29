@@ -59,6 +59,40 @@ public sealed class ProjectModelBuilderTests : IDisposable
     }
 
     /// <summary>
+    /// Open Live Writer field test (P0 #4): a HintPath into the NuGet global packages folder, declared
+    /// once in Directory.Build.props, kept only its file name and no metadata, so resolve-dlls guessed
+    /// its version. It is written $(NuGetPackageRoot)id/version/..., and a DLL outside the repository
+    /// keeps its file name but has its metadata read.
+    /// </summary>
+    [Fact]
+    public void Hint_paths_outside_the_repository_keep_their_package_folder_and_metadata()
+    {
+        using var outside = new ScratchDirectory("nuget");
+        var packages = outside.Combine("packages") + "/";
+        var dll = outside.Combine("packages", "system.resources.extensions", "6.0.0", "lib", "net461", "System.Resources.Extensions.dll");
+        Directory.CreateDirectory(Path.GetDirectoryName(dll)!);
+        File.WriteAllBytes(dll, Offramp.Fixtures.Feeds.StubAssembly.Build(new() { Name = "System.Resources.Extensions", Version = "6.0.0.0", PublicKey = "00240000048000009400000006020000" }));
+        var vendor = outside.Combine("vendor", "Vendor.Tool.dll");
+        Directory.CreateDirectory(Path.GetDirectoryName(vendor)!);
+        File.WriteAllBytes(vendor, Offramp.Fixtures.Feeds.StubAssembly.Build(new() { Name = "Vendor.Tool", Version = "2.0.0.0" }));
+
+        var project = Build(Evaluation(
+            properties: new() { ["NuGetPackageRoot"] = packages },
+            compile: ["Code.cs"],
+            references:
+            [
+                new EvaluatedItem("System.Resources.Extensions", new Dictionary<string, string> { ["HintPath"] = dll }),
+                new EvaluatedItem("Vendor.Tool", new Dictionary<string, string> { ["HintPath"] = vendor }),
+            ]));
+
+        var extensions = project.AssemblyReferences.Single(r => r.Name == "System.Resources.Extensions");
+        Assert.Equal("$(NuGetPackageRoot)system.resources.extensions/6.0.0/lib/net461/System.Resources.Extensions.dll", extensions.HintPath);
+        Assert.Equal("6.0.0.0", extensions.Metadata?.AssemblyVersion);
+        var tool = project.AssemblyReferences.Single(r => r.Name == "Vendor.Tool");
+        Assert.Equal(("Vendor.Tool.dll", "2.0.0.0"), (tool.HintPath, tool.Metadata?.AssemblyVersion));
+    }
+
+    /// <summary>
     /// MSBuild gives every legacy project System.Core, declared or not; an evaluation on Windows
     /// already lists it for a project that does not declare it, one on Linux does not.
     /// </summary>

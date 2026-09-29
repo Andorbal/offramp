@@ -337,17 +337,36 @@ public static class ProjectModelBuilder
             }
 
             var relative = context.Paths.ToRelative(projectDirectory, hintPath);
-            var local = relative is null ? null : RepoPaths.ToAbsolute(context.Paths.RepositoryRoot, relative);
+            var (written, local) = relative is not null
+                ? (relative, RepoPaths.ToAbsolute(context.Paths.RepositoryRoot, relative))
+                : Outside(hintPath, projectDirectory, evaluations.Select(e => e.Property("NuGetPackageRoot")).FirstOrDefault(p => p is not null));
             byName[name] = new AssemblyReferenceInfo
             {
                 Name = name,
-                HintPath = relative ?? Path.GetFileName(hintPath.Replace('\\', '/')),
+                HintPath = written,
                 Kind = AssemblyReferenceKind.File,
-                Metadata = local is not null && File.Exists(local) ? AssemblyFileInspector.Inspect(local) : null,
+                Metadata = File.Exists(local) ? AssemblyFileInspector.Inspect(local) : null,
             };
         }
 
         return [.. byName.Values];
+    }
+
+    /// <summary>
+    /// How a HintPath outside the repository is written in the model, and the file to read its
+    /// metadata from (the path as the build saw it). Under the NuGet global packages folder it is
+    /// <c>$(NuGetPackageRoot)&lt;id&gt;/&lt;version&gt;/...</c>, which names the package and reads the
+    /// same on every machine; anywhere else, its file name.
+    /// </summary>
+    private static (string HintPath, string File) Outside(string hintPath, string projectDirectory, string? packageRoot)
+    {
+        var absolute = CapturePathMapper.Absolute(projectDirectory, hintPath);
+        var comparison = CapturePathMapper.IsWindowsStyle(absolute) ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var root = packageRoot is null ? null : CapturePathMapper.Absolute(projectDirectory, packageRoot).TrimEnd('/') + "/";
+        var written = root is not null && absolute.StartsWith(root, comparison)
+            ? "$(NuGetPackageRoot)" + absolute[root.Length..]
+            : Path.GetFileName(absolute);
+        return (written, absolute);
     }
 
     /// <summary>

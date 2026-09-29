@@ -39,8 +39,8 @@
                     "package": { "type": ["string", "null"] },
                     "version": { "type": ["string", "null"] },
                     "match": {
-                      "enum": ["identical", "fileVersion", "informationalVersion", "assemblyVersion", "newer", null],
-                      "description": "For a package, what matched, strongest first: the same file (SHA-256), the file version, the informational version, the assembly version (the closest build), or only a higher assembly version (an upgrade). ADR 0042."
+                      "enum": ["path", "identical", "fileVersion", "informationalVersion", "assemblyVersion", "newer", null],
+                      "description": "For a package, what matched, strongest first: the HintPath goes through the package folder in the NuGet global packages folder, the same file (SHA-256), the file version, the informational version, the assembly version (the closest build), or only a higher assembly version (an upgrade). ADR 0042."
                     },
                     "reason": { "type": "string" }
                   }

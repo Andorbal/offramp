@@ -168,7 +168,8 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
         { "name": "System.Web", "hintPath": null, "kind": "framework" },
         { "name": "ThirdParty.Thing", "hintPath": "lib/ThirdParty.Thing.dll", "kind": "file",
           "metadata": { "assemblyVersion": "2.1.0.0", "targetFramework": ".NETFramework,Version=v4.5", "publicKeyToken": "..." } }
-      ],
+      ],                                          // a hintPath outside the repository is "$(NuGetPackageRoot)<id>/<version>/..." under the
+                                                  // NuGet global packages folder, else the file name; its metadata is read where the build found it
       "comReferences": [],
       "internalsVisibleTo": ["Foo.Tests"],
       "resolved": {                               // from project.assets.json, per tfm

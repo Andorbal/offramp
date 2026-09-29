@@ -434,6 +434,15 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `.exe` is an application's installer (Open Live Writer's Squirrel package carries every DLL of
   the application) and ships nothing. `deadCode.externalConsumers` is now documented in
   `docs/spec/03-configuration.md`.
+- `deps resolve-dlls` no longer guesses the version of a DLL outside the repository, nor edits
+  projects that do not declare the reference. On Open Live Writer, a `System.Resources.Extensions`
+  6.0.0 reference declared once in `Directory.Build.props` through `$(NuGetPackageRoot)` was
+  proposed as 4.6.0 (`OFR1402` with an empty version), and the preview added a
+  `PackageReference` to all 28 project files. The model now writes such a HintPath as
+  `$(NuGetPackageRoot)<id>/<version>/...` and reads the metadata of a DLL outside the repository;
+  resolve-dlls takes the package and version from that path (`match: path`), matches no package
+  for a DLL of unknown version, and reports a reference declared outside the project file once
+  per assembly and declaring file (new `OFR1406`) instead of editing the projects.
 - `deps resolve-dlls` reports a DLL built before .NET 4.0 as a .NET Framework blocker
   (`OFR1404`) by the .NET Framework `mscorlib` it references, since it has no
   `TargetFrameworkAttribute`: 8 of NHibernate 4.1's 9 checked-in DLLs have none, so none could be

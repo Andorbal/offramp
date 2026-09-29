@@ -180,6 +180,14 @@ public static partial class DiagnosticCatalog
         "Keep it and target net10.0-windows for the code that uses it, or reference the type library with a `COMReference` so the build generates the interop assembly; isolate COM use behind a seam if the code must run elsewhere.",
         DependenciesArea);
 
+    public static readonly DiagnosticDescriptor OFR1406 = new(
+        "OFR1406", Severity.Warning,
+        "loose DLL reference declared outside the project file",
+        "The `Reference` comes from a file the project imports (a Directory.Build.props, a shared .props or .settings file), not from the project file, so `deps resolve-dlls` leaves it alone: editing the project would add a second reference and remove none. One diagnostic per assembly and declaring file, with the projects it reaches.",
+        "A reference shared by every project, declared once, such as a `HintPath` into the NuGet global packages folder for legacy projects.",
+        "Change the reference in the file the message names (for SDK-style projects, a `PackageReference` there), or leave it if it is how legacy projects get the package outside Windows.",
+        DependenciesArea);
+
     public static readonly DiagnosticDescriptor OFR1501 = new(
         "OFR1501", Severity.Info,
         "binding redirect added",

@@ -136,6 +136,81 @@ public sealed class DllResolverTests
         Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR1403");
     }
 
+    /// <summary>
+    /// Open Live Writer field test (P0 #4): System.Resources.Extensions is referenced by every legacy
+    /// project from Directory.Build.props, by a HintPath into the NuGet global packages folder. It was
+    /// proposed as 4.6.0 (a guess: the model had no version) and the preview added a PackageReference
+    /// to all 28 project files, which do not declare the reference.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR1406")]
+    public async Task A_reference_into_the_global_packages_folder_declared_in_an_import_is_named_and_left_alone()
+    {
+        using var repository = new ScratchDirectory("dlls");
+        repository.Write("Directory.Build.props", """
+            <Project>
+              <ItemGroup>
+                <Reference Include="System.Resources.Extensions">
+                  <HintPath>$(NuGetPackageRoot)system.resources.extensions/6.0.0/lib/net461/System.Resources.Extensions.dll</HintPath>
+                </Reference>
+              </ItemGroup>
+            </Project>
+
+            """);
+        foreach (var name in new[] { "A", "B" })
+        {
+            repository.Write($"src/{name}/{name}.csproj", "<Project ToolsVersion=\"4.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">\n  <ItemGroup>\n    <Reference Include=\"Vendor.Gone\">\n      <HintPath>Vendor.Gone.dll</HintPath>\n    </Reference>\n  </ItemGroup>\n</Project>\n");
+        }
+
+        var extensions = new RecordedAssembly { Name = "System.Resources.Extensions", Version = "4.0.0.0", PublicKey = IesiKey };
+        var feed = new FeedRecording
+        {
+            Source = "synthetic",
+            RecordedAt = "2026-09-29",
+            Packages =
+            [
+                new RecordedPackage { Id = "System.Resources.Extensions", Version = "4.6.0", Synthetic = true, Files = [new RecordedFile { Path = "lib/net461/System.Resources.Extensions.dll", Assembly = extensions }] },
+                new RecordedPackage { Id = "System.Resources.Extensions", Version = "6.0.0", Synthetic = true, Files = [new RecordedFile { Path = "lib/net461/System.Resources.Extensions.dll", Assembly = extensions with { Version = "6.0.0.0" } }] },
+            ],
+        };
+        var app = FixtureModels.Load("loose-dlls").Projects.Single(p => p.Name == "App");
+        ProjectInfo Project(string name) => app with
+        {
+            Id = $"src/{name}/{name}.csproj",
+            Name = name,
+            AssemblyName = name,
+            TargetFrameworks = ["net461"],
+            AssemblyReferences =
+            [
+                new AssemblyReferenceInfo
+                {
+                    Name = "System.Resources.Extensions", Kind = AssemblyReferenceKind.File,
+                    HintPath = "$(NuGetPackageRoot)system.resources.extensions/6.0.0/lib/net461/System.Resources.Extensions.dll",
+                    Metadata = new AssemblyFileMetadata { AssemblyVersion = "6.0.0.0", PublicKeyToken = "0000000000000000" },
+                },
+                new AssemblyReferenceInfo { Name = "Vendor.Gone", Kind = AssemblyReferenceKind.File, HintPath = "Vendor.Gone.dll" },
+            ],
+        };
+        var diagnostics = new DiagnosticBag();
+
+        var plan = await DllResolver.PlanAsync(new ResolveDllsRequest
+        {
+            RepositoryRoot = repository.Path,
+            Model = FixtureModels.Load("loose-dlls") with { Projects = [Project("A"), Project("B")] },
+            Feeds = new RecordedPackageFeeds(feed),
+            Cache = NullCache.Instance,
+            Diagnostics = diagnostics,
+        }, TestContext.Current.CancellationToken);
+
+        var references = plan.Result.Projects.SelectMany(p => p.References).ToList();
+        Assert.All(references.Where(r => r.Name == "System.Resources.Extensions"), r => Assert.Equal(("System.Resources.Extensions", "6.0.0", DllMatch.Path), Package(r)));
+        Assert.All(references.Where(r => r.Name == "Vendor.Gone"), r => Assert.Equal((DllResolutionKind.None, null), (r.Resolution.Kind, r.AssemblyVersion)));
+        Assert.Null(plan.ChangeSet);
+        var declared = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR1406");
+        Assert.Equal("The System.Resources.Extensions reference of 2 projects is declared in Directory.Build.props, not in the project file, so it was left alone; change it there.", declared.Message);
+        Assert.Equal("Directory.Build.props", declared.File);
+    }
+
     [Fact]
     public void Configured_packages_come_before_the_table_and_the_assembly_name()
     {

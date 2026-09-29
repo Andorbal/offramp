@@ -51,6 +51,7 @@ public static class BinlogReader
         "GenerateResourceUsePreserializedResources", "SkipEnsureBindingRedirects",
         "MicrosoftCommonPropsHasBeenImported", "ImportDirectoryBuildProps", "DirectoryBuildPropsPath",
         "SignAssembly", "AssemblyOriginatorKeyFile", "DelaySign", "PublicSign",
+        "NuGetPackageRoot",
     };
 
     /// <summary>Item types copied from each evaluation.</summary>

@@ -40,6 +40,9 @@ public enum DllResolutionKind
 [JsonConverter(typeof(CamelCaseEnumConverter<DllMatch>))]
 public enum DllMatch
 {
+    /// <summary>The HintPath goes through the package's folder in the NuGet global packages folder, which names the package and version.</summary>
+    Path,
+
     /// <summary>The package ships the same file, byte for byte (SHA-256).</summary>
     Identical,
 
@@ -151,6 +154,7 @@ public static class DllResolver
         var lookup = new Lookup(new PackageInspections(request.Feeds, request.Cache), new AssemblyPackages(request.AssemblyPackages));
         var changeSet = new ChangeSet();
         var results = new List<ProjectDlls>();
+        var declaredElsewhere = new SortedDictionary<(string Name, string? DeclaredIn), List<string>>(DeclarationOrder.Instance);
         foreach (var project in request.Model.Projects.Where(p => request.Project is null || p.Id == request.Project).OrderBy(p => p.Id, StringComparer.Ordinal))
         {
             var loose = project.AssemblyReferences.Where(r => r.Kind == AssemblyReferenceKind.File && r.HintPath is not null).OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
@@ -166,8 +170,18 @@ public static class DllResolver
             }
 
             results.Add(new ProjectDlls(project.Id, dlls));
-            Edit(request, project, dlls, changeSet);
+            foreach (var declaration in Edit(request, project, dlls, changeSet))
+            {
+                if (!declaredElsewhere.TryGetValue(declaration, out var projects))
+                {
+                    declaredElsewhere[declaration] = projects = [];
+                }
+
+                projects.Add(project.Id);
+            }
         }
+
+        ReportDeclaredElsewhere(request, declaredElsewhere);
 
         var all = results.SelectMany(r => r.References).ToList();
         var result = new ResolveDllsResult
@@ -224,6 +238,14 @@ public static class DllResolver
             };
         }
 
+        if (await FromGlobalPackagesFolderAsync(lookup, dll, cancellationToken) is { } fromPath)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR1402, Matched(dll, fromPath), location,
+                [KeyValuePair.Create<string, JsonNode?>("package", fromPath.Package), KeyValuePair.Create<string, JsonNode?>("version", fromPath.Version.ToNormalizedString()),
+                 KeyValuePair.Create<string, JsonNode?>("match", Wire(fromPath.Match))]);
+            return dll with { Resolution = fromPath.ToResolution(dll, project) };
+        }
+
         var found = await FindPackageAsync(request, lookup, project, dll, facts, cancellationToken);
         if (found is not null && (dll.PublicKeyToken is not null || found.Match <= DllMatch.InformationalVersion))
         {
@@ -267,6 +289,7 @@ public static class DllResolver
         var package = $"package {found.Package} {found.Version.ToNormalizedString()}{(found.Listed ? "" : " (unlisted)")}";
         return found.Match switch
         {
+            DllMatch.Path => $"{dll.HintPath} is {dll.Name} {dll.AssemblyVersion ?? ""} from {package}: its path in the NuGet global packages folder names them.".Replace("  ", " ", StringComparison.Ordinal),
             DllMatch.Identical => $"{dll.HintPath} is {dll.Name} {dll.FileVersion ?? dll.AssemblyVersion} from {package}: the same file, byte for byte.",
             DllMatch.FileVersion => $"{dll.HintPath} is {dll.Name} {dll.FileVersion} from {package}: the same file version, not the same bytes.",
             DllMatch.InformationalVersion => $"{dll.HintPath} is {dll.Name} {found.InformationalVersion} from {package}: the same informational version, not the same bytes.",
@@ -297,6 +320,25 @@ public static class DllResolver
         return null;
     }
 
+    /// <summary>
+    /// The package and version a <c>$(NuGetPackageRoot)&lt;id&gt;/&lt;version&gt;/...</c> HintPath goes
+    /// through (a legacy project outside Windows can reference a package's DLL no other way); the
+    /// id is spelled as the package's nuspec spells it when the package can be inspected. Null for
+    /// any other HintPath.
+    /// </summary>
+    private static async Task<PackageCandidate?> FromGlobalPackagesFolderAsync(Lookup lookup, LooseDll dll, CancellationToken cancellationToken)
+    {
+        const string Root = "$(NuGetPackageRoot)";
+        var segments = dll.HintPath.StartsWith(Root, StringComparison.OrdinalIgnoreCase) ? dll.HintPath[Root.Length..].Split('/', StringSplitOptions.RemoveEmptyEntries) : [];
+        if (segments.Length < 3 || !NuGetVersion.TryParse(segments[1], out var version))
+        {
+            return null;
+        }
+
+        var id = (await lookup.Inspections.GetAsync(segments[0], version, cancellationToken))?.Id ?? segments[0];
+        return new PackageCandidate(id, version, true, DllMatch.Path, dll.AssemblyVersion ?? "", null);
+    }
+
     /// <summary>A package version that ships the DLL's assembly, and how well it matches.</summary>
     private sealed record PackageCandidate(string Package, NuGetVersion Version, bool Listed, DllMatch Match, string ShippedVersion, string? InformationalVersion)
     {
@@ -312,6 +354,7 @@ public static class DllResolver
             Match = Match,
             Reason = Match switch
             {
+                DllMatch.Path => $"The HintPath goes through {Package} {Version.ToNormalizedString()} in the NuGet global packages folder.",
                 DllMatch.Identical => $"{Package} {Version.ToNormalizedString()} ships this file, byte for byte, for {string.Join(", ", project.TargetFrameworks)}.",
                 DllMatch.FileVersion => $"{Package} {Version.ToNormalizedString()} ships {dll.Name} file version {dll.FileVersion} for {string.Join(", ", project.TargetFrameworks)}.",
                 DllMatch.InformationalVersion => $"{Package} {Version.ToNormalizedString()} ships {dll.Name} {InformationalVersion} for {string.Join(", ", project.TargetFrameworks)}.",
@@ -425,15 +468,19 @@ public static class DllResolver
     /// <summary>
     /// Replaces each resolved Reference with a ProjectReference or PackageReference. A packages.config
     /// project gets no PackageReference (NuGet does not mix the two in one project): its packages
-    /// change with <c>csproj modernize</c>.
+    /// change with <c>csproj modernize</c>. A Reference the project file does not declare (it comes
+    /// from an imported file, such as Directory.Build.props) is left alone: editing the project would
+    /// add a second reference and remove none. Returns those, with the file that declares each when
+    /// one is found.
     /// </summary>
-    private static void Edit(ResolveDllsRequest request, ProjectInfo project, List<LooseDll> dlls, ChangeSet changeSet)
+    private static List<(string Name, string? DeclaredIn)> Edit(ResolveDllsRequest request, ProjectInfo project, List<LooseDll> dlls, ChangeSet changeSet)
     {
+        var elsewhere = new List<(string, string?)>();
         var resolved = dlls.Where(d => d.Resolution.Kind == DllResolutionKind.Project
             || (d.Resolution.Kind == DllResolutionKind.Package && !project.PackagesConfig)).ToList();
         if (resolved.Count == 0)
         {
-            return;
+            return elsewhere;
         }
 
         var bytes = File.ReadAllBytes(RepoPaths.ToAbsolute(request.RepositoryRoot, project.Id));
@@ -441,6 +488,12 @@ public static class DllResolver
         var central = project.Properties.TryGetValue("ManagePackageVersionsCentrally", out var value) && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
         foreach (var dll in resolved)
         {
+            if (!editor.DeclaresReference(dll.Name))
+            {
+                elsewhere.Add((dll.Name, DeclaringFile(request.RepositoryRoot, project.Id, editor, dll.Name)));
+                continue;
+            }
+
             // In place, keeping the Reference's condition and its item group's, when it has one.
             if (dll.Resolution.Kind == DllResolutionKind.Project)
             {
@@ -452,7 +505,111 @@ public static class DllResolver
             }
         }
 
-        changeSet.Edit(project.Id, bytes, editor.Save());
+        if (elsewhere.Count < resolved.Count)
+        {
+            changeSet.Edit(project.Id, bytes, editor.Save());
+        }
+
+        return elsewhere;
+    }
+
+    /// <summary>
+    /// The repository file that declares a Reference the project file does not: a
+    /// Directory.Build.props or .targets in the project's folder or above, or a file the project
+    /// imports by a literal path; null when none is found (an import through properties).
+    /// </summary>
+    private static string? DeclaringFile(string root, string projectId, ProjectFileEditor project, string assembly)
+    {
+        var folder = projectId.Contains('/', StringComparison.Ordinal) ? projectId[..projectId.LastIndexOf('/')] : "";
+        var candidates = new List<string>();
+        foreach (var import in project.Imports)
+        {
+            var path = import.Replace("$(MSBuildThisFileDirectory)", "", StringComparison.OrdinalIgnoreCase)
+                .Replace("$(MSBuildProjectDirectory)\\", "", StringComparison.OrdinalIgnoreCase)
+                .Replace("$(MSBuildProjectDirectory)/", "", StringComparison.OrdinalIgnoreCase)
+                .Replace('\\', '/');
+            if (!path.Contains("$(", StringComparison.Ordinal) && !Path.IsPathRooted(path))
+            {
+                candidates.Add(Normalize(folder.Length == 0 ? path : folder + "/" + path));
+            }
+        }
+
+        for (var current = folder; ; current = current.Contains('/', StringComparison.Ordinal) ? current[..current.LastIndexOf('/')] : "")
+        {
+            candidates.Add(current.Length == 0 ? "Directory.Build.props" : current + "/Directory.Build.props");
+            candidates.Add(current.Length == 0 ? "Directory.Build.targets" : current + "/Directory.Build.targets");
+            if (current.Length == 0)
+            {
+                break;
+            }
+        }
+
+        foreach (var candidate in candidates.Where(c => !c.StartsWith("../", StringComparison.Ordinal)).Distinct(StringComparer.Ordinal))
+        {
+            var file = RepoPaths.ToAbsolute(root, candidate);
+            try
+            {
+                if (File.Exists(file) && ProjectFileEditor.Load(File.ReadAllBytes(file)).DeclaresReference(assembly))
+                {
+                    return candidate;
+                }
+            }
+            catch (Exception ex) when (ex is Microsoft.Build.Exceptions.InvalidProjectFileException or System.Xml.XmlException or IOException)
+            {
+                // Not an MSBuild file this can read; look further.
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>"a/b/../c" → "a/c".</summary>
+    private static string Normalize(string path)
+    {
+        var parts = new List<string>();
+        foreach (var segment in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (segment == ".." && parts.Count > 0 && parts[^1] != "..")
+            {
+                parts.RemoveAt(parts.Count - 1);
+            }
+            else if (segment != ".")
+            {
+                parts.Add(segment);
+            }
+        }
+
+        return string.Join('/', parts);
+    }
+
+    /// <summary>One <c>OFR1406</c> per assembly and declaring file, with the projects it reaches.</summary>
+    private static void ReportDeclaredElsewhere(ResolveDllsRequest request, SortedDictionary<(string Name, string? DeclaredIn), List<string>> declared)
+    {
+        foreach (var ((name, declaredIn), projects) in declared)
+        {
+            var where = declaredIn is null ? "a file the project imports" : declaredIn;
+            var count = projects.Count == 1 ? projects[0] : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{projects.Count} projects");
+            request.Diagnostics.Report(DiagnosticCatalog.OFR1406,
+                $"The {name} reference of {count} is declared in {where}, not in the project file, so it was left alone; change it there.",
+                new DiagnosticLocation(projects.Count == 1 ? projects[0] : null, declaredIn),
+                [KeyValuePair.Create<string, JsonNode?>("assembly", name), KeyValuePair.Create<string, JsonNode?>("declaredIn", declaredIn),
+                 KeyValuePair.Create<string, JsonNode?>("projects", new JsonArray([.. projects.Order(StringComparer.Ordinal).Select(p => (JsonNode?)p)]))]);
+        }
+    }
+
+    /// <summary>Sorts (assembly, declaring file) keys: by name, then file, with "unknown" last.</summary>
+    private sealed class DeclarationOrder : IComparer<(string Name, string? DeclaredIn)>
+    {
+        public static readonly DeclarationOrder Instance = new();
+
+        public int Compare((string Name, string? DeclaredIn) x, (string Name, string? DeclaredIn) y)
+        {
+            var byName = StringComparer.OrdinalIgnoreCase.Compare(x.Name, y.Name);
+            return byName != 0 ? byName
+                : x.DeclaredIn is null ? (y.DeclaredIn is null ? 0 : 1)
+                : y.DeclaredIn is null ? -1
+                : StringComparer.Ordinal.Compare(x.DeclaredIn, y.DeclaredIn);
+        }
     }
 
     private static string Relative(string fromFile, string to)

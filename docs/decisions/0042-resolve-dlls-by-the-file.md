@@ -48,6 +48,19 @@ versions that ship the same assembly version, nor what to do with conditions.
   on it. A COM interop assembly (`ImportedFromTypeLibAttribute`) is reported as such
   (`OFR1405`), not as unmatched or a blocker: modern .NET on Windows can use it.
 
+- **HintPaths outside the repository** (Open Live Writer). The model kept only the file name of
+  a HintPath outside the repository and read no metadata, so the version was guessed (the
+  lowest package with the name). Now the model reads the metadata where the build found the
+  file, and writes a path under the NuGet global packages folder as
+  `$(NuGetPackageRoot)<id>/<version>/...`, which is the same on every machine; resolve-dlls
+  takes the package and version from that path (`match: path`), as it does for
+  `packages/<Id>.<Version>/`. A DLL whose version is still unknown matches no package.
+- **References declared in an import are not edited.** Only a `Reference` the project file
+  declares is replaced; one from a Directory.Build.props or another import is reported once per
+  assembly and declaring file (`OFR1406`), with the projects it reaches. The declaring file is
+  found without evaluation: Directory.Build.props/.targets from the project's folder up, and
+  imports with literal paths.
+
 ## Alternatives considered
 
 - The newest version with the same assembly version: as wrong as the lowest when the DLL is

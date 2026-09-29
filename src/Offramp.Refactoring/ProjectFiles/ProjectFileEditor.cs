@@ -205,6 +205,10 @@ public sealed class ProjectFileEditor
         return matches.Count;
     }
 
+    /// <summary>True when the file itself declares a <c>Reference</c> to the assembly (by name, or by a path to its DLL), conditioned or not.</summary>
+    public bool DeclaresReference(string assemblyName) =>
+        _root.ItemGroups.SelectMany(g => g.Items).Any(i => string.Equals(i.ItemType, "Reference", StringComparison.OrdinalIgnoreCase) && NamesAssembly(i.Include, assemblyName));
+
     /// <summary>
     /// Replaces every <c>Reference</c> item for the assembly with an item of <paramref name="itemType"/>
     /// (with a <c>Version</c> when one is given). A conditioned Reference (its own condition, its item
@@ -216,8 +220,7 @@ public sealed class ProjectFileEditor
     {
         include = include.Replace('/', '\\');
         var matches = _root.ItemGroups.SelectMany(g => g.Items)
-            .Where(i => string.Equals(i.ItemType, "Reference", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(i.Include.Split(',')[0].Trim(), assemblyName, StringComparison.OrdinalIgnoreCase))
+            .Where(i => string.Equals(i.ItemType, "Reference", StringComparison.OrdinalIgnoreCase) && NamesAssembly(i.Include, assemblyName))
             .ToList();
         var unconditioned = false;
         foreach (var item in matches)
@@ -360,6 +363,18 @@ public sealed class ProjectFileEditor
         {
             item.AddMetadata(name, value, expressAsAttribute: true);
         }
+    }
+
+    /// <summary>True when a Reference's Include names the assembly: "Foo", "Foo, Version=...", or a path to Foo.dll.</summary>
+    private static bool NamesAssembly(string include, string assemblyName)
+    {
+        var name = include.Split(',')[0].Trim();
+        if (name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            name = Path.GetFileNameWithoutExtension(name.Replace('\\', '/'));
+        }
+
+        return string.Equals(name, assemblyName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool Same(string? a, string? b) =>

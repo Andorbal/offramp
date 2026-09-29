@@ -112,6 +112,7 @@ public sealed class DepsResolveDllsCommand : ICommandHandler<DepsResolveDllsOpti
 
     private static string Matched(DllMatch? match) => match switch
     {
+        DllMatch.Path => "its path names it",
         DllMatch.Identical => "the same file",
         DllMatch.FileVersion => "same file version",
         DllMatch.InformationalVersion => "same informational version",
