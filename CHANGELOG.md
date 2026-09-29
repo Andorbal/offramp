@@ -55,6 +55,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `OFR2207` (info): `move tests` sends the tests to the test project that references the source,
   when no project is named after it. `OFR2208` (info): `move tests --create` creates a project
   although test projects already reference the source, and names them.
+- `deps resolve-dlls` looks for a DLL in the packages that ship it under another name, from a
+  new rule table, `rules/assembly-packages.yml`, extended by `deps.assemblyPackages` in
+  `offramp.yml` (ADR 0042). On NHibernate 4.1, `nunit.framework` (package NUnit) and
+  `System.Data.SqlServerCe` (Microsoft.SqlServer.Compact) matched nothing.
+- `OFR1405` (warning): a DLL referenced by `HintPath` is a COM interop assembly generated from a
+  type library, which works on Windows only; Open Live Writer's checked-in
+  `OpenLiveWriter.Interop.SHDocVw.dll` was reported as matching nothing (`OFR1403`).
 - The workspace model records the packages each `packages.config` lists
   (`packagesConfigPackages`: id, version, target framework, development dependency), and the
   `packages` index includes them (ADR 0035). `deps audit` audits them: on DotNetNuke 9.13 it
@@ -427,6 +434,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `.exe` is an application's installer (Open Live Writer's Squirrel package carries every DLL of
   the application) and ships nothing. `deadCode.externalConsumers` is now documented in
   `docs/spec/03-configuration.md`.
+- `deps resolve-dlls` reports a DLL built before .NET 4.0 as a .NET Framework blocker
+  (`OFR1404`) by the .NET Framework `mscorlib` it references, since it has no
+  `TargetFrameworkAttribute`: 8 of NHibernate 4.1's 9 checked-in DLLs have none, so none could be
+  a blocker.
 - `deps resolve-dlls` chooses a package version by the DLL's file (ADR 0042): a package asset
   with the same SHA-256, then the same file version, then the same informational version, then
   the lowest version with the assembly version, then the lowest newer one. On NHibernate 4.1 it

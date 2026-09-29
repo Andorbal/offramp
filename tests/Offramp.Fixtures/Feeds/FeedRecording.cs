@@ -94,6 +94,9 @@ public sealed record RecordedAssembly
 
     /// <summary>The <c>AssemblyInformationalVersionAttribute</c> value, or null for none.</summary>
     public string? InformationalVersion { get; init; }
+
+    /// <summary>The <c>ImportedFromTypeLibAttribute</c> value of a COM interop assembly, or null for none.</summary>
+    public string? ImportedFromTypeLib { get; init; }
 }
 
 public sealed record RecordedAssemblyReference(string Name, string Version, string? PublicKeyToken);

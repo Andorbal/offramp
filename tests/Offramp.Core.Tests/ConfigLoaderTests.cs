@@ -295,6 +295,7 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.Equal("src/Monolith.sln", result.Config.Solution);
         Assert.Equal("9.0.1", result.Config.Deps.Pins[0].Version);
         Assert.Equal("eng/Packages.props", result.Config.Deps.Cpm.File);
+        Assert.Equal(("Contoso.Charts.Core", "Contoso.Charts"), (result.Config.Deps.AssemblyPackages![0].Assembly, result.Config.Deps.AssemblyPackages[0].Package));
         Assert.Equal("Off", result.Config.Verify.Properties["GenerateSerializationAssemblies"]);
         Assert.Equal(["desktop"], result.Config.Rules.Packs.Disable);
     }

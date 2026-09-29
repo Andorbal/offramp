@@ -145,6 +145,13 @@ public sealed record DepsConfig
     /// <summary>Additions and overrides for the package successor table (rules/package-map.yml).</summary>
     public IReadOnlyList<PackageMapEntry> PackageMap { get; init; } = [];
 
+    /// <summary>
+    /// Packages to look for an assembly in, before rules/assembly-packages.yml (<c>deps resolve-dlls</c>);
+    /// null, and left out of the effective configuration, when not set.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<AssemblyPackageEntry>? AssemblyPackages { get; init; }
+
     public CpmConfig Cpm { get; init; } = new();
 
     public RedirectsConfig Redirects { get; init; } = new();
@@ -156,6 +163,14 @@ public sealed record PackageFamily
 
     /// <summary>The family this prefix joins, when it is not its own.</summary>
     public string? Family { get; init; }
+}
+
+/// <summary>A package that ships an assembly under another name (NUnit ships nunit.framework).</summary>
+public sealed record AssemblyPackageEntry
+{
+    public string Assembly { get; init; } = "";
+
+    public string Package { get; init; } = "";
 }
 
 public sealed record PackageMapEntry

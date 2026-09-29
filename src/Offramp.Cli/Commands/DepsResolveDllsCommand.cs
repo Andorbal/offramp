@@ -59,6 +59,7 @@ public sealed class DepsResolveDllsCommand : ICommandHandler<DepsResolveDllsOpti
             Diagnostics = context.Diagnostics,
             Project = project,
             IncludePrerelease = config.Deps.IncludePrerelease,
+            AssemblyPackages = config.Deps.AssemblyPackages ?? [],
         }, cancellationToken);
         if (!context.Settings.Apply || context.Settings.DryRun || plan.ChangeSet is null)
         {

@@ -3,12 +3,14 @@ using System.Text.Json.Serialization;
 using NuGet.Frameworks;
 using NuGet.Versioning;
 using Offramp.Core.Caching;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Json;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using Offramp.NuGet.Feeds;
 using Offramp.NuGet.Inspection;
+using Offramp.NuGet.Rules;
 using Offramp.Refactoring.ChangeSets;
 using Offramp.Refactoring.ProjectFiles;
 
@@ -126,6 +128,9 @@ public sealed record ResolveDllsRequest
     public string? Project { get; init; }
 
     public bool IncludePrerelease { get; init; }
+
+    /// <summary><c>deps.assemblyPackages</c>: packages that ship an assembly under another name, before rules/assembly-packages.yml.</summary>
+    public IReadOnlyList<AssemblyPackageEntry> AssemblyPackages { get; init; } = [];
 }
 
 public sealed record ResolveDllsPlan(ResolveDllsResult Result, ChangeSet? ChangeSet);
@@ -143,7 +148,7 @@ public static class DllResolver
 {
     public static async Task<ResolveDllsPlan> PlanAsync(ResolveDllsRequest request, CancellationToken cancellationToken)
     {
-        var inspections = new PackageInspections(request.Feeds, request.Cache);
+        var lookup = new Lookup(new PackageInspections(request.Feeds, request.Cache), new AssemblyPackages(request.AssemblyPackages));
         var changeSet = new ChangeSet();
         var results = new List<ProjectDlls>();
         foreach (var project in request.Model.Projects.Where(p => request.Project is null || p.Id == request.Project).OrderBy(p => p.Id, StringComparer.Ordinal))
@@ -157,7 +162,7 @@ public static class DllResolver
             var dlls = new List<LooseDll>();
             foreach (var reference in loose)
             {
-                dlls.Add(await ResolveAsync(request, inspections, project, reference, cancellationToken));
+                dlls.Add(await ResolveAsync(request, lookup, project, reference, cancellationToken));
             }
 
             results.Add(new ProjectDlls(project.Id, dlls));
@@ -177,7 +182,10 @@ public static class DllResolver
         return new ResolveDllsPlan(result, changeSet.IsEmpty ? null : changeSet);
     }
 
-    private static async Task<LooseDll> ResolveAsync(ResolveDllsRequest request, PackageInspections inspections, ProjectInfo project, AssemblyReferenceInfo reference, CancellationToken cancellationToken)
+    /// <summary>Where packages are looked up: the inspections (cached) and the package ids to try for an assembly.</summary>
+    private sealed record Lookup(PackageInspections Inspections, AssemblyPackages Packages);
+
+    private static async Task<LooseDll> ResolveAsync(ResolveDllsRequest request, Lookup lookup, ProjectInfo project, AssemblyReferenceInfo reference, CancellationToken cancellationToken)
     {
         // The file as it is now; the model's metadata when it cannot be read.
         var facts = AssemblyFacts.ReadFile(RepoPaths.ToAbsolute(request.RepositoryRoot, reference.HintPath!));
@@ -188,7 +196,7 @@ public static class DllResolver
             HintPath = reference.HintPath!,
             AssemblyVersion = facts?.Version ?? metadata?.AssemblyVersion,
             FileVersion = facts?.FileVersion,
-            TargetFramework = facts is null ? metadata?.TargetFramework : facts.TargetFramework,
+            TargetFramework = facts is null ? metadata?.TargetFramework : facts.InferredFramework,
             PublicKeyToken = facts is null ? metadata?.PublicKeyToken : facts.PublicKeyToken,
             Resolution = new DllResolution { Kind = DllResolutionKind.None, Reason = "" },
         };
@@ -216,7 +224,7 @@ public static class DllResolver
             };
         }
 
-        var found = await FindPackageAsync(request, inspections, project, dll, facts, cancellationToken);
+        var found = await FindPackageAsync(request, lookup, project, dll, facts, cancellationToken);
         if (found is not null && (dll.PublicKeyToken is not null || found.Match <= DllMatch.InformationalVersion))
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR1402, Matched(dll, found), location,
@@ -225,11 +233,21 @@ public static class DllResolver
             return dll with { Resolution = found.ToResolution(dll, project) };
         }
 
-        var described = $"{reference.Name} {dll.AssemblyVersion ?? "(no version)"} for {dll.TargetFramework ?? "no recorded framework"}{(dll.PublicKeyToken is null ? "" : $", public key token {dll.PublicKeyToken}")}";
+        var inferred = facts is { TargetFramework: null, FrameworkCorlib: { } corlib } ? $" (it references mscorlib {corlib})" : "";
+        var described = $"{reference.Name} {dll.AssemblyVersion ?? "(no version)"} for {dll.TargetFramework ?? "no recorded framework"}{inferred}{(dll.PublicKeyToken is null ? "" : $", public key token {dll.PublicKeyToken}")}";
         var reason = found is null
-            ? $"No project builds it and no package named {reference.Name} ships it."
+            ? $"No project builds it and no package ships it (searched {string.Join(", ", lookup.Packages.For(reference.Name))})."
             : $"No project builds it. It is unsigned, and package {found.Package} ships an assembly of that name but not this file or file version; a name alone does not identify it.";
         var none = new DllResolution { Kind = DllResolutionKind.None, Reason = reason };
+        if (facts?.ImportedFromTypeLib is { } typeLibrary)
+        {
+            // tlbimp's output: COM interop for Windows, which no package replaces and modern .NET on Windows can still use.
+            request.Diagnostics.Report(DiagnosticCatalog.OFR1405,
+                $"{reference.HintPath} ({described}) is a COM interop assembly generated from the type library {typeLibrary}; COM works on Windows only. Keep it with a net10.0-windows target, or reference the type library with a COMReference.",
+                location, [KeyValuePair.Create<string, JsonNode?>("assembly", reference.Name), KeyValuePair.Create<string, JsonNode?>("typeLibrary", typeLibrary)]);
+            return dll with { Resolution = none with { Reason = $"A COM interop assembly generated from the type library {typeLibrary}: no package ships it, and it works on Windows only." } };
+        }
+
         if (dll.TargetFramework?.StartsWith(".NETFramework", StringComparison.OrdinalIgnoreCase) == true)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR1404, $"{reference.HintPath} ({described}) is built for .NET Framework and nothing replaces it; it blocks the move to the target.", location,
@@ -304,22 +322,45 @@ public static class DllResolver
     }
 
     /// <summary>
-    /// The best version of the package named like the assembly: one that ships the assembly with
-    /// the same public key token (none for an unsigned DLL), at the referenced version or higher,
-    /// for every target framework of the project, ranked by <see cref="DllMatch"/>. Unlisted versions
-    /// count when they ship the referenced assembly version (a checked-in DLL is often of a version
-    /// its authors unlisted later), never as an upgrade. Null when none ships it, or when the DLL's
-    /// version is unknown.
+    /// The best package version for the DLL across the package ids the assembly may ship in
+    /// (<see cref="AssemblyPackages"/>): the strongest match wins, and on a tie the id that comes first.
     /// </summary>
     private static async Task<PackageCandidate?> FindPackageAsync(
-        ResolveDllsRequest request, PackageInspections inspections, ProjectInfo project, LooseDll dll, AssemblyFacts? facts, CancellationToken cancellationToken)
+        ResolveDllsRequest request, Lookup lookup, ProjectInfo project, LooseDll dll, AssemblyFacts? facts, CancellationToken cancellationToken)
     {
         if (!Version.TryParse(dll.AssemblyVersion, out var referenced))
         {
             return null;
         }
 
-        var id = dll.Name;
+        PackageCandidate? best = null;
+        foreach (var id in lookup.Packages.For(dll.Name))
+        {
+            var candidate = await FindInPackageAsync(request, lookup.Inspections, id, referenced, project, dll, facts, cancellationToken);
+            if (candidate is not null && candidate.Beats(best))
+            {
+                best = candidate;
+            }
+
+            if (best?.Match == DllMatch.Identical)
+            {
+                break;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// The best version of one package: one that ships the assembly with
+    /// the same public key token (none for an unsigned DLL), at the referenced version or higher,
+    /// for every target framework of the project, ranked by <see cref="DllMatch"/>. Unlisted versions
+    /// count when they ship the referenced assembly version (a checked-in DLL is often of a version
+    /// its authors unlisted later), never as an upgrade. Null when none ships it.
+    /// </summary>
+    private static async Task<PackageCandidate?> FindInPackageAsync(
+        ResolveDllsRequest request, PackageInspections inspections, string id, Version referenced, ProjectInfo project, LooseDll dll, AssemblyFacts? facts, CancellationToken cancellationToken)
+    {
         var available = await request.Feeds.GetVersionsAsync(id, cancellationToken);
         var tfms = project.TargetFrameworks.Select(NuGetFramework.Parse).ToList();
         PackageCandidate? best = null;

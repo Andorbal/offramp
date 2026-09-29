@@ -89,7 +89,12 @@ public static class StubAssembly
             metadata.AddCustomAttribute(EntityHandle.AssemblyDefinition, constructor, metadata.GetOrAddBlob(value));
         }
 
-        foreach (var (attribute, text) in new[] { ("AssemblyFileVersionAttribute", assembly.FileVersion), ("AssemblyInformationalVersionAttribute", assembly.InformationalVersion) })
+        foreach (var (attribute, text) in new[]
+        {
+            ("System.Reflection.AssemblyFileVersionAttribute", assembly.FileVersion),
+            ("System.Reflection.AssemblyInformationalVersionAttribute", assembly.InformationalVersion),
+            ("System.Runtime.InteropServices.ImportedFromTypeLibAttribute", assembly.ImportedFromTypeLib),
+        })
         {
             if (text is null)
             {
@@ -104,7 +109,8 @@ public static class StubAssembly
                 references["System.Runtime"] = scope;
             }
 
-            var attributeType = metadata.AddTypeReference(scope, metadata.GetOrAddString("System.Reflection"), metadata.GetOrAddString(attribute));
+            var dot = attribute.LastIndexOf('.');
+            var attributeType = metadata.AddTypeReference(scope, metadata.GetOrAddString(attribute[..dot]), metadata.GetOrAddString(attribute[(dot + 1)..]));
             var signature = new BlobBuilder();
             new BlobEncoder(signature).MethodSignature(isInstanceMethod: true).Parameters(1, r => r.Void(), p => p.AddParameter().Type().String());
             var constructor = metadata.AddMemberReference(attributeType, metadata.GetOrAddString(".ctor"), metadata.GetOrAddBlob(signature));

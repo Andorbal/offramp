@@ -69,6 +69,9 @@ deps:
       replacement: "Contoso.Reporting (the rewrite)"
     - prefix: "Contoso.Wcf."
       replacement: "Contoso.Grpc.* clients"
+  assemblyPackages:           # packages that ship an assembly under another name, searched by
+    - assembly: Contoso.Charts.Core   # deps resolve-dlls before rules/assembly-packages.yml
+      package: Contoso.Charts
   cpm:
     file: eng/Packages.props  # where consolidate --cpm writes: a path with a folder is repository-relative, a bare name goes where scope says;
                               # a file the SDK does not find by itself (another name, or not above every project) is opted into

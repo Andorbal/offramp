@@ -16,11 +16,12 @@ public sealed record AssemblyFacts
     /// <summary>The public key token of the .NET Framework's <c>mscorlib</c>.</summary>
     public const string FrameworkCorlibToken = "b77a5c561934e089";
 
-    private static readonly HashSet<string> VersionAttributes = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> StringAttributes = new(StringComparer.Ordinal)
     {
         "System.Reflection.AssemblyFileVersionAttribute",
         "System.Reflection.AssemblyInformationalVersionAttribute",
         "System.Runtime.Versioning.TargetFrameworkAttribute",
+        "System.Runtime.InteropServices.ImportedFromTypeLibAttribute",
     };
 
     public required string Name { get; init; }
@@ -45,6 +46,12 @@ public sealed record AssemblyFacts
     /// none: how a .NET Framework assembly built before <c>TargetFrameworkAttribute</c> (.NET 4.0) shows its framework.
     /// </summary>
     public string? FrameworkCorlib { get; init; }
+
+    /// <summary>
+    /// The type library an interop assembly was generated from (<c>ImportedFromTypeLibAttribute</c>,
+    /// which tlbimp writes), or null: such an assembly is COM interop, not a library with a package.
+    /// </summary>
+    public string? ImportedFromTypeLib { get; init; }
 
     /// <summary>The SHA-256 of the file (lowercase hex).</summary>
     public required string Sha256 { get; init; }
@@ -91,6 +98,7 @@ public sealed record AssemblyFacts
                 FileVersion = attributes.GetValueOrDefault("System.Reflection.AssemblyFileVersionAttribute"),
                 InformationalVersion = attributes.GetValueOrDefault("System.Reflection.AssemblyInformationalVersionAttribute"),
                 TargetFramework = attributes.GetValueOrDefault("System.Runtime.Versioning.TargetFrameworkAttribute"),
+                ImportedFromTypeLib = attributes.GetValueOrDefault("System.Runtime.InteropServices.ImportedFromTypeLibAttribute"),
                 FrameworkCorlib = FrameworkCorlibVersion(metadata),
                 Sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),
             };
@@ -129,7 +137,7 @@ public sealed record AssemblyFacts
             ? PackageInspector.PublicKeyToken(keyOrToken)
             : keyOrToken.Length == 0 ? null : Convert.ToHexString(keyOrToken).ToLowerInvariant();
 
-    /// <summary>The string argument of each of <see cref="VersionAttributes"/> the assembly has, by full name (the first wins).</summary>
+    /// <summary>The string argument of each of <see cref="StringAttributes"/> the assembly has, by full name (the first wins).</summary>
     private static Dictionary<string, string> Attributes(MetadataReader metadata)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -150,7 +158,7 @@ public sealed record AssemblyFacts
             var type = metadata.GetTypeReference((TypeReferenceHandle)parent);
             var name = metadata.GetString(type.Namespace) + "." + metadata.GetString(type.Name);
             var blob = metadata.GetBlobReader(attribute.Value);
-            if (!VersionAttributes.Contains(name) || values.ContainsKey(name) || blob.Length < 2 || blob.ReadUInt16() != 1)
+            if (!StringAttributes.Contains(name) || values.ContainsKey(name) || blob.Length < 2 || blob.ReadUInt16() != 1)
             {
                 continue;
             }

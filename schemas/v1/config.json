@@ -112,6 +112,19 @@
             }
           }
         },
+        "assemblyPackages": {
+          "type": "array",
+          "description": "Packages that ship an assembly under another name, searched by deps resolve-dlls before rules/assembly-packages.yml.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["assembly", "package"],
+            "properties": {
+              "assembly": { "type": "string", "minLength": 1 },
+              "package": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
         "cpm": {
           "type": "object",
           "additionalProperties": false,

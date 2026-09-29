@@ -36,6 +36,17 @@ versions that ship the same assembly version, nor what to do with conditions.
 - **The search stops early**: at the first identical file, and after the last version that
   ships the referenced assembly version, so a package needs few more inspections than
   before; inspections are cached.
+- **Packages named otherwise.** A data table, `rules/assembly-packages.yml` (embedded, and
+  extended by `deps.assemblyPackages` in `offramp.yml`, which comes first), names the packages
+  that ship an assembly under another id (NUnit: `nunit.framework`; Microsoft.SqlServer.Compact:
+  `System.Data.SqlServerCe`). Each is searched as well as the id that equals the assembly name,
+  and the strongest match wins across them. Feeds cannot be searched by assembly name, so a
+  table of the common cases is the deterministic answer.
+- **Old .NET Framework DLLs.** Without a `TargetFrameworkAttribute` (compilers wrote it from
+  .NET 4.0 on), a DLL that references the .NET Framework's `mscorlib` (token
+  `b77a5c561934e089`) is .NET Framework by that `mscorlib`'s version, so `OFR1404` can block
+  on it. A COM interop assembly (`ImportedFromTypeLibAttribute`) is reported as such
+  (`OFR1405`), not as unmatched or a blocker: modern .NET on Windows can use it.
 
 ## Alternatives considered
 

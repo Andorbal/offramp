@@ -1,4 +1,5 @@
 using Offramp.Core.Caching;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Fixtures;
@@ -80,9 +81,79 @@ public sealed class DllResolverTests
         Assert.Contains("HintPath>..\\..\\lib\\System.Linq.Dynamic.dll", after, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// NHibernate's NUnit DLL is in the package NUnit, not "nunit.framework"; its old DLLs have no
+    /// TargetFrameworkAttribute but reference .NET Framework's mscorlib; Open Live Writer checks in a
+    /// COM interop assembly. Configuration adds names to the table.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR1404")]
+    [ProducesDiagnostic("OFR1405")]
+    public async Task Packages_named_otherwise_old_framework_dlls_and_com_interop()
+    {
+        var mscorlib2 = new RecordedAssemblyReference("mscorlib", "2.0.0.0", "b77a5c561934e089");
+        var nunit = new RecordedAssembly { Name = "nunit.framework", Version = "2.6.1.12217", PublicKey = IesiKey + "01", FileVersion = "2.6.1.12217", References = [mscorlib2] };
+        var charting = new RecordedAssembly { Name = "Contoso.Charting", Version = "3.0.0.0", PublicKey = AntlrKey + "02" };
+        using var repository = new ScratchDirectory("dlls");
+        void Dll(RecordedAssembly assembly) => File.WriteAllBytes(repository.Write($"lib/{assembly.Name}.dll", ""), StubAssembly.Build(assembly));
+        Dll(nunit);
+        Dll(charting);
+        Dll(new RecordedAssembly { Name = "Vendor.Legacy", Version = "1.0.0.0", References = [mscorlib2] });
+        Dll(new RecordedAssembly
+        {
+            Name = "Interop.SHDocVw", Version = "1.1.0.0", ImportedFromTypeLib = "SHDocVw",
+            References = [new RecordedAssemblyReference("mscorlib", "4.0.0.0", "b77a5c561934e089")],
+        });
+        repository.Write("src/Lib/Lib.csproj", "<Project ToolsVersion=\"4.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\" />\n");
+        static RecordedPackage Published(string id, string version, string path, RecordedAssembly assembly) =>
+            new() { Id = id, Version = version, Synthetic = true, Files = [new RecordedFile { Path = path, Assembly = assembly }] };
+        var feed = new FeedRecording
+        {
+            Source = "synthetic",
+            RecordedAt = "2026-09-29",
+            Packages =
+            [
+                Published("NUnit", "2.6.0.12054", "lib/nunit.framework.dll", nunit with { Version = "2.6.0.12051", FileVersion = "2.6.0.12051" }),
+                Published("NUnit", "2.6.1", "lib/nunit.framework.dll", nunit),
+                Published("Contoso.Charts", "3.0.0", "lib/net40/Contoso.Charting.dll", charting),
+            ],
+        };
+        var diagnostics = new DiagnosticBag();
+
+        var plan = await PlanAsync(repository, diagnostics, ["Contoso.Charting", "Interop.SHDocVw", "nunit.framework", "Vendor.Legacy"], feed,
+            request: r => r with { AssemblyPackages = [new AssemblyPackageEntry { Assembly = "Contoso.Charting", Package = "Contoso.Charts" }] });
+
+        var references = plan.Result.Projects.Single().References.ToDictionary(r => r.Name, StringComparer.Ordinal);
+        Assert.Equal(("NUnit", "2.6.1", DllMatch.Identical), Package(references["nunit.framework"]));
+        Assert.Equal(("Contoso.Charts", "3.0.0", DllMatch.Identical), Package(references["Contoso.Charting"]));
+        var legacy = references["Vendor.Legacy"];
+        Assert.Equal((".NETFramework,Version=v2.0", true), (legacy.TargetFramework, legacy.Blocker));
+        Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR1404" && d.Message.Contains("for .NETFramework,Version=v2.0 (it references mscorlib 2.0.0.0)", StringComparison.Ordinal));
+        var com = references["Interop.SHDocVw"];
+        Assert.Equal((DllResolutionKind.None, false), (com.Resolution.Kind, com.Blocker));
+        var interop = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR1405");
+        Assert.Contains("generated from the type library SHDocVw", interop.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR1403");
+    }
+
+    [Fact]
+    public void Configured_packages_come_before_the_table_and_the_assembly_name()
+    {
+        var packages = new Offramp.NuGet.Rules.AssemblyPackages([new AssemblyPackageEntry { Assembly = "nunit.framework", Package = "Contoso.NUnit" }]);
+
+        Assert.Equal(["Contoso.NUnit", "NUnit", "NUnit.Framework"], packages.For("NUnit.Framework"));
+        Assert.Equal(["Microsoft.SqlServer.Compact", "System.Data.SqlServerCe"], packages.For("System.Data.SqlServerCe"));
+        Assert.Equal(["Iesi.Collections"], packages.For("Iesi.Collections"));
+    }
+
     private static (string?, string?, DllMatch?) Package(LooseDll dll) => (dll.Resolution.Package, dll.Resolution.Version, dll.Resolution.Match);
 
-    private static Task<ResolveDllsPlan> PlanAsync(ScratchDirectory repository, DiagnosticBag diagnostics, Func<ProjectInfo, ProjectInfo>? customize = null)
+    private static Task<ResolveDllsPlan> PlanAsync(ScratchDirectory repository, DiagnosticBag diagnostics, Func<ProjectInfo, ProjectInfo>? customize = null) =>
+        PlanAsync(repository, diagnostics, ["Antlr3.Runtime", "FirebirdSql.Data.FirebirdClient", "Iesi.Collections", "log4net", "System.Linq.Dynamic"], Feed(), customize);
+
+    private static Task<ResolveDllsPlan> PlanAsync(
+        ScratchDirectory repository, DiagnosticBag diagnostics, IReadOnlyList<string> dlls, FeedRecording feed,
+        Func<ProjectInfo, ProjectInfo>? customize = null, Func<ResolveDllsRequest, ResolveDllsRequest>? request = null)
     {
         var app = FixtureModels.Load("loose-dlls").Projects.Single(p => p.Name == "App");
         var project = app with
@@ -94,19 +165,19 @@ public sealed class DllResolverTests
             TargetFrameworks = ["net40"],
             AssemblyReferences =
             [
-                .. new[] { "Antlr3.Runtime", "FirebirdSql.Data.FirebirdClient", "Iesi.Collections", "log4net", "System.Linq.Dynamic" }
-                    .Select(n => new AssemblyReferenceInfo { Name = n, HintPath = $"lib/{n}.dll", Kind = AssemblyReferenceKind.File }),
+                .. dlls.Select(n => new AssemblyReferenceInfo { Name = n, HintPath = $"lib/{n}.dll", Kind = AssemblyReferenceKind.File }),
                 new AssemblyReferenceInfo { Name = "System", Kind = AssemblyReferenceKind.Framework },
             ],
         };
-        return DllResolver.PlanAsync(new ResolveDllsRequest
+        var plan = new ResolveDllsRequest
         {
             RepositoryRoot = repository.Path,
             Model = FixtureModels.Load("loose-dlls") with { Projects = [customize?.Invoke(project) ?? project] },
-            Feeds = new RecordedPackageFeeds(Feed()),
+            Feeds = new RecordedPackageFeeds(feed),
             Cache = NullCache.Instance,
             Diagnostics = diagnostics,
-        }, TestContext.Current.CancellationToken);
+        };
+        return DllResolver.PlanAsync(request?.Invoke(plan) ?? plan, TestContext.Current.CancellationToken);
     }
 
     /// <summary>The checked-in DLLs and a legacy project that references them, one of them only in Debug and one in a Release-only group.</summary>

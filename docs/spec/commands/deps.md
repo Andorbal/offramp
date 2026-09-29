@@ -257,12 +257,22 @@ For each `Reference` with a `HintPath`:
    target (`OFR1402`). No match → `OFR1403` with the metadata so the user can
    decide.
 4. Report DLLs whose `TargetFrameworkAttribute` is `.NETFramework` and that
-   have no package replacement as blockers for the target (`OFR1404`).
+   have no package replacement as blockers for the target (`OFR1404`). A DLL
+   without the attribute (built before .NET 4.0) that references the .NET
+   Framework's `mscorlib` (public key token `b77a5c561934e089`) is .NET
+   Framework too: v1.0, v1.1, v2.0, or v4.0 by the `mscorlib` version.
+5. A COM interop assembly (with `ImportedFromTypeLibAttribute`, as tlbimp
+   writes it) matches no package and is not a blocker: `OFR1405` says it works
+   on Windows only.
 
 Details (M6, ADR 0020):
-- **Candidates.** NuGet feeds cannot be searched by assembly name, so the only
-  candidate is the package whose id is the assembly name, confirmed by
-  inspecting its versions' assets.
+- **Candidates.** NuGet feeds cannot be searched by assembly name, so the
+  candidates are the packages `deps.assemblyPackages` in `offramp.yml` and
+  `rules/assembly-packages.yml` name for the assembly (NUnit ships
+  `nunit.framework`, Microsoft.SqlServer.Compact ships
+  `System.Data.SqlServerCe`), in that order, then the package whose id is the
+  assembly name, each confirmed by inspecting its versions' assets. The
+  strongest match across them wins; on a tie, the first.
 - **Match rules** (ADR 0042). The DLL is read from disk: its identity, its
   `AssemblyFileVersion` and `AssemblyInformationalVersion` attributes, and its
   SHA-256; the model's metadata stands in when the file cannot be read.
