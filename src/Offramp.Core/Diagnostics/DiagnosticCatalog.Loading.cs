@@ -197,6 +197,30 @@ public static partial class DiagnosticCatalog
         "Run the repository's build step that generates the file (see its README or build script), then `offramp scan` again; or restore the file, or remove the `Compile` item.",
         LoadingArea);
 
+    public static readonly DiagnosticDescriptor OFR0124 = new(
+        "OFR0124", Severity.Warning,
+        "build step needs Windows: Microsoft.Bcl.Build binding redirects",
+        "The project imports the build targets of `Microsoft.Bcl.Build`, whose `EnsureBindingRedirects` task is built against .NET Framework's MSBuild (`Microsoft.Build.Utilities.v4.0`). .NET's MSBuild cannot load it (MSB4062), so the build fails when the task runs.",
+        "`Microsoft.Bcl.Build` 1.0.x, which came with `Microsoft.Net.Http`, `Microsoft.Bcl`, and `Microsoft.Bcl.Async` in .NET Framework 4.0 and 4.5 codebases.",
+        "Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`): outside Windows it sets `SkipEnsureBindingRedirects=true`, the package's own switch; compile-only builds need no binding redirects. On modern .NET the package is not needed.",
+        LoadingArea);
+
+    public static readonly DiagnosticDescriptor OFR0125 = new(
+        "OFR0125", Severity.Warning,
+        "build step needs Visual Studio: MSTest v1",
+        "The project references `Microsoft.VisualStudio.QualityTools.UnitTestFramework` (MSTest v1) without a `HintPath`. Only a Visual Studio installation has that assembly, so elsewhere the reference does not resolve and every test class fails to compile (CS0246, CS0234).",
+        "A test project created by Visual Studio 2010 to 2015.",
+        "Move to MSTest v2: the `MSTest.TestFramework` package has the same namespace (`Microsoft.VisualStudio.TestTools.UnitTesting`). For compile-only builds of a legacy project, reference the DLLs of `MSTest.TestFramework` 1.4.0 (`docs/compiling-on-macos.md`).",
+        LoadingArea);
+
+    public static readonly DiagnosticDescriptor OFR0126 = new(
+        "OFR0126", Severity.Warning,
+        "build step needs Windows: ASP.NET Web Site project",
+        "The solution has an ASP.NET Web Site project: a folder without a project file, which the solution build precompiles with `AspNetCompiler`. Only .NET Framework's MSBuild has it; `dotnet build` stops the whole solution before building any project (MSB4249). `scan` builds a solution filter without the web site instead, and Offramp does not model the web site.",
+        "A Web Site project (`File > New > Web Site` in Visual Studio), often a sample or an old front end.",
+        "Nothing to do for the scan. To migrate the site, convert it to a web application project first; to build it, use Visual Studio's MSBuild (`offramp scan --msbuild` on Windows).",
+        LoadingArea);
+
     public static readonly DiagnosticDescriptor OFR0130 = new(
         "OFR0130", Severity.Error,
         "analysis build failed; model partial",

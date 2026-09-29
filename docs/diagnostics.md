@@ -79,6 +79,9 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0120](#ofr0120) | warning | project loading | project reference cycle |
 | [OFR0121](#ofr0121) | warning | project loading | portable target references a framework-only project |
 | [OFR0123](#ofr0123) | warning | project loading | source file missing |
+| [OFR0124](#ofr0124) | warning | project loading | build step needs Windows: Microsoft.Bcl.Build binding redirects |
+| [OFR0125](#ofr0125) | warning | project loading | build step needs Visual Studio: MSTest v1 |
+| [OFR0126](#ofr0126) | warning | project loading | build step needs Windows: ASP.NET Web Site project |
 | [OFR0130](#ofr0130) | error | scan | analysis build failed; model partial |
 | [OFR0131](#ofr0131) | error | scan | analysis build timed out |
 | [OFR0132](#ofr0132) | warning | scan | compiler calls unavailable for some projects |
@@ -720,6 +723,33 @@ A project compiles a file (a `Compile` item) that does not exist in any letter c
 
 - **Typical cause:** A `SharedAssemblyInfo.cs` or `GlobalAssemblyInfo.cs` that the build script generates before Visual Studio builds the solution, or a file deleted without its `Compile` item.
 - **Fix:** Run the repository's build step that generates the file (see its README or build script), then `offramp scan` again; or restore the file, or remove the `Compile` item.
+
+### OFR0124
+
+**build step needs Windows: Microsoft.Bcl.Build binding redirects** · warning · project loading
+
+The project imports the build targets of `Microsoft.Bcl.Build`, whose `EnsureBindingRedirects` task is built against .NET Framework's MSBuild (`Microsoft.Build.Utilities.v4.0`). .NET's MSBuild cannot load it (MSB4062), so the build fails when the task runs.
+
+- **Typical cause:** `Microsoft.Bcl.Build` 1.0.x, which came with `Microsoft.Net.Http`, `Microsoft.Bcl`, and `Microsoft.Bcl.Async` in .NET Framework 4.0 and 4.5 codebases.
+- **Fix:** Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`): outside Windows it sets `SkipEnsureBindingRedirects=true`, the package's own switch; compile-only builds need no binding redirects. On modern .NET the package is not needed.
+
+### OFR0125
+
+**build step needs Visual Studio: MSTest v1** · warning · project loading
+
+The project references `Microsoft.VisualStudio.QualityTools.UnitTestFramework` (MSTest v1) without a `HintPath`. Only a Visual Studio installation has that assembly, so elsewhere the reference does not resolve and every test class fails to compile (CS0246, CS0234).
+
+- **Typical cause:** A test project created by Visual Studio 2010 to 2015.
+- **Fix:** Move to MSTest v2: the `MSTest.TestFramework` package has the same namespace (`Microsoft.VisualStudio.TestTools.UnitTesting`). For compile-only builds of a legacy project, reference the DLLs of `MSTest.TestFramework` 1.4.0 (`docs/compiling-on-macos.md`).
+
+### OFR0126
+
+**build step needs Windows: ASP.NET Web Site project** · warning · project loading
+
+The solution has an ASP.NET Web Site project: a folder without a project file, which the solution build precompiles with `AspNetCompiler`. Only .NET Framework's MSBuild has it; `dotnet build` stops the whole solution before building any project (MSB4249). `scan` builds a solution filter without the web site instead, and Offramp does not model the web site.
+
+- **Typical cause:** A Web Site project (`File > New > Web Site` in Visual Studio), often a sample or an old front end.
+- **Fix:** Nothing to do for the scan. To migrate the site, convert it to a web application project first; to build it, use Visual Studio's MSBuild (`offramp scan --msbuild` on Windows).
 
 ### OFR0130
 

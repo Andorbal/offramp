@@ -21,7 +21,7 @@ public sealed record CompileOnlyFix
 /// <summary>
 /// The compile-only conditional of docs/compiling-on-macos.md, inserted into the
 /// repository's root Directory.Build.props as text, so every other byte of the
-/// file (formatting, comments, line endings) stays as it was. It has three sections,
+/// file (formatting, comments, line endings) stays as it was. It has four sections,
 /// each found by its own marker, so a file with the first sections from an earlier
 /// Offramp gains only the sections it lacks.
 /// </summary>
@@ -102,13 +102,30 @@ public static class CompileOnlyConditional
         "</Target>",
     ];
 
-    /// <summary>All three sections, as a new file gets them.</summary>
-    public static IReadOnlyList<string> BlockLines => [.. CompileOnlyLines, .. WebTargetsLines, .. LegacyLines];
+    /// <summary>Marks the Microsoft.Bcl.Build section.</summary>
+    public const string BclBuildMarker = "<SkipEnsureBindingRedirects>";
+
+    /// <summary>
+    /// <c>Microsoft.Bcl.Build</c>'s <c>EnsureBindingRedirects</c> task is built against .NET Framework's MSBuild and
+    /// cannot load on .NET's (MSB4062). Compile-only builds need no binding redirects, so the package's own switch
+    /// turns the task off outside Windows; on Windows it still writes the redirects the application needs
+    /// (docs/decisions/0048-web-sites-bcl-build-and-mstest-v1-outside-windows.md).
+    /// </summary>
+    public static readonly string[] BclBuildLines =
+    [
+        "<!-- Microsoft.Bcl.Build on macOS/Linux: its binding-redirect task needs .NET Framework's MSBuild, and compile-only builds need no redirects (added by offramp doctor). -->",
+        "<PropertyGroup Condition=\"!$([MSBuild]::IsOSPlatform('Windows'))\">",
+        "  " + BclBuildMarker + "true</SkipEnsureBindingRedirects>",
+        "</PropertyGroup>",
+    ];
+
+    /// <summary>All four sections, as a new file gets them.</summary>
+    public static IReadOnlyList<string> BlockLines => [.. CompileOnlyLines, .. WebTargetsLines, .. LegacyLines, .. BclBuildLines];
 
     /// <summary>True when the legacy projects section is in <paramref name="content"/>.</summary>
     public static bool HasLegacySection(string? content) => content is not null && content.Contains(LegacyMarker, StringComparison.Ordinal);
 
-    /// <summary>True when all three sections are in <paramref name="content"/>.</summary>
+    /// <summary>True when all four sections are in <paramref name="content"/>.</summary>
     public static bool IsPresent(string? content) => content is not null && MissingLines(content).Count == 0;
 
     /// <summary>The new content for <paramref name="current"/> (null when the file does not exist), or null when already present.</summary>
@@ -192,6 +209,11 @@ public static class CompileOnlyConditional
         if (!legacy)
         {
             lines.AddRange(LegacyLines);
+        }
+
+        if (!content.Contains(BclBuildMarker, StringComparison.Ordinal))
+        {
+            lines.AddRange(BclBuildLines);
         }
 
         return lines;

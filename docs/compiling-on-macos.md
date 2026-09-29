@@ -47,6 +47,9 @@ Visual Studio installs. The compile-only block's legacy section and
 | `packages.config` packages | `dotnet restore` skips `packages.config`, and `NuGet.exe` needs Mono | `offramp scan` restores them into `packages/` (below) |
 | Paths in another letter case than the file on disk (Linux only) | Windows and macOS file systems ignore case; Linux does not (MSB4019, CS2001, MSB3030, MSB3554) | rename the reference or the file; `scan` names every one in each project at once (`OFR0117`) |
 | `CodeTaskFactory` inline tasks, as in `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` | only .NET Framework's MSBuild has the factory (MSB4801) | redefine the targets that use it (below); `OFR0118` |
+| `Microsoft.Bcl.Build`'s binding redirects (`EnsureBindingRedirects`) | the task is built against .NET Framework's MSBuild 4.0 (MSB4062) | the compile-only block sets `SkipEnsureBindingRedirects=true`; `OFR0124` |
+| MSTest v1 (`Microsoft.VisualStudio.QualityTools.UnitTestFramework`) | the assembly ships with Visual Studio only (CS0246, CS0234) | reference `MSTest.TestFramework` ([below](#mstest-v1)); `OFR0125` |
+| ASP.NET Web Site projects (a folder in the solution, no project file) | `AspNetCompiler` exists only in .NET Framework's MSBuild; the whole solution stops (MSB4249) | `scan` builds the solution without them; `OFR0126` |
 | Non-string `.resx` resources (images, icons) | .NET's MSBuild embeds them only preserialized (MSB3822, MSB3823) | `GenerateResourceUsePreserializedResources=true` and `System.Resources.Extensions`, as a DLL reference in legacy projects ([below](#non-string-resources)); `OFR0119` |
 
 ## The compile-only conditional
@@ -85,6 +88,10 @@ Put this in the repository's root `Directory.Build.props` (`offramp doctor
     <DisableSdkPath>true</DisableSdkPath>
   </PropertyGroup>
 </Target>
+<!-- Microsoft.Bcl.Build on macOS/Linux: its binding-redirect task needs .NET Framework's MSBuild, and compile-only builds need no redirects (added by offramp doctor). -->
+<PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+  <SkipEnsureBindingRedirects>true</SkipEnsureBindingRedirects>
+</PropertyGroup>
 ```
 
 Then guard anything else that needs Windows with
@@ -95,6 +102,15 @@ the ASP.NET section needs the file, because it adds a package.
 
 If your `Directory.Build.props` has sections from an earlier Offramp,
 `offramp doctor --fix` adds only the ones it lacks.
+
+The last section turns off `Microsoft.Bcl.Build`'s `EnsureBindingRedirects`
+task, with the package's own switch. The package came with `Microsoft.Net.Http`,
+`Microsoft.Bcl`, and `Microsoft.Bcl.Async` in .NET Framework 4.0 and 4.5
+codebases, and its task is built against .NET Framework's MSBuild, so .NET's
+MSBuild cannot load it (MSB4062). Compile-only builds need no binding
+redirects; on Windows the task still writes the ones the application needs.
+`scan` reports a project that imports the package's targets without the switch
+as `OFR0124`.
 
 ### ASP.NET (System.Web) projects
 
@@ -193,6 +209,16 @@ to change:
 - **Build events and `Exec` commands written for cmd.exe** (`OFR0115`), such as
   `XCOPY` in a `PostBuild` target: add
   `Condition="'$(OfframpCompileOnly)' != 'true'"` to the target.
+- **MSTest v1** (`OFR0125`): a reference to
+  `Microsoft.VisualStudio.QualityTools.UnitTestFramework` without a `HintPath`,
+  which only Visual Studio installs; see [MSTest v1](#mstest-v1).
+- **ASP.NET Web Site projects** (`OFR0126`): a folder the solution lists
+  without a project file (type `{E24C65DC-7377-472B-9ABA-BC803B73C61A}`), which
+  the solution build precompiles with `AspNetCompiler`. `dotnet build` stops the
+  whole solution on it (MSB4249), before any project builds, so `scan` builds a
+  solution filter of the other projects (`.offramp/scan.slnf`) instead. The
+  site stays out of the model, with or without `--msbuild`: it has no project
+  file. To migrate it, convert it to a web application project first.
 - **Non-string resources** (`OFR0119`). `scan` reads each project's `.resx`
   files and names the ones with images, icons, type-converted values, or
   serialized objects (strings and byte arrays embed as they are). .NET's MSBuild
@@ -237,6 +263,32 @@ workspace model does not record a reference the project does not have, and
 On Windows, .NET Framework's MSBuild embeds these resources without either
 change. If you set the property for every build instead, the .NET Framework
 application needs `System.Resources.Extensions` at run time.
+
+### MSTest v1
+
+MSTest v2's `MSTest.TestFramework` package has the same namespace
+(`Microsoft.VisualStudio.TestTools.UnitTesting`), so moving a test project to it
+is the real fix, and a step on the way to modern .NET. Until then, a legacy test
+project compiles outside Windows against the package's DLLs. As for resources,
+the package is restored the `PackageReference` way and referenced from a target,
+here for the test projects `scan` named (`MyApp.Tests` below):
+
+```xml
+<!-- MSTest v1 test projects on macOS/Linux (offramp scan: OFR0125). -->
+<ItemGroup Condition="'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true' And '$(MSBuildProjectName)' == 'MyApp.Tests'">
+  <PackageReference Include="MSTest.TestFramework" Version="1.4.0" IsImplicitlyDefined="true" PrivateAssets="all" />
+</ItemGroup>
+<Target Name="AddMSTestFramework" BeforeTargets="ResolveAssemblyReferences" Condition="'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true' And '$(MSBuildProjectName)' == 'MyApp.Tests'">
+  <ItemGroup>
+    <Reference Include="$(NuGetPackageRoot)mstest.testframework/1.4.0/lib/net45/Microsoft.VisualStudio.TestPlatform.TestFramework.dll" />
+    <Reference Include="$(NuGetPackageRoot)mstest.testframework/1.4.0/lib/net45/Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions.dll" />
+  </ItemGroup>
+</Target>
+```
+
+The v1 reference stays unresolved (a warning, MSB3245), and the tests compile
+against the replacement. Coded UI tests (`Microsoft.VisualStudio.QualityTools.CodedUITestFramework`)
+have no replacement.
 
 ## The compiler-log fallback
 

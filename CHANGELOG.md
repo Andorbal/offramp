@@ -254,6 +254,20 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   projects differed between two scans), and `source.sha256` hashed the binary log, which differs
   with every build; now calls are found in the compiler log by project and target framework, and
   a log Offramp built is not hashed (the model's `inputs` decide staleness, as before).
+- Three more build steps that stopped field-test builds outside Windows are named, each with its
+  fix in `docs/compiling-on-macos.md` (ADR 0048):
+  - An ASP.NET Web Site project no longer stops the whole solution: `dotnet build` fails with
+    MSB4249 before building any project, so NHibernate 4.1's `NHibernate.Everything.sln` loaded 0
+    projects and every `OFR0101` reason was wrong. `scan` now builds a solution filter without the
+    site (`.offramp/scan.slnf`), and reports the site as `OFR0101` ("ASP.NET Web Site project",
+    where it said "unsupported project type ()") and `OFR0126` (new, `web-site`).
+  - `Microsoft.Bcl.Build`'s `EnsureBindingRedirects` task (MSB4062 in SmartStoreNET's FacebookAuth
+    and Open Live Writer's PostEditor) is `OFR0124` (new, `bcl-build`), and the compile-only block
+    has a fourth section that sets the package's `SkipEnsureBindingRedirects` outside Windows;
+    `doctor --fix` adds it to files with the first three.
+  - MSTest v1 (`Microsoft.VisualStudio.QualityTools.UnitTestFramework`, 363 errors in Open Live
+    Writer's two test projects) is `OFR0125` (new, `mstest-v1`), documented with the
+    `MSTest.TestFramework` replacement for compile-only builds.
 - `scan` checks the projects' files for letter-case, resource, and missing-file problems in
   one pass, after the build and whatever it got to (ADR 0047), instead of naming them from build
   errors one project per build. SmartStoreNET 4.2 needed four scans to find its 14 paths in the

@@ -183,6 +183,41 @@ public sealed class WindowsOnlyBuildStepsTests
         Assert.Single(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [preserialized, Evaluation() with { TargetFramework = "net461" }], [], context));
     }
 
+    [Fact]
+    [ProducesDiagnostic("OFR0124")]
+    public void Microsoft_bcl_build_is_a_step_until_its_redirects_are_skipped()
+    {
+        // SmartStoreNET's FacebookAuth and Open Live Writer's PostEditor: MSB4062 from EnsureBindingRedirects.
+        string[] imports = ["/repo/src/packages/Microsoft.Bcl.Build.1.0.21/build/Microsoft.Bcl.Build.targets"];
+        const string message = "The \"EnsureBindingRedirects\" task could not be loaded from the assembly /repo/src/packages/Microsoft.Bcl.Build.1.0.21/build/Microsoft.Bcl.Build.Tasks.dll. Could not load file or assembly 'Microsoft.Build.Utilities.v4.0'.";
+
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [Evaluation(imports: imports, properties: new() { ["SkipEnsureBindingRedirects"] = "false" })]));
+        var fromError = Assert.Single(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [], [new BuildError("MSB4062", message, "/repo/src/A/A.csproj", null, null, null)]));
+
+        Assert.Equal("bcl-build", step.Id);
+        Assert.Equal("OFR0124", step.Descriptor.Code);
+        Assert.Equal("imports Microsoft.Bcl.Build.targets, whose EnsureBindingRedirects task needs .NET Framework's MSBuild", step.Evidence);
+        Assert.Equal("bcl-build", fromError.Id);
+        Assert.Empty(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [Evaluation(imports: imports, properties: new() { ["SkipEnsureBindingRedirects"] = "true" })]));
+        Assert.True(WindowsOnlyBuildSteps.IsStepCode("OFR0124"));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0125")]
+    public void An_mstest_v1_reference_without_a_hint_path_needs_visual_studio()
+    {
+        // Open Live Writer: 363 CS0246/CS0234 errors in two test projects.
+        var visualStudio = new EvaluatedItem("Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", new Dictionary<string, string>());
+        var checkedIn = new EvaluatedItem("Microsoft.VisualStudio.QualityTools.UnitTestFramework", new Dictionary<string, string> { ["HintPath"] = @"..\lib\Microsoft.VisualStudio.QualityTools.UnitTestFramework.dll" });
+
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect("src/Tests/Tests.csproj", [Evaluation(items: new() { ["Reference"] = [visualStudio] })]));
+
+        Assert.Equal("mstest-v1", step.Id);
+        Assert.Equal("OFR0125", step.Descriptor.Code);
+        Assert.Equal("Reference Microsoft.VisualStudio.QualityTools.UnitTestFramework (MSTest v1), which only Visual Studio installs", step.Evidence);
+        Assert.Empty(WindowsOnlyBuildSteps.Detect("src/Tests/Tests.csproj", [Evaluation(items: new() { ["Reference"] = [checkedIn] })]));
+    }
+
     private static EvaluatedProject Evaluation(
         Dictionary<string, string>? properties = null,
         Dictionary<string, IReadOnlyList<EvaluatedItem>>? items = null,

@@ -20,7 +20,7 @@ public sealed class CompileOnlyConditionalTests : IDisposable
 
         Assert.StartsWith("<Project>\n  <!-- keep me -->\n  <PropertyGroup>\n    <LangVersion>latest</LangVersion>\n  </PropertyGroup>\n", updated, StringComparison.Ordinal);
         Assert.Contains("    <OfframpCompileOnly>true</OfframpCompileOnly>\n  </PropertyGroup>\n", updated, StringComparison.Ordinal);
-        Assert.EndsWith("    </PropertyGroup>\n  </Target>\n</Project>\n", updated, StringComparison.Ordinal);
+        Assert.EndsWith("    <SkipEnsureBindingRedirects>true</SkipEnsureBindingRedirects>\n  </PropertyGroup>\n</Project>\n", updated, StringComparison.Ordinal);
         AssertValidProject(updated);
     }
 
@@ -42,7 +42,7 @@ public sealed class CompileOnlyConditionalTests : IDisposable
     }
 
     [Fact]
-    public void A_file_from_before_the_legacy_section_gains_only_that_section()
+    public void A_file_from_before_the_legacy_section_gains_it_and_the_later_ones()
     {
         var earlier = "<Project>\n" + string.Concat(CompileOnlyConditional.CompileOnlyLines.Concat(CompileOnlyConditional.WebTargetsLines).Select(l => "  " + l + "\n")) + "</Project>\n";
 
@@ -54,6 +54,19 @@ public sealed class CompileOnlyConditionalTests : IDisposable
         Assert.False(CompileOnlyConditional.HasLegacySection(earlier));
         Assert.True(CompileOnlyConditional.HasLegacySection(updated));
         Assert.Null(CompileOnlyConditional.Apply(updated));
+    }
+
+    [Fact]
+    public void A_file_with_the_first_three_sections_gains_only_the_microsoft_bcl_build_one()
+    {
+        var earlier = "<Project>\n" + string.Concat(CompileOnlyConditional.CompileOnlyLines.Concat(CompileOnlyConditional.WebTargetsLines).Concat(CompileOnlyConditional.LegacyLines).Select(l => "  " + l + "\n")) + "</Project>\n";
+
+        var updated = CompileOnlyConditional.Apply(earlier)!;
+
+        Assert.Equal(earlier[..^"</Project>\n".Length] + string.Concat(CompileOnlyConditional.BclBuildLines.Select(l => "  " + l + "\n")) + "</Project>\n", updated);
+        Assert.False(CompileOnlyConditional.IsPresent(earlier));
+        Assert.True(CompileOnlyConditional.IsPresent(updated));
+        AssertValidProject(updated);
     }
 
     [Fact]
@@ -146,6 +159,11 @@ public sealed class CompileOnlyConditionalTests : IDisposable
 
         Assert.True(result.Succeeded, result.StandardOutput + result.StandardError);
         Assert.Equal(OperatingSystem.IsWindows() ? "" : "true", result.StandardOutput.Trim());
+
+        var skip = await Offramp.Core.Processes.ProcessRunner.Instance.RunAsync(
+            new Offramp.Core.Processes.ProcessSpec("dotnet", ["msbuild", "A/A.csproj", "-getProperty:SkipEnsureBindingRedirects", "-nologo"]) { WorkingDirectory = _repo.Path },
+            TestContext.Current.CancellationToken);
+        Assert.Equal(OperatingSystem.IsWindows() ? "" : "true", skip.StandardOutput.Trim());
     }
 
     private static void AssertValidProject(string content)

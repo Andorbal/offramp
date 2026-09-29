@@ -67,7 +67,10 @@ From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
   pre/post-build events calling Windows commands, and the ASP.NET web
   application targets imported from Visual Studio's `VSToolsPath` (or an
   MSB4019 error for that import, when evaluation stopped there) or
-  `MvcBuildViews=true` (`OFR0110`–`OFR0116`). For a log built in this
+  `MvcBuildViews=true` (`OFR0110`–`OFR0116`), `Microsoft.Bcl.Build`'s targets
+  without `SkipEnsureBindingRedirects` (`bcl-build`, `OFR0124`, also from its
+  MSB4062), and a `Reference` to `Microsoft.VisualStudio.QualityTools.*` without a
+  `HintPath` (`mstest-v1`, `OFR0125`). For a log built in this
   checkout, the projects' files add, in one pass: every path an import, a
   `Compile` or `EmbeddedResource` item, a `None` or `Content` item copied to the
   output, or a `.resx` file reference names that exists only in another letter case (`path-case`,
@@ -147,7 +150,7 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
       "properties": { "LangVersion": "latest", "Nullable": "disable", "GenerateSerializationAssemblies": "On" },
       "defineConstants": { "net48": ["TRACE", "DEBUG", "NETFRAMEWORK", "NET48", "NET48_OR_GREATER"] },  // what the compiler saw
                                                   // (a legacy project's call too); without a call, DefineConstants split on ; and , as csc does
-      "windowsOnlyBuildSteps": ["sgen"],          // ids: sgen, com, entity-deploy, t4, fakes, ssdt, build-event, web-targets, aspnet-compiler, path-case, inline-task, resources
+      "windowsOnlyBuildSteps": ["sgen"],          // ids: sgen, com, entity-deploy, t4, fakes, ssdt, build-event, web-targets, aspnet-compiler, path-case, inline-task, resources, bcl-build, mstest-v1
       "packagesConfig": false,                    // a packages.config sits beside the project
       "packagesConfigPackages": [                 // what it lists (direct and transitive), sorted; absent without one
         { "id": "Newtonsoft.Json", "version": "13.0.3", "targetFramework": "net472", "developmentDependency": false }

@@ -100,7 +100,7 @@
         "defineConstants": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
         "windowsOnlyBuildSteps": {
           "type": "array",
-          "items": { "enum": ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event", "web-targets", "aspnet-compiler", "path-case", "inline-task", "resources"] }
+          "items": { "enum": ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event", "web-targets", "aspnet-compiler", "path-case", "inline-task", "resources", "bcl-build", "mstest-v1", "web-site"] }
         },
         "packagesConfig": { "type": "boolean" },
         "packagesConfigPackages": {

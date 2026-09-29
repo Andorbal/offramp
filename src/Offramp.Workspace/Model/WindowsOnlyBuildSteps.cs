@@ -30,12 +30,21 @@ public static class WindowsOnlyBuildSteps
 {
     /// <summary>Step ids in the order they are reported.</summary>
     public static readonly IReadOnlyList<string> Order =
-        ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event", "web-targets", "aspnet-compiler", "path-case", "inline-task", "resources"];
+        ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event", "web-targets", "aspnet-compiler", "path-case", "inline-task", "resources", "bcl-build", "mstest-v1", "web-site"];
 
-    /// <summary>The first and last codes of the Windows-only build step range (OFR0110–OFR0119).</summary>
+    /// <summary>The first and last codes of the first Windows-only build step range (OFR0110–OFR0119).</summary>
     public const string FirstCode = "OFR0110";
 
     public const string LastCode = "OFR0119";
+
+    /// <summary>The step codes after the first range: Microsoft.Bcl.Build, MSTest v1, ASP.NET Web Site projects.</summary>
+    private static readonly string[] LaterCodes = ["OFR0124", "OFR0125", "OFR0126"];
+
+    /// <summary>The file <c>Microsoft.Bcl.Build</c> imports its <c>EnsureBindingRedirects</c> task from.</summary>
+    public const string BclBuildTargets = "Microsoft.Bcl.Build.targets";
+
+    /// <summary>The prefix of the MSTest v1 assemblies, which only Visual Studio installs.</summary>
+    private const string QualityTools = "Microsoft.VisualStudio.QualityTools.";
 
     /// <summary>The file Visual Studio installs under <c>$(VSToolsPath)</c> for ASP.NET (System.Web) projects.</summary>
     public const string WebApplicationTargets = "Microsoft.WebApplication.targets";
@@ -47,7 +56,7 @@ public static class WindowsOnlyBuildSteps
         [".exe", ".bat", ".cmd", "xcopy", "robocopy", "copy ", "del ", "powershell", "cmd ", "%"];
 
     public static bool IsStepCode(string code) =>
-        string.CompareOrdinal(code, FirstCode) >= 0 && string.CompareOrdinal(code, LastCode) <= 0;
+        (string.CompareOrdinal(code, FirstCode) >= 0 && string.CompareOrdinal(code, LastCode) <= 0) || LaterCodes.Contains(code, StringComparer.Ordinal);
 
     /// <summary>True when a loaded project has a step, or a project that could not load was reported with one.</summary>
     public static bool AnyIn(WorkspaceModel model) =>
@@ -161,6 +170,17 @@ public static class WindowsOnlyBuildSteps
             {
                 Add("aspnet-compiler", DiagnosticCatalog.OFR0116, "MvcBuildViews=true (AspNetCompiler)");
             }
+
+            // The package's targets set SkipEnsureBindingRedirects themselves when the build generates redirects.
+            if (!e.IsTrue("SkipEnsureBindingRedirects") && e.Imports.Any(i => i.Replace('\\', '/').EndsWith("/" + BclBuildTargets, StringComparison.OrdinalIgnoreCase)))
+            {
+                Add("bcl-build", DiagnosticCatalog.OFR0124, $"imports {BclBuildTargets}, whose EnsureBindingRedirects task needs .NET Framework's MSBuild");
+            }
+
+            if (e.ItemsOf("Reference").FirstOrDefault(r => AssemblyName(r.Include).StartsWith(QualityTools, StringComparison.OrdinalIgnoreCase) && r.Get("HintPath") is null) is { } mstest)
+            {
+                Add("mstest-v1", DiagnosticCatalog.OFR0125, $"Reference {AssemblyName(mstest.Include)} (MSTest v1), which only Visual Studio installs");
+            }
         }
 
         return [.. Order.Where(found.ContainsKey).Select(id => found[id])];
@@ -231,11 +251,19 @@ public static class WindowsOnlyBuildSteps
             yield return new WindowsOnlyStep("inline-task", DiagnosticCatalog.OFR0118, $"{TaskFactory(inline.Message)}{file} (MSB4801)");
         }
 
+        if (errors.FirstOrDefault(e => e.Code == "MSB4062" && (e.Message.Contains("Microsoft.Bcl.Build", StringComparison.OrdinalIgnoreCase) || e.Message.Contains("EnsureBindingRedirects", StringComparison.Ordinal))) is not null)
+        {
+            yield return new WindowsOnlyStep("bcl-build", DiagnosticCatalog.OFR0124, "Microsoft.Bcl.Build's EnsureBindingRedirects task cannot load on .NET's MSBuild (MSB4062)");
+        }
+
         if (errors.FirstOrDefault(e => e.Code == "MSB3073" && ExecCommand(e.Message) is { } command && IsWindowsCommand(command)) is { } exec)
         {
             yield return new WindowsOnlyStep("build-event", DiagnosticCatalog.OFR0115, $"Exec: {FirstLine(ExecCommand(exec.Message)!)} (MSB3073)");
         }
     }
+
+    /// <summary>The simple name of a <c>Reference</c> item (<c>Name, Version=...</c>).</summary>
+    private static string AssemblyName(string include) => include.Split(',')[0].Trim();
 
     private static bool IsWindowsCommand(string command) =>
         WindowsCommandMarkers.Any(m => command.Contains(m, StringComparison.OrdinalIgnoreCase));

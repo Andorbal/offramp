@@ -27,6 +27,9 @@ public static class ScanRunner
 {
     public const string BinlogFileName = "msbuild.binlog";
     public const string ComplogFileName = "build.complog";
+
+    /// <summary>The solution filter <c>scan</c> builds when the solution lists ASP.NET Web Site projects.</summary>
+    public const string WebSiteFilterFileName = "scan.slnf";
     private const int MaxErrorsInMessage = 5;
 
     public static async Task<ScanOutcome> RunAsync(ScanRequest request, CancellationToken cancellationToken)
@@ -104,7 +107,7 @@ public static class ScanRunner
             using (var building = request.Progress.BeginPhase($"Building {solution}{builder}", ++phase, plan))
             {
                 var progress = new BuildProgress(building, listed?.ProjectPaths.Count ?? 0);
-                var built = await BuildAsync(request, solution, binlog, progress.OnLine, cancellationToken);
+                var built = await BuildAsync(request, await BuildTargetAsync(request, solution, state, cancellationToken), binlog, progress.OnLine, cancellationToken);
                 if (built is null)
                 {
                     return new ScanOutcome(null, null, ScanFailure.Environment);
@@ -244,6 +247,30 @@ public static class ScanRunner
     }
 
     private static bool UsesMsbuild(OfframpConfig config) => config.Scan.Builder == ScanConfig.Msbuild;
+
+    /// <summary>
+    /// What <c>dotnet build</c> builds: the solution, or, when it lists ASP.NET Web Site projects, a filter of every
+    /// other project in the state folder. .NET's MSBuild has no <c>AspNetCompiler</c>, and MSB4249 stops the whole
+    /// solution before any project builds (docs/decisions/0048-web-sites-bcl-build-and-mstest-v1-outside-windows.md).
+    /// </summary>
+    private static async Task<string> BuildTargetAsync(ScanRequest request, string solution, string state, CancellationToken cancellationToken)
+    {
+        var root = request.RepositoryRoot;
+        if (UsesMsbuild(request.Config) || await ReadSolutionAsync(root, solution, cancellationToken) is not { WebSites.Count: > 0 } listed)
+        {
+            return solution;
+        }
+
+        var webSites = listed.WebSites.ToHashSet(StringComparer.Ordinal);
+        var filter = RepoPaths.ToRepositoryRelative(root, Path.Combine(state, WebSiteFilterFileName));
+        var projects = listed.ProjectPaths.Where(p => !webSites.Contains(p)).Select(p => RepoPaths.ToRepositoryRelative(root, p)).ToList();
+        Directory.CreateDirectory(state);
+        await File.WriteAllTextAsync(RepoPaths.ToAbsolute(root, filter),
+            Slicing.SliceBuilder.SolutionFilter(RepoPaths.ToRepositoryRelative(root, listed.SolutionFile), projects, filter), cancellationToken);
+        request.Progress.Log(ProgressLevel.Info,
+            string.Create(CultureInfo.InvariantCulture, $"Building {filter}: {solution} without its {webSites.Count} ASP.NET Web Site project(s), which only .NET Framework's MSBuild builds."));
+        return filter;
+    }
 
     private static async Task<ProcessResult?> BuildAsync(ScanRequest request, string solution, string binlog, Action<string> onOutputLine, CancellationToken cancellationToken)
     {
@@ -509,6 +536,7 @@ public static class ScanRunner
         // Projects that are not C#, Visual Basic, or F# are named once, evaluated or not, and never loaded.
         others.UnionWith(notLoaded.Select(n => n.Project).Where(p => others.Contains(p) || OtherProjects.IsOtherListed(p)));
         notLoaded = [.. notLoaded.Where(n => !others.Contains(n.Project))];
+        var webSites = WebSites(root, listed);
         var loading = new List<Diagnostic>();
         foreach (var other in others)
         {
@@ -526,6 +554,15 @@ public static class ScanRunner
                     "Needs Windows to build: SQL Server Database Project (.sqlproj).",
                     new DiagnosticLocation(Project: missing.Project),
                     [KeyValuePair.Create<string, JsonNode?>("step", "ssdt")])!);
+                continue;
+            }
+
+            if (webSites.Contains(missing.Project))
+            {
+                loading.Add(request.Diagnostics.Report(DiagnosticCatalog.OFR0126,
+                    "Needs Windows to build: ASP.NET Web Site project (AspNetCompiler); `dotnet build` stops the whole solution on it (MSB4249), so scan builds the solution without it.",
+                    new DiagnosticLocation(Project: missing.Project),
+                    [KeyValuePair.Create<string, JsonNode?>("step", "web-site")])!);
                 continue;
             }
 
@@ -612,9 +649,9 @@ public static class ScanRunner
         {
             return await SolutionReader.ReadAsync(solutionPath, cancellationToken);
         }
-        catch (Exception ex) when (ex is IOException or InvalidDataException or System.Text.Json.JsonException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return null;
+            return null; // The build reports an unreadable solution.
         }
     }
 
@@ -727,7 +764,8 @@ public static class ScanRunner
         }
 
         var loaded = projects.Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var missing = listed.ProjectPaths.Select(p => RepoPaths.ToRepositoryRelative(request.RepositoryRoot, p)).Where(id => !loaded.Contains(id)).ToList();
+        var webSites = WebSites(request.RepositoryRoot, listed);
+        var missing = listed.ProjectPaths.Select(p => RepoPaths.ToRepositoryRelative(request.RepositoryRoot, p).TrimEnd('/')).Where(id => !loaded.Contains(id)).ToList();
         var failed = data.Errors.Where(e => e.ProjectFile is not null)
             .Select(e => mapper.ToRelative(e.ProjectFile))
             .OfType<string>()
@@ -738,10 +776,12 @@ public static class ScanRunner
         {
             var error = EvaluationError(data, mapper, id);
             var extension = Path.GetExtension(id).ToLowerInvariant();
-            var reason = error is not null
+            var reason = webSites.Contains(id)
+                ? WebSiteReason
+                : error is not null
                 ? $"{error.Code}: {error.Message}"
                 : extension is not (".csproj" or ".vbproj" or ".fsproj")
-                    ? $"unsupported project type ({extension})"
+                    ? $"unsupported project type ({(extension.Length > 0 ? extension : "no project file")})"
                     : FailedReference(request.RepositoryRoot, id, failed) is { } reference
                         ? $"not built: it references {reference}, which failed"
                         : "no evaluation for it in the build log; MSBuild did not build it (check the solution configuration)";
@@ -750,6 +790,14 @@ public static class ScanRunner
 
         return [.. result.OrderBy(r => r.Project, StringComparer.Ordinal)];
     }
+
+    /// <summary>Why a Web Site project is not in the model.</summary>
+    internal const string WebSiteReason =
+        "ASP.NET Web Site project (a folder without a project file): only .NET Framework's MSBuild builds it, and Offramp does not model it";
+
+    /// <summary>The repository-relative folders of the solution's Web Site projects.</summary>
+    private static HashSet<string> WebSites(string root, SolutionProjects? listed) =>
+        (listed?.WebSites ?? []).Select(p => RepoPaths.ToRepositoryRelative(root, p).TrimEnd('/')).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>A Windows-only build step's diagnostic, with the build's paths made repository-relative, then shortened.</summary>
     internal static Diagnostic ReportStep(ScanRequest request, WindowsOnlyStep step, string project, CapturePathMapper mapper)
@@ -975,6 +1023,7 @@ public static class ScanRunner
                 .Select(p => new WindowsOnlyProject(p.Id, p.WindowsOnlyBuildSteps))
                 .Concat(notLoaded.Where(n => n.Project.EndsWith(".sqlproj", StringComparison.OrdinalIgnoreCase))
                     .Select(n => new WindowsOnlyProject(n.Project, ["ssdt"])))
+                .Concat(notLoaded.Where(n => n.Reason == WebSiteReason).Select(n => new WindowsOnlyProject(n.Project, ["web-site"])))
                 .OrderBy(p => p.Project, StringComparer.Ordinal)],
             Unrecognized = [.. model.Projects.Where(p => p.Kind == ProjectKind.Unknown).Select(p => p.Id)],
             NotLoaded = notLoaded,

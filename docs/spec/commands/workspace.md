@@ -46,6 +46,11 @@ offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH 
   each package (`Id Version`), and the build phase reports each project the
   build finishes (MSBuild's `Name -> output` lines) out of the solution's
   projects, so a long build is never silent.
+- When the solution lists ASP.NET Web Site projects (folders without a project
+  file, which `dotnet build` cannot build: MSB4249 stops the whole solution),
+  `dotnet build` builds `.offramp/scan.slnf`, a filter of every other project,
+  instead; the model's `solution` stays the scanned one. Each Web Site is
+  `OFR0101` and `OFR0126` (`docs/decisions/0048-web-sites-bcl-build-and-mstest-v1-outside-windows.md`).
 - Converts the binlog to a complog (`.offramp/build.complog`) so compilations
   can be rebuilt without MSBuild. With `--complog`, copies that one instead.
 - `--no-build` reuses `.offramp/msbuild.binlog` from the previous scan
@@ -97,7 +102,9 @@ projects' files, all at once, for a log built in this checkout), `OFR0120`
 project reference cycle,
 `OFR0121` portable target references a framework-only project, `OFR0123` a
 `Compile` item's file missing in every letter case (naming the git-ignored
-ones, which the repository's own build generates), `OFR0130` build failed (with
+ones, which the repository's own build generates), `OFR0124`–`0126`
+Windows-only build steps (`Microsoft.Bcl.Build`'s binding redirects, MSTest v1,
+an ASP.NET Web Site project), `OFR0130` build failed (with
 the count per error code, most first, and the first N
 errors; scan still produces a model for projects whose compiler call
 succeeded, and marks the rest `partial: true`), `OFR0131` build timed out,
@@ -169,8 +176,8 @@ installed, `OFR0012` SDK cannot target `--target`, `OFR0013` reference assemblie
 unresolvable, `OFR0014` git not found, `OFR0015` not a git repository, `OFR0016`
 no `offramp.yml` (info), `OFR0018` legacy projects without the legacy section,
 `OFR0001` workspace model missing (reported as a warning
-by doctor), `OFR0002` model stale, `OFR0110`–`OFR0119` Windows-only build
-steps (from the model), `OFR1301`–`OFR1303` CPM hazards, `OFR1006` feed
+by doctor), `OFR0002` model stale, `OFR0110`–`OFR0119` and `OFR0124`–`OFR0126`
+Windows-only build steps (from the model), `OFR1301`–`OFR1303` CPM hazards, `OFR1006` feed
 unreachable, and the configuration codes `OFR0050`–`OFR0056`.
 
 ## `init`
