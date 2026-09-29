@@ -12,7 +12,8 @@ public sealed class GraphViewTests
         Project("src/App/App.csproj", ProjectKind.Console, FrameworkClass.Framework, "src/Core/Core.csproj"),
         Project("src/Core/Core.csproj", ProjectKind.Library, FrameworkClass.Framework, "src/Contracts/Contracts.csproj"),
         Project("src/Contracts/Contracts.csproj", ProjectKind.Library, FrameworkClass.Standard),
-        Project("src/Web/Web.csproj", ProjectKind.Web, FrameworkClass.Dual, "src/Core/Core.csproj"),
+        // Web's net4x target alone references Core, so Core does not block it.
+        Project("src/Web/Web.csproj", ProjectKind.Web, FrameworkClass.Dual, "src/Core/Core.csproj") with { ModernProjectReferences = [] },
         Project("tests/Core.Tests/Core.Tests.csproj", ProjectKind.Test, FrameworkClass.Framework, "src/Core/Core.csproj"),
         Project("legacy/Legacy/Legacy.csproj", ProjectKind.Library, FrameworkClass.Framework, "legacy/Old/Old.csproj"),
         Project("legacy/Old/Old.csproj", ProjectKind.Library, FrameworkClass.Framework) with

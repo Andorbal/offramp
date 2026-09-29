@@ -127,10 +127,20 @@ offramp plan [--frontier] [--for PROJECT] [--waves] [--exclude-kind test,...]
 
 - Default: every project, leaf-first, with its `frameworkClass`, blast radius
   (number of transitive dependents), blockers (the `framework`-only projects it
-  depends on, directly or transitively), readiness, and wave.
+  depends on, directly or transitively, through the references its portable
+  targets use), readiness, and wave.
 - Waves: `0` for projects already portable (standard, modern, dual); `1` for
   framework-only projects that can be ported today; `n` for those whose
-  framework-only dependencies are all in earlier waves. Members of a reference
+  framework-only dependencies are all in earlier waves. A standard, modern, or
+  dual project is portable (`done`) only when no framework-only project is
+  reachable through the references its modern and .NET Standard targets use
+  (a dual project's `net4x`-only references do not count, and neither do the
+  framework-only projects behind them for the projects referencing it);
+  otherwise it is `blocked` by those projects and takes its wave from them like
+  a framework-only project. Such a project builds only because the reference
+  skips NuGet's compatibility check (a legacy project does), and fails on the
+  target at run time; `scan` reports each such reference as `OFR0121`
+  (`docs/decisions/0035-portable-projects-behind-framework-only-ones.md`). Members of a reference
   cycle share a wave and are marked `inCycle`; the cycle must be broken first.
   The order is by wave, then blast radius (largest first), then path, so every
   project comes after the framework-only projects it needs

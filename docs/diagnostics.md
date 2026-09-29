@@ -67,6 +67,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0115](#ofr0115) | warning | project loading | build step needs Windows: build event calling a Windows executable |
 | [OFR0116](#ofr0116) | warning | project loading | build step needs Windows: ASP.NET web application targets |
 | [OFR0120](#ofr0120) | warning | project loading | project reference cycle |
+| [OFR0121](#ofr0121) | warning | project loading | portable target references a framework-only project |
 | [OFR0130](#ofr0130) | error | scan | analysis build failed; model partial |
 | [OFR0131](#ofr0131) | error | scan | analysis build timed out |
 | [OFR0132](#ofr0132) | warning | scan | compiler calls unavailable for some projects |
@@ -588,6 +589,15 @@ Projects depend on each other in a loop, through `ProjectReference` items or `Hi
 
 - **Typical cause:** A `HintPath` to another project's `bin` folder added to work around a build order problem.
 - **Fix:** Break the loop: extract the shared code into a new project, or replace the `HintPath` with a `ProjectReference` in one direction only.
+
+### OFR0121
+
+**portable target references a framework-only project** · warning · project loading
+
+A standard, modern, or dual project's portable targets reference a project that targets only .NET Framework, through a `ProjectReference` or a `HintPath` to its output. The build accepts it only because the referenced project skips NuGet's compatibility check (a legacy project does), and the code fails at run time on the portable target. `plan` counts the project as blocked by the framework-only one, not done.
+
+- **Typical cause:** A `netstandard2.0` project added beside a legacy solution and wired to the projects it needed.
+- **Fix:** Port the referenced project first (`offramp plan --for` lists the order), move what the portable project needs out of it (`offramp move`), or condition the reference on the .NET Framework targets of a dual project.
 
 ### OFR0130
 

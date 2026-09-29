@@ -50,6 +50,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `audit dead-code` no longer stops at a file it cannot read (OFR0099); it lists it under
   `skipped`. Build output is left out in any letter case (`Bin/`), so documentation XML copied
   there no longer counts as a mention.
+- `plan`, `graph`, `report`, and the guide no longer count a standard, modern, or dual project
+  as `done` when a framework-only project sits behind the references its portable targets use.
+  It is `blocked` by those projects and gets a wave after them (ADR 0035). On DotNetNuke 9.13,
+  two `netstandard2.0` projects referencing `net472` legacy projects, and a
+  `netstandard2.0;net472` project referencing three unconditionally, were wave 0 and `done`
+  while their `blockers` listed framework-only projects. A dual project's `net4x`-only
+  references no longer block it or the projects that reference it.
 - Compilations of legacy (non-SDK) Visual Basic projects rebuilt from the compiler log get
   `mscorlib` from the recorded `/sdkpath`; `vbc` adds it by itself, so the log did not name it
   and nothing in them bound.
@@ -62,6 +69,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   Server Compact) and the ASP.NET packages to replace. A test framework or Topshelf listed in
   `packages.config` sets the project's kind, which moved 12 DotNetNuke projects from `library`
   to `test`.
+- `OFR0121` (warning): a standard, modern, or dual project's portable target references a
+  project that targets only .NET Framework. It builds only because a legacy project skips
+  NuGet's compatibility check, and fails at run time.
+- The workspace model records, for dual projects, the project references their standard and
+  modern targets use (`modernProjectReferences`).
 - `OFR1204` (info): `deps consolidate` selected a version a `packages.config` project does not
   use; consolidation writes `PackageReference` projects only, so it keeps its version.
 - `rules/package-map.yml` maps `Microsoft.NETFramework.ReferenceAssemblies*` and

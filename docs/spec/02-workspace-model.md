@@ -127,6 +127,7 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
       "compile": ["src/Foo/A.cs", "src/Foo/Sub/B.cs"],
       "compileExplicit": false,                   // true when csproj lists Compile items explicitly
       "projectReferences": ["src/Bar/Bar.csproj"],
+      "modernProjectReferences": ["src/Bar/Bar.csproj"], // dual projects only: the references of the non-net4x targets
       "packageReferences": [
         { "id": "Newtonsoft.Json", "version": "13.0.3", "versionOverride": null, "privateAssets": null, "tfms": ["net48", "net10.0"] }
       ],

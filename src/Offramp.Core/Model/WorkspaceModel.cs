@@ -146,6 +146,13 @@ public sealed record ProjectInfo
 
     public IReadOnlyList<string> ProjectReferences { get; init; } = [];
 
+    /// <summary>
+    /// For a dual project, the project references its standard and modern targets use; null
+    /// otherwise, and when the model came from a compiler log alone.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? ModernProjectReferences { get; init; }
+
     public IReadOnlyList<PackageReferenceInfo> PackageReferences { get; init; } = [];
 
     public IReadOnlyList<AssemblyReferenceInfo> AssemblyReferences { get; init; } = [];

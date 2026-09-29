@@ -118,6 +118,10 @@
         "compile": { "$ref": "#/$defs/pathList" },
         "compileExplicit": { "type": "boolean" },
         "projectReferences": { "$ref": "#/$defs/pathList" },
+        "modernProjectReferences": {
+          "description": "Dual projects only: the project references their standard and modern targets use. Absent for other projects and in a model from a compiler log alone.",
+          "$ref": "#/$defs/pathList"
+        },
         "packageReferences": {
           "type": "array",
           "items": {

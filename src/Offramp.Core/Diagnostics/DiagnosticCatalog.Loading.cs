@@ -141,6 +141,14 @@ public static partial class DiagnosticCatalog
         "Break the loop: extract the shared code into a new project, or replace the `HintPath` with a `ProjectReference` in one direction only.",
         LoadingArea);
 
+    public static readonly DiagnosticDescriptor OFR0121 = new(
+        "OFR0121", Severity.Warning,
+        "portable target references a framework-only project",
+        "A standard, modern, or dual project's portable targets reference a project that targets only .NET Framework, through a `ProjectReference` or a `HintPath` to its output. The build accepts it only because the referenced project skips NuGet's compatibility check (a legacy project does), and the code fails at run time on the portable target. `plan` counts the project as blocked by the framework-only one, not done.",
+        "A `netstandard2.0` project added beside a legacy solution and wired to the projects it needed.",
+        "Port the referenced project first (`offramp plan --for` lists the order), move what the portable project needs out of it (`offramp move`), or condition the reference on the .NET Framework targets of a dual project.",
+        LoadingArea);
+
     public static readonly DiagnosticDescriptor OFR0130 = new(
         "OFR0130", Severity.Error,
         "analysis build failed; model partial",

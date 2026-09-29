@@ -117,6 +117,9 @@ public static class ProjectModelBuilder
             CompileExplicit = !first.IsTrue("UsingMicrosoftNETSdk")
                 || string.Equals(first.Property("EnableDefaultCompileItems"), "false", StringComparison.OrdinalIgnoreCase),
             ProjectReferences = ProjectReferences(all, projectDirectory, context),
+            ModernProjectReferences = Tfm.Classify(tfms) == FrameworkClass.Dual
+                ? ProjectReferences([.. inner.Where(e => Tfm.Classify([e.TargetFramework!]) != FrameworkClass.Framework)], projectDirectory, context)
+                : null,
             PackageReferences = packages,
             AssemblyReferences = assemblies,
             ComReferences = [.. all

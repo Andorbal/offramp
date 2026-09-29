@@ -413,6 +413,8 @@ public static class ScanRunner
                 [KeyValuePair.Create<string, JsonNode?>("path", new JsonArray([.. path.Select(p => (JsonNode?)p)]))])!);
         }
 
+        loading.AddRange(FrameworkOnlyReferences(request.Diagnostics, projects, graph));
+
         var model = new WorkspaceModel
         {
             CreatedAt = EnvelopeHeader.FormatTimestamp(request.Time.GetUtcNow()),
@@ -481,6 +483,29 @@ public static class ScanRunner
     private static BuildError? EvaluationError(BinlogData data, CapturePathMapper mapper, string project) =>
         data.Errors.FirstOrDefault(e => e.ProjectFile is not null
             && string.Equals(mapper.ToRelative(e.ProjectFile), project, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>One <c>OFR0121</c> per reference from a portable target to a framework-only project.</summary>
+    internal static IEnumerable<Diagnostic> FrameworkOnlyReferences(DiagnosticBag diagnostics, IReadOnlyList<ProjectInfo> projects, ProjectGraph graph)
+    {
+        var byId = projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        foreach (var edge in Readiness.FrameworkOnlyReferences(projects, graph))
+        {
+            var from = byId[edge.From];
+            var to = byId[edge.To];
+            var how = edge.Kind == GraphEdgeKind.Project ? "references" : "references the output of";
+            var reported = diagnostics.Report(DiagnosticCatalog.OFR0121,
+                $"{from.Id} ({string.Join(";", from.TargetFrameworks)}) {how} {to.Id}, which targets only .NET Framework ({string.Join(";", to.TargetFrameworks)}); it fails at run time on {from.Id}'s portable targets.",
+                new DiagnosticLocation(Project: from.Id),
+                [
+                    KeyValuePair.Create<string, JsonNode?>("reference", to.Id),
+                    KeyValuePair.Create<string, JsonNode?>("kind", edge.Kind == GraphEdgeKind.Project ? "project" : "assembly"),
+                ]);
+            if (reported is not null)
+            {
+                yield return reported;
+            }
+        }
+    }
 
     /// <summary>A packages.config version as NuGet normalizes it (<c>1.0.0.0</c> is <c>1.0.0</c>), so both kinds of project share one spelling.</summary>
     private static string NormalizedVersion(string version) =>
@@ -572,6 +597,8 @@ public static class ScanRunner
                 diagnostics.Add(request.Diagnostics.Report(DiagnosticCatalog.OFR0120,
                     $"Project reference cycle: {string.Join(" → ", path)}.", new DiagnosticLocation(Project: cycle[0]))!);
             }
+
+            diagnostics.AddRange(FrameworkOnlyReferences(request.Diagnostics, projects, graph));
 
             model = new WorkspaceModel
             {
