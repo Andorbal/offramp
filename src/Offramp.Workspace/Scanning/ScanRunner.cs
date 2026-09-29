@@ -577,6 +577,7 @@ public static class ScanRunner
         }
 
         loading.AddRange(await ReportMissingSourcesAsync(request, files, cancellationToken));
+        loading.AddRange(ReportCompileOnlyGaps(request, data, mapper, projects));
 
         foreach (var project in projects)
         {
@@ -698,6 +699,24 @@ public static class ScanRunner
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// One <c>OFR0122</c> per legacy project that the compile-only block does not reach, for a build that ran here
+    /// outside Windows, where the block applies.
+    /// </summary>
+    private static IEnumerable<Diagnostic> ReportCompileOnlyGaps(ScanRequest request, BinlogData data, CapturePathMapper mapper, List<ProjectInfo> projects)
+    {
+        if (OperatingSystem.IsWindows() || !IsLocalCapture(mapper, request.RepositoryRoot))
+        {
+            return [];
+        }
+
+        var evaluated = projects.Select(p => (p.Id, (IReadOnlyList<EvaluatedProject>)[.. data.Evaluations.Where(e => mapper.ToRelative(e.ProjectFile) == p.Id)]));
+        return [.. CompileOnlyReach.Find(request.RepositoryRoot, evaluated, mapper).Select(gap => request.Diagnostics.Report(DiagnosticCatalog.OFR0122,
+            $"The compile-only block in {Doctor.CompileOnlyConditional.FileName} does not reach this project: {gap.Reason}.",
+            new DiagnosticLocation(Project: gap.Project, File: gap.File),
+            [KeyValuePair.Create<string, JsonNode?>("cause", gap.Cause), KeyValuePair.Create<string, JsonNode?>("file", gap.File)])!)];
     }
 
     /// <summary>The programs the build produces (<c>AssemblyName.exe</c> of each executable project) → the project.</summary>

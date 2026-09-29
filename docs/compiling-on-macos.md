@@ -103,6 +103,24 @@ the ASP.NET section needs the file, because it adds a package.
 If your `Directory.Build.props` has sections from an earlier Offramp,
 `offramp doctor --fix` adds only the ones it lacks.
 
+MSBuild imports `Directory.Build.props` from `Microsoft.Common.props`, so the
+block reaches only projects that import that file. Outside Windows, `scan`
+checks each legacy project's evaluation after the build, and names each one the
+block did not reach (`OFR0122`), with the cause and the file to change:
+
+- A shared `.props` or `.settings` file sets `MSBuildExtensionsPath` (Open Live
+  Writer's `writer.build.settings` does, "to prevent accidental pickup of
+  local-machine scripts"), so `Microsoft.Common.props` is never imported.
+  Condition that line on `'$(OS)' == 'Windows_NT'`.
+- `ImportDirectoryBuildProps` is `false`.
+- A nearer `Directory.Build.props` does not import the root one. Add
+  `<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />`
+  to it.
+
+Such a project fails with MSB3644 (no reference assemblies) otherwise.
+Importing the block later, from `Directory.Build.targets`, does not help: the
+restore then fails, because `MSBuildProjectExtensionsPath` is empty.
+
 The last section turns off `Microsoft.Bcl.Build`'s `EnsureBindingRedirects`
 task, with the package's own switch. The package came with `Microsoft.Net.Http`,
 `Microsoft.Bcl`, and `Microsoft.Bcl.Async` in .NET Framework 4.0 and 4.5

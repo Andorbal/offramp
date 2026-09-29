@@ -189,6 +189,14 @@ public static partial class DiagnosticCatalog
         "Port the referenced project first (`offramp plan --for` lists the order), move what the portable project needs out of it (`offramp move`), or condition the reference on the .NET Framework targets of a dual project.",
         LoadingArea);
 
+    public static readonly DiagnosticDescriptor OFR0122 = new(
+        "OFR0122", Severity.Warning,
+        "compile-only block does not reach the project",
+        "The repository's root `Directory.Build.props` has the compile-only block, but this legacy project's evaluation did not import it (`OfframpCompileOnly` is not set), so outside Windows it gets neither the .NET Framework reference assemblies (MSB3644) nor the rest of the block. The message names the cause and the file to change.",
+        "A shared `.props` or `.settings` file that sets `MSBuildExtensionsPath`, so `Microsoft.Common.props`, which imports `Directory.Build.props`, is never imported; `ImportDirectoryBuildProps` set to `false`; or a nearer `Directory.Build.props` that does not import the root one.",
+        "Condition the `MSBuildExtensionsPath` override on `'$(OS)' == 'Windows_NT'`, remove `ImportDirectoryBuildProps=false`, or import the root file from the nearer one with `<Import Project=\"$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))\" />`; then `offramp scan` again.",
+        ScanArea);
+
     public static readonly DiagnosticDescriptor OFR0123 = new(
         "OFR0123", Severity.Warning,
         "source file missing",

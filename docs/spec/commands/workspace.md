@@ -100,7 +100,10 @@ per step family; `OFR0118` and `Exec` commands written for cmd.exe are found
 from the failed build's errors, `OFR0117` and `OFR0119` also from the
 projects' files, all at once, for a log built in this checkout), `OFR0120`
 project reference cycle,
-`OFR0121` portable target references a framework-only project, `OFR0123` a
+`OFR0121` portable target references a framework-only project, `OFR0122` the
+compile-only block does not reach a legacy project (outside Windows, from its
+evaluation: `MSBuildExtensionsPath` overridden and in which file,
+`ImportDirectoryBuildProps=false`, or a nearer `Directory.Build.props`), `OFR0123` a
 `Compile` item's file missing in every letter case (naming the git-ignored
 ones, which the repository's own build generates), `OFR0124`–`0126`
 Windows-only build steps (`Microsoft.Bcl.Build`'s binding redirects, MSTest v1,

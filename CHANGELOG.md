@@ -36,6 +36,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `OFR0024` (info): a solution project that is not C#, Visual Basic, or F# (C++, WiX, a database or
   JavaScript project) is named once and left out of the model; `OFR0025` (warning): a C++/CLI
   project (`CLRSupport` set), which compiles .NET code that Offramp does not migrate.
+- `OFR0122` (warning): outside Windows, a legacy project that the compile-only block does not
+  reach, with the cause and the file to change: `MSBuildExtensionsPath` set in a shared file (so
+  `Microsoft.Common.props`, which imports `Directory.Build.props`, is never imported),
+  `ImportDirectoryBuildProps=false`, or a nearer `Directory.Build.props` that does not import the
+  root one. On Open Live Writer, `writer.build.settings` kept the block from all 25 projects that
+  import it; they failed with MSB3644 and nothing said why.
 - The workspace model records the packages each `packages.config` lists
   (`packagesConfigPackages`: id, version, target framework, development dependency), and the
   `packages` index includes them (ADR 0035). `deps audit` audits them: on DotNetNuke 9.13 it

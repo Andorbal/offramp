@@ -49,6 +49,7 @@ public static class BinlogReader
         "SolutionPath", "SqlServerVerification", "DSP", "ImplicitUsings", "ExcludeRestorePackageImports", "MSBuildRestoreSessionId",
         "EnableWindowsTargeting", "OfframpCompileOnly", "AdditionalExplicitAssemblyReferences", "MvcBuildViews", "BaseIntermediateOutputPath", "IntermediateOutputPath", "BaseOutputPath", "OutputPath",
         "GenerateResourceUsePreserializedResources", "SkipEnsureBindingRedirects",
+        "MicrosoftCommonPropsHasBeenImported", "ImportDirectoryBuildProps", "DirectoryBuildPropsPath",
     };
 
     /// <summary>Item types copied from each evaluation.</summary>

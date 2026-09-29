@@ -78,6 +78,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0119](#ofr0119) | warning | project loading | build step needs Windows: non-string resources |
 | [OFR0120](#ofr0120) | warning | project loading | project reference cycle |
 | [OFR0121](#ofr0121) | warning | project loading | portable target references a framework-only project |
+| [OFR0122](#ofr0122) | warning | scan | compile-only block does not reach the project |
 | [OFR0123](#ofr0123) | warning | project loading | source file missing |
 | [OFR0124](#ofr0124) | warning | project loading | build step needs Windows: Microsoft.Bcl.Build binding redirects |
 | [OFR0125](#ofr0125) | warning | project loading | build step needs Visual Studio: MSTest v1 |
@@ -714,6 +715,15 @@ A standard, modern, or dual project's portable targets reference a project that 
 
 - **Typical cause:** A `netstandard2.0` project added beside a legacy solution and wired to the projects it needed.
 - **Fix:** Port the referenced project first (`offramp plan --for` lists the order), move what the portable project needs out of it (`offramp move`), or condition the reference on the .NET Framework targets of a dual project.
+
+### OFR0122
+
+**compile-only block does not reach the project** · warning · scan
+
+The repository's root `Directory.Build.props` has the compile-only block, but this legacy project's evaluation did not import it (`OfframpCompileOnly` is not set), so outside Windows it gets neither the .NET Framework reference assemblies (MSB3644) nor the rest of the block. The message names the cause and the file to change.
+
+- **Typical cause:** A shared `.props` or `.settings` file that sets `MSBuildExtensionsPath`, so `Microsoft.Common.props`, which imports `Directory.Build.props`, is never imported; `ImportDirectoryBuildProps` set to `false`; or a nearer `Directory.Build.props` that does not import the root one.
+- **Fix:** Condition the `MSBuildExtensionsPath` override on `'$(OS)' == 'Windows_NT'`, remove `ImportDirectoryBuildProps=false`, or import the root file from the nearer one with `<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />`; then `offramp scan` again.
 
 ### OFR0123
 
