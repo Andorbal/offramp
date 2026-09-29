@@ -254,6 +254,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   projects differed between two scans), and `source.sha256` hashed the binary log, which differs
   with every build; now calls are found in the compiler log by project and target framework, and
   a log Offramp built is not hashed (the model's `inputs` decide staleness, as before).
+- `OFR0115` names a build-time generator: an `Exec` that runs a program the solution itself builds.
+  Open Live Writer's CoreServices runs `$(OutDir)MarketXmlGenerator.exe` to write an embedded
+  resource; the evidence was `Exec: "src/managed//bin/De…`, and the remedy (guard the target)
+  turned MSB3073 into CS1566. The message now names the target, the program and the project that
+  builds it, and the target's outputs, and says they must exist before a guarded build. Evidence
+  is made repository-relative before it is shortened.
 - Three more build steps that stopped field-test builds outside Windows are named, each with its
   fix in `docs/compiling-on-macos.md` (ADR 0048):
   - An ASP.NET Web Site project no longer stops the whole solution: `dotnet build` fails with

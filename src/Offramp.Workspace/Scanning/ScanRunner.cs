@@ -510,6 +510,8 @@ public static class ScanRunner
                 .ToHashSet(),
             BuildSteps = files.ToDictionary(f => f.Key, f => new BuildStepContext { Files = f.Value }, StringComparer.Ordinal),
         };
+        var steps = new BuildStepContext { Executables = Executables(data, mapper), ToLocal = mapper.ToLocal, Display = text => Scrub(text, mapper) };
+        BuildStepContext StepContext(string project) => files.TryGetValue(project, out var found) ? steps with { Files = found } : steps;
 
         var projects = new List<ProjectInfo>();
         var others = new SortedSet<string>(StringComparer.Ordinal);
@@ -568,7 +570,7 @@ public static class ScanRunner
 
             // Without an evaluation, the evaluation error and the project's own files are the evidence.
             BuildError[] error = EvaluationError(data, mapper, missing.Project) is { } first ? [first] : [];
-            foreach (var step in WindowsOnlyBuildSteps.Detect(missing.Project, [], error, context.BuildSteps.GetValueOrDefault(missing.Project)))
+            foreach (var step in WindowsOnlyBuildSteps.Detect(missing.Project, [], error, StepContext(missing.Project)))
             {
                 loading.Add(ReportStep(request, step, missing.Project, mapper));
             }
@@ -598,7 +600,7 @@ public static class ScanRunner
             }
 
             var errors = data.Errors.Where(e => e.ProjectFile is not null && string.Equals(mapper.ToRelative(e.ProjectFile), project.Id, StringComparison.OrdinalIgnoreCase));
-            foreach (var step in WindowsOnlyBuildSteps.Detect(project.Id, evaluations, errors, context.BuildSteps.GetValueOrDefault(project.Id)))
+            foreach (var step in WindowsOnlyBuildSteps.Detect(project.Id, evaluations, errors, StepContext(project.Id)))
             {
                 loading.Add(ReportStep(request, step, project.Id, mapper));
             }
@@ -696,6 +698,22 @@ public static class ScanRunner
         }
 
         return result;
+    }
+
+    /// <summary>The programs the build produces (<c>AssemblyName.exe</c> of each executable project) → the project.</summary>
+    private static Dictionary<string, string> Executables(BinlogData data, CapturePathMapper mapper)
+    {
+        var executables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var evaluation in data.Evaluations)
+        {
+            if (evaluation.Property("OutputType") is { } type && (type.Equals("Exe", StringComparison.OrdinalIgnoreCase) || type.Equals("WinExe", StringComparison.OrdinalIgnoreCase))
+                && evaluation.Property("AssemblyName") is { } name && mapper.ToRelative(evaluation.ProjectFile) is { } project)
+            {
+                executables.TryAdd(name + ".exe", project);
+            }
+        }
+
+        return executables;
     }
 
     /// <summary>

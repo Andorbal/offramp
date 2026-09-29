@@ -19,6 +19,15 @@ public sealed record BuildStepContext
 
     /// <summary>What the project's own files show (<see cref="ProjectFileChecks"/>).</summary>
     public ProjectFileFindings Files { get; init; } = ProjectFileFindings.None;
+
+    /// <summary>The programs the build produces (file name, such as <c>Tool.exe</c>) → the project that builds each.</summary>
+    public IReadOnlyDictionary<string, string> Executables { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Maps a path from the log to this checkout, or null outside it: to read the target around a failed <c>Exec</c>.</summary>
+    public Func<string, string?> ToLocal { get; init; } = _ => null;
+
+    /// <summary>Makes the log's absolute paths in a text repository-relative, before it is shortened for evidence.</summary>
+    public Func<string, string> Display { get; init; } = text => text;
 }
 
 /// <summary>
@@ -102,7 +111,7 @@ public static class WindowsOnlyBuildSteps
             found.TryAdd(resources.Id, resources);
         }
 
-        foreach (var step in FromBuildErrors(errorList))
+        foreach (var step in FromBuildErrors(errorList, context))
         {
             found.TryAdd(step.Id, step);
         }
@@ -157,7 +166,7 @@ public static class WindowsOnlyBuildSteps
                 var command = e.Property(name);
                 if (command is not null && WindowsCommandMarkers.Any(m => command.Contains(m, StringComparison.OrdinalIgnoreCase)))
                 {
-                    Add("build-event", DiagnosticCatalog.OFR0115, $"{name}: {FirstLine(command)}");
+                    Add("build-event", DiagnosticCatalog.OFR0115, $"{name}: {FirstLine(context.Display(command))}");
                 }
             }
 
@@ -243,7 +252,7 @@ public static class WindowsOnlyBuildSteps
     /// Steps only a failed build shows (docs/decisions/0037-legacy-projects-outside-windows.md): inline tasks, and
     /// <c>Exec</c> commands written for cmd.exe, from a target or a build event.
     /// </summary>
-    private static IEnumerable<WindowsOnlyStep> FromBuildErrors(IReadOnlyList<BuildError> errors)
+    private static IEnumerable<WindowsOnlyStep> FromBuildErrors(IReadOnlyList<BuildError> errors, BuildStepContext context)
     {
         if (errors.FirstOrDefault(e => e.Code == "MSB4801") is { } inline)
         {
@@ -258,8 +267,52 @@ public static class WindowsOnlyBuildSteps
 
         if (errors.FirstOrDefault(e => e.Code == "MSB3073" && ExecCommand(e.Message) is { } command && IsWindowsCommand(command)) is { } exec)
         {
-            yield return new WindowsOnlyStep("build-event", DiagnosticCatalog.OFR0115, $"Exec: {FirstLine(ExecCommand(exec.Message)!)} (MSB3073)");
+            var command = ExecCommand(exec.Message)!;
+            yield return Generator(exec, command, context)
+                ?? new WindowsOnlyStep("build-event", DiagnosticCatalog.OFR0115, $"Exec: {FirstLine(context.Display(command))} (MSB3073)");
         }
+    }
+
+    /// <summary>
+    /// An <c>Exec</c> that runs a program the solution itself builds: a build-time generator (Open Live Writer's
+    /// <c>MarketXmlGenerator.exe</c> writes an embedded resource). Guarding its target, the usual remedy, leaves its
+    /// outputs missing, so the evidence names them.
+    /// </summary>
+    private static WindowsOnlyStep? Generator(BuildError error, string command, BuildStepContext context)
+    {
+        var program = Path.GetFileName(FirstToken(command).Replace('\\', '/'));
+        if (!program.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !context.Executables.TryGetValue(program, out var project))
+        {
+            return null;
+        }
+
+        var target = error.File is not null && error.Line is { } line && error.ProjectFile is not null
+            && context.ToLocal(error.File) is { } file && context.ToLocal(error.ProjectFile) is { } projectFile
+                ? ExecTarget.Find(file, line, projectFile)
+                : null;
+        var outputs = (target?.Outputs ?? []).Select(context.Display).ToList();
+        var where = target is null ? "" : $" in target {target.Name}";
+        var writes = outputs.Count > 0 ? $"; it writes {string.Join(", ", outputs)}" : "";
+        var them = outputs.Count > 0 ? "those files" : "its output";
+        return new WindowsOnlyStep("build-event", DiagnosticCatalog.OFR0115,
+            $"Exec{where} runs {program}, which {project} builds: a build-time generator{writes}. Guarding the target with OfframpCompileOnly leaves {them} missing, so generate them once (the generator may run on .NET) or check them in (MSB3073)")
+        {
+            Paths = target?.Outputs ?? [],
+        };
+    }
+
+    /// <summary>The program an <c>Exec</c> command starts: its first token, without quotes.</summary>
+    private static string FirstToken(string command)
+    {
+        var trimmed = command.TrimStart();
+        if (trimmed.StartsWith('"'))
+        {
+            var end = trimmed.IndexOf('"', 1);
+            return end > 0 ? trimmed[1..end] : trimmed[1..];
+        }
+
+        var space = trimmed.IndexOf(' ', StringComparison.Ordinal);
+        return space < 0 ? trimmed : trimmed[..space];
     }
 
     /// <summary>The simple name of a <c>Reference</c> item (<c>Name, Version=...</c>).</summary>

@@ -218,6 +218,47 @@ public sealed class WindowsOnlyBuildStepsTests
         Assert.Empty(WindowsOnlyBuildSteps.Detect("src/Tests/Tests.csproj", [Evaluation(items: new() { ["Reference"] = [checkedIn] })]));
     }
 
+    [Fact]
+    [ProducesDiagnostic("OFR0115")]
+    public void An_exec_of_a_program_the_solution_builds_is_named_as_a_generator_with_its_outputs()
+    {
+        // Open Live Writer: CoreServices runs $(OutDir)MarketXmlGenerator.exe to write an embedded resource;
+        // guarding the target, the usual remedy, turned MSB3073 into CS1566.
+        using var repo = new ScratchDirectory("generator");
+        var project = repo.Write("src/Core/Core.csproj", """
+            <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup>
+                <MarketsXmlPath>$(MSBuildProjectDirectory)\Marketization\Markets.xml</MarketsXmlPath>
+              </PropertyGroup>
+              <Target Name="GenerateMarketXmlImpl" Inputs="@(MarketsSourceFiles)" Outputs="$(MarketsXmlPath)">
+                <Exec Command="&quot;$(OutDir)MarketXmlGenerator.exe&quot; &quot;$(MarketsXmlPath)&quot;" />
+              </Target>
+            </Project>
+            """);
+        var output = $"{repo.Path}/src/managed/bin/Debug/i386/Writer/MarketXmlGenerator.exe";
+        BuildError[] errors = [new("MSB3073", $"The command \"\"{output}\" \"{repo.Path}/src/Core/Marketization/Markets.xml\"\" exited with code 126.", project, project, 6, 5)];
+        var context = new BuildStepContext
+        {
+            Executables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["MarketXmlGenerator.exe"] = "src/Gen/MarketXmlGenerator.csproj" },
+            ToLocal = path => path,
+            Display = text => text.Replace(repo.Path + "/", "", StringComparison.Ordinal),
+        };
+
+        var generator = Assert.Single(WindowsOnlyBuildSteps.Detect("src/Core/Core.csproj", [], errors, context));
+        var plain = Assert.Single(WindowsOnlyBuildSteps.Detect("src/Core/Core.csproj", [], errors, context with { Executables = new Dictionary<string, string>() }));
+
+        Assert.Equal("build-event", generator.Id);
+        Assert.Equal(
+            "Exec in target GenerateMarketXmlImpl runs MarketXmlGenerator.exe, which src/Gen/MarketXmlGenerator.csproj builds: a build-time generator; "
+            + "it writes src/Core/Marketization/Markets.xml. Guarding the target with OfframpCompileOnly leaves those files missing, "
+            + "so generate them once (the generator may run on .NET) or check them in (MSB3073)",
+            generator.Evidence);
+        Assert.Equal([repo.Path + "/src/Core/Marketization/Markets.xml"], generator.Paths);
+
+        // Paths are made repository-relative before the evidence is shortened (it read "src/managed//bin/De…").
+        Assert.StartsWith("Exec: \"src/managed/bin/Debug/i386/Writer/MarketXmlGenerator.exe\" \"src/Core/Marketization/Markets.xml\"", plain.Evidence, StringComparison.Ordinal);
+    }
+
     private static EvaluatedProject Evaluation(
         Dictionary<string, string>? properties = null,
         Dictionary<string, IReadOnlyList<EvaluatedItem>>? items = null,

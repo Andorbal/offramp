@@ -208,7 +208,13 @@ to change:
 
 - **Build events and `Exec` commands written for cmd.exe** (`OFR0115`), such as
   `XCOPY` in a `PostBuild` target: add
-  `Condition="'$(OfframpCompileOnly)' != 'true'"` to the target.
+  `Condition="'$(OfframpCompileOnly)' != 'true'"` to the target. When the
+  command runs a program the solution itself builds (`$(OutDir)Tool.exe`), it
+  is a build-time generator, and `scan` names its target and the files it
+  writes (its `Outputs`). Guarding that target leaves those files missing, and
+  the build fails later instead (CS1566 for a missing resource), so write them
+  once: a generator written in C# often runs on .NET unchanged. Open Live
+  Writer's `MarketXmlGenerator.cs` does.
 - **MSTest v1** (`OFR0125`): a reference to
   `Microsoft.VisualStudio.QualityTools.UnitTestFramework` without a `HintPath`,
   which only Visual Studio installs; see [MSTest v1](#mstest-v1).

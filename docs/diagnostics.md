@@ -656,10 +656,10 @@ SQL Server Data Tools projects (`.sqlproj`) build with Windows-only targets.
 
 **build step needs Windows: build event calling a Windows executable** · warning · project loading
 
-A pre- or post-build event runs a Windows command (`.exe`, `.bat`, `xcopy`, `%VAR%`, ...), which fails elsewhere.
+A pre- or post-build event, or an `Exec` in a target, runs a Windows command (`.exe`, `.bat`, `xcopy`, `%VAR%`, ...), which fails elsewhere. When the program is one the solution itself builds, it is a build-time generator: the message names its target and the files it writes.
 
-- **Typical cause:** A `PreBuildEvent`/`PostBuildEvent` written for cmd.exe.
-- **Fix:** Guard the event with `Condition="'$(OS)' == 'Windows_NT'"` or `'$(OfframpCompileOnly)' != 'true'`, or replace it with MSBuild tasks.
+- **Typical cause:** A `PreBuildEvent`/`PostBuildEvent` written for cmd.exe, or a target that runs a generator the solution builds, such as `$(OutDir)Tool.exe`.
+- **Fix:** Guard the event or target with `Condition="'$(OS)' == 'Windows_NT'"` or `'$(OfframpCompileOnly)' != 'true'`, or replace it with MSBuild tasks. A guarded generator writes nothing, so its outputs must exist before the build: generate them once (a generator often runs on .NET unchanged), or check them in.
 
 ### OFR0116
 
