@@ -63,6 +63,16 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - The evidence of Windows-only build steps in `scan`'s messages uses repository-relative paths
   (a `PostBuildEvent` quoted the checkout's absolute path).
 - `schemas/v1/workspace.json` accepts the `aspnet-compiler` Windows-only build step.
+- `csproj modernize` keeps item attributes: metadata written as attributes and `Condition`.
+  A source generator's `ProjectReference` (`ReferenceOutputAssembly="false"
+  OutputItemType="Analyzer"`) became a plain reference, so the generator no longer ran.
+- `csproj modernize` keeps a single-target project's output where the legacy project wrote it
+  (`AppendTargetFrameworkToOutputPath=false`); the SDK's `bin/net472/` broke `AfterBuild` copies
+  and sibling projects' `HintPath`s into `bin/`.
+- `csproj modernize` no longer calls a conversion failed when the converted project's build
+  stops only at NuGet audit (known vulnerabilities, made errors by `TreatWarningsAsErrors`): 42
+  of the 43 failures on DotNetNuke. They are reported as `OFR4305` and verification runs with
+  audit off.
 - Compilations of legacy (non-SDK) Visual Basic projects rebuilt from the compiler log get
   `mscorlib` from the recorded `/sdkpath`; `vbc` adds it by itself, so the log did not name it
   and nothing in them bound.
@@ -96,6 +106,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
     failed is `OFR0115` (`build-event`) also when a target runs it.
   - `docs/compiling-on-macos.md` explains each, with the `Directory.Build.targets` fix for the
     CodeDom provider's inline tasks.
+- `OFR4305` (warning): a converted project's build fails NuGet audit under warnings as errors.
 - `OFR0121` (warning): a standard, modern, or dual project's portable target references a
   project that targets only .NET Framework. It builds only because a legacy project skips
   NuGet's compatibility check, and fails at run time.

@@ -213,6 +213,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4302](#ofr4302) | info | csproj | build step converted for review |
 | [OFR4303](#ofr4303) | error | csproj | converted project compiles different inputs |
 | [OFR4304](#ofr4304) | warning | csproj | project not converted |
+| [OFR4305](#ofr4305) | warning | csproj | converted project fails NuGet audit |
 | [OFR4401](#ofr4401) | warning | config convert | setting not representable |
 | [OFR4402](#ofr4402) | warning | config convert | WCF configuration |
 | [OFR4403](#ofr4403) | info | config convert | system.web settings belong to the web migration |
@@ -1909,6 +1910,15 @@ The project is not converted to SDK style: an ASP.NET web application project (t
 
 - **Typical cause:** ASP.NET MVC and Web Forms applications.
 - **Fix:** Keep the project as it is and move its routes to ASP.NET Core with `offramp web scaffold`.
+
+### OFR4305
+
+**converted project fails NuGet audit** · warning · csproj
+
+Restoring the PackageReference way turns NuGet audit on, and the project treats warnings as errors, so its build stops at packages with known vulnerabilities (NU1901–NU1904). The conversion is verified with audit off; the message lists the packages.
+
+- **Typical cause:** Old package versions in a `packages.config` project with `TreatWarningsAsErrors`.
+- **Fix:** Upgrade the packages (`offramp deps audit` lists them and their replacements), or keep the findings as warnings with `<WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>` until you do.
 
 ### OFR4401
 

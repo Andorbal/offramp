@@ -238,10 +238,15 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   - Properties the SDK sets (`ProjectGuid`, `OutputPath`, `FileAlignment`,
     `TargetFrameworkVersion`, the imports, ...) are dropped and listed in `removed`; the
     others are kept. `TargetFrameworkVersion` becomes `TargetFramework` (or `--tfm`).
+    With a single target framework the result sets `AppendTargetFrameworkToOutputPath` to
+    `false`, so the output stays in the folder the legacy project wrote it to (build steps
+    and `HintPath`s into it keep working).
   - `Compile`, `.resx` `EmbeddedResource`, and `None` items become the SDK's globs when
     those give the same files; otherwise the Compile list stays with
     `EnableDefaultCompileItems` false (`OFR4301`). `Link`, `DependentUpon`, `Generator`,
-    and resource names are kept as `Update` items.
+    and resource names are kept as `Update` items. Every item keeps its `Condition` and its
+    metadata, whether written as child elements or as attributes; a `ProjectReference` drops
+    only `Project` and `Name` (a source generator's `OutputItemType="Analyzer"` stays).
   - `packages.config` becomes `PackageReference` items (development dependencies with
     `PrivateAssets="all"`; versions omitted under central package management); `HintPath`
     references into `packages/` are dropped with it. Framework `Reference` items stay.
@@ -257,7 +262,11 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   are compared with the scan's build of the original. References the conversion adds only
   transitively (a package's dependency now flowing through `PackageReference`) are
   reported and allowed. A difference or a failed build is `OFR4303`; `--apply` then
-  refuses unless `--accept-diff`. Schema: `schemas/v1/csproj-modernize.json`.
+  refuses unless `--accept-diff`. A build that fails only on NuGet audit (NU1901–NU1904,
+  known vulnerabilities, which `PackageReference` restore reports and
+  `TreatWarningsAsErrors` makes errors) is not the conversion's fault: it is reported as
+  `OFR4305` and the verification build runs again with `NuGetAudit=false`. Schema:
+  `schemas/v1/csproj-modernize.json`.
 
 ## `config convert`
 
