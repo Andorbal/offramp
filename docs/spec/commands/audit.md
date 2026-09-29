@@ -227,8 +227,11 @@ Decisions behind the four code audits (ADR 0021).
   including computed ones. A project that calls `Encoding.RegisterProvider` anywhere
   gets none.
 - OFR3103: a constant (or the literal parts of an interpolated string) with a backslash
-  or a drive letter passed to a `System.IO` API, plus the Windows-only
-  `Environment.SpecialFolder` members.
+  or a drive letter passed to a path parameter of a `System.IO` API (`path`, `path1`,
+  `paths`, `fileName`, `sourceFileName`, `destFileName`, `sourceDirName`, `driveName`,
+  and the like), plus the Windows-only `Environment.SpecialFolder` members. Text
+  parameters (`TextWriter.Write`'s value, `File.WriteAllText`'s contents) are not
+  paths: a backslash there is an escape.
 - OFR3104: `FindSystemTimeZoneById` with a constant ID that has no `/` (except `UTC`
   and `GMT`), or with a computed ID.
 - OFR3109: `double` or `float` `ToString` without a format string.

@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace Offramp.Analysis.Audits.Matchers;
 
@@ -169,8 +170,10 @@ public sealed class EncodingCodePageMatcher : IAuditMatcher
 }
 
 /// <summary>
-/// <c>OFR3103</c>: constant paths with a backslash or a drive letter passed to <c>System.IO</c>
-/// APIs (the rule's symbols cover Windows-only special folders).
+/// <c>OFR3103</c>: constant paths with a backslash or a drive letter passed to a path parameter
+/// of a <c>System.IO</c> API (the rule's symbols cover Windows-only special folders). Other
+/// string parameters (<c>TextWriter.Write</c>'s value, <c>File.WriteAllText</c>'s contents)
+/// hold text, where a backslash is an escape.
 /// </summary>
 public sealed class WindowsPathMatcher : IAuditMatcher
 {
@@ -190,9 +193,9 @@ public sealed class WindowsPathMatcher : IAuditMatcher
                 continue;
             }
 
-            foreach (var argument in Calls.Arguments(call))
+            foreach (var argument in PathArguments(model, call))
             {
-                if (WindowsPath(model, argument.Expression) is { } path)
+                if (WindowsPath(model, argument) is { } path)
                 {
                     yield return Calls.Finding(rule, call, method, $"{AuditEngine.Name(method)} receives the Windows path \"{path}\".",
                         new SortedDictionary<string, string>(StringComparer.Ordinal) { ["path"] = path });
@@ -201,6 +204,46 @@ public sealed class WindowsPathMatcher : IAuditMatcher
             }
         }
     }
+
+    /// <summary>The arguments a call passes to path parameters (every element of a <c>params string[] paths</c>).</summary>
+    private static IEnumerable<ExpressionSyntax> PathArguments(SemanticModel model, ExpressionSyntax call)
+    {
+        var arguments = model.GetOperation(call) switch
+        {
+            IInvocationOperation invocation => invocation.Arguments,
+            IObjectCreationOperation creation => creation.Arguments,
+            _ => [],
+        };
+        foreach (var argument in arguments.Where(a => a.Parameter is { } parameter && IsPathParameter(parameter.Name)))
+        {
+            if (argument.ArgumentKind == ArgumentKind.ParamArray)
+            {
+                foreach (var element in (argument.Value as IArrayCreationOperation)?.Initializer?.ElementValues ?? [])
+                {
+                    if (element.Syntax is ExpressionSyntax expression)
+                    {
+                        yield return expression;
+                    }
+                }
+            }
+            else if (argument.ArgumentKind == ArgumentKind.Explicit && argument.Syntax is ArgumentSyntax syntax)
+            {
+                yield return syntax.Expression;
+            }
+        }
+    }
+
+    /// <summary>
+    /// <c>path</c>, <c>path1</c>, <c>paths</c>, <c>fileName</c>, <c>sourceFileName</c>,
+    /// <c>destFileName</c>, <c>destinationBackupFileName</c>, <c>sourceDirName</c>,
+    /// <c>destDirName</c>, <c>driveName</c>: the names System.IO gives parameters that take a path.
+    /// </summary>
+    private static bool IsPathParameter(string name) =>
+        name.StartsWith("path", StringComparison.OrdinalIgnoreCase)
+        || name.EndsWith("Path", StringComparison.Ordinal)
+        || name.EndsWith("FileName", StringComparison.OrdinalIgnoreCase)
+        || name.EndsWith("DirName", StringComparison.OrdinalIgnoreCase)
+        || name == "driveName";
 
     private static string? WindowsPath(SemanticModel model, ExpressionSyntax expression)
     {

@@ -2,7 +2,9 @@
 
 One class per audit rule, named after it (`OFR3101`, `OFR3202`, ...), with members
 named `Positive*` that must produce the rule's finding and members named `Negative*`
-that must not (`AuditRunnerTests` checks both for every rule in every pack).
+that must not (`AuditRunnerTests` checks both for every rule in every pack). A class can be
+`partial`, with a part added at the end of its file, so that new cases leave the line
+numbers of existing findings (and the snapshots that show them) alone.
 
 - `Behavior.Legacy`: `net48` library referencing `System.Web`, `System.ServiceModel`,
   `System.Activities`, `System.Runtime.Remoting`, `System.EnterpriseServices`, and the

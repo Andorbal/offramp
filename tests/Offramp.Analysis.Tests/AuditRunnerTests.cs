@@ -400,7 +400,8 @@ public sealed class AuditRunnerTests
                     }
                 }
 
-                ranges[type.Identifier.ValueText] = members;
+                // A rule's class can be partial: its members are those of every part.
+                (ranges.TryGetValue(type.Identifier.ValueText, out var known) ? known : ranges[type.Identifier.ValueText] = []).AddRange(members);
             }
         }
 
