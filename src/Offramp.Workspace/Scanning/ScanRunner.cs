@@ -288,7 +288,7 @@ public static class ScanRunner
         {
             var detail = result.StandardError.Trim().Length > 0 ? result.StandardError.Trim() : result.StandardOutput.Trim();
             request.Diagnostics.Report(DiagnosticCatalog.OFR0130,
-                $"The build of {solution} produced no binary log: {FirstLines(detail, 3)}");
+                $"The build of {solution} produced no binary log: {Scrub(FirstLines(detail, 3), CapturePathMapper.Local(request.RepositoryRoot))}");
             return null;
         }
 
@@ -346,7 +346,7 @@ public static class ScanRunner
         _ => "found by vswhere",
     };
 
-    private static void ReportBuildErrors(ScanRequest request, BinlogData data, CapturePathMapper mapper)
+    internal static void ReportBuildErrors(ScanRequest request, BinlogData data, CapturePathMapper mapper)
     {
         if (data.Succeeded && data.Errors.Count == 0)
         {
@@ -354,7 +354,7 @@ public static class ScanRunner
         }
 
         var errors = data.Errors
-            .Select(e => $"{(e.File is null ? "" : (mapper.ToRelative(e.File) ?? Path.GetFileName(e.File)) + (e.Line is null ? "" : $"({e.Line})") + ": ")}{e.Code}: {e.Message}")
+            .Select(e => $"{(e.File is null ? "" : (mapper.ToRelative(e.File) ?? Path.GetFileName(e.File)) + (e.Line is null ? "" : $"({e.Line})") + ": ")}{e.Code}: {Scrub(e.Message, mapper)}")
             .Distinct(StringComparer.Ordinal)
             .ToList();
         var shown = string.Join("; ", errors.Take(MaxErrorsInMessage));
@@ -404,13 +404,7 @@ public static class ScanRunner
         }
         else
         {
-            var report = CompilerLogIngest.Convert(binlog, complog);
-            if (report.Problems.Count > 0)
-            {
-                request.Diagnostics.Report(DiagnosticCatalog.OFR0132,
-                    $"{report.Problems.Count} problem(s) converting the build log; affected projects have no compiler call. First: {report.Problems[0]}",
-                    data: [KeyValuePair.Create<string, JsonNode?>("problems", new JsonArray([.. report.Problems.Take(20).Select(p => (JsonNode?)Scrub(p, mapper))]))]);
-            }
+            ReportConversionProblems(request, CompilerLogIngest.Convert(binlog, complog), mapper);
 
             if (!File.Exists(complog))
             {
@@ -419,6 +413,17 @@ public static class ScanRunner
         }
 
         return CompilerLogIngest.ReadCalls(complog);
+    }
+
+    /// <summary><c>OFR0132</c> for problems converting the binary log, with the build's paths made repository-relative.</summary>
+    internal static void ReportConversionProblems(ScanRequest request, ConversionReport report, CapturePathMapper mapper)
+    {
+        if (report.Problems.Count > 0)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR0132,
+                $"{report.Problems.Count} problem(s) converting the build log; affected projects have no compiler call. First: {Scrub(report.Problems[0], mapper)}",
+                data: [KeyValuePair.Create<string, JsonNode?>("problems", new JsonArray([.. report.Problems.Take(20).Select(p => (JsonNode?)Scrub(p, mapper))]))]);
+        }
     }
 
     private static bool IsLocalCapture(CapturePathMapper mapper, string repositoryRoot) =>
@@ -635,10 +640,10 @@ public static class ScanRunner
         return [.. result.OrderBy(r => r.Project, StringComparer.Ordinal)];
     }
 
-    /// <summary>A Windows-only build step's diagnostic, with the build's paths made repository-relative.</summary>
-    private static Diagnostic ReportStep(ScanRequest request, WindowsOnlyStep step, string project, CapturePathMapper mapper)
+    /// <summary>A Windows-only build step's diagnostic, with the build's paths made repository-relative, then shortened.</summary>
+    internal static Diagnostic ReportStep(ScanRequest request, WindowsOnlyStep step, string project, CapturePathMapper mapper)
     {
-        var evidence = Scrub(step.Evidence, mapper);
+        var evidence = WindowsOnlyBuildSteps.Shorten(Scrub(step.Evidence, mapper));
         var message = step.Id == "path-case"
             ? $"Does not build on a case-sensitive file system: {evidence}."
             : $"Needs Windows to build: {evidence}.";

@@ -201,6 +201,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   instead of 1,439, 6,989 of them `System.Web.Mvc` and 714 `System.Web.Http`, and `OFR3011`
   names the packages without target support in 23 projects (the audit takes 201 s instead of
   142 s). This was the `audit api` part of DotNetNuke's P1 #7.
+- Paths in `scan`'s messages are repository-relative before they are shortened: `OFR0115`'s
+  evidence was cut to 120 characters first, which left `Exec: "src/managed/PostBui…` on Open Live
+  Writer and `del "src/Pres…` on SmartStoreNET, and `OFR0130`'s compiler messages and `OFR0132`'s
+  message kept absolute `/tmp/...` paths (NHibernate, SmartStoreNET, Open Live Writer).
 - `scan` reports progress during the build: each project the build finishes (from MSBuild's
   `Name -> output` lines), out of the solution's projects, and the `packages.config` restore is a
   phase of its own that reports each package. The build phase was one progress event: 74 silent

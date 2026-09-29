@@ -230,6 +230,43 @@ public sealed class ScanModelTests
         Assert.Equal(["Building App.slnx: 1/2 A", "Building App.slnx: 2/2 B"], progress.Reports);
     }
 
+    /// <summary>
+    /// SmartStoreNET, Open Live Writer, NHibernate P2: OFR0115's evidence was cut to 120 characters before paths were
+    /// made relative (<c>Exec: "src/managed/PostBui…</c>), and OFR0130's and OFR0132's messages kept absolute paths.
+    /// </summary>
+    [Fact]
+    public void Paths_in_scan_messages_are_repository_relative_before_they_are_shortened()
+    {
+        var root = "/home/builder/agents/work/2026-09-29/field-tests/smartstorenet-4.2.0/checkout-of-the-repository";
+        var mapper = CapturePathMapper.Local(root);
+        var bag = new DiagnosticBag();
+        var request = ScannedFixtures.Request(root, bag);
+        var evaluation = new EvaluatedProject
+        {
+            ProjectFile = root + "/src/Presentation/SmartStore.Web/SmartStore.Web.csproj",
+            TargetFramework = "net472",
+            Properties = new Dictionary<string, string> { ["PostBuildEvent"] = $"xcopy \"{root}/src/Presentation/SmartStore.Web/bin\" \"{root}/build\" /s /y" },
+            Items = new Dictionary<string, IReadOnlyList<EvaluatedItem>>(),
+        };
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect(evaluation.ProjectFile, [evaluation]));
+
+        var reported = ScanRunner.ReportStep(request, step, "src/Presentation/SmartStore.Web/SmartStore.Web.csproj", mapper);
+        ScanRunner.ReportBuildErrors(request, new BinlogData
+        {
+            Evaluations = [],
+            Errors = [new BuildError("CS2001", $"Source file '{root}/src/Libraries/Gen/Generated.cs' could not be found.", evaluation.ProjectFile, null, null, null)],
+            Succeeded = false,
+        }, mapper);
+        ScanRunner.ReportConversionProblems(request, new ConversionReport(false, [$"{root}/src/Libraries/Gen/Gen.csproj: no compiler call"]), mapper);
+
+        Assert.Equal("Needs Windows to build: PostBuildEvent: xcopy \"src/Presentation/SmartStore.Web/bin\" \"build\" /s /y.", reported.Message);
+        var failed = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR0130");
+        Assert.Contains("Source file 'src/Libraries/Gen/Generated.cs' could not be found.", failed.Message, StringComparison.Ordinal);
+        var conversion = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR0132");
+        Assert.EndsWith("First: src/Libraries/Gen/Gen.csproj: no compiler call", conversion.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(bag.ToSortedList(), d => d.Message.Contains(root, StringComparison.Ordinal));
+    }
+
     private sealed class RecordingProgress : Core.Progress.IProgressSink
     {
         private readonly List<string> _reports = [];

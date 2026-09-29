@@ -227,9 +227,10 @@ public static class WindowsOnlyBuildSteps
             && !path.Contains("/" + WebTargetsPackage + "/", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string FirstLine(string text)
-    {
-        var line = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "";
-        return line.Length > 120 ? line[..120] + "…" : line;
-    }
+    /// <summary>The first line, whole: paths in it are made repository-relative before <see cref="Shorten"/> cuts it.</summary>
+    private static string FirstLine(string text) =>
+        text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "";
+
+    /// <summary>Evidence cut to 120 characters, for a message; applied after paths are made repository-relative.</summary>
+    public static string Shorten(string evidence) => evidence.Length > 120 ? evidence[..120] + "…" : evidence;
 }
