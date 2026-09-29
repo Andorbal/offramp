@@ -86,6 +86,49 @@ public sealed class InspectionTests
             NuGetFramework.Parse("net10.0")));
 
     [Fact]
+    public void A_package_whose_only_code_is_native_windows_code_is_windows_only()
+    {
+        static PackageInspection Package(params string[] natives) => PackageInspector.Inspect(FeedMaterializer.Nupkg(new RecordedPackage
+        {
+            Id = "Contoso.Native",
+            Version = "1.0.0",
+            Files = [.. natives.Select(n => new RecordedFile { Path = n }), new RecordedFile { Path = "build/Contoso.Native.props", Content = "<Project />" }],
+        }));
+
+        var windows = Package("runtimes/win-x86/native/contoso.dll", "runtimes/win-x64/native/contoso.dll");
+        var everywhere = Package("runtimes/win-x64/native/contoso.dll", "runtimes/linux-x64/native/libcontoso.so");
+
+        Assert.Equal(["runtimes/win-x64/native/contoso.dll", "runtimes/win-x86/native/contoso.dll"], windows.NativeAssets);
+        Assert.False(TargetSupport.HasAssemblies(windows));
+        Assert.Equal("runtimes/win-x64/native/contoso.dll: native code for Windows only", TargetSupport.WindowsOnly(windows, NuGetFramework.Parse("net10.0")));
+        Assert.Null(TargetSupport.WindowsOnly(everywhere, NuGetFramework.Parse("net10.0")));
+        Assert.True(TargetSupport.HasAssemblies(Inspect("Newtonsoft.Json", "13.0.3")));
+    }
+
+    [Fact]
+    public void Assembly_facts_identify_a_build()
+    {
+        var bytes = StubAssembly.Build(new RecordedAssembly
+        {
+            Name = "Iesi.Collections", Version = "4.0.0.0", FileVersion = "4.0.1.4000", InformationalVersion = "4.0.1.4000-GA",
+            References = [new RecordedAssemblyReference("mscorlib", "4.0.0.0", AssemblyFacts.FrameworkCorlibToken)],
+        });
+        var legacy = StubAssembly.Build(new RecordedAssembly
+        {
+            Name = "log4net", Version = "1.2.10.0", References = [new RecordedAssemblyReference("mscorlib", "2.0.0.0", AssemblyFacts.FrameworkCorlibToken)],
+        });
+
+        var facts = AssemblyFacts.Read(bytes)!;
+
+        Assert.Equal(("Iesi.Collections", "4.0.0.0", "4.0.1.4000", "4.0.1.4000-GA"), (facts.Name, facts.Version, facts.FileVersion, facts.InformationalVersion));
+        Assert.Equal(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant(), facts.Sha256);
+        Assert.Equal((null, "4.0.0.0", ".NETFramework,Version=v4.0"), (facts.TargetFramework, facts.FrameworkCorlib, facts.InferredFramework));
+        Assert.Equal(".NETFramework,Version=v2.0", AssemblyFacts.Read(legacy)!.InferredFramework);
+        Assert.Null(AssemblyFacts.Read(StubAssembly.Build(new RecordedAssembly { Name = "Portable", Version = "1.0.0.0" }))!.InferredFramework);
+        Assert.Null(AssemblyFacts.Read([1, 2, 3]));
+    }
+
+    [Fact]
     public void A_meta_package_uses_its_dependency_groups() =>
         Assert.False(TargetSupport.Supports(
             new PackageInspection { Id = "Meta", Version = "1.0.0", AssetFrameworks = [], DependencyFrameworks = ["net45"], Assemblies = [] },

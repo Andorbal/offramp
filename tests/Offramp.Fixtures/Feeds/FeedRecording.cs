@@ -88,6 +88,12 @@ public sealed record RecordedAssembly
 
     /// <summary>The <c>TargetFrameworkAttribute</c> value (<c>.NETFramework,Version=v4.8</c>), or null for none.</summary>
     public string? TargetFramework { get; init; }
+
+    /// <summary>The <c>AssemblyFileVersionAttribute</c> value, or null for none.</summary>
+    public string? FileVersion { get; init; }
+
+    /// <summary>The <c>AssemblyInformationalVersionAttribute</c> value, or null for none.</summary>
+    public string? InformationalVersion { get; init; }
 }
 
 public sealed record RecordedAssemblyReference(string Name, string Version, string? PublicKeyToken);

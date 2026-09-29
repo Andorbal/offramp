@@ -427,6 +427,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `.exe` is an application's installer (Open Live Writer's Squirrel package carries every DLL of
   the application) and ships nothing. `deadCode.externalConsumers` is now documented in
   `docs/spec/03-configuration.md`.
+- `deps audit` no longer proposes a version without assemblies, or an older one, as an upgrade
+  (ADR 0046). On SmartStoreNET 4.2 it told the user to "upgrade" EntityFramework.SqlServerCompact
+  6.4.4 to 4.3.1, a release with only content transforms and an install script; the package is
+  now `blocked`. A package whose only supporting versions are older than the one in use is
+  `replace` or `blocked` with the new `OFR1007` (error). A package whose only code is native code
+  for Windows (`runtimes/win-x64/native/`) is Windows-only (`OFR1004`), naming the `linux-x64`
+  package when the feed has one: SmartStoreNET's LibSassHost and V8 native packages were `ok`.
+  Cached inspections are recomputed.
 - A library that references a test framework's assembly (`nunit.framework`, `xunit`, the MSTest
   assemblies, usually a DLL checked in and referenced by `HintPath`) is a `test` project, with the
   evidence `Reference nunit.framework + OutputType=Library` (ADR 0038). NHibernate 4.1's three

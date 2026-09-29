@@ -8,7 +8,7 @@ namespace Offramp.NuGet.Inspection;
 public sealed record PackageInspection
 {
     /// <summary>Bumped when inspection changes, so older cache entries are recomputed.</summary>
-    public const int CurrentFormat = 3;
+    public const int CurrentFormat = 4;
 
     public int Format { get; init; } = CurrentFormat;
 
@@ -24,6 +24,9 @@ public sealed record PackageInspection
 
     /// <summary>Managed assemblies under lib, ref, and runtimes/*/lib, with Windows-only evidence.</summary>
     public required IReadOnlyList<InspectedAssembly> Assemblies { get; init; }
+
+    /// <summary>Native files under <c>runtimes/&lt;rid&gt;/native/</c>, sorted: code for one runtime identifier, whatever the framework.</summary>
+    public IReadOnlyList<string> NativeAssets { get; init; } = [];
 
     /// <summary>The nuspec's dependency groups (framework short name, <c>any</c> for none), in framework order.</summary>
     public IReadOnlyList<InspectedDependencyGroup> DependencyGroups { get; init; } = [];
@@ -46,4 +49,13 @@ public sealed record InspectedAssembly(string Path, string Framework, string? Wi
 
     /// <summary>The public key token (hex), or null for an unsigned assembly.</summary>
     public string? PublicKeyToken { get; init; }
+
+    /// <summary>The <c>AssemblyFileVersionAttribute</c> value, or null.</summary>
+    public string? FileVersion { get; init; }
+
+    /// <summary>The <c>AssemblyInformationalVersionAttribute</c> value, or null.</summary>
+    public string? InformationalVersion { get; init; }
+
+    /// <summary>The SHA-256 of the file (lowercase hex): the same hash is the same file.</summary>
+    public string? Sha256 { get; init; }
 }

@@ -31,9 +31,9 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR1004 = new(
         "OFR1004", Severity.Warning,
         "package assets are Windows-only",
-        "The assets NuGet would pick for the target are marked [SupportedOSPlatform(\"windows\")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, the registry, directory services).",
-        "A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later.",
-        "Fine if the application stays on Windows; otherwise choose a cross-platform alternative before containerizing.",
+        "The assets NuGet would pick for the target are marked [SupportedOSPlatform(\"windows\")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, directory services), or the package has no managed assemblies and its native code (`runtimes/<rid>/native/`) is for Windows only. The message names the package for `linux-x64` when the id ends in a Windows runtime identifier and the feed has one.",
+        "A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later, or a native package such as LibSassHost.Native.win-x64.",
+        "Fine if the application stays on Windows; otherwise choose a cross-platform alternative, or add the native package for the other operating systems, before containerizing.",
         DependenciesArea);
 
     public static readonly DiagnosticDescriptor OFR1005 = new(
@@ -50,6 +50,14 @@ public static partial class DiagnosticCatalog
         "A NuGet feed could not be queried, so any answer that depends on it is incomplete.",
         "No network, a feed that is down, or missing credentials for a private feed.",
         "Check `nuget.config`, network access, and credential providers, then re-run.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1007 = new(
+        "OFR1007", Severity.Error,
+        "only versions older than the one in use support the target",
+        "The version in use does not support the target and no newer version does; only older versions do. Moving back to one is a downgrade, so `deps audit` does not propose it: the package is `replace` or `blocked`.",
+        "A package that dropped its .NET Standard or modern .NET build in a later release.",
+        "Replace the package with its successor (the message names one when the package map knows it), ask its authors for a modern build, or isolate the code that uses it behind a seam. Moving back to the older version is a decision to make with its release notes, not an upgrade.",
         DependenciesArea);
 
     public static readonly DiagnosticDescriptor OFR1200 = new(

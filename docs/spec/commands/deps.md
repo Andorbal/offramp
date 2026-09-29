@@ -22,7 +22,10 @@ For a package version and a target framework:
    with `net10.0`; `net48` assets are not. Files directly under `lib/` count as
    .NET Framework (NuGet's legacy rule); files directly under `build/` carry no
    framework. A package with neither assets nor dependency groups supports every
-   target.
+   target. A version without managed assemblies (`lib/`, `ref/`, `runtimes/*/lib/`)
+   never stands in for one with them: when the version in use has assemblies, a
+   content-only or tools-only release does not count as supporting the target
+   (ADR 0046).
 4. **Windows-only detection**: for each managed assembly under a compatible
    folder, read `System.Reflection.Metadata` assembly references and the
    `SupportedOSPlatform` assembly attribute. Referencing `System.Windows.Forms`,
@@ -31,8 +34,12 @@ For a package version and a target framework:
    `windowsOnly: true`. `Microsoft.Win32.Registry` does not: it ships with .NET
    on every OS, and libraries reference it for code they guard. Only the assets NuGet would pick for
    the target count (the nearest `lib/` folder, else `ref/`): System.Drawing.Common
-   8.0 is Windows-only for `net10.0` but not for `netstandard2.0` consumers. This is
-   a warning (`OFR1004`), not a fail.
+   8.0 is Windows-only for `net10.0` but not for `netstandard2.0` consumers. A
+   package with no managed assemblies whose native code (`runtimes/<rid>/native/`)
+   is all for Windows runtime identifiers (`win`, `win-x64`, `win10-arm64`, ...)
+   is Windows-only for every target, such as LibSassHost.Native.win-x64; when its id
+   ends in the runtime identifier and a feed has the same id for `linux-x64`, the
+   message names it. This is a warning (`OFR1004`), not a fail.
 5. **Deprecated/unlisted**: read from the registration index; deprecation
    reasons and alternate packages are surfaced.
 
@@ -95,8 +102,11 @@ log₂(versions) inspections rather than one per version. Every version it retur
 was inspected and supports the target. `newest` is the newest listed candidate.
 
 `status`: `ok` every in-use version supports the target; `upgrade` some
-version does; `replace` none does but a mapping exists; `blocked` none does and
-no mapping; `unknown` no feed has the package, or the feeds could not be reached.
+version newer than every in-use version that does not support the target does;
+`replace` none does but a mapping exists; `blocked` none does and
+no mapping. A supporting version older than one in use is a downgrade, never an
+upgrade: the package is `replace` or `blocked` with `OFR1007`, and
+`newestSupporting` still names that version; `unknown` no feed has the package, or the feeds could not be reached.
 `--format table` (the terminal view) sorts blocked first, then replace, upgrade,
 unknown, and ok, each by number of projects; `--format markdown` prints the same
 table as Markdown and `--format json` the result alone (`--json` gives the
@@ -107,7 +117,8 @@ the `deps gac` mapping for framework assemblies (file references are
 Diagnostics: `OFR1001` no version supports target (error), `OFR1002` in-use
 version does not support target, `OFR1003` package or in-use version deprecated,
 `OFR1004` windows-only assets, `OFR1005` package not found on any feed,
-`OFR1006` feed unreachable (result marked partial, exit 4).
+`OFR1006` feed unreachable (result marked partial, exit 4), `OFR1007` only
+versions older than the one in use support the target.
 
 ## `deps consolidate`
 

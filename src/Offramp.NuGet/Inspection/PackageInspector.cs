@@ -31,8 +31,15 @@ public static class PackageInspector
         var identity = reader.GetIdentity();
         var frameworks = new HashSet<NuGetFramework>();
         var assemblies = new List<InspectedAssembly>();
+        var native = new List<string>();
         foreach (var path in reader.GetFiles().Order(StringComparer.Ordinal))
         {
+            if (IsNativeAsset(path))
+            {
+                native.Add(path);
+                continue;
+            }
+
             var framework = AssetFramework(path);
             if (framework is null)
             {
@@ -50,8 +57,16 @@ public static class PackageInspector
                 using var copy = new MemoryStream();
                 entry.CopyTo(copy);
                 var bytes = copy.ToArray();
-                var (name, version, token) = Identity(bytes);
-                assemblies.Add(new InspectedAssembly(path, framework.GetShortFolderName(), WindowsEvidence(bytes)) { Name = name, Version = version, PublicKeyToken = token });
+                var facts = AssemblyFacts.Read(bytes);
+                assemblies.Add(new InspectedAssembly(path, framework.GetShortFolderName(), WindowsEvidence(bytes))
+                {
+                    Name = facts?.Name,
+                    Version = facts?.Version,
+                    PublicKeyToken = facts?.PublicKeyToken,
+                    FileVersion = facts?.FileVersion,
+                    InformationalVersion = facts?.InformationalVersion,
+                    Sha256 = facts?.Sha256,
+                });
             }
         }
 
@@ -62,6 +77,7 @@ public static class PackageInspector
             AssetFrameworks = Names(frameworks),
             DependencyFrameworks = Names(reader.GetPackageDependencies().Select(g => g.TargetFramework)),
             Assemblies = assemblies,
+            NativeAssets = native,
             DependencyGroups = [.. reader.GetPackageDependencies()
                 .Where(g => !g.TargetFramework.IsUnsupported)
                 .Select(g => new InspectedDependencyGroup(
@@ -103,25 +119,13 @@ public static class PackageInspector
         return framework.IsUnsupported ? null : framework;
     }
 
-    /// <summary>An assembly's name, version, and public key token; nulls when it has no assembly metadata.</summary>
-    internal static (string? Name, string? Version, string? PublicKeyToken) Identity(byte[] bytes)
+    /// <summary>True for a file under <c>runtimes/&lt;rid&gt;/native/</c>: native code for one runtime identifier.</summary>
+    internal static bool IsNativeAsset(string path)
     {
-        try
-        {
-            using var pe = new PEReader(new MemoryStream(bytes));
-            if (!pe.HasMetadata || !pe.GetMetadataReader().IsAssembly)
-            {
-                return (null, null, null);
-            }
-
-            var metadata = pe.GetMetadataReader();
-            var definition = metadata.GetAssemblyDefinition();
-            return (metadata.GetString(definition.Name), definition.Version.ToString(), PublicKeyToken(metadata.GetBlobBytes(definition.PublicKey)));
-        }
-        catch (BadImageFormatException)
-        {
-            return (null, null, null);
-        }
+        var parts = path.Split('/');
+        return parts.Length >= 4
+            && parts[0].Equals("runtimes", StringComparison.OrdinalIgnoreCase)
+            && parts[2].Equals("native", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The public key token: the last eight bytes of the key's SHA-1, reversed; null for an unsigned assembly.</summary>

@@ -107,7 +107,7 @@ public static class DepsAuditor
             .ToList();
 
         var inspections = new Dictionary<NuGetVersion, PackageInspection?>();
-        async Task<bool?> SupportsAsync(NuGetVersion version)
+        async Task<PackageInspection?> GetAsync(NuGetVersion version)
         {
             if (!inspections.TryGetValue(version, out var inspection))
             {
@@ -115,14 +115,24 @@ public static class DepsAuditor
                 inspections[version] = inspection;
             }
 
-            return inspection is null ? null : TargetSupport.Supports(inspection, target);
+            return inspection;
         }
 
         var supportsInUse = new SortedDictionary<string, bool?>(StringComparer.Ordinal);
+        var inUseHasAssemblies = false;
         foreach (var version in inUseVersions.Keys)
         {
-            supportsInUse[version] = await SupportsAsync(NuGetVersion.Parse(version));
+            var inspection = await GetAsync(NuGetVersion.Parse(version));
+            supportsInUse[version] = inspection is null ? null : TargetSupport.Supports(inspection, target);
+            inUseHasAssemblies |= inspection is not null && TargetSupport.HasAssemblies(inspection);
         }
+
+        // A candidate supports the target when its assets do, and it has assemblies if the version in use has:
+        // a content-only or tools-only release has nothing to be incompatible with, and nothing to replace a library with.
+        async Task<bool?> SupportsAsync(NuGetVersion version) =>
+            await GetAsync(version) is { } inspection
+                ? TargetSupport.Supports(inspection, target) && (!inUseHasAssemblies || TargetSupport.HasAssemblies(inspection))
+                : null;
 
         // Newest supporting: walk down from the newest candidate.
         NuGetVersion? newestSupporting = null;
@@ -172,12 +182,17 @@ public static class DepsAuditor
             })
             .ToList();
 
-        var windowsEvidence = WindowsEvidence(inspections, inUse, newestSupporting, target);
+        // Evidence for what the audit recommends: a supporting version older than one in use is not a recommendation.
+        var recommended = supportsInUse.Values.All(s => s == true) || IsUpgrade(supportsInUse, newestSupporting) ? newestSupporting : null;
+        var windowsEvidence = WindowsEvidence(inspections, inUse, recommended, target);
         var replacement = packageMap.Find(id);
         var deprecated = newest is not null && byVersion.TryGetValue(newest, out var newestInfo) ? newestInfo.Deprecation : null;
         var status = Status(available, supportsInUse, newestSupporting, replacement);
+        var forOtherSystems = windowsEvidence is not null && inspections.Values.Any(i => i is not null && TargetSupport.WindowsNativeOnly(i) is not null)
+            ? await OtherSystemsPackageAsync(request, id, cancellationToken)
+            : null;
 
-        Report(request, id, status, inUseList, supportsInUse, newestSupporting, replacement, deprecated, windowsEvidence, available);
+        Report(request, id, status, inUseList, supportsInUse, newestSupporting, replacement, deprecated, windowsEvidence, available, forOtherSystems);
         return new PackageAudit
         {
             Id = id,
@@ -209,12 +224,35 @@ public static class DepsAuditor
             return PackageStatus.Ok;
         }
 
-        if (newestSupporting is not null)
+        if (IsUpgrade(supportsInUse, newestSupporting))
         {
             return PackageStatus.Upgrade;
         }
 
         return replacement is not null ? PackageStatus.Replace : PackageStatus.Blocked;
+    }
+
+    /// <summary>True when a supporting version is newer than every in-use version that does not support the target: a lower one is a downgrade, never an upgrade.</summary>
+    private static bool IsUpgrade(SortedDictionary<string, bool?> supportsInUse, NuGetVersion? newestSupporting) =>
+        newestSupporting is not null
+        && supportsInUse.Where(s => s.Value == false).All(s => newestSupporting > NuGetVersion.Parse(s.Key));
+
+    /// <summary>
+    /// For a <c>*.win-x64</c>-style native package (the id ends in a Windows runtime identifier),
+    /// the same id for <c>linux-x64</c> when a feed has it; null otherwise.
+    /// </summary>
+    private static async Task<string?> OtherSystemsPackageAsync(DepsAuditRequest request, string id, CancellationToken cancellationToken)
+    {
+        var dot = id.LastIndexOf('.');
+        var suffix = dot <= 0 ? "" : id[(dot + 1)..];
+        var windowsRid = suffix.StartsWith("win", StringComparison.OrdinalIgnoreCase) && (suffix.Length == 3 || suffix[3] == '-' || char.IsAsciiDigit(suffix[3]));
+        if (!windowsRid)
+        {
+            return null;
+        }
+
+        var linux = id[..(dot + 1)] + "linux-x64";
+        return (await request.Feeds.GetVersionsAsync(linux, cancellationToken)).Found ? linux : null;
     }
 
     /// <summary>Windows-only evidence for what the audit recommends: the newest supporting version, else the in-use ones.</summary>
@@ -243,7 +281,8 @@ public static class DepsAuditor
 
     private static void Report(
         DepsAuditRequest request, string id, PackageStatus status, IReadOnlyList<InUseVersion> inUse, SortedDictionary<string, bool?> supportsInUse,
-        NuGetVersion? newestSupporting, PackageReplacement? replacement, PackageDeprecation? deprecated, string? windowsEvidence, PackageVersions available)
+        NuGetVersion? newestSupporting, PackageReplacement? replacement, PackageDeprecation? deprecated, string? windowsEvidence, PackageVersions available,
+        string? forOtherSystems)
     {
         var target = request.Config.TargetFramework;
         KeyValuePair<string, JsonNode?> Package() => KeyValuePair.Create<string, JsonNode?>("package", id);
@@ -252,7 +291,18 @@ public static class DepsAuditor
             request.Diagnostics.Report(DiagnosticCatalog.OFR1005, $"{id} was not found on any feed ({string.Join(", ", request.Feeds.Sources)}).", data: [Package()]);
         }
 
-        if (status is PackageStatus.Replace or PackageStatus.Blocked)
+        if ((status is PackageStatus.Replace or PackageStatus.Blocked) && newestSupporting is not null)
+        {
+            // Only versions older than one in use support the target: moving back is not an upgrade.
+            var unsupported = inUse.Where(v => supportsInUse[v.Version] == false).Select(v => v.Version).ToList();
+            request.Diagnostics.Report(DiagnosticCatalog.OFR1007,
+                $"{id} {string.Join(", ", unsupported)} does not support {target}, and no newer version does; only older ones do (the newest is {newestSupporting.ToNormalizedString()}), and a downgrade is not a way forward"
+                    + (replacement is null ? "." : $". Replace it with {replacement.Replacement}."),
+                data: [Package(), KeyValuePair.Create<string, JsonNode?>("versions", new JsonArray([.. unsupported.Select(v => (JsonNode?)v)])),
+                       KeyValuePair.Create<string, JsonNode?>("newestSupporting", newestSupporting.ToNormalizedString()),
+                       KeyValuePair.Create<string, JsonNode?>("replacement", replacement?.Replacement)]);
+        }
+        else if (status is PackageStatus.Replace or PackageStatus.Blocked)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR1001,
                 $"No version of {id} supports {target}" + (replacement is null ? "; there is no known successor." : $"; replace it with {replacement.Replacement}."),
@@ -289,8 +339,10 @@ public static class DepsAuditor
         if (windowsEvidence is not null)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR1004,
-                $"{id} only works on Windows on {target}: {windowsEvidence}.",
-                data: [Package(), KeyValuePair.Create<string, JsonNode?>("evidence", windowsEvidence)]);
+                $"{id} only works on Windows on {target}: {windowsEvidence}" + (forOtherSystems is null ? "." : $"; the feed has {forOtherSystems} for Linux."),
+                data: forOtherSystems is null
+                    ? [Package(), KeyValuePair.Create<string, JsonNode?>("evidence", windowsEvidence)]
+                    : [Package(), KeyValuePair.Create<string, JsonNode?>("evidence", windowsEvidence), KeyValuePair.Create<string, JsonNode?>("linux", forOtherSystems)]);
         }
     }
 

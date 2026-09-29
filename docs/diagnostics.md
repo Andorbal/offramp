@@ -95,6 +95,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1004](#ofr1004) | warning | deps | package assets are Windows-only |
 | [OFR1005](#ofr1005) | warning | deps | package not found on any feed |
 | [OFR1006](#ofr1006) | warning | deps | feed unreachable; result partial |
+| [OFR1007](#ofr1007) | error | deps | only versions older than the one in use support the target |
 | [OFR1200](#ofr1200) | error | deps | package not referenced |
 | [OFR1203](#ofr1203) | warning | deps | pin kept a package below the otherwise-selected version |
 | [OFR1204](#ofr1204) | info | deps | packages.config project keeps its version |
@@ -853,10 +854,10 @@ The feed marks the package, or the version in use, as deprecated; the message ca
 
 **package assets are Windows-only** · warning · deps
 
-The assets NuGet would pick for the target are marked [SupportedOSPlatform("windows")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, the registry, directory services).
+The assets NuGet would pick for the target are marked [SupportedOSPlatform("windows")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, directory services), or the package has no managed assemblies and its native code (`runtimes/<rid>/native/`) is for Windows only. The message names the package for `linux-x64` when the id ends in a Windows runtime identifier and the feed has one.
 
-- **Typical cause:** A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later.
-- **Fix:** Fine if the application stays on Windows; otherwise choose a cross-platform alternative before containerizing.
+- **Typical cause:** A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later, or a native package such as LibSassHost.Native.win-x64.
+- **Fix:** Fine if the application stays on Windows; otherwise choose a cross-platform alternative, or add the native package for the other operating systems, before containerizing.
 
 ### OFR1005
 
@@ -875,6 +876,15 @@ A NuGet feed could not be queried, so any answer that depends on it is incomplet
 
 - **Typical cause:** No network, a feed that is down, or missing credentials for a private feed.
 - **Fix:** Check `nuget.config`, network access, and credential providers, then re-run.
+
+### OFR1007
+
+**only versions older than the one in use support the target** · error · deps
+
+The version in use does not support the target and no newer version does; only older versions do. Moving back to one is a downgrade, so `deps audit` does not propose it: the package is `replace` or `blocked`.
+
+- **Typical cause:** A package that dropped its .NET Standard or modern .NET build in a later release.
+- **Fix:** Replace the package with its successor (the message names one when the package map knows it), ask its authors for a modern build, or isolate the code that uses it behind a seam. Moving back to the older version is a decision to make with its release notes, not an upgrade.
 
 ### OFR1200
 
