@@ -7,7 +7,7 @@
   "source": {
     "kind": "build",
     "path": ".offramp/msbuild.binlog",
-    "sha256": "{Sha256}",
+    "sha256": null,
     "complog": null
   },
   "sdk": {
@@ -200,7 +200,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Billing/Billing.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 11,
@@ -328,7 +329,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Customer.Api/Customer.Api.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 9,
@@ -474,7 +476,8 @@
       "compilerCalls": {
         "net10.0": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Modern.App/Modern.App.csproj",
+          "targetFramework": "net10.0"
         }
       },
       "loc": 1,
@@ -706,7 +709,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Reporting/Reporting.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 7,
@@ -907,7 +911,8 @@
       "compilerCalls": {
         "netstandard2.0": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Shared/Shared.csproj",
+          "targetFramework": "netstandard2.0"
         }
       },
       "loc": 9,

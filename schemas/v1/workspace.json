@@ -54,7 +54,10 @@
       "properties": {
         "kind": { "enum": ["binlog", "complog", "build"] },
         "path": { "type": "string" },
-        "sha256": { "$ref": "#/$defs/sha256" },
+        "sha256": {
+          "description": "The supplied log's SHA-256 (kind binlog or complog); null for a log Offramp built (kind build), which differs with every build of the same inputs.",
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }]
+        },
         "complog": {
           "oneOf": [
             { "type": "null" },
@@ -216,8 +219,13 @@
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["complog", "index"],
-            "properties": { "complog": { "$ref": "#/$defs/relativePath" }, "index": { "type": "integer", "minimum": 0 } }
+            "required": ["complog", "project", "targetFramework"],
+            "description": "Named by project and the target framework the compiler log records (null for a legacy project's call); readers find the call's position in the log.",
+            "properties": {
+              "complog": { "$ref": "#/$defs/relativePath" },
+              "project": { "$ref": "#/$defs/relativePath" },
+              "targetFramework": { "type": ["string", "null"] }
+            }
           }
         },
         "loc": { "type": "integer", "minimum": 0 },

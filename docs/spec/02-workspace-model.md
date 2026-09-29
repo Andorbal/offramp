@@ -80,7 +80,10 @@ resolved packages reachable only from `autoReferenced` dependencies
 From the compiler log, via `Basic.CompilerLog.Util`: one `CompilerCall` per
 project × target framework, from which a Roslyn `Compilation` is created on
 demand. Compilations are **not** stored in the model; the model stores enough
-to rebuild them (the complog path and call index).
+to rebuild them: the complog path, the project, and the target framework the log
+records for the call. Readers find the call's position in the log; the position
+follows the order a parallel build finished its compilations, so the model never
+records it (`docs/decisions/0049-what-the-workspace-model-records.md`).
 
 ## Project kind detection
 
@@ -109,7 +112,8 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
   "createdAt": "2026-09-25T20:00:00Z",
   "repositoryRoot": "/abs/path",
   "solution": "src/Monolith.sln",
-  "source": { "kind": "binlog|complog|build", "path": ".offramp/msbuild.binlog", "sha256": "...",
+  "source": { "kind": "binlog|complog|build", "path": ".offramp/msbuild.binlog",
+              "sha256": "...",                                          // a supplied log's hash; null for kind build
               "complog": { "path": "win.complog", "sha256": "..." } },   // null unless --complog came with --binlog
   "sdk": { "version": "10.0.100", "os": "osx-arm64" },
   "projects": [
@@ -153,7 +157,10 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
           "packages": [ { "id": "Microsoft.Extensions.Logging", "version": "8.0.1", "dependencies": [ { "id": "Microsoft.Extensions.Logging.Abstractions", "range": "[8.0.1, )" } ], "direct": true } ]
         }
       },
-      "compilerCalls": { "net48": { "complog": ".offramp/build.complog", "index": 17 }, "net10.0": { "complog": "...", "index": 18 } },
+      "compilerCalls": {                          // named by project and the target framework the log records
+        "net48": { "complog": ".offramp/build.complog", "project": "src/Foo/Foo.csproj", "targetFramework": "net48" },
+        "net10.0": { "complog": ".offramp/build.complog", "project": "src/Foo/Foo.csproj", "targetFramework": "net10.0" }
+      },                                          // a legacy project's call has "targetFramework": null
       "loc": 18234,                               // lines in Compile items, cheap count
       "partial": true,                            // only when a target framework has no compiler call
       "config": { "kindOverride": null, "excluded": false }
@@ -179,7 +186,10 @@ The model records `inputs`: the SHA-256 of every project file (`.csproj`,
 `.slnf`), `Directory.*.props/targets`, and `packages.config` in the repository
 (outside `bin/`, `obj/`, `packages/`, dot-directories, and the state directory).
 Every command that reads the model compares them, and `source.sha256` for a
-supplied log, with the files on disk; any changed, added, or removed input
+supplied log, with the files on disk (a log `scan` built itself has no hash: every
+build of the same inputs writes a different log, and the inputs already say what
+the model was built from; `docs/decisions/0049-what-the-workspace-model-records.md`);
+any changed, added, or removed input
 produces `OFR0002` naming what changed (warning by default; `--fail-on-stale`
 makes it an error). Content hashes, not modification times, so a fresh clone of
 the same commit is fresh (`docs/decisions/0009-staleness-by-content-hash.md`).

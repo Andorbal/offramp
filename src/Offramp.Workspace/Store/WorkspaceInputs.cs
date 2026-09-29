@@ -11,11 +11,15 @@ public sealed record Staleness(
     IReadOnlyList<string> Removed,
     bool SourceChanged)
 {
-    public bool IsStale => Changed.Count > 0 || Added.Count > 0 || Removed.Count > 0 || SourceChanged;
+    /// <summary>True when an older Offramp wrote the model: its compiler calls are numbered, not named (ADR 0049).</summary>
+    public bool OlderFormat { get; init; }
+
+    public bool IsStale => Changed.Count > 0 || Added.Count > 0 || Removed.Count > 0 || SourceChanged || OlderFormat;
 
     public string Describe()
     {
         var parts = new List<string>();
+        if (OlderFormat) parts.Add("an older Offramp wrote it");
         if (Changed.Count > 0) parts.Add($"{Changed.Count} changed ({string.Join(", ", Changed.Take(3))}{(Changed.Count > 3 ? ", …" : "")})");
         if (Added.Count > 0) parts.Add($"{Added.Count} added ({string.Join(", ", Added.Take(3))}{(Added.Count > 3 ? ", …" : "")})");
         if (Removed.Count > 0) parts.Add($"{Removed.Count} removed ({string.Join(", ", Removed.Take(3))}{(Removed.Count > 3 ? ", …" : "")})");
@@ -103,7 +107,7 @@ public static class WorkspaceInputs
         var removed = recorded.Keys.Where(k => !current.ContainsKey(k));
 
         var sourceChanged = false;
-        if (model.Source.Kind != WorkspaceSourceKind.Build)
+        if (model.Source.Kind != WorkspaceSourceKind.Build && model.Source.Sha256 is not null)
         {
             var sourcePath = Path.GetFullPath(model.Source.Path, repositoryRoot);
             sourceChanged = File.Exists(sourcePath) && ContentHash.Sha256File(sourcePath) != model.Source.Sha256;
@@ -113,6 +117,10 @@ public static class WorkspaceInputs
             [.. changed.Order(StringComparer.Ordinal)],
             [.. added.Order(StringComparer.Ordinal)],
             [.. removed.Order(StringComparer.Ordinal)],
-            sourceChanged);
+            sourceChanged)
+        {
+            // Such a model's calls cannot be found in the compiler log: rescan.
+            OlderFormat = model.Projects.Any(p => p.CompilerCalls.Values.Any(c => c.Project is null)),
+        };
     }
 }

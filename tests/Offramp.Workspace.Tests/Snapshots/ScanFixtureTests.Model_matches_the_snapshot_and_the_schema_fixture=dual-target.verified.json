@@ -7,7 +7,7 @@
   "source": {
     "kind": "build",
     "path": ".offramp/msbuild.binlog",
-    "sha256": "{Sha256}",
+    "sha256": null,
     "complog": null
   },
   "sdk": {
@@ -74,7 +74,8 @@
       "compilerCalls": {
         "netstandard2.0": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Contracts/Contracts.csproj",
+          "targetFramework": "netstandard2.0"
         }
       },
       "loc": 13,
@@ -210,11 +211,13 @@
       "compilerCalls": {
         "net10.0": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Shared/Shared.csproj",
+          "targetFramework": "net10.0"
         },
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Shared/Shared.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 25,
@@ -299,7 +302,8 @@
       "compilerCalls": {
         "net10.0": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Tool/Tool.csproj",
+          "targetFramework": "net10.0"
         }
       },
       "loc": 6,

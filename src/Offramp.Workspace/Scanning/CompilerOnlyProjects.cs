@@ -66,7 +66,7 @@ public static class CompilerOnlyProjects
             var defines = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
             foreach (var call in calls)
             {
-                callRefs[call.Call.TargetFramework!] = new CompilerCallRef(complogRelative, call.Call.Index);
+                callRefs[call.Call.TargetFramework!] = new CompilerCallRef(complogRelative, id, call.Call.TargetFramework);
                 defines[call.Call.TargetFramework!] = call.Defines;
             }
 

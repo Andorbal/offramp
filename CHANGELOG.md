@@ -100,6 +100,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `OFR3009` no longer covers `[SecurityCritical]` and `[AllowPartiallyTrustedCallers]`: they are
   `OFR3014` (info). 23 of NHibernate 4.1's 24 `OFR3009` errors were those attributes, with the
   advice to isolate the code in a separate process. `ifdef wrap` leaves info findings alone.
+- The workspace model names each compiler call by project and target framework:
+  `compilerCalls.<tfm>` is `{ complog, project, targetFramework }` (`targetFramework` is `null` for
+  a legacy project's call) instead of `{ complog, index }`, and `source.sha256` is `null` when
+  `scan` built the log itself (ADR 0049). Migration: rescan; commands report a model written by an
+  older Offramp as stale (`OFR0002`, "an older Offramp wrote it"), and `scan --if-stale` rescans it.
 - Every envelope's `effectiveConfig` has a `scan` section (`builder`, `msbuildPath`), and `init`
   writes it to `offramp.yml` with its defaults.
 
@@ -193,6 +198,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   instead of 1,439, 6,989 of them `System.Web.Mvc` and 714 `System.Web.Http`, and `OFR3011`
   names the packages without target support in 23 projects (the audit takes 201 s instead of
   142 s). This was the `audit api` part of DotNetNuke's P1 #7.
+- Two full scans of the same tree write the same model (ADR 0049). The compiler-call index
+  followed the order the parallel build finished its compilations (10 of SmartStoreNET's 25
+  projects differed between two scans), and `source.sha256` hashed the binary log, which differs
+  with every build; now calls are found in the compiler log by project and target framework, and
+  a log Offramp built is not hashed (the model's `inputs` decide staleness, as before).
 - A library that references a test framework's assembly (`nunit.framework`, `xunit`, the MSTest
   assemblies, usually a DLL checked in and referenced by `HintPath`) is a `test` project, with the
   evidence `Reference nunit.framework + OutputType=Library` (ADR 0038). NHibernate 4.1's three

@@ -147,7 +147,8 @@ public static class ScanRunner
                 .Where(c => callMapper.ToRelative(c.ProjectFile) is not null && c.TargetFramework is not null)
                 .GroupBy(c => (callMapper.ToRelative(c.ProjectFile)!, c.TargetFramework!))
                 .ToDictionary(g => g.Key, g => g.First().Defines);
-            var source = new WorkspaceSource(kind, Display(root, binlog), ContentHash.Sha256File(binlog))
+            // A log Offramp built differs with every build of the same inputs; only a supplied one is an input.
+            var source = new WorkspaceSource(kind, Display(root, binlog), kind == WorkspaceSourceKind.Build ? null : ContentHash.Sha256File(binlog))
             {
                 Complog = request.ComplogPath is null ? null : new LogFile(Display(root, request.ComplogPath), ContentHash.Sha256File(request.ComplogPath)),
             };
@@ -416,7 +417,12 @@ public static class ScanRunner
         string.Equals(mapper.CaptureRoot, repositoryRoot.Replace('\\', '/').TrimEnd('/'),
             OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
 
-    private static Dictionary<(string Project, string Tfm), CompilerCallRef> MapCalls(
+    /// <summary>
+    /// (project, target framework) → the call's reference: named by project and target framework, never by its
+    /// position in the log, which follows the order the build finished its compilations
+    /// (docs/decisions/0049-what-the-workspace-model-records.md).
+    /// </summary>
+    internal static Dictionary<(string Project, string Tfm), CompilerCallRef> MapCalls(
         IReadOnlyList<CompilerCallInfo> calls, CapturePathMapper mapper, string complogRelative)
     {
         var map = new Dictionary<(string, string), CompilerCallRef>();
@@ -429,7 +435,7 @@ public static class ScanRunner
             }
 
             var tfm = call.TargetFramework ?? "";
-            map.TryAdd((project, tfm), new CompilerCallRef(complogRelative, call.Index));
+            map.TryAdd((project, tfm), new CompilerCallRef(complogRelative, project, call.TargetFramework));
         }
 
         return map;

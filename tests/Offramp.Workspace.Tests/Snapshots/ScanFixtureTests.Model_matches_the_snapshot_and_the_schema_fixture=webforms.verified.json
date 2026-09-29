@@ -7,7 +7,7 @@
   "source": {
     "kind": "build",
     "path": ".offramp/msbuild.binlog",
-    "sha256": "{Sha256}",
+    "sha256": null,
     "complog": null
   },
   "sdk": {
@@ -88,7 +88,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Portal.Controls/Portal.Controls.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 55,
@@ -177,7 +178,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Portal.Modules/Portal.Modules.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 101,
@@ -262,7 +264,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Portal.Utilities/Portal.Utilities.vbproj",
+          "targetFramework": null
         }
       },
       "loc": 9,

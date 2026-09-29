@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
+using Offramp.Workspace.Ingest;
 using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 
 namespace Offramp.Analysis.Compilations;
@@ -36,20 +37,21 @@ public static class CompilationSourceExtensions
 public sealed class CompilationLoader : ICompilationSource, IDisposable
 {
     private readonly string _repositoryRoot;
-    private readonly Dictionary<string, CompilerLogReader> _readers = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (CompilerLogReader Reader, IReadOnlyDictionary<(string, string), int> Indexes)> _readers = new(StringComparer.Ordinal);
 
     public CompilationLoader(string repositoryRoot) => _repositoryRoot = repositoryRoot;
 
-    /// <summary>The compilation for a recorded compiler call, or null when the compiler log is missing.</summary>
+    /// <summary>The compilation for a recorded compiler call, or null when the compiler log is missing or lacks the call.</summary>
     public Compilation? Load(CompilerCallRef call)
     {
-        if (Reader(call) is not { } reader)
+        if (Open(call) is not { } found)
         {
             return null;
         }
 
-        var compilation = reader.ReadCompilationData(call.Index).GetCompilationAfterGenerators();
-        return WithCoreLibrary(compilation, () => reader.ReadArguments(reader.ReadCompilerCall(call.Index)));
+        var (reader, index) = found;
+        var compilation = reader.ReadCompilationData(index).GetCompilationAfterGenerators();
+        return WithCoreLibrary(compilation, () => reader.ReadArguments(reader.ReadCompilerCall(index)));
     }
 
     /// <summary>
@@ -97,20 +99,20 @@ public sealed class CompilationLoader : ICompilationSource, IDisposable
     /// </summary>
     public (ImmutableArray<DiagnosticAnalyzer> Analyzers, AnalyzerOptions Options)? LoadAnalyzers(ProjectInfo project, string targetFramework)
     {
-        if (!project.CompilerCalls.TryGetValue(targetFramework, out var call) || Reader(call) is not { } reader)
+        if (!project.CompilerCalls.TryGetValue(targetFramework, out var call) || Open(call) is not { } found)
         {
             return null;
         }
 
-        var data = reader.ReadCompilationData(call.Index);
+        var data = found.Reader.ReadCompilationData(found.Index);
         var global = new GlobalOptionsProvider(data.AnalyzerOptions.AnalyzerConfigOptionsProvider.GlobalOptions);
         return (data.GetAnalyzers(out _), new AnalyzerOptions(data.AnalyzerOptions.AdditionalFiles, global));
     }
 
     /// <summary>The recorded global analyzer config options (<c>build_property.*</c>, .globalconfig) of a project's compilation, without loading its analyzers.</summary>
     public AnalyzerConfigOptions? LoadGlobalOptions(ProjectInfo project, string targetFramework) =>
-        project.CompilerCalls.TryGetValue(targetFramework, out var call) && Reader(call) is { } reader
-            ? reader.ReadCompilationData(call.Index).AnalyzerOptions.AnalyzerConfigOptionsProvider.GlobalOptions
+        project.CompilerCalls.TryGetValue(targetFramework, out var call) && Open(call) is { } found
+            ? found.Reader.ReadCompilationData(found.Index).AnalyzerOptions.AnalyzerConfigOptionsProvider.GlobalOptions
             : null;
 
     /// <summary>The target framework analyses use by default: the first .NET Framework one, else the first.</summary>
@@ -120,26 +122,28 @@ public sealed class CompilationLoader : ICompilationSource, IDisposable
             .ThenBy(k => k, StringComparer.Ordinal)
             .FirstOrDefault();
 
-    private CompilerLogReader? Reader(CompilerCallRef call)
+    /// <summary>The reader of the call's compiler log and the call's position in it, or null when either is missing.</summary>
+    private (CompilerLogReader Reader, int Index)? Open(CompilerCallRef call)
     {
         var path = RepoPaths.ToAbsolute(_repositoryRoot, call.Complog);
-        if (!File.Exists(path))
+        if (!_readers.TryGetValue(path, out var opened))
         {
-            return null;
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            var reader = CompilerLogReader.Create(path, null, null);
+            opened = (reader, CompilerLogIngest.CallIndexes(reader, _repositoryRoot));
+            _readers[path] = opened;
         }
 
-        if (!_readers.TryGetValue(path, out var reader))
-        {
-            reader = CompilerLogReader.Create(path, null, null);
-            _readers[path] = reader;
-        }
-
-        return reader;
+        return opened.Indexes.TryGetValue((call.Project, call.TargetFramework ?? ""), out var index) ? (opened.Reader, index) : null;
     }
 
     public void Dispose()
     {
-        foreach (var reader in _readers.Values)
+        foreach (var (reader, _) in _readers.Values)
         {
             reader.Dispose();
         }

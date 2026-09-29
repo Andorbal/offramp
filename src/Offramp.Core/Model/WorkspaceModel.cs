@@ -60,8 +60,12 @@ public enum WorkspaceSourceKind
 /// <summary>
 /// Where the model came from. <see cref="Complog"/> is the compiler log supplied
 /// alongside a binlog (<c>scan --binlog X --complog Y</c>), otherwise null.
+/// <see cref="Sha256"/> is the hash of a supplied log (<c>binlog</c>, <c>complog</c>), and null for a
+/// log Offramp built (<c>build</c>): a build of the same inputs writes a different log every time
+/// (timings, node assignment), and the model's <c>inputs</c> say when it is stale
+/// (docs/decisions/0049-what-the-workspace-model-records.md).
 /// </summary>
-public sealed record WorkspaceSource(WorkspaceSourceKind Kind, string Path, string Sha256)
+public sealed record WorkspaceSource(WorkspaceSourceKind Kind, string Path, string? Sha256)
 {
     public LogFile? Complog { get; init; }
 }
@@ -278,7 +282,13 @@ public sealed record ResolvedPackage
 
 public sealed record PackageDependency(string Id, string Range);
 
-public sealed record CompilerCallRef(string Complog, int Index);
+/// <summary>
+/// A compiler call in a compiler log, named by the repository-relative project and the target framework the
+/// log records for it (null for a legacy project's call, which has none). Readers find its position in the
+/// log (<c>CompilerLogIngest.CallIndexes</c>); the position follows the order in which a parallel build
+/// finished its compilations, so the model does not record it (docs/decisions/0049-what-the-workspace-model-records.md).
+/// </summary>
+public sealed record CompilerCallRef(string Complog, string Project, string? TargetFramework);
 
 public sealed record ProjectConfigState
 {

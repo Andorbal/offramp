@@ -72,6 +72,25 @@ public sealed class WorkspaceStoreTests : IDisposable
         Assert.True(WorkspaceInputs.Compare(model, _repo.Path, State).SourceChanged);
     }
 
+    /// <summary>ADR 0049: an older model numbers its compiler calls, which cannot be found in the log any more.</summary>
+    [Fact]
+    public void A_model_with_numbered_compiler_calls_is_stale()
+    {
+        var path = _repo.Combine(".offramp", WorkspaceStore.FileName);
+        WorkspaceStore.Save(path, Model([]) with { Projects = [new ProjectInfo { Id = "a.csproj", Name = "a" }] });
+        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+        json["projects"]![0]!["compilerCalls"] = new System.Text.Json.Nodes.JsonObject
+        {
+            ["net48"] = new System.Text.Json.Nodes.JsonObject { ["complog"] = ".offramp/build.complog", ["index"] = 3 },
+        };
+        File.WriteAllText(path, json.ToJsonString());
+
+        var staleness = WorkspaceInputs.Compare(WorkspaceStore.Read(path), _repo.Path, State);
+
+        Assert.True(staleness.IsStale);
+        Assert.Equal("an older Offramp wrote it", staleness.Describe());
+    }
+
     [Fact]
     public void Ledger_snapshots_are_named_by_date_and_content()
     {

@@ -124,6 +124,33 @@ public static class CompilerLogIngest
         return result;
     }
 
+    /// <summary>
+    /// The position of every regular compiler call in a compiler log, by repository-relative project and
+    /// the target framework the log records (<c>""</c> for a legacy project's call); when a project and
+    /// target framework were compiled twice, the first call wins. The model names calls by project and
+    /// target framework because positions follow the order a parallel build finished its compilations
+    /// (docs/decisions/0049-what-the-workspace-model-records.md). Paths are mapped as <c>scan</c> maps them:
+    /// the capture root is inferred from the calls' project files.
+    /// </summary>
+    public static IReadOnlyDictionary<(string Project, string TargetFramework), int> CallIndexes(CompilerLogReader reader, string repositoryRoot)
+    {
+        var calls = reader.ReadAllCompilerCalls(null)
+            .Select((call, index) => (Call: call, Index: index))
+            .Where(c => c.Call.Kind == CompilerCallKind.Regular)
+            .ToList();
+        var mapper = CapturePathMapper.Infer(repositoryRoot, calls.Select(c => c.Call.ProjectFilePath));
+        var result = new Dictionary<(string, string), int>();
+        foreach (var (call, index) in calls)
+        {
+            if (mapper.ToRelative(call.ProjectFilePath) is { } project)
+            {
+                result.TryAdd((project, Tfm.Normalize(call.TargetFramework) ?? ""), index);
+            }
+        }
+
+        return result;
+    }
+
     private static List<CompilerCallInfo> Calls(CompilerLogReader reader)
     {
         var result = new List<CompilerCallInfo>();

@@ -57,7 +57,7 @@ Result (`schemas/v1/scan.json`):
 {
   "model": ".offramp/workspace.json",
   "upToDate": false,
-  "source": { "kind": "build", "path": ".offramp/msbuild.binlog", "sha256": "...", "complog": null },
+  "source": { "kind": "build", "path": ".offramp/msbuild.binlog", "sha256": null, "complog": null },  // sha256: a supplied log's
   "solution": "src/Monolith.sln",
   "buildSucceeded": true,            // null for a compiler log alone
   "projects": 412, "loc": 1830421,
