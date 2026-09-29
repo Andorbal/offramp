@@ -6,8 +6,8 @@ namespace Offramp.Corpus.Tests;
 
 /// <summary>
 /// DotNetNuke Platform 9.13.10, the codebase of <c>docs/field-tests/2026-09-dnn-platform-9.13.10.md</c>: a Web
-/// Forms CMS with 71 projects, 64 of them legacy and on packages.config. Opt-in (<c>Category=Corpus</c>, run by
-/// <c>corpus.yml</c>): it clones the tag once (cached under <c>tests/.cache/corpus/</c>), runs the tool on a fresh
+/// Forms CMS with 71 projects, 64 of them legacy and on packages.config. Opt-in (<c>Category=Corpus</c> and
+/// <c>OFFRAMP_CORPUS=1</c>, set by <c>corpus.yml</c>): it clones the tag once (cached under <c>tests/.cache/corpus/</c>), runs the tool on a fresh
 /// copy as a user would, and checks that what the field test found wrong stays fixed.
 /// </summary>
 [Trait("Category", "Corpus")]
@@ -20,6 +20,8 @@ public sealed class DotNetNukeTests
     [Fact]
     public async Task A_fresh_checkout_names_every_blocker_and_the_field_test_findings_stay_fixed()
     {
+        // Slow and online: a plain `dotnet test` leaves it out; corpus.yml opts in.
+        Assert.SkipUnless(System.Environment.GetEnvironmentVariable("OFFRAMP_CORPUS") == "1", "Set OFFRAMP_CORPUS=1 to run the corpus tests.");
         using var repo = await CheckoutAsync();
 
         // DotNetNuke pins SDK 9.0.202 with latestMinor; let the SDK that runs the tests build it.

@@ -25,6 +25,8 @@ jobs:
       - name: Build
         run: dotnet build -c Release
       - name: Corpus tests
+        env:
+          OFFRAMP_CORPUS: "1"
         run: dotnet test --no-build -c Release --filter "Category=Corpus" --logger "trx;LogFileName=corpus.trx"
       - uses: actions/upload-artifact@v4
         if: always()
