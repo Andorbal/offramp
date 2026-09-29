@@ -149,6 +149,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3011](#ofr3011) | info | audit | packages without target support left out |
 | [OFR3012](#ofr3012) | warning | audit | project not audited |
 | [OFR3015](#ofr3015) | info | audit | package not found for the target compilation |
+| [OFR3016](#ofr3016) | warning | audit | project audited from a failed build |
 | [OFR3101](#ofr3101) | warning | audit | culture-sensitive string operation |
 | [OFR3102](#ofr3102) | warning | audit | non-Unicode code page |
 | [OFR3103](#ofr3103) | warning | audit | path assumes Windows separators or folders |
@@ -1331,8 +1332,8 @@ Some of the project's packages have no assets for the target, so the target comp
 
 The audit read none of the project's code: audits read C# compilations, and the project is Visual Basic or F#, or the scan recorded no compiler call for it. The message gives the reason; the result lists it under `skipped`.
 
-- **Typical cause:** A Visual Basic library in a C# solution, or a project whose build failed during `scan`.
-- **Fix:** Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build and run `offramp scan` again.
+- **Typical cause:** A Visual Basic library in a C# solution, or a project whose build failed during `scan` (the model marks it partial; `scan` reported the errors as OFR0130).
+- **Fix:** Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build errors `scan` reported and run `offramp scan` again.
 
 ### OFR3015
 
@@ -1342,6 +1343,15 @@ NuGet could not find some of the project's packages at their version (NU1101, NU
 
 - **Typical cause:** A packages.config package kept only in the repository's packages folder, or a feed that no longer has the version.
 - **Fix:** Make the package reachable from a feed in nuget.config (or the global packages folder) and run the audit again, or check the package with `offramp deps audit`.
+
+### OFR3016
+
+**project audited from a failed build** · warning · audit
+
+The model marks the project partial: its build failed during `scan`. The audit read the compiler call the build recorded, which can lack sources or references, so findings can be missing or wrong.
+
+- **Typical cause:** A generated source file the repository's own build writes first (a shared AssemblyInfo), or a compile error.
+- **Fix:** Fix the build errors `scan` reported (OFR0130), run `offramp scan` again, then the audit.
 
 ### OFR3101
 

@@ -176,7 +176,11 @@ Decisions behind the four code audits (ADR 0021).
   `HintPath` DLLs are referenced as recorded, so the APIs used from it are not checked.
 - A project an audit cannot read (Visual Basic or F#, or no compiler call) is listed in
   `skipped` and reported as OFR3012; `audit dead-code` does the same, since what such a
-  project uses from C# projects is not seen.
+  project uses from C# projects is not seen. A project without a compiler call that the
+  model marks partial is named as a failed build, not as a project to scan.
+- A project the model marks partial (its build failed during `scan`) that has a
+  compiler call is audited from it, with OFR3016: a failed call can lack sources or
+  references.
 - Any other restore failure leaves the project uncompiled (OFR3010). Its symbol rules
   still run.
 - The target compilation keeps the recorded sources, compilation options, and language

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Offramp.Analysis.Audits;
 using Offramp.Core.Caching;
 using Offramp.Core.Diagnostics;
+using Offramp.Core.Model;
 using Offramp.Core.Processes;
 using Offramp.Fixtures;
 using Offramp.Workspace.Store;
@@ -154,6 +155,36 @@ public sealed class AuditRunnerTests
         Assert.Contains(shims, f => f.Symbol == "System.Windows.Forms.MenuItem");
         Assert.Contains(shims, f => f.Symbol == "System.Windows.Forms.ContextMenu");
         Assert.All(shims, f => Assert.Equal("WFDEV006", f.Details["diagnosticId"]));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3016")]
+    public async Task A_project_whose_build_failed_is_named_as_such()
+    {
+        var fixture = await ScannedFixtures.GetAsync("behavior");
+        var model = WorkspaceStore.Read(fixture.WorkspacePath);
+        var bag = new DiagnosticBag();
+        var partial = model with
+        {
+            Projects = [.. model.Projects.Select(p => p.Id switch
+            {
+                Legacy => p with { Partial = true },
+                Clean => p with { Partial = true, CompilerCalls = new SortedDictionary<string, CompilerCallRef>(StringComparer.Ordinal) },
+                _ => p,
+            })],
+        };
+
+        var result = await AuditRunner.RunAsync(Request(fixture, AuditKind.Behavior, bag) with { Model = partial });
+
+        // The project whose compiler call failed is audited, and the audit says the build failed.
+        Assert.Contains(result.Findings, f => f.Project == Legacy);
+        Assert.Contains("its build failed during `offramp scan`", Assert.Single(bag.ToSortedList(), d => d.Code == "OFR3016").Message, StringComparison.Ordinal);
+
+        // The one without a compiler call is not audited, and the reason is the build, not a missing scan.
+        var skipped = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR3012");
+        Assert.Equal(Clean, skipped.Project);
+        Assert.Contains("its build failed (OFR0130)", skipped.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("(run `offramp scan`)", skipped.Message, StringComparison.Ordinal);
     }
 
     [Fact]

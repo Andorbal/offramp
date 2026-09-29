@@ -96,8 +96,8 @@ public static partial class DiagnosticCatalog
         "OFR3012", Severity.Warning,
         "project not audited",
         "The audit read none of the project's code: audits read C# compilations, and the project is Visual Basic or F#, or the scan recorded no compiler call for it. The message gives the reason; the result lists it under `skipped`.",
-        "A Visual Basic library in a C# solution, or a project whose build failed during `scan`.",
-        "Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build and run `offramp scan` again.",
+        "A Visual Basic library in a C# solution, or a project whose build failed during `scan` (the model marks it partial; `scan` reported the errors as OFR0130).",
+        "Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build errors `scan` reported and run `offramp scan` again.",
         AuditArea);
 
     public static readonly DiagnosticDescriptor OFR3015 = new(
@@ -106,6 +106,14 @@ public static partial class DiagnosticCatalog
         "NuGet could not find some of the project's packages at their version (NU1101, NU1102, NU1103), so whether they support the target is not known. Their DLLs are referenced as the project records them, and the APIs used from them are not checked.",
         "A packages.config package kept only in the repository's packages folder, or a feed that no longer has the version.",
         "Make the package reachable from a feed in nuget.config (or the global packages folder) and run the audit again, or check the package with `offramp deps audit`.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3016 = new(
+        "OFR3016", Severity.Warning,
+        "project audited from a failed build",
+        "The model marks the project partial: its build failed during `scan`. The audit read the compiler call the build recorded, which can lack sources or references, so findings can be missing or wrong.",
+        "A generated source file the repository's own build writes first (a shared AssemblyInfo), or a compile error.",
+        "Fix the build errors `scan` reported (OFR0130), run `offramp scan` again, then the audit.",
         AuditArea);
 
     public static readonly DiagnosticDescriptor OFR3101 = new(

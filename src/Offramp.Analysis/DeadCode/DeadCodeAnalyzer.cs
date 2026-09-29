@@ -135,7 +135,7 @@ public static class DeadCodeAnalyzer
 
             var compilation = project.Language == "csharp" ? loader.LoadForProject(project) : null;
             var reason = project.Language != "csharp" ? "dead-code analysis reads C# only; its references to C# projects are not seen."
-                : compilation is null ? "no compiler call was recorded for it (run `offramp scan`)."
+                : compilation is null ? AuditRunner.NoCompilation(project)
                 : null;
             if (reason is not null)
             {

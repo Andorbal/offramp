@@ -83,8 +83,17 @@ public static class AuditRunner
                 phase.Report(i, projects.Count, project.Id);
                 if (loader.LoadForProject(project) is not CSharpCompilation compilation)
                 {
-                    skipped.Add($"{project.Id}: the compiler log has no compilation for it (run `offramp scan`).");
+                    var reason = NoCompilation(project);
+                    skipped.Add($"{project.Id}: {reason}");
+                    request.Diagnostics.Report(DiagnosticCatalog.OFR3012, $"Not audited: {reason}", new DiagnosticLocation(project.Id));
                     continue;
+                }
+
+                if (project.Partial)
+                {
+                    request.Diagnostics.Report(DiagnosticCatalog.OFR3016,
+                        $"{project.Id} is partial: its build failed during `offramp scan`, so the compilation audited may lack sources or references and findings can be missing. Fix the build errors `scan` reported (OFR0130) and scan again.",
+                        new DiagnosticLocation(project.Id));
                 }
 
                 var trial = request.Audit == AuditKind.Api && project.FrameworkClass == FrameworkClass.Framework && rules.Any(r => r.Matcher == "target-compilation")
@@ -168,7 +177,7 @@ public static class AuditRunner
             }
 
             var reason = project.Language != "csharp" ? "audits read C# only."
-                : project.CompilerCalls.Count == 0 ? "no compiler call was recorded for it (run `offramp scan`)."
+                : project.CompilerCalls.Count == 0 ? NoCompilation(project)
                 : null;
             if (reason is null)
             {
@@ -182,6 +191,16 @@ public static class AuditRunner
 
         return (projects, skipped);
     }
+
+    /// <summary>
+    /// Why a C# project's compilation cannot be read (<c>OFR3012</c>). A project in the model has
+    /// been scanned: without a compiler call, its build failed (the model marks it partial) or
+    /// the compiler log could not be made from the build.
+    /// </summary>
+    public static string NoCompilation(ProjectInfo project) =>
+        project.CompilerCalls.Count > 0 ? "the compiler log has no compilation for it (run `offramp scan` again)."
+        : project.Partial ? "`offramp scan` recorded no compiler call for it: its build failed (OFR0130) or its compiler call could not be read (OFR0132). Fix what `scan` reported and scan again."
+        : "no compiler call was recorded for it (run `offramp scan`).";
 
     private static bool Matches(ProjectInfo project, string selector) =>
         string.Equals(project.Id, selector.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase)
