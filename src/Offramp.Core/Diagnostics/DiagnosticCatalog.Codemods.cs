@@ -76,6 +76,14 @@ public static partial class DiagnosticCatalog
         "Install a trusted certificate on the server, or set TrustServerCertificate=True (or Encrypt=False) in the connection strings that need it.",
         CodemodsArea);
 
+    public static readonly DiagnosticDescriptor OFR4511 = new(
+        "OFR4511", Severity.Warning,
+        "codemod's package does not support the project's target framework",
+        "The codemod's rewrite needs a package whose pinned version has no assets for one of the project's target frameworks (the package is inspected on the configured feeds), so the rewritten code could not restore or compile there: the codemod's sites in the project are left alone, and the result lists each.",
+        "An old .NET Framework target, such as net40 with Microsoft.Data.SqlClient, which supports .NET Framework 4.6.2 and later.",
+        "Retarget the project to a framework the package supports (the message lists them), then run the codemod again.",
+        CodemodsArea);
+
     public static readonly DiagnosticDescriptor OFR4512 = new(
         "OFR4512", Severity.Warning,
         "codemod needs a package a legacy project cannot use outside Windows",

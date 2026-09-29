@@ -9,11 +9,16 @@ using Offramp.Analysis.Compilations;
 using Offramp.Analyzers;
 using Offramp.Analyzers.CodeFixes;
 using Offramp.Analyzers.Rules;
+using NuGet.Frameworks;
+using NuGet.Versioning;
+using Offramp.Core.Caching;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Git;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using Offramp.Core.Progress;
+using Offramp.NuGet.Feeds;
+using Offramp.NuGet.Inspection;
 using Offramp.Refactoring.ChangeSets;
 using Catalog = Offramp.Analyzers.Codemods;
 using Diagnostic = Microsoft.CodeAnalysis.Diagnostic;
@@ -58,6 +63,15 @@ public sealed record CodemodRequest
     /// there (<c>OFR4512</c>).
     /// </summary>
     public bool OnWindows { get; init; } = OperatingSystem.IsWindows();
+
+    /// <summary>
+    /// Where the packages codemods add are inspected, to check that they support the project's
+    /// target frameworks (<c>OFR4511</c>); null skips the check.
+    /// </summary>
+    public IPackageFeeds? Feeds { get; init; }
+
+    /// <summary>The inspection cache for <see cref="Feeds"/>.</summary>
+    public ICache Cache { get; init; } = NullCache.Instance;
 }
 
 /// <summary>A dry run's result and the change set that applies it.</summary>
@@ -80,6 +94,7 @@ public static class CodemodRunner
     {
         var changeSet = new ChangeSet();
         var projectFiles = new ProjectFileEdits(request.RepositoryRoot);
+        var inspections = request.Feeds is null ? null : new PackageInspections(request.Feeds, request.Cache);
         var results = new List<CodemodProjectResult>();
         using (var phase = request.Progress.BeginPhase("Running codemods", 1, 1))
         {
@@ -87,7 +102,7 @@ public static class CodemodRunner
             for (var i = 0; i < projects.Count; i++)
             {
                 phase.Report(i, projects.Count, projects[i].Id);
-                if (await RunProjectAsync(request, projects[i], changeSet, projectFiles, cancellationToken) is { } project)
+                if (await RunProjectAsync(request, projects[i], changeSet, projectFiles, inspections, cancellationToken) is { } project)
                 {
                     results.Add(project);
                 }
@@ -111,7 +126,8 @@ public static class CodemodRunner
         return new CodemodPlan(result, changeSet);
     }
 
-    private static async Task<CodemodProjectResult?> RunProjectAsync(CodemodRequest request, ProjectInfo project, ChangeSet changeSet, ProjectFileEdits projectFiles, CancellationToken cancellationToken)
+    private static async Task<CodemodProjectResult?> RunProjectAsync(
+        CodemodRequest request, ProjectInfo project, ChangeSet changeSet, ProjectFileEdits projectFiles, PackageInspections? inspections, CancellationToken cancellationToken)
     {
         var root = request.RepositoryRoot;
         var target = CompilationLoader.PreferredTarget(project);
@@ -144,7 +160,7 @@ public static class CodemodRunner
 
         var sites = new List<(CodemodSite Site, Diagnostic Diagnostic)>();
         var shared = new SortedDictionary<string, SharedFile>(StringComparer.Ordinal);
-        var blocked = PackageProblems(request, project, projectFiles);
+        var blocked = await PackageProblemsAsync(request, project, projectFiles, inspections, cancellationToken);
         foreach (var implementation in request.Codemods)
         {
             await RunCodemodAsync(request, project, workspace, implementation, files, sites, shared, blocked.GetValueOrDefault(implementation.Codemod.Name)?.Reason, cancellationToken);
@@ -382,12 +398,15 @@ public static class CodemodRunner
     private sealed record PackageProblem(string Reason, Offramp.Core.Diagnostics.DiagnosticDescriptor Code, string Message);
 
     /// <summary>
-    /// The codemods whose rewrite needs a package this project cannot use: outside Windows, a
-    /// legacy (non-SDK) project that does not use packages.config gets no assemblies from a
+    /// The codemods whose rewrite needs a package this project cannot use: the package does not
+    /// support one of the project's target frameworks it would be added for (OFR4511; Microsoft.Data.SqlClient
+    /// 7.1.0 starts at .NET Framework 4.6.2), or, outside Windows, the project is a legacy (non-SDK)
+    /// project that does not use packages.config and so gets no assemblies from a
     /// <c>PackageReference</c> (OFR4512). Their sites are skipped rather than rewritten into code
     /// that cannot compile.
     /// </summary>
-    private static Dictionary<string, PackageProblem> PackageProblems(CodemodRequest request, ProjectInfo project, ProjectFileEdits projectFiles)
+    private static async Task<Dictionary<string, PackageProblem>> PackageProblemsAsync(
+        CodemodRequest request, ProjectInfo project, ProjectFileEdits projectFiles, PackageInspections? inspections, CancellationToken cancellationToken)
     {
         var problems = new Dictionary<string, PackageProblem>(StringComparer.Ordinal);
         foreach (var codemod in request.Codemods.Select(c => c.Codemod))
@@ -395,6 +414,15 @@ public static class CodemodRunner
             var needed = NeededPackages(project, codemod, projectFiles);
             if (needed.Count == 0)
             {
+                continue;
+            }
+
+            if (await UnsupportedAsync(project, needed, inspections, cancellationToken) is { } unsupported)
+            {
+                problems[codemod.Name] = new PackageProblem(
+                    $"{unsupported.Package} does not support {unsupported.Frameworks}",
+                    DiagnosticCatalog.OFR4511,
+                    $"{codemod.Name} needs {unsupported.Package}, which supports {unsupported.Supported} but not {unsupported.Frameworks} ({project.Id})");
                 continue;
             }
 
@@ -409,6 +437,46 @@ public static class CodemodRunner
         }
 
         return problems;
+    }
+
+    /// <summary>
+    /// The first needed package that does not support every target framework it would be added
+    /// for (all of the project's, or its .NET Framework or modern ones for a conditioned package),
+    /// by inspecting the package; null when all do, or when the package cannot be inspected.
+    /// </summary>
+    private static async Task<(string Package, string Frameworks, string Supported)?> UnsupportedAsync(
+        ProjectInfo project, List<CodemodPackage> needed, PackageInspections? inspections, CancellationToken cancellationToken)
+    {
+        if (inspections is null)
+        {
+            return null;
+        }
+
+        foreach (var package in needed)
+        {
+            if (!NuGetVersion.TryParse(package.Version, out var version) || await inspections.GetAsync(package.Id, version, cancellationToken) is not { } inspection)
+            {
+                continue;
+            }
+
+            var frameworks = project.TargetFrameworks.Where(t => package.Targets switch
+            {
+                CodemodPackageTargets.Framework => Workspace.Ingest.Tfm.IsNetFramework(t),
+                CodemodPackageTargets.Modern => !Workspace.Ingest.Tfm.IsNetFramework(t),
+                _ => true,
+            });
+            var unsupported = frameworks.Where(t => !TargetSupport.Supports(inspection, NuGetFramework.Parse(t))).ToList();
+            if (unsupported.Count == 0)
+            {
+                continue;
+            }
+
+            var lib = inspection.Assemblies.Where(a => a.Path.StartsWith("lib/", StringComparison.OrdinalIgnoreCase)).Select(a => a.Framework).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+            var supported = lib.Count > 0 ? lib : [.. inspection.AssetFrameworks];
+            return ($"{package.Id} {package.Version}", string.Join(", ", unsupported), supported.Count == 0 ? "no framework" : string.Join(", ", supported));
+        }
+
+        return null;
     }
 
     /// <summary>The packages a codemod adds that the project needs and does not reference yet.</summary>
@@ -429,7 +497,9 @@ public static class CodemodRunner
                 continue;
             }
 
-            var remedy = problem.Code == DiagnosticCatalog.OFR4512 ? "Convert the project with `offramp csproj modernize` first, or run the codemod on Windows." : "";
+            var remedy = problem.Code == DiagnosticCatalog.OFR4512
+                ? "Convert the project with `offramp csproj modernize` first, or run the codemod on Windows."
+                : "Retarget the project to a framework the package supports first.";
             request.Diagnostics.Report(problem.Code,
                 string.Create(CultureInfo.InvariantCulture, $"{problem.Message}; its {count} site{(count == 1 ? " was" : "s were")} left alone. {remedy}").TrimEnd(),
                 new DiagnosticLocation(project.Id),

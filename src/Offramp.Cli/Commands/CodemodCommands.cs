@@ -8,6 +8,7 @@ using Offramp.Cli.Infrastructure;
 using Offramp.Cli.Rendering;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
+using Offramp.NuGet.Feeds;
 using Offramp.Refactoring;
 using Offramp.Refactoring.Codemods;
 using Offramp.Refactoring.Moves;
@@ -154,6 +155,7 @@ public sealed class CodemodRunCommand : ICommandHandler<CodemodRunOptions, Codem
         }
 
         using var loader = new CompilationLoader(root);
+        using var feeds = NuGetPackageFeeds.ForRepository(root, config.Deps.Feeds);
         var plan = await CodemodRunner.PlanAsync(new CodemodRequest
         {
             RepositoryRoot = root,
@@ -164,6 +166,8 @@ public sealed class CodemodRunCommand : ICommandHandler<CodemodRunOptions, Codem
             Diagnostics = context.Diagnostics,
             Progress = context.Progress,
             Git = context.Host.GitService,
+            Feeds = feeds,
+            Cache = CommandRunner.Cache(context),
         }, cancellationToken);
         if (!apply)
         {

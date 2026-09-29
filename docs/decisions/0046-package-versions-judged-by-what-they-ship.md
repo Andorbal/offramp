@@ -37,6 +37,13 @@ LibSassHost.Native.win-x64 and JavaScriptEngineSwitcher.V8.Native.win-x64, whose
   version, and SHA-256 (ADR 0042 uses them); the cache format is bumped so older entries are
   recomputed.
 
+- **A codemod's package is judged the same way.** `codemod run` inspects each package it
+  would add (the pinned version, on the configured feeds) and checks it against the target
+  frameworks it would be added for. On NHibernate 4.1, `sqlclient` added Microsoft.Data.SqlClient
+  7.1.0 (net462 and later) to a net40 project without a word. When the package does not support
+  a framework, the codemod leaves its sites in that project alone and reports `OFR4511`:
+  rewritten code whose package cannot restore is a broken build, not a migration step.
+
 ## Alternatives considered
 
 - Dropping the "no assets supports everything" rule: build-only and native packages would
@@ -48,6 +55,9 @@ LibSassHost.Native.win-x64 and JavaScriptEngineSwitcher.V8.Native.win-x64, whose
   target framework"; Windows-only is the separate flag every other package already uses.
 - Deciding by the id suffix (`.win-x64`) alone: the files say it; the suffix only helps
   find the sibling package.
+- Recording each codemod package's frameworks in the codemod catalog: offline, but a second
+  copy of what the nupkg says, which drifts when a version is bumped; CLAUDE.md asks for the
+  nupkg to be inspected.
 
 ## Consequences
 

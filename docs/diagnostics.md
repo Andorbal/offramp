@@ -261,6 +261,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4507](#ofr4507) | error | codemod | verification failed; codemod rolled back |
 | [OFR4508](#ofr4508) | error | codemod | dotnet format failed |
 | [OFR4510](#ofr4510) | info | codemod | connections encrypted by default (Microsoft.Data.SqlClient) |
+| [OFR4511](#ofr4511) | warning | codemod | codemod's package does not support the project's target framework |
 | [OFR4512](#ofr4512) | warning | codemod | codemod needs a package a legacy project cannot use outside Windows |
 | [OFR5001](#ofr5001) | error | verify | verification failed |
 | [OFR5002](#ofr5002) | error | verify | verification timed out |
@@ -2375,6 +2376,15 @@ Microsoft.Data.SqlClient defaults Encrypt to true (System.Data.SqlClient default
 
 - **Typical cause:** Development and on-premises SQL Servers with self-signed certificates.
 - **Fix:** Install a trusted certificate on the server, or set TrustServerCertificate=True (or Encrypt=False) in the connection strings that need it.
+
+### OFR4511
+
+**codemod's package does not support the project's target framework** · warning · codemod
+
+The codemod's rewrite needs a package whose pinned version has no assets for one of the project's target frameworks (the package is inspected on the configured feeds), so the rewritten code could not restore or compile there: the codemod's sites in the project are left alone, and the result lists each.
+
+- **Typical cause:** An old .NET Framework target, such as net40 with Microsoft.Data.SqlClient, which supports .NET Framework 4.6.2 and later.
+- **Fix:** Retarget the project to a framework the package supports (the message lists them), then run the codemod again.
 
 ### OFR4512
 

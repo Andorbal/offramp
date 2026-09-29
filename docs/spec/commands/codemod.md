@@ -91,6 +91,12 @@ Decisions in `docs/decisions/0025-codemods.md`.
     recorded `DirectoryPackagesPropsPath`, else the nearest one above the project).
   - A packages.config project, or a central project without a versions file, gets
     OFR4505 instead.
+  - Each package the project lacks is inspected on the configured feeds (`deps.feeds`,
+    else `nuget.config`; the global packages folder first). When its pinned version does
+    not support a target framework it would be added for (Microsoft.Data.SqlClient 7.1.0
+    starts at `net462`), the codemod's sites in that project are left alone (`skipped`,
+    with the reason) and OFR4511 lists the frameworks the package supports. A package no
+    feed can provide is not checked.
   - Outside Windows, a legacy (non-SDK) project that does not use packages.config gets
     no assemblies from a `PackageReference` (the .NET SDK has no
     `ResolveNuGetPackageAssets`), so a codemod that needs a package it lacks leaves its
