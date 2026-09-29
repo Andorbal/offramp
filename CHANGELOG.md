@@ -83,6 +83,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- A library that references a test framework's assembly (`nunit.framework`, `xunit`, the MSTest
+  assemblies, usually a DLL checked in and referenced by `HintPath`) is a `test` project, with the
+  evidence `Reference nunit.framework + OutputType=Library` (ADR 0038). NHibernate 4.1's three
+  NUnit projects were `library`, so `audit dead-code` called 249 NUnit fixtures dead and `guide`
+  proposed moving the tests out of the test projects. The rule comes after the web rules, so a web
+  application project that references a test framework stays `web`.
 - `deps resolve-dlls` takes a DLL's package and version from the `packages/<Id>.<Version>/`
   folder its `HintPath` goes through when the project's `packages.config` lists it, as the new
   `packagesConfig` resolution, and leaves it alone. It matched by assembly version before and

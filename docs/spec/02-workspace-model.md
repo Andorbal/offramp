@@ -90,6 +90,7 @@ Evaluated in order; first match wins; the evidence is recorded.
 |---|---|
 | `test` | `IsTestProject=true`, or a PackageReference to a known test framework (xunit, NUnit, MSTest.TestFramework, TUnit) or adapter, or the same in `packages.config`, or legacy test ProjectTypeGuid |
 | `web` | `Sdk=Microsoft.NET.Sdk.Web`, or legacy web ProjectTypeGuid, or `Reference Include="System.Web"` with `OutputType=Library` and a `web.config` |
+| `test` | a `Reference` to a test framework's assembly (`nunit.framework`, `xunit`, `xunit.core`, `MbUnit.Framework`, the MSTest assemblies, `TUnit.Core`), usually a checked-in DLL, with `OutputType=Library`. It comes after `web` because a web application project is a library too |
 | `winforms` | `UseWindowsForms=true`, or `Reference Include="System.Windows.Forms"` with `OutputType=WinExe` |
 | `wpf` | `UseWPF=true`, or `Sdk=Microsoft.NET.Sdk.WindowsDesktop` with `PresentationFramework` reference |
 | `service` | `Reference Include="System.ServiceProcess"` with `OutputType=Exe`, or a PackageReference to Topshelf or `Microsoft.Extensions.Hosting.WindowsServices` (or either in the `packages.config` of an `OutputType=Exe` project), or `Sdk=Microsoft.NET.Sdk.Worker` |

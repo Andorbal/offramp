@@ -54,12 +54,6 @@ public sealed record GuideStage(string Id, string Title, IReadOnlyList<GuideStep
 /// </summary>
 public static class GuideCatalog
 {
-    private static readonly string[] TestAssemblies =
-    [
-        "Microsoft.VisualStudio.QualityTools.UnitTestFramework", "Microsoft.VisualStudio.TestPlatform.TestFramework",
-        "nunit.framework", "TUnit.Core", "xunit.core", "xunit.v3.core",
-    ];
-
     private static readonly ProjectKind[] Applications =
         [ProjectKind.Console, ProjectKind.Service, ProjectKind.Web, ProjectKind.Winforms, ProjectKind.Wpf];
 
@@ -327,7 +321,7 @@ public static class GuideCatalog
 
     private static bool ReferencesTestFramework(ProjectInfo project) =>
         project.PackageReferences.Any(r => ProjectKindDetector.TestPackages.Contains(r.Id, StringComparer.OrdinalIgnoreCase))
-        || project.AssemblyReferences.Any(r => TestAssemblies.Contains(r.Name, StringComparer.OrdinalIgnoreCase));
+        || project.AssemblyReferences.Any(r => ProjectKindDetector.TestAssemblies.Contains(r.Name, StringComparer.OrdinalIgnoreCase));
 
     private static string? ScanNote(GuideFacts facts, GuideRecord? record)
     {
