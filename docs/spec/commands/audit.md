@@ -154,12 +154,26 @@ Decisions behind the four code audits (ADR 0021).
 - Only `framework`-class projects are compiled against the target.
 - The reference assemblies come from the SDK: a scratch project under
   `.offramp/cache/targets/` with the target framework, `Microsoft.AspNetCore.App` for
-  web projects, `Microsoft.WindowsDesktop.App` and `-windows` for WinForms and WPF, and
-  the project's direct packages at their resolved versions. `dotnet msbuild -restore
+  web projects, `Microsoft.WindowsDesktop.App` and `-windows` for projects that use
+  Windows Forms or WPF, and the project's packages. `dotnet msbuild -restore
   -getItem:ReferencePathWithRefAssemblies` lists them.
+- A project uses Windows Forms or WPF when its kind is `winforms` or `wpf`, it sets
+  `UseWindowsForms` or `UseWPF`, or it references `System.Windows.Forms`,
+  `PresentationFramework`, `PresentationCore`, `WindowsBase`, `System.Xaml`, or
+  `UIAutomationProvider`: class libraries of forms and controls included. The guide's
+  `csproj modernize --tfm` suggestion uses the same rule (`WindowsDesktop` in
+  `Offramp.Core`).
+- The packages are the direct `PackageReference` packages at their resolved versions,
+  and every package `packages.config` lists except development dependencies (it lists
+  transitive packages too). A `HintPath` into the `packages/<Id>.<Version>/` folder of
+  a `packages.config` package is left out: it is the .NET Framework build of a package
+  resolved for the target above (ADR 0040).
 - Implicit asset target fallback is off, so a package without assets for the target
   fails restore with NU1202. It is left out, together with every direct package that
   depends on it (OFR3011), and the APIs used from it become OFR3001 findings.
+- A package NuGet cannot find at its version (NU1101, NU1102, NU1103), directly or
+  through a dependency, is left out of the restore and reported (OFR3015); its
+  `HintPath` DLLs are referenced as recorded, so the APIs used from it are not checked.
 - A project an audit cannot read (Visual Basic or F#, or no compiler call) is listed in
   `skipped` and reported as OFR3012; `audit dead-code` does the same, since what such a
   project uses from C# projects is not seen.
@@ -170,8 +184,8 @@ Decisions behind the four code audits (ADR 0021).
   ...) for the target's (`NET`, `NET10_0`, `NET10_0_OR_GREATER`, ...).
 - Project references become the referenced project's own target compilation
   (`framework` class) or its recorded modern or standard build. A `framework` project
-  that is not C# (Visual Basic) is referenced as recorded, like a DLL. `HintPath` DLLs
-  are referenced as they are.
+  that is not C# (Visual Basic) is referenced as recorded, like a DLL. Other `HintPath`
+  DLLs are referenced as they are.
 - OFR3001 comes from CS0234, CS0246, CS0103, CS1061, CS0117, and CS1069 (a type
   forwarded to an assembly the target does not reference). It is reported when the
   same position binds, in the recorded compilation, to a type or member from metadata.
@@ -184,6 +198,10 @@ Decisions behind the four code audits (ADR 0021).
     is a candidate that failed overload resolution). The type is reported where the code
     names it or reaches its members.
   - The finding carries the assembly and its `rules/framework-assemblies.yml` mapping.
+- OFR3003 on a `-windows` target also comes from the target compilation: a name that
+  binds to a symbol, or a member of a type, marked `[Obsolete]` with `DiagnosticId`
+  `WFDEV006` (the Windows Forms types .NET keeps only for binary compatibility, which
+  throw at run time).
 - OFR3002: a symbol from metadata marked `[SupportedOSPlatform("windows")]` on itself,
   a containing type, or its assembly. `OperatingSystem.IsWindows()` guards are not
   recognized; .NET Framework code has none. Desktop projects, compiled for

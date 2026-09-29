@@ -210,6 +210,19 @@ public sealed class GuideEvaluatorTests
     }
 
     [Fact]
+    public void A_library_that_uses_windows_forms_or_wpf_is_offered_a_windows_target()
+    {
+        var library = Project("src/Controls/Controls.csproj") with { TargetFrameworks = ["net48"] };
+        var forms = library with { AssemblyReferences = [new AssemblyReferenceInfo { Name = "System.Windows.Forms", Kind = AssemblyReferenceKind.Framework }] };
+        var wpf = library with { Properties = new SortedDictionary<string, string>(StringComparer.Ordinal) { ["UseWPF"] = "true" } };
+
+        Assert.Equal("net48;net10.0", GuideCatalog.TargetFrameworks(library, 10));
+        Assert.Equal("net48;net10.0-windows", GuideCatalog.TargetFrameworks(forms, 10));
+        Assert.Equal("net48;net10.0-windows", GuideCatalog.TargetFrameworks(wpf, 10));
+        Assert.Equal("net48;net10.0-windows", GuideCatalog.TargetFrameworks(library with { Kind = ProjectKind.Winforms }, 10));
+    }
+
+    [Fact]
     public void The_catalog_has_unique_ids_and_requires_only_earlier_steps()
     {
         var seen = new List<string>();

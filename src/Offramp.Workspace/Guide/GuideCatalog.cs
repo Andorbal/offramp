@@ -301,12 +301,9 @@ public static class GuideCatalog
     /// <summary>A text with <c>{target}</c> replaced by the target framework.</summary>
     public static string ForTarget(string text, int target) => text.Replace("{target}", $"net{target}.0", StringComparison.Ordinal);
 
-    /// <summary>The project's target frameworks followed by the modern target (<c>-windows</c> for desktop projects).</summary>
-    public static string TargetFrameworks(ProjectInfo project, int target)
-    {
-        var modern = project.Kind is ProjectKind.Winforms or ProjectKind.Wpf ? $"net{target}.0-windows" : $"net{target}.0";
-        return string.Join(';', project.TargetFrameworks.Append(modern).Distinct(StringComparer.OrdinalIgnoreCase));
-    }
+    /// <summary>The project's target frameworks followed by the modern target (<c>-windows</c> for projects that use Windows Forms or WPF).</summary>
+    public static string TargetFrameworks(ProjectInfo project, int target) =>
+        string.Join(';', project.TargetFrameworks.Append(WindowsDesktop.TargetFramework(project, target)).Distinct(StringComparer.OrdinalIgnoreCase));
 
     /// <summary>A folder beside the project's folder, named after the project with <c>.Core</c> appended.</summary>
     public static string NewFolder(ProjectInfo project)

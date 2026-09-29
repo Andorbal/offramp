@@ -172,6 +172,26 @@ public sealed record ProjectInfo
     public bool Partial { get; init; }
 
     public ProjectConfigState Config { get; init; } = new();
+
+    /// <summary>
+    /// The package in <see cref="PackagesConfigPackages"/> whose <c>packages/&lt;Id&gt;.&lt;Version&gt;/</c>
+    /// folder <paramref name="hintPath"/> goes through, or null. The folder names the exact package
+    /// and version, as <c>nuget restore</c> lays it out.
+    /// </summary>
+    public PackagesConfigPackage? PackagesConfigPackageFor(string hintPath)
+    {
+        var segments = hintPath.Replace('\\', '/').Split('/');
+        for (var i = 0; i + 1 < segments.Length; i++)
+        {
+            if (segments[i].Equals("packages", StringComparison.OrdinalIgnoreCase)
+                && (PackagesConfigPackages ?? []).FirstOrDefault(p => string.Equals($"{p.Id}.{p.Version}", segments[i + 1], StringComparison.OrdinalIgnoreCase)) is { } package)
+            {
+                return package;
+            }
+        }
+
+        return null;
+    }
 }
 
 public sealed record PackageReferenceInfo

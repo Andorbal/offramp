@@ -22,6 +22,7 @@ rules:
     title: API throws on modern .NET
     category: throws
     recommendation: These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).
+    # The target-compilation matcher (OFR3001) also reports the Windows Forms shims ([Obsolete] WFDEV006) on -windows.
     matcher: delegate-begin-invoke
     symbols:
       - M:System.Threading.Thread.Abort

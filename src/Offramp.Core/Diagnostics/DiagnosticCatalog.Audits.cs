@@ -24,7 +24,7 @@ public static partial class DiagnosticCatalog
         "OFR3003", Severity.Error,
         "API throws on modern .NET",
         "The API compiles on modern .NET but throws PlatformNotSupportedException at run time.",
-        "Thread.Abort, AppDomain.CreateDomain, CodeDom compilation, delegate BeginInvoke, and BinaryFormatter without the compatibility switch.",
+        "Thread.Abort, AppDomain.CreateDomain, CodeDom compilation, delegate BeginInvoke, BinaryFormatter without the compatibility switch, and on a -windows target the Windows Forms types kept only for binary compatibility (MenuItem, ContextMenu, MainMenu, DataGrid, StatusBar, ToolBar: [Obsolete] WFDEV006).",
         "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
         AuditArea);
 
@@ -98,6 +98,14 @@ public static partial class DiagnosticCatalog
         "The audit read none of the project's code: audits read C# compilations, and the project is Visual Basic or F#, or the scan recorded no compiler call for it. The message gives the reason; the result lists it under `skipped`.",
         "A Visual Basic library in a C# solution, or a project whose build failed during `scan`.",
         "Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build and run `offramp scan` again.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3015 = new(
+        "OFR3015", Severity.Info,
+        "package not found for the target compilation",
+        "NuGet could not find some of the project's packages at their version (NU1101, NU1102, NU1103), so whether they support the target is not known. Their DLLs are referenced as the project records them, and the APIs used from them are not checked.",
+        "A packages.config package kept only in the repository's packages folder, or a feed that no longer has the version.",
+        "Make the package reachable from a feed in nuget.config (or the global packages folder) and run the audit again, or check the package with `offramp deps audit`.",
         AuditArea);
 
     public static readonly DiagnosticDescriptor OFR3101 = new(

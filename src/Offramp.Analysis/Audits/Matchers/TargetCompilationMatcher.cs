@@ -11,7 +11,8 @@ namespace Offramp.Analysis.Audits.Matchers;
 /// or member in the recorded .NET Framework compilation; it carries that assembly's mapping
 /// (<c>rules/framework-assemblies.yml</c>). A Windows-only API resolves on the target to a
 /// symbol marked <c>[SupportedOSPlatform("windows")]</c> (itself, a containing type, or its
-/// assembly); desktop projects, compiled against <c>-windows</c>, have none.
+/// assembly); desktop projects, compiled against <c>-windows</c>, have none, but get
+/// <c>OFR3003</c> for the Windows Forms types .NET keeps only as throwing shims.
 /// </summary>
 public sealed class TargetCompilationMatcher : IAuditMatcher
 {
@@ -28,6 +29,7 @@ public sealed class TargetCompilationMatcher : IAuditMatcher
 
         var missing = context.Rule("OFR3001");
         var windowsOnly = target.Windows ? null : context.Rule("OFR3002");
+        var throws = target.Windows ? context.Rule("OFR3003") : null;
         foreach (var tree in context.Trees)
         {
             if (target.TreeFor(tree) is not { } targetTree)
@@ -48,6 +50,14 @@ public sealed class TargetCompilationMatcher : IAuditMatcher
             if (windowsOnly is not null)
             {
                 foreach (var finding in WindowsOnly(windowsOnly, targetTree, targetModel))
+                {
+                    yield return finding;
+                }
+            }
+
+            if (throws is not null)
+            {
+                foreach (var finding in CompatibilityShims(throws, targetTree, targetModel))
                 {
                     yield return finding;
                 }
@@ -177,6 +187,57 @@ public sealed class TargetCompilationMatcher : IAuditMatcher
 
         var info = targetModel.GetSymbolInfo(name);
         return info.Symbol is { Kind: not SymbolKind.ErrorType } || !info.CandidateSymbols.IsEmpty;
+    }
+
+    /// <summary>
+    /// <c>OFR3003</c> on a <c>-windows</c> target: the Windows Forms types .NET keeps only for
+    /// binary compatibility (<c>MenuItem</c>, <c>ContextMenu</c>, <c>MainMenu</c>, <c>DataGrid</c>,
+    /// <c>StatusBar</c>, <c>ToolBar</c>). They compile, marked <c>[Obsolete]</c> with
+    /// <c>WFDEV006</c>, and throw at run time.
+    /// </summary>
+    private static IEnumerable<RawFinding> CompatibilityShims(AuditRule rule, SyntaxTree targetTree, SemanticModel targetModel)
+    {
+        foreach (var name in targetTree.GetRoot().DescendantNodes().OfType<SimpleNameSyntax>())
+        {
+            if ((name.Parent is QualifiedNameSyntax qualified && qualified.Left == name)
+                || AuditEngine.Bound(targetModel, name) is not { } bound || bound is INamespaceSymbol || !FromMetadata(bound))
+            {
+                continue;
+            }
+
+            var symbol = bound is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor ? constructor.ContainingType : bound;
+            if (Shim(symbol) is not { } shim)
+            {
+                continue;
+            }
+
+            var shimName = AuditEngine.Name(shim);
+            var details = new SortedDictionary<string, string>(StringComparer.Ordinal) { ["assembly"] = shim.ContainingAssembly?.Name ?? "", ["diagnosticId"] = ThrowingShim };
+            yield return new RawFinding(rule, name.GetLocation(), shimName,
+                $"{shimName} compiles on the target but throws at run time: .NET keeps it only for binary compatibility ({ThrowingShim}). Use MenuStrip, ContextMenuStrip, and ToolStripMenuItem for menus, DataGridView for DataGrid, StatusStrip for StatusBar, and ToolStrip for ToolBar.",
+                details)
+            {
+                Namespace = AuditEngine.NamespaceOf(shim),
+            };
+        }
+    }
+
+    /// <summary>The obsoletion .NET gives the Windows Forms types it keeps only so old binaries load.</summary>
+    private const string ThrowingShim = "WFDEV006";
+
+    /// <summary>The symbol, or its innermost containing type, marked as a <see cref="ThrowingShim"/>; null when none is.</summary>
+    private static ISymbol? Shim(ISymbol symbol)
+    {
+        for (var current = symbol; current is not null; current = current.ContainingType)
+        {
+            if (current.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "System.ObsoleteAttribute"
+                && a.NamedArguments.Any(n => n.Key == "DiagnosticId" && n.Value.Value is ThrowingShim)))
+            {
+                return current is INamedTypeSymbol type ? type.OriginalDefinition : current.OriginalDefinition;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The platform (<c>windows</c>, <c>windows6.1</c>) when the symbol, a containing type, or its assembly is Windows-only.</summary>

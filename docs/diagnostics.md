@@ -148,6 +148,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3010](#ofr3010) | warning | audit | project not compiled against the target |
 | [OFR3011](#ofr3011) | info | audit | packages without target support left out |
 | [OFR3012](#ofr3012) | warning | audit | project not audited |
+| [OFR3015](#ofr3015) | info | audit | package not found for the target compilation |
 | [OFR3101](#ofr3101) | warning | audit | culture-sensitive string operation |
 | [OFR3102](#ofr3102) | warning | audit | non-Unicode code page |
 | [OFR3103](#ofr3103) | warning | audit | path assumes Windows separators or folders |
@@ -1249,7 +1250,7 @@ The API exists on the target but is marked [SupportedOSPlatform("windows")], so 
 
 The API compiles on modern .NET but throws PlatformNotSupportedException at run time.
 
-- **Typical cause:** Thread.Abort, AppDomain.CreateDomain, CodeDom compilation, delegate BeginInvoke, and BinaryFormatter without the compatibility switch.
+- **Typical cause:** Thread.Abort, AppDomain.CreateDomain, CodeDom compilation, delegate BeginInvoke, BinaryFormatter without the compatibility switch, and on a -windows target the Windows Forms types kept only for binary compatibility (MenuItem, ContextMenu, MainMenu, DataGrid, StatusBar, ToolBar: [Obsolete] WFDEV006).
 - **Fix:** These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).
 
 ### OFR3004
@@ -1332,6 +1333,15 @@ The audit read none of the project's code: audits read C# compilations, and the 
 
 - **Typical cause:** A Visual Basic library in a C# solution, or a project whose build failed during `scan`.
 - **Fix:** Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build and run `offramp scan` again.
+
+### OFR3015
+
+**package not found for the target compilation** · info · audit
+
+NuGet could not find some of the project's packages at their version (NU1101, NU1102, NU1103), so whether they support the target is not known. Their DLLs are referenced as the project records them, and the APIs used from them are not checked.
+
+- **Typical cause:** A packages.config package kept only in the repository's packages folder, or a feed that no longer has the version.
+- **Fix:** Make the package reachable from a feed in nuget.config (or the global packages folder) and run the audit again, or check the package with `offramp deps audit`.
 
 ### OFR3101
 

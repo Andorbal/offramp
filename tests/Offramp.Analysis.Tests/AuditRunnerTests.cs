@@ -96,6 +96,65 @@ public sealed class AuditRunnerTests
     }
 
     [Fact]
+    [ProducesDiagnostic("OFR3011")]
+    public async Task Packages_config_packages_are_compiled_for_the_target_instead_of_their_framework_dlls()
+    {
+        // Shop.Web gets MVC 5 and Web API 2 from packages.config; its HintPaths are the net45 DLLs.
+        var (result, diagnostics) = await RunAsync("mvc5", AuditKind.Api);
+
+        var missing = result.Findings.Where(f => f.Rule == "OFR3001").ToList();
+        Assert.All(missing.Where(f => f.Symbol == "System.Web.Mvc.Controller"), f => Assert.Equal("System.Web.Mvc", f.Details["assembly"]));
+        Assert.Contains(missing, f => f.Symbol == "System.Web.Mvc.Controller");
+        Assert.Contains(missing, f => f.Symbol == "System.Web.Http.ApiController");
+        Assert.Contains(missing, f => f.Symbol == "System.Web.Mvc.ActionResult");
+
+        // The packages without net10.0 assets are named; Web API's client and Json.NET support it.
+        var dropped = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR3011");
+        Assert.Equal(
+            ["Microsoft.AspNet.Mvc", "Microsoft.AspNet.Razor", "Microsoft.AspNet.WebApi", "Microsoft.AspNet.WebApi.Core", "Microsoft.AspNet.WebApi.WebHost", "Microsoft.AspNet.WebPages", "Microsoft.Web.Infrastructure"],
+            dropped.Data["packages"]!.AsArray().Select(p => p!.GetValue<string>()));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3015")]
+    public async Task A_package_nuget_cannot_find_keeps_its_dll_and_is_reported()
+    {
+        var fixture = await ScannedFixtures.GetAsync("mvc5");
+        var processes = new FakeProcessRunner().On(spec => spec.FileName == "dotnet", spec =>
+            File.ReadAllText(Path.Combine(spec.WorkingDirectory!, "references.csproj")).Contains("\"Microsoft.AspNet.Mvc\"", StringComparison.Ordinal)
+                ? new ProcessResult(1, "references.csproj : error NU1102: Unable to find package Microsoft.AspNet.Mvc with version (= 5.2.9)\n", "")
+                : ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult());
+        var bag = new DiagnosticBag();
+
+        var result = await AuditRunner.RunAsync(Request(fixture, AuditKind.Api, bag) with
+        {
+            References = new TargetReferenceResolver(fixture.Root, processes, NullCache.Instance),
+        });
+
+        var unavailable = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR3015");
+        Assert.Equal(("src/Shop.Web/Shop.Web.csproj", "Microsoft.AspNet.Mvc"), (unavailable.Project, Assert.Single(unavailable.Data["packages"]!.AsArray())!.GetValue<string>()));
+
+        // Its DLL is referenced as the project records it; the other packages are resolved for the target.
+        var missing = result.Findings.Where(f => f.Rule == "OFR3001").Select(f => f.Symbol).ToList();
+        Assert.DoesNotContain("System.Web.Mvc.Controller", missing);
+        Assert.Contains("System.Web.Http.ApiController", missing);
+    }
+
+    [Fact]
+    public async Task A_winforms_library_is_compiled_for_windows_and_its_removed_controls_throw()
+    {
+        // Editor.Controls is a library (not kind winforms) that references System.Windows.Forms.
+        var (result, diagnostics) = await RunAsync("winforms-library", AuditKind.Api);
+
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR3010");
+        Assert.DoesNotContain(result.Findings, f => f.Rule is "OFR3001" or "OFR3002");
+        var shims = result.Findings.Where(f => f.Rule == "OFR3003").ToList();
+        Assert.Contains(shims, f => f.Symbol == "System.Windows.Forms.MenuItem");
+        Assert.Contains(shims, f => f.Symbol == "System.Windows.Forms.ContextMenu");
+        Assert.All(shims, f => Assert.Equal("WFDEV006", f.Details["diagnosticId"]));
+    }
+
+    [Fact]
     public async Task A_fully_qualified_name_is_reported_at_its_type_not_its_namespace()
     {
         var (result, _) = await RunAsync("behavior", AuditKind.Api);
