@@ -67,11 +67,17 @@ From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
   pre/post-build events calling Windows commands, and the ASP.NET web
   application targets imported from Visual Studio's `VSToolsPath` (or an
   MSB4019 error for that import, when evaluation stopped there) or
-  `MvcBuildViews=true` (`OFR0110`–`OFR0116`). A failed build's errors add
-  what only a build shows: a path that exists only in another letter case
-  (`path-case`, `OFR0117`), an inline task factory only .NET Framework's MSBuild
-  has (`inline-task`, `OFR0118`), non-string resources (`resources`, `OFR0119`),
-  and an `Exec` command written for cmd.exe (`build-event`, `OFR0115`).
+  `MvcBuildViews=true` (`OFR0110`–`OFR0116`). For a log built in this
+  checkout, the projects' files add, in one pass: every path an import, a
+  `Compile` or `EmbeddedResource` item, a `None` or `Content` item copied to the
+  output, or a `.resx` file reference names that exists only in another letter case (`path-case`,
+  `OFR0117`), and `.resx` files with non-string resources unless every target
+  framework embeds them preserialized (`resources`, `OFR0119`)
+  (`docs/decisions/0047-static-checks-of-project-files.md`). A failed build's
+  errors add what only a build shows: such a path in a target, an inline task
+  factory only .NET Framework's MSBuild has (`inline-task`, `OFR0118`),
+  non-string resources, and an `Exec` command written for cmd.exe
+  (`build-event`, `OFR0115`).
 - `project.assets.json` path per project → parsed with `NuGet.ProjectModel`
   for the resolved transitive package graph per target framework.
 

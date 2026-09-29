@@ -26,6 +26,8 @@ public sealed record ProjectBuildContext
 
     /// <summary>(project id, target framework) of compilations whose compiler task logged errors; "" when the log names no target framework.</summary>
     public IReadOnlySet<(string Project, string Tfm)> FailedCompilations { get; init; } = new HashSet<(string, string)>();
+    /// <summary>Project id → what Windows-only step detection knows besides the log (<see cref="BuildStepContext"/>).</summary>
+    public IReadOnlyDictionary<string, BuildStepContext> BuildSteps { get; init; } = new Dictionary<string, BuildStepContext>();
 }
 
 /// <summary>Turns one project's evaluations into a <see cref="ProjectInfo"/> (docs/spec/02-workspace-model.md).</summary>
@@ -113,7 +115,7 @@ public static class ProjectModelBuilder
             IsTestProject = facts.IsTestProject,
             Properties = Properties(all, context),
             DefineConstants = DefineConstants(projectId, inner, context),
-            WindowsOnlyBuildSteps = [.. WindowsOnlyBuildSteps.Detect(projectFile, evaluations, context.Errors.Where(e => string.Equals(e.ProjectFile, projectFile, StringComparison.OrdinalIgnoreCase))).Select(s => s.Id)],
+            WindowsOnlyBuildSteps = [.. WindowsOnlyBuildSteps.Detect(projectFile, evaluations, context.Errors.Where(e => string.Equals(e.ProjectFile, projectFile, StringComparison.OrdinalIgnoreCase)), context.BuildSteps.GetValueOrDefault(projectId)).Select(s => s.Id)],
             PackagesConfig = File.Exists(Path.Combine(localDirectory, "packages.config")),
             PackagesConfigPackages = installed,
             Compile = compile,

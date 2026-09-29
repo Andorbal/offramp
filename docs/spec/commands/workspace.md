@@ -91,9 +91,13 @@ when MSBuild never evaluated it, the referenced project that failed), `OFR0102` 
 `OFR0103` model from a compiler log alone, `OFR0104` assets file missing,
 `OFR0105` packages.config package not restored, `OFR0106` packages.config
 packages restored, `OFR0110`–`0119` Windows-only build step detected (one code
-per step family; `OFR0117`–`0119` and `Exec` commands written for cmd.exe
-are found from the failed build's errors), `OFR0120` project reference cycle,
-`OFR0121` portable target references a framework-only project, `OFR0130` build failed (with
+per step family; `OFR0118` and `Exec` commands written for cmd.exe are found
+from the failed build's errors, `OFR0117` and `OFR0119` also from the
+projects' files, all at once, for a log built in this checkout), `OFR0120`
+project reference cycle,
+`OFR0121` portable target references a framework-only project, `OFR0123` a
+`Compile` item's file missing in every letter case (naming the git-ignored
+ones, which the repository's own build generates), `OFR0130` build failed (with
 the count per error code, most first, and the first N
 errors; scan still produces a model for projects whose compiler call
 succeeded, and marks the rest `partial: true`), `OFR0131` build timed out,

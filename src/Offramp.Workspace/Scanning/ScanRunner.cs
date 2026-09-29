@@ -466,6 +466,8 @@ public static class ScanRunner
         CancellationToken cancellationToken)
     {
         var root = request.RepositoryRoot;
+        var listed = await ReadSolutionAsync(root, solution, cancellationToken);
+        var files = CheckProjectFiles(root, data, mapper, listed);
         var context = new ProjectBuildContext
         {
             Paths = mapper,
@@ -479,6 +481,7 @@ public static class ScanRunner
                 .Where(f => f.Project is not null)
                 .Select(f => (f.Project!, f.Tfm))
                 .ToHashSet(),
+            BuildSteps = files.ToDictionary(f => f.Key, f => new BuildStepContext { Files = f.Value }, StringComparer.Ordinal),
         };
 
         var projects = new List<ProjectInfo>();
@@ -501,7 +504,7 @@ public static class ScanRunner
         }
 
         projects.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
-        var notLoaded = await FindNotLoadedAsync(request, data, mapper, projects, solution, cancellationToken);
+        var notLoaded = FindNotLoaded(request, data, mapper, projects, listed);
 
         // Projects that are not C#, Visual Basic, or F# are named once, evaluated or not, and never loaded.
         others.UnionWith(notLoaded.Select(n => n.Project).Where(p => others.Contains(p) || OtherProjects.IsOtherListed(p)));
@@ -523,12 +526,18 @@ public static class ScanRunner
                     "Needs Windows to build: SQL Server Database Project (.sqlproj).",
                     new DiagnosticLocation(Project: missing.Project),
                     [KeyValuePair.Create<string, JsonNode?>("step", "ssdt")])!);
+                continue;
             }
-            else if (EvaluationError(data, mapper, missing.Project) is { } error && WindowsOnlyBuildSteps.Detect(missing.Project, [], [error]).FirstOrDefault() is { } step)
+
+            // Without an evaluation, the evaluation error and the project's own files are the evidence.
+            BuildError[] error = EvaluationError(data, mapper, missing.Project) is { } first ? [first] : [];
+            foreach (var step in WindowsOnlyBuildSteps.Detect(missing.Project, [], error, context.BuildSteps.GetValueOrDefault(missing.Project)))
             {
                 loading.Add(ReportStep(request, step, missing.Project, mapper));
             }
         }
+
+        loading.AddRange(await ReportMissingSourcesAsync(request, files, cancellationToken));
 
         foreach (var project in projects)
         {
@@ -552,7 +561,7 @@ public static class ScanRunner
             }
 
             var errors = data.Errors.Where(e => e.ProjectFile is not null && string.Equals(mapper.ToRelative(e.ProjectFile), project.Id, StringComparison.OrdinalIgnoreCase));
-            foreach (var step in WindowsOnlyBuildSteps.Detect(project.Id, evaluations, errors))
+            foreach (var step in WindowsOnlyBuildSteps.Detect(project.Id, evaluations, errors, context.BuildSteps.GetValueOrDefault(project.Id)))
             {
                 loading.Add(ReportStep(request, step, project.Id, mapper));
             }
@@ -590,27 +599,129 @@ public static class ScanRunner
     private static IEnumerable<string> ImportedFiles(BinlogData data, CapturePathMapper mapper) =>
         data.Evaluations.SelectMany(e => e.Imports).Distinct(StringComparer.Ordinal).Select(mapper.ToRelative).OfType<string>();
 
-    private static async Task<IReadOnlyList<NotLoadedProject>> FindNotLoadedAsync(
-        ScanRequest request, BinlogData data, CapturePathMapper mapper, List<ProjectInfo> projects, string? solution,
-        CancellationToken cancellationToken)
+    /// <summary>The projects the scanned solution lists, or null without a readable one.</summary>
+    private static async Task<SolutionProjects?> ReadSolutionAsync(string root, string? solution, CancellationToken cancellationToken)
     {
-        if (solution is null)
+        var solutionPath = solution is null ? null : RepoPaths.ToAbsolute(root, solution);
+        if (solutionPath is null || !File.Exists(solutionPath))
         {
-            return [];
+            return null;
         }
 
-        var solutionPath = RepoPaths.ToAbsolute(request.RepositoryRoot, solution);
-        if (!File.Exists(solutionPath))
-        {
-            return [];
-        }
-
-        SolutionProjects listed;
         try
         {
-            listed = await SolutionReader.ReadAsync(solutionPath, cancellationToken);
+            return await SolutionReader.ReadAsync(solutionPath, cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The static checks of each project's files (docs/decisions/0047-static-checks-of-project-files.md): the
+    /// projects MSBuild evaluated and those the solution lists that it did not. Only for a log built in this
+    /// checkout, where the files are the ones the build saw.
+    /// </summary>
+    private static Dictionary<string, ProjectFileFindings> CheckProjectFiles(string root, BinlogData data, CapturePathMapper mapper, SolutionProjects? listed)
+    {
+        var result = new Dictionary<string, ProjectFileFindings>(StringComparer.Ordinal);
+        if (!IsLocalCapture(mapper, root))
+        {
+            return result;
+        }
+
+        var evaluations = data.Evaluations
+            .Select(e => (Id: mapper.ToRelative(e.ProjectFile), Evaluation: e))
+            .Where(e => e.Id is not null)
+            .GroupBy(e => e.Id!, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Select(e => e.Evaluation).ToList(), StringComparer.Ordinal);
+        var solutionDirectory = listed is null ? null : Path.GetDirectoryName(listed.SolutionFile);
+        var ids = evaluations.Keys
+            .Concat((listed?.ProjectPaths ?? []).Select(p => RepoPaths.ToRepositoryRelative(root, p)))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        // A source that one project's build writes and another compiles is not missing for either.
+        var localRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var writtenByBuild = ProjectFileChecks.WrittenByBuild(
+            ProjectFileChecks.RepositoryImports(data.Evaluations, mapper.ToLocal, localRoot),
+            ids.Select(id => RepoPaths.ToAbsolute(root, id)).Where(File.Exists));
+        foreach (var id in ids)
+        {
+            var projectFile = RepoPaths.ToAbsolute(root, id);
+            if (File.Exists(projectFile)
+                && ProjectFileChecks.Check(root, projectFile, evaluations.GetValueOrDefault(id) ?? [], mapper.ToLocal, solutionDirectory, writtenByBuild) is { IsEmpty: false } findings)
+            {
+                result[id] = findings;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// One <c>OFR0123</c> per project that compiles files that do not exist. A git-ignored one is most likely
+    /// written by the repository's own build script, which has to run before any build.
+    /// </summary>
+    private static async Task<List<Diagnostic>> ReportMissingSourcesAsync(
+        ScanRequest request, IReadOnlyDictionary<string, ProjectFileFindings> files, CancellationToken cancellationToken)
+    {
+        var root = request.RepositoryRoot;
+        var reported = new List<Diagnostic>();
+        var missing = files.Values.SelectMany(f => f.MissingSources).Select(p => RepoPaths.ToRepositoryRelative(root, p)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+        if (missing.Count == 0)
+        {
+            return reported;
+        }
+
+        var ignored = await GitIgnoredAsync(request, missing, cancellationToken);
+        foreach (var (project, findings) in files.OrderBy(f => f.Key, StringComparer.Ordinal).Where(f => f.Value.MissingSources.Count > 0))
+        {
+            var paths = findings.MissingSources.Select(p => RepoPaths.ToRepositoryRelative(root, p)).ToList();
+            var generated = paths.Where(ignored.Contains).ToList();
+            var more = paths.Count > 1 ? string.Create(CultureInfo.InvariantCulture, $" (and {paths.Count - 1} more)") : "";
+            var hint = generated.Count > 0
+                ? $" {generated[0]} is git-ignored, so the repository's own build (NAnt, psake, Cake, FAKE, GitVersion, ...) probably generates it: run that step first."
+                : " Restore the file, or remove the item.";
+            reported.Add(request.Diagnostics.Report(DiagnosticCatalog.OFR0123,
+                $"Compiles a file that does not exist in any letter case: {paths[0]}{more}.{hint}",
+                new DiagnosticLocation(Project: project, File: paths[0]),
+                [
+                    KeyValuePair.Create<string, JsonNode?>("file", paths[0]),
+                    KeyValuePair.Create<string, JsonNode?>("files", new JsonArray([.. paths.Select(p => (JsonNode?)p)])),
+                    KeyValuePair.Create<string, JsonNode?>("gitIgnored", new JsonArray([.. generated.Select(p => (JsonNode?)p)])),
+                ])!);
+        }
+
+        return reported;
+    }
+
+    /// <summary>The repository-relative <paramref name="paths"/> git ignores; none without git or a repository.</summary>
+    private static async Task<HashSet<string>> GitIgnoredAsync(ScanRequest request, IReadOnlyList<string> paths, CancellationToken cancellationToken)
+    {
+        var ignored = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var chunk in paths.Chunk(200))
+        {
+            var result = await request.Processes.RunAsync(
+                new ProcessSpec("git", ["check-ignore", "--", .. chunk]) { WorkingDirectory = request.RepositoryRoot, Timeout = TimeSpan.FromMinutes(1) },
+                cancellationToken);
+            if (result.NotFound || result.TimedOut || result.ExitCode > 1)
+            {
+                break;
+            }
+
+            ignored.UnionWith(result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(RepoPaths.Normalize));
+        }
+
+        return ignored;
+    }
+
+    private static IReadOnlyList<NotLoadedProject> FindNotLoaded(
+        ScanRequest request, BinlogData data, CapturePathMapper mapper, List<ProjectInfo> projects, SolutionProjects? listed)
+    {
+        if (listed is null)
         {
             return [];
         }
@@ -647,9 +758,13 @@ public static class ScanRunner
         var message = step.Id == "path-case"
             ? $"Does not build on a case-sensitive file system: {evidence}."
             : $"Needs Windows to build: {evidence}.";
-        return request.Diagnostics.Report(step.Descriptor, message,
-            new DiagnosticLocation(Project: project),
-            [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", evidence)])!;
+        List<KeyValuePair<string, JsonNode?>> data = [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", evidence)];
+        if (step.Paths.Count > 0)
+        {
+            data.Add(KeyValuePair.Create<string, JsonNode?>("paths", new JsonArray([.. step.Paths.Select(p => (JsonNode?)(mapper.ToRelative(p) ?? Scrub(p, mapper)))])));
+        }
+
+        return request.Diagnostics.Report(step.Descriptor, message, new DiagnosticLocation(Project: project), data)!;
     }
 
     /// <summary>

@@ -254,6 +254,30 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   projects differed between two scans), and `source.sha256` hashed the binary log, which differs
   with every build; now calls are found in the compiler log by project and target framework, and
   a log Offramp built is not hashed (the model's `inputs` decide staleness, as before).
+- `scan` checks the projects' files for letter-case, resource, and missing-file problems in
+  one pass, after the build and whatever it got to (ADR 0047), instead of naming them from build
+  errors one project per build. SmartStoreNET 4.2 needed four scans to find its 14 paths in the
+  wrong letter case, and which projects failed varied between builds; Open Live Writer named one
+  project with images in `.resx` files per scan, and not the `ResXFileRef` paths in the wrong case
+  in `Localization/Images.resx` (MSB3554). The first scan of a fresh checkout now names all 14
+  SmartStoreNET paths in all 19 projects that use them, and all 13 Open Live Writer projects with
+  non-string resources and its 62 paths in the wrong case. Now:
+  - `OFR0117` names every import, source file, resource, file copied to the output, and `.resx`
+    file reference that exists only in another letter case, one diagnostic per
+    project with all of them in `data.paths`, and resolves `..` in the evidence
+    (`src/managed/OpenLiveWriter.CoreServices/../../../intl/markets/Master.xml` read as
+    `intl/markets/Master.xml`).
+  - `OFR0119` names each project whose `.resx` files hold non-string resources, by file, before
+    the build reaches them, by the rules of MSBuild's own reader (byte arrays and text files are
+    not reported), unless every target framework already embeds them preserialized.
+  - `OFR0123` (new, warning): a `Compile` item whose file exists in no letter case. When git ignores
+    it, the message says the repository's own build generates it and must run first. NHibernate
+    4.1's `src/SharedAssemblyInfo.cs`, which its NAnt build writes, was one `CS2001` inside
+    `OFR0130`, with an absolute path.
+  - `docs/compiling-on-macos.md` gives `OFR0119`'s fix for legacy projects, whose
+    `PackageReference` to `System.Resources.Extensions` is restored but never referenced under the
+    .NET SDK: a target that references the DLL, with the version per target framework (6.0.0 for
+    .NET Framework 4.6.1, which 8.0.0 does not support).
 - A library that references a test framework's assembly (`nunit.framework`, `xunit`, the MSTest
   assemblies, usually a DLL checked in and referenced by `HintPath`) is a `test` project, with the
   evidence `Reference nunit.framework + OutputType=Library` (ADR 0038). NHibernate 4.1's three

@@ -45,9 +45,9 @@ Visual Studio installs. The compile-only block's legacy section and
 | ASP.NET (System.Web) web application targets, including every `MSBuild.SDK.SystemWeb` project | `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets` ships with Visual Studio only; evaluation stops with MSB4019 | the compile-only block takes them from a package (below) |
 | Precompiled MVC views (`MvcBuildViews=true`, on by default in Release for `MSBuild.SDK.SystemWeb`) | `AspNetCompiler` exists only in .NET Framework's MSBuild (MSB4803) | the compile-only block turns it off |
 | `packages.config` packages | `dotnet restore` skips `packages.config`, and `NuGet.exe` needs Mono | `offramp scan` restores them into `packages/` (below) |
-| Paths in another letter case than the file on disk (Linux only) | Windows and macOS file systems ignore case; Linux does not (MSB4019, CS2001, MSB3030) | rename the reference or the file; `scan` names each project (`OFR0117`) |
+| Paths in another letter case than the file on disk (Linux only) | Windows and macOS file systems ignore case; Linux does not (MSB4019, CS2001, MSB3030, MSB3554) | rename the reference or the file; `scan` names every one in each project at once (`OFR0117`) |
 | `CodeTaskFactory` inline tasks, as in `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` | only .NET Framework's MSBuild has the factory (MSB4801) | redefine the targets that use it (below); `OFR0118` |
-| Non-string `.resx` resources (images, icons) | .NET's MSBuild embeds them only preserialized (MSB3822, MSB3823) | `GenerateResourceUsePreserializedResources=true` and the `System.Resources.Extensions` package; `OFR0119` |
+| Non-string `.resx` resources (images, icons) | .NET's MSBuild embeds them only preserialized (MSB3822, MSB3823) | `GenerateResourceUsePreserializedResources=true` and `System.Resources.Extensions`, as a DLL reference in legacy projects ([below](#non-string-resources)); `OFR0119` |
 
 ## The compile-only conditional
 
@@ -162,7 +162,16 @@ What is left is the repository's own, and `scan` names each case with the file
 to change:
 
 - **Letter case** (`OFR0117`, Linux only): a reference spelled `Package.Targets`
-  for `Package.targets` on disk. Offramp does not rename anything.
+  for `Package.targets` on disk. `scan` checks every `Import`, `Compile`, and
+  `EmbeddedResource` path of each project, the `None` and `Content` items it
+  copies to the output, and the files that `.resx` files reference
+  (`ResXFileRef`, MSB3554), after the build and
+  whatever it got to, so one scan names them all; the diagnostic's
+  `data.paths` lists them. Offramp does not rename anything.
+- **Missing source files** (`OFR0123`): a `Compile` item whose file does not
+  exist in any letter case, and that no target of the build writes. When git ignores the path, the repository's own
+  build script (NAnt, psake, Cake, FAKE, GitVersion) generates it, typically a
+  shared `SharedAssemblyInfo.cs`: run that step once, then scan again.
 - **Inline tasks** (`OFR0118`): `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`
   runs `CodeTaskFactory` tasks from its build targets. Redefine the two targets
   that call them as empty ones, in a file only compile-only builds import. In
@@ -184,7 +193,50 @@ to change:
 - **Build events and `Exec` commands written for cmd.exe** (`OFR0115`), such as
   `XCOPY` in a `PostBuild` target: add
   `Condition="'$(OfframpCompileOnly)' != 'true'"` to the target.
-- **Non-string resources** (`OFR0119`).
+- **Non-string resources** (`OFR0119`). `scan` reads each project's `.resx`
+  files and names the ones with images, icons, type-converted values, or
+  serialized objects (strings and byte arrays embed as they are). .NET's MSBuild
+  embeds those only as preserialized resources, which need
+  `GenerateResourceUsePreserializedResources=true` and a reference to
+  `System.Resources.Extensions`; see [Non-string resources](#non-string-resources).
+
+### Non-string resources
+
+An SDK-style project takes the property and a `PackageReference` to
+`System.Resources.Extensions`. A legacy project restored the `PackageReference`
+way (the legacy section) gets no compile references from packages under the
+.NET SDK, so the package is restored but not referenced, and the build still
+fails with MSB3822. Reference the DLL from the package folder instead. For
+compile-only builds, in `Directory.Build.props` after the block:
+
+```xml
+<!-- Non-string .resx resources in legacy projects on macOS/Linux (offramp scan: OFR0119). -->
+<PropertyGroup Condition="'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true'">
+  <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+</PropertyGroup>
+<ItemGroup Condition="'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true' And $([MSBuild]::VersionGreaterThanOrEquals($(TargetFrameworkVersion.TrimStart('v')), '4.6.1'))">
+  <PackageReference Include="System.Resources.Extensions" Version="6.0.0" IsImplicitlyDefined="true" PrivateAssets="all" />
+</ItemGroup>
+<Target Name="AddSystemResourcesExtensions" BeforeTargets="ResolveAssemblyReferences" Condition="'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true' And $([MSBuild]::VersionGreaterThanOrEquals($(TargetFrameworkVersion.TrimStart('v')), '4.6.1'))">
+  <ItemGroup>
+    <Reference Include="$(NuGetPackageRoot)system.resources.extensions/6.0.0/lib/net461/System.Resources.Extensions.dll" />
+  </ItemGroup>
+</Target>
+```
+
+The reference is added in a target, not as an item of the project, so the
+workspace model does not record a reference the project does not have, and
+`deps resolve-dlls` leaves it alone. Choose the version by target framework:
+
+| Target framework | `System.Resources.Extensions` | DLL in the package |
+|---|---|---|
+| .NET Framework 4.6.1 | 6.0.0 (8.0.0 has no `net461` build) | `lib/net461/` |
+| .NET Framework 4.6.2 and later | 8.0.0, or 6.0.0 as above | `lib/net462/` (8.0.0) |
+| .NET Framework 4.6 and earlier | none: no version supports them | build these projects on Windows, or use the compiler-log route |
+
+On Windows, .NET Framework's MSBuild embeds these resources without either
+change. If you set the property for every build instead, the .NET Framework
+application needs `System.Resources.Extensions` at run time.
 
 ## The compiler-log fallback
 

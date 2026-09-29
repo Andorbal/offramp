@@ -136,6 +136,53 @@ public sealed class WindowsOnlyBuildStepsTests
         Assert.Equal("OFR0119", steps[2].Descriptor.Code);
     }
 
+    [Fact]
+    [ProducesDiagnostic("OFR0117")]
+    public void The_project_files_mismatches_come_first_and_join_those_only_the_errors_show()
+    {
+        using var repo = new ScratchDirectory("path-case");
+        repo.Write("intl/markets/master.xml", "<markets />");
+        Assert.SkipWhen(File.Exists(repo.Combine("intl", "markets", "Master.xml")), "This file system ignores letter case.");
+        var copied = Path.Combine(repo.Path, "src", "Core", "..", "..", "intl", "markets", "Master.xml");
+        var files = new ProjectFileFindings
+        {
+            CaseMismatches =
+            [
+                new CaseMismatch("/repo/src/.nuget/nuget.targets", "/repo/src/.nuget/NuGet.targets", "/repo/src/.nuget/nuget.targets: 'nuget.targets' is 'NuGet.targets' on disk"),
+                new CaseMismatch("/repo/src/A/Multimap.cs", "/repo/src/A/MultiMap.cs", "/repo/src/A/Multimap.cs: 'Multimap.cs' is 'MultiMap.cs' on disk"),
+            ],
+        };
+        BuildError[] errors =
+        [
+            new("MSB3030", $"Could not copy the file \"{copied}\" because it was not found.", "/repo/src/Core/Core.csproj", null, null, null),
+        ];
+
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect("src/Core/Core.csproj", [], errors, new BuildStepContext { Files = files }));
+
+        Assert.Equal("/repo/src/.nuget/nuget.targets: 'nuget.targets' is 'NuGet.targets' on disk (and 2 more)", step.Evidence);
+        Assert.Equal(["/repo/src/.nuget/nuget.targets", "/repo/src/A/Multimap.cs", repo.Path + "/intl/markets/Master.xml"], step.Paths);
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0119")]
+    public void Non_string_resources_are_named_by_file_before_any_build_unless_every_target_embeds_them_preserialized()
+    {
+        var files = new ProjectFileFindings
+        {
+            NonStringResources = [new NonStringResourceFile("/repo/src/A/Images.resx", 58), new NonStringResourceFile("/repo/src/A/Main.resx", 2)],
+        };
+        var context = new BuildStepContext { Files = files };
+        var preserialized = Evaluation(properties: new() { ["GenerateResourceUsePreserializedResources"] = "true" });
+
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [Evaluation()], [], context));
+
+        Assert.Equal("resources", step.Id);
+        Assert.Equal("58 non-string resource(s) in /repo/src/A/Images.resx (and 1 more .resx file(s))", step.Evidence);
+        Assert.Equal(["/repo/src/A/Images.resx", "/repo/src/A/Main.resx"], step.Paths);
+        Assert.Empty(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [preserialized], [], context));
+        Assert.Single(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [preserialized, Evaluation() with { TargetFramework = "net461" }], [], context));
+    }
+
     private static EvaluatedProject Evaluation(
         Dictionary<string, string>? properties = null,
         Dictionary<string, IReadOnlyList<EvaluatedItem>>? items = null,
