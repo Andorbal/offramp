@@ -60,6 +60,15 @@ discovers `G<>` when `G` is outside the base class library, and the Entity Frame
 scans discover their configuration base types. All of it is read from the semantic model and
 `IOperation`, not from names.
 
+**Test classes, COM, and scripts.** A type whose methods (or a base type's) carry a test
+framework's attribute is `low`: NUnit 2.5 and later run a class with `[Test]` methods and no
+`[TestFixture]`, and 245 of NHibernate's fixture files have none. Only attributes from the
+test frameworks' namespaces count, not every attribute on a member. A public symbol that is
+COM-visible (the nearest `[ComVisible]` on it, its containing types, or its assembly) is
+`low`: Open Live Writer's page scripts call `JSMapController.NextEvent()` through
+`window.external`. `.htm`, `.html`, and `.js` files in project folders are string sources, as
+markup is; minified scripts (`.min.js`) are not, since their names are a library's.
+
 **Controller actions.** A public instance method of a type deriving from `Controller`,
 `ControllerBase`, or `ApiController` is `medium` at most: MVC reaches it from a URL, which
 static analysis does not see, and a name in a string or view that matches it in any letter

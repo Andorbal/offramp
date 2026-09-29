@@ -18,6 +18,10 @@ whether a library ships is decided by the rules of ADR 0041.
     so `ProductMap` is `low`; `OrderList : List<int>` is `high`, although `IsList` compares with
     `typeof(List<>)`.
   - `Orphan`, and `UnusedTask` (it implements an interface nothing looks for): `high`.
+  - `MapBridge` is `[ComVisible(true)]`, the page's `window.external`, as Open Live Writer's
+    `JSMapController` is: `NextEvent` is called from `map.html`, `JsUpdateBirdsEye` from
+    `scripts/map.js`, and `SetCenter` from nowhere; all three are `low`. `PlainBridge.Ping` is
+    named only in `scripts/vendor.min.js`, which is not read: `high`.
 - `Client`: `Client.nuspec.template` sits beside the project, as NHibernate's does: shipped.
   - `ShopClient.Reset`: public, called by nothing: `medium`.
 - `Tools` (`Evidence.Tools.dll`): `build/Evidence.Sdk.nuspec` packs its DLL from the build output, as
@@ -28,4 +32,5 @@ whether a library ships is decided by the rules of ADR 0041.
 - `TestKit`: NUnit assertions over `Formats`.
 - `Specs`: a library that gets NUnit through `TestKit`, so nothing marks it a test project, and that
   nothing references: shipped.
-  - `FormatSpecs`: `medium`.
+  - `FormatSpecs`, with `[Test]` methods and no `[TestFixture]`: `low`; `SpecNotes`, whose method carries
+    an attribute that is not a test framework's: `medium`.

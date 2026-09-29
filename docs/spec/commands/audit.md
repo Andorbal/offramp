@@ -384,8 +384,9 @@ Decisions behind the two commands (ADR 0022).
     name from a request's route
 - **`low` overrides the base level** when any of these holds:
   - the name appears as a word in a string literal, or in a `.resx`, `.config`, `.xaml`,
-    `.xml`, or `.json` file, an ASP.NET markup file, or another XML file (one that starts
-    with `<` and parses, such as a plugin manifest) in a project folder. `bin`, `obj`,
+    `.xml`, `.json`, `.htm`, `.html`, or `.js` file (not a minified `.min.js`), an ASP.NET
+    markup file, or another XML file (one that starts with `<` and parses, such as a plugin
+    manifest) in a project folder. `bin`, `obj`,
     `node_modules`, and `packages` folders are not read, in any letter case, and a file
     that cannot be read is listed in `skipped`. A controller action's name matches in any
     letter case, as MVC matches it
@@ -416,6 +417,13 @@ Decisions behind the two commands (ADR 0022).
     serialization attribute, or any attribute outside `System.Diagnostics`,
     `System.Runtime.CompilerServices`, `Obsolete`, `EditorBrowsable`, and `CLSCompliant`
   - it is `Main`, a type with a static `Main`, or `Program`
+  - the type or a type it derives from has a method with a test framework's attribute (from
+    `NUnit.Framework`, `Xunit`, `Microsoft.VisualStudio.TestTools.UnitTesting`,
+    `MbUnit.Framework`, or `TUnit.Core`): the runner finds the class by it (NUnit 2.5 and later
+    need no `[TestFixture]`)
+  - it is public and COM-visible: the nearest `[ComVisible]` on it, a type containing it, or
+    its assembly says `true`. COM clients, and scripts through `ObjectForScripting` and
+    `window.external`, call it by name. `[ComVisible]` itself is not a reflection attribute
   - it is a public property or field (serializers, ORMs, and data binding use them)
 - Every candidate lists this evidence.
 - **Lines.** Each declaration counts from its documentation comment (plain `///` comments

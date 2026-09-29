@@ -152,7 +152,7 @@ public sealed class DeadCodeTests
         // A library only a test project uses, and one nothing uses: no application in the solution needs them.
         const string NoApplication = "public in a library no application in the solution uses (only tests and other libraries reference it): other repositories may use it";
         Assert.Equal((DeadCodeConfidence.Medium, NoApplication), (all["Evidence.Formats.CsvFormat.Quote(string)"].Confidence, all["Evidence.Formats.CsvFormat.Quote(string)"].Evidence[0]));
-        Assert.Equal((DeadCodeConfidence.Medium, NoApplication), (all["Evidence.Specs.FormatSpecs"].Confidence, all["Evidence.Specs.FormatSpecs"].Evidence[0]));
+        Assert.Equal((DeadCodeConfidence.Medium, NoApplication), (all["Evidence.Specs.SpecNotes"].Confidence, all["Evidence.Specs.SpecNotes"].Evidence[0]));
 
         // Internal code, and public code of a library the application uses, stay high.
         Assert.Equal(DeadCodeConfidence.High, all["Evidence.Formats.CsvFormat.Unused()"].Confidence);
@@ -202,7 +202,33 @@ public sealed class DeadCodeTests
         // Linked as "ActiveDiscussionsRSS": MVC matches action names without regard to case.
         var linked = all["Evidence.Shop.Controllers.BoardsController.ActiveDiscussionsRss()"];
         Assert.Equal(DeadCodeConfidence.Low, linked.Confidence);
-        Assert.Contains("the name appears in a string or resource at src/Shop/Program.cs:18", linked.Evidence);
+        Assert.Contains("the name appears in a string or resource at src/Shop/Program.cs:20", linked.Evidence);
+    }
+
+    [Fact]
+    public async Task Test_classes_com_visible_members_and_names_in_pages_and_scripts_are_low()
+    {
+        var (result, _) = await AnalyzeAsync(fixture: "dead-code-evidence");
+
+        var all = result.Projects.SelectMany(p => p.Candidates).ToDictionary(c => c.Symbol);
+
+        // NUnit finds a class by its [Test] methods; an attribute that is not a test framework's finds nothing.
+        var specs = all["Evidence.Specs.FormatSpecs"];
+        Assert.Equal(DeadCodeConfidence.Low, specs.Confidence);
+        Assert.Contains("[Test] on its methods: the test runner finds the class by them", specs.Evidence);
+        Assert.Equal(DeadCodeConfidence.Medium, all["Evidence.Specs.SpecNotes"].Confidence);
+
+        // window.external calls from a page and a script, and a COM-visible method nothing in the repository calls.
+        const string Com = "COM-visible ([ComVisible(true)]): COM and script clients (ObjectForScripting, window.external) call it by name";
+        var next = all["Evidence.Engine.MapBridge.NextEvent()"];
+        Assert.Equal(DeadCodeConfidence.Low, next.Confidence);
+        Assert.Equal(["public, and the assembly is not packed", "the name appears in a string or resource at src/Engine/map.html", Com], next.Evidence);
+        Assert.Contains("the name appears in a string or resource at src/Engine/scripts/map.js", all["Evidence.Engine.MapBridge.JsUpdateBirdsEye()"].Evidence);
+        var center = all["Evidence.Engine.MapBridge.SetCenter(double, double)"];
+        Assert.Equal((DeadCodeConfidence.Low, Com), (center.Confidence, center.Evidence[^1]));
+
+        // A minified library's names are the library's.
+        Assert.Equal(DeadCodeConfidence.High, all["Evidence.Engine.PlainBridge.Ping()"].Confidence);
     }
 
     [Fact]

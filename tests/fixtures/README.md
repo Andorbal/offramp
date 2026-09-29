@@ -31,7 +31,7 @@ Offramp's own settings when a fixture is built in place.
 | `systemweb` | an `MSBuild.SDK.SystemWeb` site: the missing Visual Studio web targets (OFR0116) and the compile-only block that supplies them; see its README |
 | `webforms` | audit api (a missing base type reached through another project, an extension method over a System.Web type), audit dead-code (classes named only by markup); see its README |
 | `winforms-library` | audit api (a Windows Forms class library compiled for `-windows`, the controls .NET keeps only as throwing shims); see its README |
-| `dead-code-evidence` | audit dead-code evidence: libraries shipped by a `.nuspec` or used by no application, types a type finder or a generic type definition finds, controller actions; see its README |
+| `dead-code-evidence` | audit dead-code evidence: libraries shipped by a `.nuspec` or used by no application, types a type finder or a generic type definition finds, controller actions, NUnit classes without `[TestFixture]`, COM-visible members called from a page and a script; see its README |
 
 `hollow` is generated, not checked in (`GeneratedFixtures.Hollow` in
 `tests/Offramp.Fixtures`): 500 files in `src/Big` to be moved into `src/Big.Core`

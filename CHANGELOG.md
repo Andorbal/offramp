@@ -317,6 +317,15 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
     `PackageReference` to `System.Resources.Extensions` is restored but never referenced under the
     .NET SDK: a target that references the DLL, with the version per target framework (6.0.0 for
     .NET Framework 4.6.1, which 8.0.0 does not support).
+- `audit dead-code` rates `low` what test runners, COM, and page scripts find by name (ADR 0041):
+  a type whose methods (or a base type's) carry a test framework's attribute, since NUnit 2.5 and
+  later run a class with `[Test]` methods and no `[TestFixture]` (245 of NHibernate's fixture
+  files have none); a public member of a `[ComVisible(true)]` type or assembly, which COM clients
+  and `window.external` scripts call; and names in `.htm`, `.html`, and `.js` files (minified
+  `.min.js` aside), which are now string sources like markup. On Open Live Writer, the 7
+  high-confidence methods of COM-visible classes are `low`, among them
+  `JSMapController.NextEvent()`, which `map.html` calls. `[ComVisible]` no longer counts as a
+  reflection attribute by itself.
 - `audit dead-code` follows the solution's own type discovery (ADR 0041). A method that passes its
   type parameter or `Type` parameter to `IsAssignableFrom` (or to another such method, four calls
   deep, through interfaces) is a discovery method, and the type each call passes it is found by

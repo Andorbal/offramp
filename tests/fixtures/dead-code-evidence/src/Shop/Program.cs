@@ -13,6 +13,8 @@ namespace Evidence.Shop
             Console.WriteLine(new ShopClient().Endpoint);
             Console.WriteLine(Checksum.Of("order"));
             Bootstrapper.Run(new AppDomainTypeFinder());
+            Console.WriteLine(new MapBridge().GetType());
+            Console.WriteLine(new PlainBridge().GetType());
 
             // A route to an action, spelled in another letter case: MVC matches action names without regard to case.
             Console.WriteLine(typeof(BoardsController).Name + "/" + "ActiveDiscussionsRSS");

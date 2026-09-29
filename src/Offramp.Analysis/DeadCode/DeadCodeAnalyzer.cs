@@ -62,6 +62,14 @@ public static class DeadCodeAnalyzer
         "System.Runtime.CompilerServices.", "System.CLSCompliantAttribute",
     ];
 
+    /// <summary>Namespaces of test frameworks' attributes: a type whose methods carry one is found by the test runner.</summary>
+    private static readonly string[] TestFrameworkNamespaces =
+    [
+        "NUnit.Framework", "Xunit", "Microsoft.VisualStudio.TestTools.UnitTesting", "MbUnit.Framework", "TUnit.Core",
+    ];
+
+    private const string ComVisibleAttribute = "System.Runtime.InteropServices.ComVisibleAttribute";
+
     private static readonly HashSet<string> SerializationAttributes = new(StringComparer.Ordinal)
     {
         "System.SerializableAttribute", "System.Runtime.Serialization.DataContractAttribute", "System.Runtime.Serialization.DataMemberAttribute",
@@ -928,6 +936,11 @@ public static class DeadCodeAnalyzer
             {
                 yield return "entry point";
             }
+
+            if (TestMethodAttribute(type) is { } test)
+            {
+                yield return $"[{Short(test)}] on its methods: the test runner finds the class by them";
+            }
         }
 
         if (symbol is IMethodSymbol { IsStatic: true, Name: "Main" })
@@ -940,8 +953,18 @@ public static class DeadCodeAnalyzer
             yield return byName;
         }
 
+        if (Accessibility(symbol) == "public" && ComVisible(symbol))
+        {
+            yield return "COM-visible ([ComVisible(true)]): COM and script clients (ObjectForScripting, window.external) call it by name";
+        }
+
         foreach (var attribute in symbol.GetAttributes().Select(a => a.AttributeClass?.ToDisplayString()).OfType<string>().Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
+            if (attribute == ComVisibleAttribute)
+            {
+                continue;
+            }
+
             if (SerializationAttributes.Contains(attribute))
             {
                 yield return $"[{Short(attribute)}]: serializers use it by reflection";
@@ -957,6 +980,42 @@ public static class DeadCodeAnalyzer
             yield return "public data member: serializers, ORMs, and data binding use them by reflection";
         }
     }
+
+    /// <summary>
+    /// A test framework attribute (<c>[Test]</c>, <c>[Fact]</c>, <c>[TestMethod]</c>, ...) on a
+    /// method of the type or of a type it derives from, or null. NUnit 2.5 and later run a
+    /// class with <c>[Test]</c> methods and no <c>[TestFixture]</c>.
+    /// </summary>
+    private static string? TestMethodAttribute(INamedTypeSymbol type) =>
+        new[] { type }.Concat(BaseTypes(type))
+            .SelectMany(t => t.GetMembers().OfType<IMethodSymbol>())
+            .SelectMany(m => m.GetAttributes())
+            .Select(a => a.AttributeClass)
+            .Where(a => a?.ContainingNamespace?.ToDisplayString() is { } ns && TestFrameworkNamespaces.Any(f => ns == f || ns.StartsWith(f + ".", StringComparison.Ordinal)))
+            .Select(a => a!.ToDisplayString())
+            .Order(StringComparer.Ordinal)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// Whether COM sees the symbol: the nearest <c>[ComVisible]</c> on it, a type containing it,
+    /// or its assembly says <c>true</c>. COM clients, and scripts through <c>ObjectForScripting</c>
+    /// and <c>window.external</c>, call its public members by name.
+    /// </summary>
+    private static bool ComVisible(ISymbol symbol)
+    {
+        for (var current = symbol; current is not null and not INamespaceSymbol; current = current.ContainingSymbol)
+        {
+            if (ComVisibleValue(current.GetAttributes()) is { } visible)
+            {
+                return visible;
+            }
+        }
+
+        return ComVisibleValue(symbol.ContainingAssembly?.GetAttributes() ?? []) ?? false;
+    }
+
+    private static bool? ComVisibleValue(IEnumerable<AttributeData> attributes) =>
+        attributes.FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == ComVisibleAttribute)?.ConstructorArguments.FirstOrDefault().Value as bool?;
 
     /// <summary>
     /// Why ASP.NET calls a method by its name, or null: the <c>Page_</c> handlers of pages and
