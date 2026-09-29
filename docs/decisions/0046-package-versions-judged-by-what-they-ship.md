@@ -37,6 +37,15 @@ LibSassHost.Native.win-x64 and JavaScriptEngineSwitcher.V8.Native.win-x64, whose
   version, and SHA-256 (ADR 0042 uses them); the cache format is bumped so older entries are
   recomputed.
 
+- **P/Invoke and COM are Windows-only evidence** (Open Live Writer). A managed assembly that
+  calls a library only Windows has (`user32`, `ole32`, `msdelta`, ...) or declares a
+  `[ComImport]` type is Windows-only, like one that references Windows Forms. `kernel32`,
+  `ntdll`, `advapi32`, and the C runtime are not evidence, for the reason
+  `Microsoft.Win32.Registry` is not: portable libraries call them behind an OS check.
+- **Nothing to judge is not `ok`.** A version with no assemblies, no framework-specific assets,
+  no dependency groups, and no native code "supports" every target vacuously. When the package
+  map names a successor for such a package (Microsoft.Bcl.Build: built in on modern .NET), it is
+  `replace` with `OFR1009`; without an entry it stays `ok`.
 - **A codemod's package is judged the same way.** `codemod run` inspects each package it
   would add (the pinned version, on the configured feeds) and checks it against the target
   frameworks it would be added for. On NHibernate 4.1, `sqlclient` added Microsoft.Data.SqlClient

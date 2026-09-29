@@ -97,6 +97,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1006](#ofr1006) | warning | deps | feed unreachable; result partial |
 | [OFR1007](#ofr1007) | error | deps | only versions older than the one in use support the target |
 | [OFR1008](#ofr1008) | info | deps | DLL references the audit does not see |
+| [OFR1009](#ofr1009) | warning | deps | package has nothing for any framework, and the package map replaces it |
 | [OFR1200](#ofr1200) | error | deps | package not referenced |
 | [OFR1203](#ofr1203) | warning | deps | pin kept a package below the otherwise-selected version |
 | [OFR1204](#ofr1204) | info | deps | packages.config project keeps its version |
@@ -861,7 +862,7 @@ The feed marks the package, or the version in use, as deprecated; the message ca
 
 **package assets are Windows-only** · warning · deps
 
-The assets NuGet would pick for the target are marked [SupportedOSPlatform("windows")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, directory services), or the package has no managed assemblies and its native code (`runtimes/<rid>/native/`) is for Windows only. The message names the package for `linux-x64` when the id ends in a Windows runtime identifier and the feed has one.
+The assets NuGet would pick for the target are marked [SupportedOSPlatform("windows")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, directory services), call a library only Windows has by P/Invoke (user32, ole32, msdelta, ...; not kernel32, ntdll, or advapi32, which portable code guards), or declare `[ComImport]` types; or the package has no managed assemblies and its native code (`runtimes/<rid>/native/`) is for Windows only. The message names the package for `linux-x64` when the id ends in a Windows runtime identifier and the feed has one.
 
 - **Typical cause:** A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later, or a native package such as LibSassHost.Native.win-x64.
 - **Fix:** Fine if the application stays on Windows; otherwise choose a cross-platform alternative, or add the native package for the other operating systems, before containerizing.
@@ -901,6 +902,15 @@ Projects reference DLLs by `HintPath` that no packages.config installs: checked-
 
 - **Typical cause:** A codebase from before NuGet, with third-party DLLs in a lib folder (NHibernate 4.1: 15 references, no package).
 - **Fix:** Run `offramp deps resolve-dlls`, apply what it finds, and audit again.
+
+### OFR1009
+
+**package has nothing for any framework, and the package map replaces it** · warning · deps
+
+The versions in use have no assemblies, no framework-specific assets, no dependency groups, and no native code (only build or tool files), so they "support" every target only because there is nothing to judge. The package map names what replaces the package, so its status is `replace`.
+
+- **Typical cause:** A build-time helper for .NET Framework, such as Microsoft.Bcl.Build, whose targets fail under the .NET SDK's MSBuild.
+- **Fix:** Remove the package, or move to what the message names.
 
 ### OFR1200
 

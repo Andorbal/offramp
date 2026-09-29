@@ -105,6 +105,44 @@ public sealed class InspectionTests
         Assert.True(TargetSupport.HasAssemblies(Inspect("Newtonsoft.Json", "13.0.3")));
     }
 
+    /// <summary>
+    /// Open Live Writer field test (P2): DeltaCompressionDotNet's netstandard2.0 DLL calls msdelta.dll
+    /// and PlatformSpellCheck wraps a Windows COM API; both were "not Windows-only". A call into
+    /// kernel32, which portable code guards, is not evidence.
+    /// </summary>
+    [Theory]
+    [InlineData("[System.Runtime.InteropServices.DllImport(\"msdelta.dll\")] static extern int ApplyDeltaB(int a);", "calls msdelta.dll (P/Invoke)")]
+    [InlineData("[System.Runtime.InteropServices.DllImport(\"User32\")] static extern int GetDpiForWindow(System.IntPtr w);", "calls user32.dll (P/Invoke)")]
+    [InlineData("[System.Runtime.InteropServices.DllImport(\"kernel32.dll\")] static extern int GetCurrentThreadId();", null)]
+    [InlineData("static int Portable() => 1;", null)]
+    public void Native_calls_into_windows_libraries_are_windows_only(string member, string? expected) =>
+        Assert.Equal(expected, PackageInspector.WindowsEvidence(Compile($"public static class Native {{ {member} }}")));
+
+    [Fact]
+    public void Com_types_are_windows_only() =>
+        Assert.Equal("declares COM type Contoso.Spelling.ISpellChecker ([ComImport])", PackageInspector.WindowsEvidence(Compile("""
+            namespace Contoso.Spelling
+            {
+                [System.Runtime.InteropServices.ComImport, System.Runtime.InteropServices.Guid("b7c82d61-fbe8-4b47-9b27-6c0d2e0de0a3"),
+                 System.Runtime.InteropServices.InterfaceType(System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown)]
+                public interface ISpellChecker { }
+            }
+            """)));
+
+    private static byte[] Compile(string source)
+    {
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+            .Where(p => Path.GetFileName(p) is "System.Private.CoreLib.dll" or "System.Runtime.dll" or "System.Runtime.InteropServices.dll")
+            .Select(p => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(p));
+        var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("Contoso.Native",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(source)], references,
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        using var stream = new MemoryStream();
+        var emitted = compilation.Emit(stream);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        return stream.ToArray();
+    }
+
     [Fact]
     public void Assembly_facts_identify_a_build()
     {

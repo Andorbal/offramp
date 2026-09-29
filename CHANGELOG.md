@@ -434,6 +434,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `.exe` is an application's installer (Open Live Writer's Squirrel package carries every DLL of
   the application) and ships nothing. `deadCode.externalConsumers` is now documented in
   `docs/spec/03-configuration.md`.
+- `deps audit` finds Windows-only packages by what their code calls (ADR 0046): a P/Invoke into a
+  library only Windows has, or a `[ComImport]` type, is `OFR1004` evidence. On Open Live Writer,
+  DeltaCompressionDotNet 2.0.1 (its netstandard2.0 DLL calls msdelta.dll and mspatcha.dll) and
+  PlatformSpellCheck 1.1.0 (a Windows COM API) were not Windows-only. A package whose versions in
+  use have nothing for any framework is `replace` when the package map names a successor (new
+  `OFR1009`): Microsoft.Bcl.Build was `ok`, although the map says it is built in on modern .NET
+  and its targets fail under the SDK's MSBuild. Cached inspections are recomputed.
 - `deps audit` points to `deps resolve-dlls` when projects reference DLLs by `HintPath` that no
   packages.config installs (new `OFR1008`, info): on NHibernate 4.1, with 15 such references and
   no package, it said "0 packages" and nothing else. Feed requests give up after 60 seconds (the

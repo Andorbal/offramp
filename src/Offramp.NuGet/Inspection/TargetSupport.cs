@@ -25,6 +25,14 @@ public static class TargetSupport
     public static bool HasAssemblies(PackageInspection package) => package.Assemblies.Count > 0;
 
     /// <summary>
+    /// True when the version has nothing for any framework: no framework-specific assets, no
+    /// dependency groups, no assemblies, and no native code (build or tools scripts only, such as
+    /// Microsoft.Bcl.Build). It "supports" every target only because it has nothing to judge.
+    /// </summary>
+    public static bool HasNothingForAnyFramework(PackageInspection package) =>
+        package.AssetFrameworks.Count == 0 && package.DependencyFrameworks.Count == 0 && package.Assemblies.Count == 0 && package.NativeAssets.Count == 0;
+
+    /// <summary>
     /// Why the assemblies NuGet would pick for <paramref name="target"/> (the nearest lib
     /// folder, else ref) only work on Windows, or null. A package with no managed assemblies
     /// whose native code (<c>runtimes/&lt;rid&gt;/native/</c>) is all for Windows runtime

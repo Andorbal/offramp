@@ -36,7 +36,11 @@ For a package version and a target framework:
    `PresentationFramework`, `System.Web` (the Framework one), `System.Drawing`
    (Framework), or `System.DirectoryServices` marks the version
    `windowsOnly: true`. `Microsoft.Win32.Registry` does not: it ships with .NET
-   on every OS, and libraries reference it for code they guard. Only the assets NuGet would pick for
+   on every OS, and libraries reference it for code they guard. A P/Invoke into
+   a library that exists only on Windows marks the version too (`user32`, `gdi32`,
+   `ole32`, `shell32`, `msdelta`, ...; not `kernel32`, `ntdll`, `advapi32`, or the
+   C runtime, which portable code calls behind an OS check), and so does a type
+   declared `[ComImport]`. Only the assets NuGet would pick for
    the target count (the nearest `lib/` folder, else `ref/`): System.Drawing.Common
    8.0 is Windows-only for `net10.0` but not for `netstandard2.0` consumers. A
    package with no managed assemblies whose native code (`runtimes/<rid>/native/`)
@@ -110,7 +114,9 @@ version newer than every in-use version that does not support the target does;
 `replace` none does but a mapping exists; `blocked` none does and
 no mapping. A supporting version older than one in use is a downgrade, never an
 upgrade: the package is `replace` or `blocked` with `OFR1007`, and
-`newestSupporting` still names that version; `unknown` no feed has the package, or the feeds could not be reached.
+`newestSupporting` still names that version. A package whose versions in use
+have nothing for any framework (build or tool files only) is `replace` when the
+package map names a successor (`OFR1009`: Microsoft.Bcl.Build); `unknown` no feed has the package, or the feeds could not be reached.
 `--format table` (the terminal view) sorts blocked first, then replace, upgrade,
 unknown, and ok, each by number of projects; `--format markdown` prints the same
 table as Markdown and `--format json` the result alone (`--json` gives the
@@ -124,7 +130,8 @@ version does not support target, `OFR1003` package or in-use version deprecated,
 `OFR1006` feed unreachable (result marked partial, exit 4), `OFR1007` only
 versions older than the one in use support the target, `OFR1008` (info) projects
 reference DLLs by `HintPath` that no packages.config installs, which the audit does
-not see: it points to `deps resolve-dlls`.
+not see: it points to `deps resolve-dlls`, `OFR1009` versions in use have nothing
+for any framework and the package map replaces the package.
 
 ## `deps consolidate`
 

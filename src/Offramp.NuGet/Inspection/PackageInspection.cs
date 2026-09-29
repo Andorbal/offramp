@@ -8,7 +8,7 @@ namespace Offramp.NuGet.Inspection;
 public sealed record PackageInspection
 {
     /// <summary>Bumped when inspection changes, so older cache entries are recomputed.</summary>
-    public const int CurrentFormat = 4;
+    public const int CurrentFormat = 5;
 
     public int Format { get; init; } = CurrentFormat;
 

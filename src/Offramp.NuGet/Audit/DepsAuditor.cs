@@ -125,11 +125,13 @@ public static class DepsAuditor
 
         var supportsInUse = new SortedDictionary<string, bool?>(StringComparer.Ordinal);
         var inUseHasAssemblies = false;
+        var inUseHasNothing = true;
         foreach (var version in inUseVersions.Keys)
         {
             var inspection = await GetAsync(NuGetVersion.Parse(version));
             supportsInUse[version] = inspection is null ? null : TargetSupport.Supports(inspection, target);
             inUseHasAssemblies |= inspection is not null && TargetSupport.HasAssemblies(inspection);
+            inUseHasNothing &= inspection is not null && TargetSupport.HasNothingForAnyFramework(inspection);
         }
 
         // A candidate supports the target when its assets do, and it has assemblies if the version in use has:
@@ -192,12 +194,14 @@ public static class DepsAuditor
         var windowsEvidence = WindowsEvidence(inspections, inUse, recommended, target);
         var replacement = packageMap.Find(id);
         var deprecated = newest is not null && byVersion.TryGetValue(newest, out var newestInfo) ? newestInfo.Deprecation : null;
-        var status = Status(available, supportsInUse, newestSupporting, replacement);
+        // Build or tools scripts only (Microsoft.Bcl.Build): "ok" only because there is nothing to judge; the package map knows better.
+        var emptyReplaced = inUseHasNothing && replacement is not null;
+        var status = emptyReplaced && available.Found ? PackageStatus.Replace : Status(available, supportsInUse, newestSupporting, replacement);
         var forOtherSystems = windowsEvidence is not null && inspections.Values.Any(i => i is not null && TargetSupport.WindowsNativeOnly(i) is not null)
             ? await OtherSystemsPackageAsync(request, id, cancellationToken)
             : null;
 
-        Report(request, id, status, inUseList, supportsInUse, newestSupporting, replacement, deprecated, windowsEvidence, available, forOtherSystems);
+        Report(request, id, status, inUseList, supportsInUse, newestSupporting, replacement, deprecated, windowsEvidence, available, forOtherSystems, emptyReplaced);
         return new PackageAudit
         {
             Id = id,
@@ -287,7 +291,7 @@ public static class DepsAuditor
     private static void Report(
         DepsAuditRequest request, string id, PackageStatus status, IReadOnlyList<InUseVersion> inUse, SortedDictionary<string, bool?> supportsInUse,
         NuGetVersion? newestSupporting, PackageReplacement? replacement, PackageDeprecation? deprecated, string? windowsEvidence, PackageVersions available,
-        string? forOtherSystems)
+        string? forOtherSystems, bool emptyReplaced)
     {
         var target = request.Config.TargetFramework;
         KeyValuePair<string, JsonNode?> Package() => KeyValuePair.Create<string, JsonNode?>("package", id);
@@ -296,7 +300,13 @@ public static class DepsAuditor
             request.Diagnostics.Report(DiagnosticCatalog.OFR1005, $"{id} was not found on any feed ({string.Join(", ", request.Feeds.Sources)}).", data: [Package()]);
         }
 
-        if ((status is PackageStatus.Replace or PackageStatus.Blocked) && newestSupporting is not null)
+        if (status == PackageStatus.Replace && emptyReplaced)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR1009,
+                $"{id} {string.Join(", ", inUse.Select(v => v.Version))} has nothing for any framework (only build or tool files), so it does nothing for {target}; the package map says: {replacement!.Replacement}.",
+                data: [Package(), KeyValuePair.Create<string, JsonNode?>("replacement", replacement.Replacement)]);
+        }
+        else if ((status is PackageStatus.Replace or PackageStatus.Blocked) && newestSupporting is not null)
         {
             // Only versions older than one in use support the target: moving back is not an upgrade.
             var unsupported = inUse.Where(v => supportsInUse[v.Version] == false).Select(v => v.Version).ToList();

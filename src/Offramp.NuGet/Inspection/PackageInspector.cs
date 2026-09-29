@@ -22,6 +22,19 @@ public static class PackageInspector
         "System.Drawing", "System.DirectoryServices",
     ];
 
+    /// <summary>
+    /// Native libraries that exist only on Windows and that portable code does not call behind an
+    /// operating-system check the way it calls kernel32, ntdll, advapi32, or the C runtime: calling
+    /// one by P/Invoke makes an assembly Windows-only (DeltaCompressionDotNet calls msdelta.dll).
+    /// </summary>
+    public static readonly IReadOnlySet<string> WindowsOnlyLibraries = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "comctl32", "comdlg32", "credui", "cfgmgr32", "dwmapi", "gdi32", "gdiplus", "hid", "imm32", "mpr", "msdelta", "msi",
+        "mspatcha", "netapi32", "odbc32", "ole32", "oleacc", "oleaut32", "powrprof", "setupapi", "shell32", "shlwapi",
+        "urlmon", "user32", "uxtheme", "wevtapi", "winhttp", "wininet", "winmm", "winscard", "winspool.drv", "wintrust",
+        "wlanapi", "wtsapi32",
+    };
+
     private static readonly string[] AssetRoots = ["lib", "ref", "build", "buildTransitive"];
 
     public static PackageInspection Inspect(byte[] nupkg)
@@ -171,13 +184,56 @@ public static class PackageInspector
                 .Select(h => metadata.GetString(metadata.GetAssemblyReference(h).Name))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var windowsReference = WindowsOnlyReferences.FirstOrDefault(references.Contains);
-            return windowsReference is null ? null : "references " + windowsReference;
+            if (windowsReference is not null)
+            {
+                return "references " + windowsReference;
+            }
+
+            if (NativeLibraries(metadata).FirstOrDefault(WindowsOnlyLibraries.Contains) is { } library)
+            {
+                return $"calls {library}{(library.Contains('.', StringComparison.Ordinal) ? "" : ".dll")} (P/Invoke)";
+            }
+
+            return ComImportTypes(metadata).FirstOrDefault() is { } com ? $"declares COM type {com} ([ComImport])" : null;
         }
         catch (BadImageFormatException)
         {
             return null;
         }
     }
+
+    /// <summary>The libraries the assembly's P/Invoke methods import, lowercase, without ".dll", sorted.</summary>
+    private static List<string> NativeLibraries(MetadataReader metadata)
+    {
+        var libraries = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var handle in metadata.MethodDefinitions)
+        {
+            var method = metadata.GetMethodDefinition(handle);
+            if ((method.Attributes & System.Reflection.MethodAttributes.PinvokeImpl) == 0)
+            {
+                continue;
+            }
+
+            var import = method.GetImport();
+            if (import.Module.IsNil)
+            {
+                continue;
+            }
+
+            var name = metadata.GetString(metadata.GetModuleReference(import.Module).Name).ToLowerInvariant();
+            libraries.Add(name.EndsWith(".dll", StringComparison.Ordinal) ? name[..^4] : name);
+        }
+
+        return [.. libraries];
+    }
+
+    /// <summary>The full names of the types the assembly declares with <c>[ComImport]</c>, sorted.</summary>
+    private static List<string> ComImportTypes(MetadataReader metadata) =>
+        [.. metadata.TypeDefinitions
+            .Select(metadata.GetTypeDefinition)
+            .Where(t => (t.Attributes & System.Reflection.TypeAttributes.Import) != 0)
+            .Select(t => (metadata.GetString(t.Namespace) is { Length: > 0 } ns ? ns + "." : "") + metadata.GetString(t.Name))
+            .Order(StringComparer.Ordinal)];
 
     private static IEnumerable<string> SupportedPlatforms(MetadataReader metadata)
     {

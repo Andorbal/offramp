@@ -31,7 +31,7 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR1004 = new(
         "OFR1004", Severity.Warning,
         "package assets are Windows-only",
-        "The assets NuGet would pick for the target are marked [SupportedOSPlatform(\"windows\")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, directory services), or the package has no managed assemblies and its native code (`runtimes/<rid>/native/`) is for Windows only. The message names the package for `linux-x64` when the id ends in a Windows runtime identifier and the feed has one.",
+        "The assets NuGet would pick for the target are marked [SupportedOSPlatform(\"windows\")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, directory services), call a library only Windows has by P/Invoke (user32, ole32, msdelta, ...; not kernel32, ntdll, or advapi32, which portable code guards), or declare `[ComImport]` types; or the package has no managed assemblies and its native code (`runtimes/<rid>/native/`) is for Windows only. The message names the package for `linux-x64` when the id ends in a Windows runtime identifier and the feed has one.",
         "A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later, or a native package such as LibSassHost.Native.win-x64.",
         "Fine if the application stays on Windows; otherwise choose a cross-platform alternative, or add the native package for the other operating systems, before containerizing.",
         DependenciesArea);
@@ -66,6 +66,14 @@ public static partial class DiagnosticCatalog
         "Projects reference DLLs by `HintPath` that no packages.config installs: checked-in or copied DLLs, which are dependencies too, but not packages, so `deps audit` has nothing to say about them. `deps resolve-dlls` matches them to packages and projects.",
         "A codebase from before NuGet, with third-party DLLs in a lib folder (NHibernate 4.1: 15 references, no package).",
         "Run `offramp deps resolve-dlls`, apply what it finds, and audit again.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1009 = new(
+        "OFR1009", Severity.Warning,
+        "package has nothing for any framework, and the package map replaces it",
+        "The versions in use have no assemblies, no framework-specific assets, no dependency groups, and no native code (only build or tool files), so they \"support\" every target only because there is nothing to judge. The package map names what replaces the package, so its status is `replace`.",
+        "A build-time helper for .NET Framework, such as Microsoft.Bcl.Build, whose targets fail under the .NET SDK's MSBuild.",
+        "Remove the package, or move to what the message names.",
         DependenciesArea);
 
     public static readonly DiagnosticDescriptor OFR1200 = new(

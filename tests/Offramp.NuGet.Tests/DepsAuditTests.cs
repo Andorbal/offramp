@@ -282,6 +282,46 @@ public sealed class DepsAuditTests
         Assert.Contains(bag.ToSortedList(), d => d.Code == "OFR1004" && d.Message.EndsWith("the feed has LibSassHost.Native.linux-x64 for Linux.", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Open Live Writer field test (P2): Microsoft.Bcl.Build, whose only files are build targets, was
+    /// `ok` although the package map says it is built in on modern .NET (its targets fail under the
+    /// SDK's MSBuild). A build-only package the map does not know stays `ok`.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR1009")]
+    public async Task A_package_with_nothing_for_any_framework_follows_the_package_map()
+    {
+        var recording = new FeedRecording
+        {
+            Source = "synthetic",
+            RecordedAt = "2026-09-29",
+            Packages =
+            [
+                new RecordedPackage { Id = "Microsoft.Bcl.Build", Version = "1.0.21", Synthetic = true, Files = [new RecordedFile { Path = "build/Microsoft.Bcl.Build.targets", Content = "<Project />" }] },
+                new RecordedPackage { Id = "NUnitTestAdapter", Version = "2.2.0", Synthetic = true, Files = [new RecordedFile { Path = "build/NUnitTestAdapter.props", Content = "<Project />" }] },
+            ],
+        };
+        using var root = new ScratchDirectory();
+        static PackageUsage InUse(string version) => new() { Versions = new(StringComparer.Ordinal) { [version] = ["src/Web/Web.csproj"] } };
+        var model = FixtureModels.Load("versions") with
+        {
+            Packages = new SortedDictionary<string, PackageUsage>(StringComparer.Ordinal) { ["Microsoft.Bcl.Build"] = InUse("1.0.21"), ["NUnitTestAdapter"] = InUse("2.2.0") },
+        };
+        var bag = new DiagnosticBag();
+
+        var result = await DepsAuditor.RunAsync(new DepsAuditRequest
+        {
+            Model = model, Config = Config(root.Path), Feeds = new RecordedPackageFeeds(recording), Cache = NullCache.Instance, Diagnostics = bag,
+        }, TestContext.Current.CancellationToken);
+
+        var bcl = result.Packages.Single(p => p.Id == "Microsoft.Bcl.Build");
+        Assert.Equal((PackageStatus.Replace, "built in on modern .NET"), (bcl.Status, bcl.Replacement!.Replacement));
+        Assert.Equal(PackageStatus.Ok, result.Packages.Single(p => p.Id == "NUnitTestAdapter").Status);
+        var empty = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR1009");
+        Assert.Equal("Microsoft.Bcl.Build 1.0.21 has nothing for any framework (only build or tool files), so it does nothing for net10.0; the package map says: built in on modern .NET.", empty.Message);
+        Assert.DoesNotContain(bag.ToSortedList(), d => d.Code is "OFR1001" or "OFR1007");
+    }
+
     [Fact]
     public async Task Ignored_packages_and_project_filter()
     {
