@@ -133,6 +133,13 @@ public sealed record ProjectInfo
     /// <summary>True when a packages.config sits next to the project file.</summary>
     public bool PackagesConfig { get; init; }
 
+    /// <summary>
+    /// The packages the project's packages.config lists, sorted by id and version; null when it
+    /// has none. packages.config lists every package the project uses, direct or not.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<PackagesConfigPackage>? PackagesConfigPackages { get; init; }
+
     public IReadOnlyList<string> Compile { get; init; } = [];
 
     public bool CompileExplicit { get; init; }
@@ -171,6 +178,20 @@ public sealed record PackageReferenceInfo
     public string? PrivateAssets { get; init; }
 
     public IReadOnlyList<string> Tfms { get; init; } = [];
+}
+
+/// <summary>A package a packages.config lists.</summary>
+public sealed record PackagesConfigPackage
+{
+    public required string Id { get; init; }
+
+    /// <summary>The version as written, which is also the <c>packages/&lt;Id&gt;.&lt;Version&gt;</c> folder's spelling.</summary>
+    public required string Version { get; init; }
+
+    /// <summary>The <c>targetFramework</c> it was installed for (<c>net472</c>), or null.</summary>
+    public string? TargetFramework { get; init; }
+
+    public bool DevelopmentDependency { get; init; }
 }
 
 [JsonConverter(typeof(CamelCaseEnumConverter<AssemblyReferenceKind>))]

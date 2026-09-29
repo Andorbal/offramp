@@ -79,11 +79,11 @@ Evaluated in order; first match wins; the evidence is recorded.
 
 | Kind | Evidence |
 |---|---|
-| `test` | `IsTestProject=true`, or a PackageReference to a known test framework (xunit, NUnit, MSTest.TestFramework, TUnit) or adapter, or legacy test ProjectTypeGuid |
+| `test` | `IsTestProject=true`, or a PackageReference to a known test framework (xunit, NUnit, MSTest.TestFramework, TUnit) or adapter, or the same in `packages.config`, or legacy test ProjectTypeGuid |
 | `web` | `Sdk=Microsoft.NET.Sdk.Web`, or legacy web ProjectTypeGuid, or `Reference Include="System.Web"` with `OutputType=Library` and a `web.config` |
 | `winforms` | `UseWindowsForms=true`, or `Reference Include="System.Windows.Forms"` with `OutputType=WinExe` |
 | `wpf` | `UseWPF=true`, or `Sdk=Microsoft.NET.Sdk.WindowsDesktop` with `PresentationFramework` reference |
-| `service` | `Reference Include="System.ServiceProcess"` with `OutputType=Exe`, or a PackageReference to Topshelf or `Microsoft.Extensions.Hosting.WindowsServices`, or `Sdk=Microsoft.NET.Sdk.Worker` |
+| `service` | `Reference Include="System.ServiceProcess"` with `OutputType=Exe`, or a PackageReference to Topshelf or `Microsoft.Extensions.Hosting.WindowsServices` (or either in the `packages.config` of an `OutputType=Exe` project), or `Sdk=Microsoft.NET.Sdk.Worker` |
 | `console` | `OutputType=Exe` |
 | `library` | `OutputType=Library` |
 | `unknown` | anything else; emits `OFR0102` |
@@ -119,8 +119,11 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
       "isTestProject": false,
       "properties": { "LangVersion": "latest", "Nullable": "disable", "GenerateSerializationAssemblies": "On" },
       "defineConstants": { "net48": ["TRACE", "DEBUG", "NETFRAMEWORK", "NET48", "NET48_OR_GREATER"] },  // what the compiler saw
-      "windowsOnlyBuildSteps": ["sgen"],          // ids: sgen, com, entity-deploy, t4, fakes, ssdt, build-event
+      "windowsOnlyBuildSteps": ["sgen"],          // ids: sgen, com, entity-deploy, t4, fakes, ssdt, build-event, web-targets
       "packagesConfig": false,                    // a packages.config sits beside the project
+      "packagesConfigPackages": [                 // what it lists (direct and transitive), sorted; absent without one
+        { "id": "Newtonsoft.Json", "version": "13.0.3", "targetFramework": "net472", "developmentDependency": false }
+      ],
       "compile": ["src/Foo/A.cs", "src/Foo/Sub/B.cs"],
       "compileExplicit": false,                   // true when csproj lists Compile items explicitly
       "projectReferences": ["src/Bar/Bar.csproj"],
@@ -150,7 +153,7 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
     "cycles": [ ["src/A/A.csproj", "src/B/B.csproj"] ],
     "topologicalOrder": ["src/Bar/Bar.csproj", "src/Foo/Foo.csproj"]
   },
-  "packages": {                                    // index across projects
+  "packages": {                                    // index across projects: PackageReference and packages.config, versions normalized
     "Newtonsoft.Json": { "versions": { "9.0.1": ["src/Customer.Api/Customer.Api.csproj"], "13.0.3": ["src/Foo/Foo.csproj"] } }
   },
   "inputs": [ { "path": "src/Foo/Foo.csproj", "sha256": "..." } ],   // for staleness

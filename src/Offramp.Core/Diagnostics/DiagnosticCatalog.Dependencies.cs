@@ -68,6 +68,14 @@ public static partial class DiagnosticCatalog
         "Nothing, while the pin's reason holds; remove the pin to consolidate the project too.",
         DependenciesArea);
 
+    public static readonly DiagnosticDescriptor OFR1204 = new(
+        "OFR1204", Severity.Info,
+        "packages.config project keeps its version",
+        "A project on `packages.config` uses the package at another version than the one `deps consolidate` selects. Consolidation changes `PackageReference` versions only, so the project keeps its version.",
+        "A legacy project not yet converted to `PackageReference`.",
+        "Convert the project with `offramp csproj modernize`, then consolidate again; or update it with NuGet in Visual Studio.",
+        DependenciesArea);
+
     public static readonly DiagnosticDescriptor OFR1210 = new(
         "OFR1210", Severity.Error,
         "pin conflicts with a transitive lower bound",
@@ -186,5 +194,13 @@ public static partial class DiagnosticCatalog
         "A redirect names an assembly no package in the application's graph provides, so it redirects to a version the build does not deploy. It is kept unless `--prune` is given.",
         "A package removed, a redirect copied from another application, or a redirect for a framework assembly.",
         "Run `offramp redirects sync --prune`, or keep the redirect when a framework assembly needs it.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1505 = new(
+        "OFR1505", Severity.Warning,
+        "deployed assembly older than a reference to it",
+        "The application's packages deploy an assembly at a lower version than other deployed assemblies reference. A redirect would send those references down to a version that may lack what they call, so none is written.",
+        "packages.config lists a package at a lower version than a package depending on it needs (installed with dependencies ignored), or a build step copies a newer DLL in from elsewhere.",
+        "Update the package that ships the assembly to the version its dependents reference, then run `offramp redirects sync` again.",
         DependenciesArea);
 }

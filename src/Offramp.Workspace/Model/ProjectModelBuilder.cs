@@ -53,6 +53,7 @@ public static class ProjectModelBuilder
         var packages = PackageReferences(all);
         var assemblies = AssemblyReferences(all, projectDirectory, context);
         var localDirectory = Path.GetDirectoryName(RepoPaths.ToAbsolute(context.Paths.RepositoryRoot, projectId))!;
+        var installed = PackagesConfigReader.Read(Path.Combine(localDirectory, "packages.config"));
         var facts = new ProjectFacts
         {
             Sdk = sdk,
@@ -61,6 +62,7 @@ public static class ProjectModelBuilder
             UseWpf = all.Any(e => e.IsTrue("UseWPF")),
             UseWindowsForms = all.Any(e => e.IsTrue("UseWindowsForms")),
             PackageIds = packages.Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase),
+            PackagesConfigIds = (installed ?? []).Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase),
             AssemblyReferences = assemblies.Select(a => a.Name).ToHashSet(StringComparer.OrdinalIgnoreCase),
             ProjectTypeGuids = first.Property("ProjectTypeGuids"),
             HasWebConfig = File.Exists(Path.Combine(localDirectory, "web.config")) || File.Exists(Path.Combine(localDirectory, "Web.config")),
@@ -110,6 +112,7 @@ public static class ProjectModelBuilder
             DefineConstants = DefineConstants(projectId, inner, context),
             WindowsOnlyBuildSteps = [.. WindowsOnlyBuildSteps.Detect(projectFile, evaluations, context.Errors.Where(e => string.Equals(e.ProjectFile, projectFile, StringComparison.OrdinalIgnoreCase))).Select(s => s.Id)],
             PackagesConfig = File.Exists(Path.Combine(localDirectory, "packages.config")),
+            PackagesConfigPackages = installed,
             Compile = compile,
             CompileExplicit = !first.IsTrue("UsingMicrosoftNETSdk")
                 || string.Equals(first.Property("EnableDefaultCompileItems"), "false", StringComparison.OrdinalIgnoreCase),

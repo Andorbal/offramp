@@ -80,6 +80,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1006](#ofr1006) | warning | deps | feed unreachable; result partial |
 | [OFR1200](#ofr1200) | error | deps | package not referenced |
 | [OFR1203](#ofr1203) | warning | deps | pin kept a package below the otherwise-selected version |
+| [OFR1204](#ofr1204) | info | deps | packages.config project keeps its version |
 | [OFR1210](#ofr1210) | error | deps | pin conflicts with a transitive lower bound |
 | [OFR1211](#ofr1211) | error | deps | restore verification failed |
 | [OFR1212](#ofr1212) | error | deps | no version satisfies every constraint |
@@ -95,6 +96,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1502](#ofr1502) | info | deps | binding redirect changed |
 | [OFR1503](#ofr1503) | info | deps | binding redirect pruned |
 | [OFR1504](#ofr1504) | warning | deps | stale binding redirect |
+| [OFR1505](#ofr1505) | warning | deps | deployed assembly older than a reference to it |
 | [OFR2001](#ofr2001) | warning | move | move would create a project reference cycle |
 | [OFR2002](#ofr2002) | error | move | destination equals source |
 | [OFR2003](#ofr2003) | error | move | project is frozen |
@@ -704,6 +706,15 @@ A pin in offramp.yml keeps a project on an older version than the one the rest o
 - **Typical cause:** A deliberate pin (its reason is quoted).
 - **Fix:** Nothing, while the pin's reason holds; remove the pin to consolidate the project too.
 
+### OFR1204
+
+**packages.config project keeps its version** · info · deps
+
+A project on `packages.config` uses the package at another version than the one `deps consolidate` selects. Consolidation changes `PackageReference` versions only, so the project keeps its version.
+
+- **Typical cause:** A legacy project not yet converted to `PackageReference`.
+- **Fix:** Convert the project with `offramp csproj modernize`, then consolidate again; or update it with NuGet in Visual Studio.
+
 ### OFR1210
 
 **pin conflicts with a transitive lower bound** · error · deps
@@ -838,6 +849,15 @@ A redirect names an assembly no package in the application's graph provides, so 
 
 - **Typical cause:** A package removed, a redirect copied from another application, or a redirect for a framework assembly.
 - **Fix:** Run `offramp redirects sync --prune`, or keep the redirect when a framework assembly needs it.
+
+### OFR1505
+
+**deployed assembly older than a reference to it** · warning · deps
+
+The application's packages deploy an assembly at a lower version than other deployed assemblies reference. A redirect would send those references down to a version that may lack what they call, so none is written.
+
+- **Typical cause:** packages.config lists a package at a lower version than a package depending on it needs (installed with dependencies ignored), or a build step copies a newer DLL in from elsewhere.
+- **Fix:** Update the package that ships the assembly to the version its dependents reference, then run `offramp redirects sync` again.
 
 ### OFR2001
 

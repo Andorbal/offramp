@@ -482,17 +482,24 @@ public static class ScanRunner
         data.Errors.FirstOrDefault(e => e.ProjectFile is not null
             && string.Equals(mapper.ToRelative(e.ProjectFile), project, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>A packages.config version as NuGet normalizes it (<c>1.0.0.0</c> is <c>1.0.0</c>), so both kinds of project share one spelling.</summary>
+    private static string NormalizedVersion(string version) =>
+        NuGet.Versioning.NuGetVersion.TryParse(version, out var parsed) ? parsed.ToNormalizedString() : version;
+
+    /// <summary>Package id → version → the projects using it, from PackageReference items and packages.config files.</summary>
     private static SortedDictionary<string, PackageUsage> PackageIndex(IEnumerable<ProjectInfo> projects)
     {
         var index = new SortedDictionary<string, SortedDictionary<string, SortedSet<string>>>(StringComparer.OrdinalIgnoreCase);
         foreach (var project in projects)
         {
-            foreach (var package in project.PackageReferences)
+            var used = project.PackageReferences
+                .Select(p => (p.Id, Version: p.VersionOverride ?? p.Version ?? ResolvedVersion(project, p.Id) ?? "unknown"))
+                .Concat((project.PackagesConfigPackages ?? []).Select(p => (p.Id, Version: NormalizedVersion(p.Version))));
+            foreach (var (id, version) in used)
             {
-                var version = package.VersionOverride ?? package.Version ?? ResolvedVersion(project, package.Id) ?? "unknown";
-                if (!index.TryGetValue(package.Id, out var versions))
+                if (!index.TryGetValue(id, out var versions))
                 {
-                    index[package.Id] = versions = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+                    index[id] = versions = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
                 }
 
                 if (!versions.TryGetValue(version, out var users))

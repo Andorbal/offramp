@@ -86,7 +86,7 @@ public static class DeadCodeAnalyzer
         var projects = new List<DeadCodeProject>();
         using (var phase = request.Progress.BeginPhase("dead code: candidates", 2, 2))
         {
-            var inScope = compilations.Where(c => !c.Project.IsTestProject && (request.Projects.Count == 0 || request.Projects.Contains(c.Project.Id, StringComparer.Ordinal))).ToList();
+            var inScope = compilations.Where(c => !IsTest(c.Project) && (request.Projects.Count == 0 || request.Projects.Contains(c.Project.Id, StringComparer.Ordinal))).ToList();
             for (var i = 0; i < inScope.Count; i++)
             {
                 phase.Report(i, inScope.Count, inScope[i].Project.Id);
@@ -119,6 +119,9 @@ public static class DeadCodeAnalyzer
     }
 
     private sealed record Loaded(ProjectInfo Project, Compilation Compilation);
+
+    /// <summary>A test project: <c>IsTestProject</c>, or detected as one (a legacy project referencing NUnit through packages.config).</summary>
+    private static bool IsTest(ProjectInfo project) => project.IsTestProject || project.Kind == ProjectKind.Test;
 
     private static List<Loaded> Load(DeadCodeRequest request, CompilationLoader loader, List<string> skipped)
     {
@@ -258,7 +261,7 @@ public static class DeadCodeAnalyzer
                 }
 
                 var uses = _uses.TryGetValue(id, out var list) ? list : _uses[id] = [];
-                uses.Add((project.Id, project.IsTestProject, file, position));
+                uses.Add((project.Id, IsTest(project), file, position));
             }
         }
 

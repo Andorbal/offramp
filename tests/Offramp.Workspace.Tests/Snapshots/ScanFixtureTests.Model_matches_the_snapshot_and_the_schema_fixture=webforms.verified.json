@@ -1,0 +1,332 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "WebForms.sln",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Portal.Controls/Portal.Controls.csproj",
+      "name": "Portal.Controls",
+      "assemblyName": "Portal.Controls",
+      "rootNamespace": "Portal.Controls",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Portal.Controls/ModuleBase.cs",
+        "src/Portal.Controls/RouteRegistry.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 42,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Portal.Modules/Portal.Modules.csproj",
+      "name": "Portal.Modules",
+      "assemblyName": "Portal.Modules",
+      "rootNamespace": "Portal.Modules",
+      "language": "csharp",
+      "kind": "web",
+      "kindEvidence": "Reference System.Web + OutputType=Library + web.config",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Portal.Modules/Default.aspx.cs",
+        "src/Portal.Modules/EditSettings.ascx.cs",
+        "src/Portal.Modules/Leftover.cs",
+        "src/Portal.Modules/ModuleRoutes.cs",
+        "src/Portal.Modules/UpgradeController.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [
+        "src/Portal.Controls/Portal.Controls.csproj",
+        "src/Portal.Utilities/Portal.Utilities.vbproj"
+      ],
+      "packageReferences": [],
+      "assemblyReferences": [
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 65,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Portal.Utilities/Portal.Utilities.vbproj",
+      "name": "Portal.Utilities",
+      "assemblyName": "Portal.Utilities",
+      "rootNamespace": "Portal.Utilities",
+      "language": "vb",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": false,
+      "sdk": null,
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "ManagePackageVersionsCentrally": "false"
+      },
+      "defineConstants": {
+        "net48": []
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Portal.Utilities/ClientApi.vb"
+      ],
+      "compileExplicit": true,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NETFramework.ReferenceAssemblies",
+          "version": "1.0.3",
+          "versionOverride": null,
+          "privateAssets": "all",
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "System",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies",
+              "version": "1.0.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+                  "range": "[1.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+              "version": "1.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 9,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/Portal.Modules/Portal.Modules.csproj",
+        "to": "src/Portal.Controls/Portal.Controls.csproj",
+        "kind": "project"
+      },
+      {
+        "from": "src/Portal.Modules/Portal.Modules.csproj",
+        "to": "src/Portal.Utilities/Portal.Utilities.vbproj",
+        "kind": "project"
+      }
+    ],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Portal.Controls/Portal.Controls.csproj",
+      "src/Portal.Utilities/Portal.Utilities.vbproj",
+      "src/Portal.Modules/Portal.Modules.csproj"
+    ]
+  },
+  "packages": {
+    "Microsoft.NETFramework.ReferenceAssemblies": {
+      "versions": {
+        "1.0.3": [
+          "src/Portal.Utilities/Portal.Utilities.vbproj"
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "WebForms.sln",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Portal.Controls/Portal.Controls.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Portal.Modules/Portal.Modules.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Portal.Utilities/Portal.Utilities.vbproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}

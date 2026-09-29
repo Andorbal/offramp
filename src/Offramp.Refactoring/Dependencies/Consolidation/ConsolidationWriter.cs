@@ -44,7 +44,7 @@ internal sealed class ConsolidationWriter(ConsolidateRequest request)
         }
         else
         {
-            WriteInPlace(packages);
+            WriteInPlace(packages, projects);
         }
 
         var changeSet = new ChangeSet();
@@ -64,9 +64,10 @@ internal sealed class ConsolidationWriter(ConsolidateRequest request)
         return (changeSet, cpm, hazards);
     }
 
-    /// <summary>Each project's own PackageReference Version becomes the selected version.</summary>
-    private void WriteInPlace(IReadOnlyList<PackageConsolidation> packages)
+    /// <summary>Each project's own PackageReference Version becomes the selected version; packages.config projects keep theirs.</summary>
+    private void WriteInPlace(IReadOnlyList<PackageConsolidation> packages, List<ProjectInfo> writable)
     {
+        var ids = writable.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
         foreach (var package in packages.Where(p => p.Selected is not null))
         {
             var pinned = package.Pinned.SelectMany(p => p.Projects).ToHashSet(StringComparer.Ordinal);
@@ -77,7 +78,7 @@ internal sealed class ConsolidationWriter(ConsolidateRequest request)
                     continue;
                 }
 
-                foreach (var project in projects.Where(p => !pinned.Contains(p)))
+                foreach (var project in projects.Where(p => !pinned.Contains(p) && ids.Contains(p)))
                 {
                     if (Editor(project).SetMetadata("PackageReference", package.Id, "Version", package.Selected) > 0)
                     {
@@ -91,15 +92,22 @@ internal sealed class ConsolidationWriter(ConsolidateRequest request)
     /// <summary>The central file's PackageVersion becomes the selected version; pins get VersionOverride.</summary>
     private CentralPackageManagement WriteExisting(IReadOnlyList<PackageConsolidation> packages, List<ProjectInfo> projects)
     {
+        var ids = projects.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
         var files = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var package in packages.Where(p => p.Selected is not null))
         {
-            var users = package.Current.SelectMany(c => c.Projects).Concat(package.Pinned.SelectMany(p => p.Projects)).Distinct(StringComparer.Ordinal).ToList();
+            var users = package.Current.SelectMany(c => c.Projects).Concat(package.Pinned.SelectMany(p => p.Projects))
+                .Where(ids.Contains).Distinct(StringComparer.Ordinal).ToList();
+            if (users.Count == 0)
+            {
+                continue;
+            }
+
             foreach (var file in users.Select(CentralFileOf).OfType<string>().Distinct(StringComparer.Ordinal))
             {
                 files.Add(file);
                 var editor = Editor(file);
-                var before = package.Current.Select(c => c.Version).FirstOrDefault();
+                var before = package.Current.Where(c => c.Projects.Any(ids.Contains)).Select(c => c.Version).FirstOrDefault();
                 if (editor.SetMetadata("PackageVersion", package.Id, "Version", package.Selected) == 0)
                 {
                     editor.AddPackageVersion(package.Id, package.Selected!);

@@ -11,11 +11,15 @@ namespace Offramp.NuGet.Inspection;
 /// </summary>
 public static class PackageInspector
 {
-    /// <summary>Referencing any of these makes an assembly Windows-only on modern .NET.</summary>
+    /// <summary>
+    /// Referencing any of these makes an assembly Windows-only on modern .NET. Not
+    /// <c>Microsoft.Win32.Registry</c>: it is part of the shared framework on every OS, and libraries
+    /// reference it for code paths they guard (NUnit runs on Linux).
+    /// </summary>
     public static readonly IReadOnlyList<string> WindowsOnlyReferences =
     [
         "System.Windows.Forms", "PresentationFramework", "PresentationCore", "System.Web",
-        "System.Drawing", "Microsoft.Win32.Registry", "System.DirectoryServices",
+        "System.Drawing", "System.DirectoryServices",
     ];
 
     private static readonly string[] AssetRoots = ["lib", "ref", "build", "buildTransitive"];

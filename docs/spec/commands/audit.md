@@ -343,7 +343,7 @@ Decisions behind the two commands (ADR 0022).
 - **Lines.** Each declaration counts from its documentation comment (plain `///` comments
   too) through its closing line. Partial types add up their declarations. The summary's
   `removableLoc` is the high-confidence total.
-- **Tests.** Test projects (`IsTestProject`) are never scanned for candidates, but their
+- **Tests.** Test projects (`IsTestProject`, or kind `test`) are never scanned for candidates, but their
   uses count. With `--include-tests`, a symbol only test projects use is listed under
   `testOnly` (OFR3402) instead.
 - **Diagnostics:** one OFR3401 per project with candidates (the count and the lines at

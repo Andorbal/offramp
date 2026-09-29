@@ -44,6 +44,28 @@ public sealed class InspectionTests
         Assert.Null(TargetSupport.WindowsOnly(Inspect("Newtonsoft.Json", "13.0.3"), NuGetFramework.Parse("net10.0")));
     }
 
+    [Fact]
+    public void A_reference_to_the_registry_is_not_evidence_of_windows_only_code()
+    {
+        // NUnit's net6.0 build references Microsoft.Win32.Registry, part of .NET on every OS, and runs on Linux.
+        static PackageInspection Package(string reference) => PackageInspector.Inspect(FeedMaterializer.Nupkg(new RecordedPackage
+        {
+            Id = "Contoso.Runner",
+            Version = "1.0.0",
+            Files =
+            [
+                new RecordedFile
+                {
+                    Path = "lib/net6.0/Contoso.Runner.dll",
+                    Assembly = new RecordedAssembly { Name = "Contoso.Runner", Version = "1.0.0.0", References = [new RecordedAssemblyReference(reference, "8.0.0.0", "b03f5f7f11d50a3a")] },
+                },
+            ],
+        }));
+
+        Assert.Null(TargetSupport.WindowsOnly(Package("Microsoft.Win32.Registry"), NuGetFramework.Parse("net10.0")));
+        Assert.Contains("references System.Windows.Forms", TargetSupport.WindowsOnly(Package("System.Windows.Forms"), NuGetFramework.Parse("net10.0")), StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("lib/net45/A.dll", "net45")]
     [InlineData("lib/A.dll", "net11")]

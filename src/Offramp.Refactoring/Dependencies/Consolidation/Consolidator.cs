@@ -121,6 +121,7 @@ public static class Consolidator
             packages.Add(decision.ToResult());
         }
 
+        ReportPackagesConfig(request, packages);
         var writer = new ConsolidationWriter(request);
         var (changeSet, cpm, hazards) = writer.Write(packages);
         packages = [.. packages.Select(p => p with { Changes = writer.ChangesFor(p.Id) })];
@@ -135,6 +136,32 @@ public static class Consolidator
             Preview = changeSet.IsEmpty ? null : changeSet.Preview(),
         };
         return new ConsolidationPlan(result, changeSet.IsEmpty ? null : changeSet);
+    }
+
+    /// <summary>OFR1204: packages.config projects on another version than the selected one, which consolidation does not change.</summary>
+    private static void ReportPackagesConfig(ConsolidateRequest request, IReadOnlyList<PackageConsolidation> packages)
+    {
+        var installed = request.Model.Projects.Where(p => p.PackagesConfig).Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var package in packages.Where(p => p.Selected is not null))
+        {
+            var kept = package.Current
+                .Where(c => c.Version != package.Selected)
+                .SelectMany(c => c.Projects.Where(installed.Contains).Select(project => $"{project} ({c.Version})"))
+                .Order(StringComparer.Ordinal)
+                .ToList();
+            if (kept.Count == 0)
+            {
+                continue;
+            }
+
+            request.Diagnostics.Report(DiagnosticCatalog.OFR1204,
+                $"{package.Id} {package.Selected} is selected, but packages.config projects keep their versions: {string.Join(", ", kept)}. Convert them with `offramp csproj modernize` to consolidate them too.",
+                data:
+                [
+                    KeyValuePair.Create<string, JsonNode?>("package", package.Id),
+                    KeyValuePair.Create<string, JsonNode?>("projects", new JsonArray([.. kept.Select(k => (JsonNode?)k)])),
+                ]);
+        }
     }
 
     /// <summary>The packages to consolidate: all, one (with its family), or a family by prefix; sorted.</summary>

@@ -304,6 +304,23 @@ public sealed class ConsolidationTests
         Assert.DoesNotContain(again.ChangeSet.Edits, e => e.Path == "Directory.Packages.props");
     }
 
+    [Fact]
+    [ProducesDiagnostic("OFR1204")]
+    public async Task A_packages_config_project_counts_as_a_user_but_keeps_its_version()
+    {
+        var fixture = await ScannedFixtures.GetAsync("cpm-shadowing");
+        var request = ShadowingRequest(fixture.Root, fixture.Outcome.Model!);
+
+        var plan = (await Consolidator.PlanAsync(request, TestContext.Current.CancellationToken))!;
+
+        var newtonsoft = Assert.Single(plan.Result.Packages, p => p.Id == "Newtonsoft.Json");
+        Assert.Contains(newtonsoft.Current, c => c.Version == "9.0.1" && c.Projects.Contains("src/Legacy/Legacy.csproj"));
+        Assert.DoesNotContain(plan.ChangeSet?.Edits ?? [], e => e.Path.StartsWith("src/Legacy/", StringComparison.Ordinal));
+        Assert.DoesNotContain(newtonsoft.Changes, c => c.File.StartsWith("src/Legacy/", StringComparison.Ordinal));
+        var kept = Assert.Single(request.Diagnostics.ToSortedList(), d => d.Code == "OFR1204");
+        Assert.Contains("src/Legacy/Legacy.csproj (9.0.1)", kept.Message, StringComparison.Ordinal);
+    }
+
     private static ConsolidateRequest ShadowingRequest(string root, Core.Model.WorkspaceModel model) => new()
     {
         RepositoryRoot = root,

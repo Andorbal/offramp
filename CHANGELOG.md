@@ -12,6 +12,26 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Fixed
+- `deps resolve-dlls` takes a DLL's package and version from the `packages/<Id>.<Version>/`
+  folder its `HintPath` goes through when the project's `packages.config` lists it, as the new
+  `packagesConfig` resolution, and leaves it alone. It matched by assembly version before and
+  picked the lowest package version shipping it, so `--apply` would have written 184 wrong
+  versions on DotNetNuke (Newtonsoft.Json 13.0.3 as 13.0.1, Castle.Core 5.1.1 as 5.0.0), and it
+  reported DLLs of packages that support the target (NUnit 4.2.2, BouncyCastle 1.9.0) as
+  blockers (OFR1404): 172 blockers before, 6 now. `--apply` no longer adds `PackageReference`
+  items to `packages.config` projects. The result's `summary` has `packagesConfig`.
+- `redirects sync` counts the packages `packages.config` deploys (the application's and those of
+  the projects it references), read from the solution's `packages/` folder. It called the
+  redirects of every `packages.config` application stale, and `--prune` would have removed live
+  ones (Newtonsoft.Json, BouncyCastle) from DotNetNuke's `web.config`.
+- `redirects sync` never writes a redirect down to an older deployed version than one referenced
+  (new `OFR1505`, warning), and a configuration file naming an assembly twice no longer ends the
+  command with an exception.
+- `deps audit` no longer calls a package Windows-only because its assembly references
+  `Microsoft.Win32.Registry`, which ships with .NET on every OS (NUnit was OFR1004). Cached
+  inspections are recomputed.
+- `schemas/v1/workspace.json` accepts the `web-targets` Windows-only build step that `OFR0116`
+  records.
 - `audit api` no longer blames the wrong API when a type is missing on the target. Roslyn
   reports a missing base type (a Web Forms `UserControl` or `Page`) at every name looked up
   inside the derived class, and a missing parameter type at every call of the method, so
@@ -35,6 +55,18 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   and nothing in them bound.
 
 ### Added
+- The workspace model records the packages each `packages.config` lists
+  (`packagesConfigPackages`: id, version, target framework, development dependency), and the
+  `packages` index includes them (ADR 0034). `deps audit` audits them: on DotNetNuke 9.13 it
+  saw 23 packages before and 77 now, among them the blockers (WebFormsMvp, ClientDependency, SQL
+  Server Compact) and the ASP.NET packages to replace. A test framework or Topshelf listed in
+  `packages.config` sets the project's kind, which moved 12 DotNetNuke projects from `library`
+  to `test`.
+- `OFR1204` (info): `deps consolidate` selected a version a `packages.config` project does not
+  use; consolidation writes `PackageReference` projects only, so it keeps its version.
+- `rules/package-map.yml` maps `Microsoft.NETFramework.ReferenceAssemblies*` and
+  `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` (not needed on modern .NET), SQL Server
+  Compact, and the rest of the ASP.NET Web Pages packages.
 - The `webforms` fixture: a Web Forms web project whose control derives from `UserControl`
   through another project and calls a legacy Visual Basic library, as DotNetNuke modules do.
 

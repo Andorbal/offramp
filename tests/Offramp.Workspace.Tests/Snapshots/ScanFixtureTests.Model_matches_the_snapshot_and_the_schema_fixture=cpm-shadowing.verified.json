@@ -140,6 +140,14 @@
       },
       "windowsOnlyBuildSteps": [],
       "packagesConfig": true,
+      "packagesConfigPackages": [
+        {
+          "id": "Newtonsoft.Json",
+          "version": "9.0.1",
+          "targetFramework": "net48",
+          "developmentDependency": false
+        }
+      ],
       "compile": [
         "src/Legacy/Marker.cs"
       ],
@@ -268,6 +276,9 @@
         ],
         "13.0.1": [
           "src/Worker/Worker.csproj"
+        ],
+        "9.0.1": [
+          "src/Legacy/Legacy.csproj"
         ]
       }
     }

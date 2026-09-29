@@ -33,7 +33,7 @@
                   "additionalProperties": false,
                   "required": ["kind", "project", "package", "version", "reason"],
                   "properties": {
-                    "kind": { "enum": ["project", "package", "none"] },
+                    "kind": { "enum": ["project", "package", "packagesConfig", "none"] },
                     "project": { "type": ["string", "null"] },
                     "package": { "type": ["string", "null"] },
                     "version": { "type": ["string", "null"] },
@@ -49,12 +49,13 @@
     "summary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["project", "package", "unmatched", "blockers"],
+      "required": ["project", "package", "unmatched", "blockers", "packagesConfig"],
       "properties": {
         "project": { "type": "integer", "minimum": 0 },
         "package": { "type": "integer", "minimum": 0 },
         "unmatched": { "type": "integer", "minimum": 0 },
-        "blockers": { "type": "integer", "minimum": 0 }
+        "blockers": { "type": "integer", "minimum": 0 },
+        "packagesConfig": { "type": "integer", "minimum": 0 }
       }
     },
     "applied": { "type": "boolean" },

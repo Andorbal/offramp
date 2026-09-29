@@ -43,4 +43,29 @@ public sealed class DepsResolveDllsCommandTests
         var build = await ProcessRunner.Instance.RunAsync(new ProcessSpec("dotnet", ["build", "src/App/App.csproj", "-nologo", "-v:q"]) { WorkingDirectory = repository.Path, Timeout = TimeSpan.FromMinutes(5) });
         Assert.True(build.Succeeded, build.StandardOutput + build.StandardError);
     }
+
+    [Fact]
+    public async Task A_dll_packages_config_installs_is_that_exact_package_and_is_left_alone()
+    {
+        // Billing references packages/Newtonsoft.Json.13.0.3/lib/net45/Newtonsoft.Json.dll, which ships
+        // assembly version 13.0.0.0 like every 13.x; its packages.config names the version.
+        var fixture = await ScannedFixtures.ScanAsync("legacy-csproj");
+        using var repository = fixture.Repository;
+        VersionsFeed.WriteFolderFeed(repository.Directory.Combine(".offramp", "recorded-feed"));
+        repository.Directory.Write("offramp.yml", "version: 1\ndeps:\n  feeds: [ .offramp/recorded-feed ]\n");
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var result = await cli.RunAsync("deps", "resolve-dlls", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        SchemaAssert.ValidEnvelope(result.Out, "deps-resolve-dlls");
+        var node = JsonNode.Parse(result.Out)!;
+        var newtonsoft = Assert.Single(node["result"]!["projects"]!.AsArray().SelectMany(p => p!["references"]!.AsArray()), r => r!["name"]!.GetValue<string>() == "Newtonsoft.Json")!;
+        Assert.Equal(
+            ("packagesConfig", "Newtonsoft.Json", "13.0.3", false),
+            (newtonsoft["resolution"]!["kind"]!.GetValue<string>(), newtonsoft["resolution"]!["package"]!.GetValue<string>(), newtonsoft["resolution"]!["version"]!.GetValue<string>(), newtonsoft["blocker"]!.GetValue<bool>()));
+        Assert.Equal(1, node["result"]!["summary"]!["packagesConfig"]!.GetValue<int>());
+        Assert.Null(node["result"]!["preview"]);
+        Assert.DoesNotContain(node["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>().StartsWith("OFR14", StringComparison.Ordinal));
+    }
 }

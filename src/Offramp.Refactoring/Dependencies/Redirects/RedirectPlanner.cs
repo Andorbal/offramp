@@ -3,6 +3,7 @@ using System.Reflection.PortableExecutable;
 using System.Text.Json.Serialization;
 using NuGet.Configuration;
 using NuGet.Frameworks;
+using NuGet.Versioning;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Json;
 using Offramp.Core.Model;
@@ -141,11 +142,18 @@ public static class RedirectPlanner
             return new AppRedirects { Project = project.Id, TargetFramework = tfm, Redirects = [], Skipped = $"no {name}" + (project.Kind == ProjectKind.Web ? "" : " (the SDK generates redirects for the output)") };
         }
 
-        var graph = AssemblyGraph(project, tfm, packagesFolder);
+        var graph = AssemblyGraph(request, project, tfm, packagesFolder);
         var bytes = File.ReadAllBytes(RepoPaths.ToAbsolute(request.RepositoryRoot, config));
         var bindings = ConfigBindings.Load(bytes);
         var entries = new List<RedirectEntry>();
-        var existing = bindings.Redirects.ToDictionary(r => r.Assembly, StringComparer.OrdinalIgnoreCase);
+        // A configuration file can name an assembly twice; the first entry is the one compared.
+        var existing = bindings.Redirects.GroupBy(r => r.Assembly, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (assembly, older) in graph.Older.OrderBy(n => n.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            Report(request, DiagnosticCatalog.OFR1505, config,
+                $"The application deploys {assembly} {older.Deployed}, older than the {older.Highest} other assemblies reference (referenced as {string.Join(", ", older.Referenced)}); no redirect is written. Update the package that ships it.");
+        }
 
         foreach (var (assembly, needed) in graph.Needed.OrderBy(n => n.Key, StringComparer.OrdinalIgnoreCase))
         {
@@ -216,16 +224,17 @@ public static class RedirectPlanner
 
     private sealed record NeededRedirect(string Deployed, string Highest, string PublicKeyToken, string Culture, IReadOnlyList<string> Referenced);
 
-    private sealed record Graph(Dictionary<string, DeployedAssembly> Deployed, Dictionary<string, NeededRedirect> Needed);
+    private sealed record Graph(Dictionary<string, DeployedAssembly> Deployed, Dictionary<string, NeededRedirect> Needed, Dictionary<string, NeededRedirect> Older);
 
     /// <summary>The assemblies the application's packages deploy for its .NET Framework target, and the redirects they need.</summary>
-    private static Graph AssemblyGraph(ProjectInfo project, string tfm, string? packagesFolder)
+    private static Graph AssemblyGraph(RedirectsRequest request, ProjectInfo project, string tfm, string? packagesFolder)
     {
         var deployed = new Dictionary<string, DeployedAssembly>(StringComparer.OrdinalIgnoreCase);
         var target = NuGetFramework.Parse(tfm);
-        foreach (var package in project.Resolved.GetValueOrDefault(tfm)?.Packages ?? [])
+        var installed = InstalledFolders(request);
+        foreach (var (id, version) in DeployedPackages(request.Model, project, tfm))
         {
-            foreach (var assembly in PackageAssemblies(packagesFolder, package, target))
+            foreach (var assembly in PackageAssemblies(installed, packagesFolder, id, version, target))
             {
                 if (!deployed.TryGetValue(assembly.Name, out var known) || known.Version < assembly.Version)
                 {
@@ -235,6 +244,7 @@ public static class RedirectPlanner
         }
 
         var needed = new Dictionary<string, NeededRedirect>(StringComparer.OrdinalIgnoreCase);
+        var older = new Dictionary<string, NeededRedirect>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, assembly) in deployed)
         {
             var referenced = deployed.Values.SelectMany(d => d.References).Where(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase)).Select(r => r.Version).ToHashSet();
@@ -244,22 +254,81 @@ public static class RedirectPlanner
             }
 
             var versions = referenced.Append(assembly.Version).Distinct().Order().ToList();
-            needed[name] = new NeededRedirect(assembly.Version.ToString(), versions[^1].ToString(), assembly.PublicKeyToken, assembly.Culture, [.. versions.Select(v => v.ToString())]);
+            var redirect = new NeededRedirect(assembly.Version.ToString(), versions[^1].ToString(), assembly.PublicKeyToken, assembly.Culture, [.. versions.Select(v => v.ToString())]);
+
+            // Deployed below what is referenced: a redirect down could break the callers (OFR1505).
+            (versions[^1] > assembly.Version ? older : needed)[name] = redirect;
         }
 
-        return new Graph(deployed, needed);
+        return new Graph(deployed, needed, older);
     }
 
-    /// <summary>The assemblies NuGet would deploy from a package for a framework: the nearest <c>lib/</c> folder's.</summary>
-    private static IEnumerable<DeployedAssembly> PackageAssemblies(string? packagesFolder, ResolvedPackage package, NuGetFramework target)
+    /// <summary>
+    /// The packages whose assemblies land in the application's output: its restored graph, and
+    /// the packages its packages.config and those of the projects it references list (copy-local
+    /// brings them along, and no restored graph has them). An application without a restored graph
+    /// also gets the restored packages of the projects it references.
+    /// </summary>
+    private static IEnumerable<(string Id, string Version)> DeployedPackages(WorkspaceModel model, ProjectInfo project, string tfm)
     {
-        if (packagesFolder is null)
+        var restored = project.Resolved.GetValueOrDefault(tfm)?.Packages;
+        var packages = (restored ?? []).Select(p => (p.Id, p.Version)).ToList();
+        var byId = model.Projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Queue<string>([project.Id]);
+        while (pending.TryDequeue(out var id))
         {
-            yield break;
+            if (!seen.Add(id) || !byId.TryGetValue(id, out var current))
+            {
+                continue;
+            }
+
+            packages.AddRange((current.PackagesConfigPackages ?? []).Select(p => (p.Id, p.Version)));
+            if (restored is null && current.Id != project.Id && CompilationFramework(current) is { } framework)
+            {
+                packages.AddRange((current.Resolved.GetValueOrDefault(framework)?.Packages ?? []).Select(p => (p.Id, p.Version)));
+            }
+
+            foreach (var reference in current.ProjectReferences)
+            {
+                pending.Enqueue(reference);
+            }
         }
 
-        var lib = Path.Combine(packagesFolder, package.Id.ToLowerInvariant(), package.Version.ToLowerInvariant(), "lib");
-        if (!Directory.Exists(lib))
+        return packages.Distinct();
+    }
+
+    private static string? CompilationFramework(ProjectInfo project) => project.TargetFrameworks.FirstOrDefault(IsFramework);
+
+    /// <summary>The folders packages.config restores extract to: <c>packages</c> beside the solution, and at the repository root.</summary>
+    private static IReadOnlyList<string> InstalledFolders(RedirectsRequest request)
+    {
+        var folders = new List<string>();
+        if (request.Model.Solution is { } solution && Path.GetDirectoryName(RepoPaths.ToAbsolute(request.RepositoryRoot, solution)) is { } directory)
+        {
+            folders.Add(Path.Combine(directory, "packages"));
+        }
+
+        folders.Add(Path.Combine(request.RepositoryRoot, "packages"));
+        return [.. folders.Distinct(StringComparer.Ordinal).Where(Directory.Exists)];
+    }
+
+    /// <summary>
+    /// The assemblies NuGet would deploy from a package for a framework: the nearest <c>lib/</c>
+    /// folder's, from the package's packages.config folder (<c>packages/&lt;Id&gt;.&lt;Version&gt;</c>) or the
+    /// global packages folder.
+    /// </summary>
+    private static IEnumerable<DeployedAssembly> PackageAssemblies(IReadOnlyList<string> installed, string? packagesFolder, string id, string version, NuGetFramework target)
+    {
+        var candidates = installed.Select(f => Path.Combine(f, $"{id}.{version}", "lib")).ToList();
+        if (packagesFolder is not null)
+        {
+            var normalized = NuGetVersion.TryParse(version, out var parsed) ? parsed.ToNormalizedString() : version;
+            candidates.Add(Path.Combine(packagesFolder, id.ToLowerInvariant(), normalized.ToLowerInvariant(), "lib"));
+        }
+
+        var lib = candidates.FirstOrDefault(Directory.Exists);
+        if (lib is null)
         {
             yield break;
         }

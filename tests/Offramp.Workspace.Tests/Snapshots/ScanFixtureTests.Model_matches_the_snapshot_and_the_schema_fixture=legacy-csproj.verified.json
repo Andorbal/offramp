@@ -1,0 +1,338 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "LegacyCsproj.sln",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": "{Sha256}",
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Billing.Tool/Billing.Tool.csproj",
+      "name": "Billing.Tool",
+      "assemblyName": "billing-tool",
+      "rootNamespace": "Contoso.Billing.Tool",
+      "language": "csharp",
+      "kind": "console",
+      "kindEvidence": "OutputType=Exe",
+      "sdkStyle": false,
+      "sdk": null,
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Exe",
+      "isTestProject": false,
+      "properties": {
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "DEBUG",
+          "TRACE"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Billing.Tool/Program.cs",
+        "src/Billing.Tool/Properties/AssemblyInfo.cs",
+        "src/Shared/Version.cs"
+      ],
+      "compileExplicit": true,
+      "projectReferences": [
+        "src/Billing/Billing.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NETFramework.ReferenceAssemblies",
+          "version": "1.0.3",
+          "versionOverride": null,
+          "privateAssets": "all",
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "System",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Configuration",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Core",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies",
+              "version": "1.0.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+                  "range": "[1.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+              "version": "1.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 29,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Billing/Billing.csproj",
+      "name": "Billing",
+      "assemblyName": "Billing",
+      "rootNamespace": "Contoso.Billing",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": false,
+      "sdk": null,
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "isTestProject": false,
+      "properties": {
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "DEBUG",
+          "TRACE"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": true,
+      "packagesConfigPackages": [
+        {
+          "id": "Newtonsoft.Json",
+          "version": "13.0.3",
+          "targetFramework": "net48",
+          "developmentDependency": false
+        }
+      ],
+      "compile": [
+        "src/Billing/BillingSection.cs",
+        "src/Billing/Invoice.cs",
+        "src/Billing/Properties/AssemblyInfo.cs",
+        "src/Billing/Strings.Designer.cs"
+      ],
+      "compileExplicit": true,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NETFramework.ReferenceAssemblies",
+          "version": "1.0.3",
+          "versionOverride": null,
+          "privateAssets": "all",
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "Microsoft.CSharp",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "Newtonsoft.Json",
+          "hintPath": "packages/Newtonsoft.Json.13.0.3/lib/net45/Newtonsoft.Json.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "13.0.0.0",
+            "targetFramework": ".NETFramework,Version=v4.5",
+            "publicKeyToken": "30ad4fe6b2a6aeed"
+          }
+        },
+        {
+          "name": "System",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Configuration",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Core",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Data",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Data.DataSetExtensions",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Xml",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Xml.Linq",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies",
+              "version": "1.0.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+                  "range": "[1.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+              "version": "1.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "index": 0
+        }
+      },
+      "loc": 160,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/Billing.Tool/Billing.Tool.csproj",
+        "to": "src/Billing/Billing.csproj",
+        "kind": "project"
+      }
+    ],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Billing/Billing.csproj",
+      "src/Billing.Tool/Billing.Tool.csproj"
+    ]
+  },
+  "packages": {
+    "Microsoft.NETFramework.ReferenceAssemblies": {
+      "versions": {
+        "1.0.3": [
+          "src/Billing.Tool/Billing.Tool.csproj",
+          "src/Billing/Billing.csproj"
+        ]
+      }
+    },
+    "Newtonsoft.Json": {
+      "versions": {
+        "13.0.3": [
+          "src/Billing/Billing.csproj"
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "LegacyCsproj.sln",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Billing.Tool/Billing.Tool.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Billing/Billing.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Billing/packages.config",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}
