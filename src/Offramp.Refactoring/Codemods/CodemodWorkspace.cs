@@ -83,7 +83,8 @@ internal sealed class CodemodWorkspace : IDisposable
 
     public void Dispose() => _workspace.Dispose();
 
-    private static bool GeneratedAssemblyInfo(SyntaxTree tree) =>
+    /// <summary>The SDK's generated AssemblyInfo file (the MSBuild WriteCodeFragment output).</summary>
+    public static bool GeneratedAssemblyInfo(SyntaxTree tree) =>
         tree.FilePath.EndsWith(".AssemblyInfo.cs", StringComparison.OrdinalIgnoreCase)
         && tree.GetText().ToString(new TextSpan(0, Math.Min(tree.Length, 1024))).Contains("WriteCodeFragment", StringComparison.Ordinal);
 

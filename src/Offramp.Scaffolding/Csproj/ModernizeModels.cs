@@ -40,7 +40,7 @@ public sealed record ModernizedProject
     /// <summary>packages.config entries that became PackageReference items.</summary>
     public IReadOnlyList<ModernizedPackage> Packages { get; init; } = [];
 
-    /// <summary>Project properties that replace AssemblyInfo attributes the SDK generates.</summary>
+    /// <summary>Project properties that replace AssemblyInfo attributes the SDK generates, and <c>GenerateAssembly…Attribute</c>=false for the attributes a shared or generated file keeps (OFR4306).</summary>
     public IReadOnlyList<Refactoring.Codemods.CodemodPropertyEdit> Properties { get; init; } = [];
 
     /// <summary>What the SDK makes unnecessary and was left out, in document order.</summary>

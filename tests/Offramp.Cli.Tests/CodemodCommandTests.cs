@@ -163,6 +163,48 @@ public sealed class CodemodCommandTests
     }
 
     /// <summary>
+    /// The same guard as <c>csproj modernize</c>'s (NHibernate 4.1.2 P0 #5, SmartStoreNET 4.2.0 P0 #1):
+    /// a linked file that another project compiles keeps its attributes, and the project turns the
+    /// SDK's off instead of taking the values.
+    /// </summary>
+    [Fact]
+    public async Task Assemblyinfo_leaves_a_file_other_projects_compile_alone()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("codemods", (root, request) =>
+        {
+            File.WriteAllText(Path.Combine(root, "src/CommonAssemblyInfo.cs"), "using System.Reflection;\n\n[assembly: AssemblyCompany(\"Contoso\")]\n");
+            Directory.CreateDirectory(Path.Combine(root, "src/Shared/Properties"));
+            File.WriteAllText(Path.Combine(root, "src/Shared/Properties/AssemblyInfo.cs"), "using System.Reflection;\n\n[assembly: AssemblyVersion(\"2.1.0.0\")]\n");
+            foreach (var file in new[] { "src/Shared/Shared.csproj", "src/Shop/Shop.csproj" })
+            {
+                var path = Path.Combine(root, file);
+                File.WriteAllText(path, File.ReadAllText(path).Replace("</Project>",
+                    "  <ItemGroup>\n    <Compile Include=\"..\\CommonAssemblyInfo.cs\" Link=\"Properties\\CommonAssemblyInfo.cs\" />\n  </ItemGroup>\n</Project>", StringComparison.Ordinal));
+            }
+
+            return request;
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("codemod", "run", "--mod", "assemblyinfo", "--project", "Shared", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        SchemaAssert.ValidEnvelope(run.Out, "codemod-run");
+        var result = JsonNode.Parse(run.Out)!["result"]!;
+        var project = Assert.Single(result["projects"]!.AsArray())!;
+        Assert.Equal(["src/Shared/Properties/AssemblyInfo.cs"], project["files"]!.AsArray().Select(f => f!.GetValue<string>()));
+        Assert.Equal(["AssemblyVersion=2.1.0.0", "GenerateAssemblyCompanyAttribute=false"], project["properties"]!.AsArray().Select(p => $"{p!["name"]}={p["value"]}"));
+        var site = Assert.Single(project["sites"]!.AsArray(), s => s!["file"]!.GetValue<string>() == "src/CommonAssemblyInfo.cs")!;
+        Assert.Equal("skipped", site["outcome"]!.GetValue<string>());
+        Assert.DoesNotContain("CommonAssemblyInfo.cs", result["preview"]!.GetValue<string>().Split('\n').Where(l => l.StartsWith("--- ", StringComparison.Ordinal)).Aggregate("", string.Concat), StringComparison.Ordinal);
+        var kept = Assert.Single(JsonNode.Parse(run.Out)!["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR4306")!;
+        Assert.Equal("src/CommonAssemblyInfo.cs", kept["file"]!.GetValue<string>());
+        Assert.Equal(["src/Shop/Shop.csproj"], kept["data"]!["sharedWith"]!.AsArray().Select(p => p!.GetValue<string>()));
+        Assert.DoesNotContain("OFR4501", Codes(run.Out));
+    }
+
+    /// <summary>
     /// --format-mode end to end: the Offramp.Analyzers package, packed from this repository,
     /// referenced by the fixture, and applied by <c>dotnet format analyzers</c>; a project
     /// without the package is skipped, and a project dotnet format cannot load is reported.

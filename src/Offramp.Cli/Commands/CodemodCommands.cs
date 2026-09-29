@@ -163,6 +163,7 @@ public sealed class CodemodRunCommand : ICommandHandler<CodemodRunOptions, Codem
             Loader = loader,
             Diagnostics = context.Diagnostics,
             Progress = context.Progress,
+            Git = context.Host.GitService,
         }, cancellationToken);
         if (!apply)
         {

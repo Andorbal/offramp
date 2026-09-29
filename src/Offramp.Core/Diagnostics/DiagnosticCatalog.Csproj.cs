@@ -43,4 +43,12 @@ public static partial class DiagnosticCatalog
         "Old package versions in a `packages.config` project with `TreatWarningsAsErrors`.",
         "Upgrade the packages (`offramp deps audit` lists them and their replacements), or keep the findings as warnings with `<WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>` until you do.",
         CsprojArea);
+
+    public static readonly DiagnosticDescriptor OFR4306 = new(
+        "OFR4306", Severity.Info,
+        "shared or generated assembly info file left as is",
+        "A file that declares assembly attributes the SDK generates is outside the project's folder, compiled by other projects too, ignored by git, added to the compilation by a build target, or generated code. `csproj modernize` and `codemod run --mod assemblyinfo` do not edit it: its attributes stay, and the project sets the matching `GenerateAssembly<Name>Attribute` properties to false so the SDK does not generate them again. The message and `data` say why the file counts as shared or generated.",
+        "A linked SharedAssemblyInfo.cs, GlobalAssemblyInfo.cs, or VersionInfo.cs that versions a whole solution, often written by the build (NAnt, Cake, GitVersion).",
+        "Nothing, if the file should keep versioning every project that compiles it. To move the values into project properties, do it once every project that compiles the file is SDK-style: set the properties (in Directory.Build.props for all of them), remove the file, and drop the GenerateAssembly<Name>Attribute properties.",
+        CsprojArea);
 }

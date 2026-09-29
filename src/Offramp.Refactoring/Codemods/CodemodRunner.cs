@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 using Offramp.Analysis.Compilations;
@@ -9,6 +10,7 @@ using Offramp.Analyzers;
 using Offramp.Analyzers.CodeFixes;
 using Offramp.Analyzers.Rules;
 using Offramp.Core.Diagnostics;
+using Offramp.Core.Git;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using Offramp.Core.Progress;
@@ -43,6 +45,12 @@ public sealed record CodemodRequest
     /// runs <c>assemblyinfo</c> on a legacy project as the SDK-style project it is becoming.
     /// </summary>
     public IReadOnlyDictionary<string, string> PropertyOverrides { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// Tells which files git ignores, which <c>assemblyinfo</c> leaves alone (<see cref="AssemblyInfoGuard"/>);
+    /// null when there is no git to ask.
+    /// </summary>
+    public IGitService? Git { get; init; }
 }
 
 /// <summary>A dry run's result and the change set that applies it.</summary>
@@ -128,9 +136,10 @@ public static class CodemodRunner
         }
 
         var sites = new List<(CodemodSite Site, Diagnostic Diagnostic)>();
+        var shared = new SortedDictionary<string, SharedFile>(StringComparer.Ordinal);
         foreach (var implementation in request.Codemods)
         {
-            await RunCodemodAsync(request, workspace, implementation, files, sites, cancellationToken);
+            await RunCodemodAsync(request, project, workspace, implementation, files, sites, shared, cancellationToken);
         }
 
         var edited = new List<string>();
@@ -160,7 +169,8 @@ public static class CodemodRunner
         };
         result = AddPackages(request, project, result, projectFiles);
         result = AddProperties(project, result, sites, projectFiles);
-        ReportSkipped(request.Diagnostics, project.Id, result.Sites);
+        result = KeepSharedFiles(request, project, result, shared, projectFiles);
+        ReportSkipped(request.Diagnostics, project.Id, result.Sites.Where(s => !(s.Codemod == Catalog.AssemblyInfo.Name && shared.ContainsKey(s.File))));
 
         if (result.Sites.Any(s => s.Codemod == Catalog.SqlClient.Name && s.Outcome == CodemodSiteOutcome.Rewritten))
         {
@@ -191,21 +201,48 @@ public static class CodemodRunner
     }
 
     /// <summary>Analyzes the project as it is now, records every site, and fixes the fixable ones document by document.</summary>
-    private static async Task RunCodemodAsync(CodemodRequest request, CodemodWorkspace workspace, CodemodImplementation implementation, Dictionary<DocumentId, SourceFile> files,
-        List<(CodemodSite Site, Diagnostic Diagnostic)> sites, CancellationToken cancellationToken)
+    private static async Task RunCodemodAsync(CodemodRequest request, ProjectInfo project, CodemodWorkspace workspace, CodemodImplementation implementation,
+        Dictionary<DocumentId, SourceFile> files, List<(CodemodSite Site, Diagnostic Diagnostic)> sites, SortedDictionary<string, SharedFile> shared,
+        CancellationToken cancellationToken)
     {
         var codemod = implementation.Codemod;
         var compilation = await workspace.Solution.GetProject(workspace.Project)!.GetCompilationAsync(cancellationToken);
         var diagnostics = await compilation!.WithAnalyzers([implementation.Analyzer], workspace.Options).GetAnalyzerDiagnosticsAsync(cancellationToken);
-        var fixable = new SortedDictionary<string, (DocumentId Document, List<Diagnostic> Diagnostics)>(StringComparer.Ordinal);
+        var generatedCode = new HashSet<SyntaxTree>();
+        if (codemod.Id == Catalog.AssemblyInfo.Id)
+        {
+            diagnostics = diagnostics.AddRange(await GeneratedCodeSitesAsync(workspace, compilation!, diagnostics, generatedCode, cancellationToken));
+        }
+
+        var found = new List<(Diagnostic Diagnostic, DocumentId Id, SourceFile File)>();
+        var elsewhere = new List<Diagnostic>();
         foreach (var diagnostic in diagnostics.Where(d => d.Id == codemod.Id && d.Location.IsInSource))
         {
-            if (workspace.Solution.GetDocumentId(diagnostic.Location.SourceTree) is not { } id || !files.TryGetValue(id, out var file))
+            if (workspace.Solution.GetDocumentId(diagnostic.Location.SourceTree) is { } id && files.TryGetValue(id, out var file))
             {
-                continue;
+                found.Add((diagnostic, id, file));
+            }
+            else
+            {
+                elsewhere.Add(diagnostic);
+            }
+        }
+
+        if (codemod.Id == Catalog.AssemblyInfo.Id)
+        {
+            var generated = generatedCode.Select(t => CodemodWorkspace.FileOf(request.RepositoryRoot, t)).OfType<string>();
+            await GuardAssemblyInfoAsync(request, project, found.Select(f => (f.Diagnostic, f.File.Path)), elsewhere, generated, sites, shared, cancellationToken);
+        }
+
+        var fixable = new SortedDictionary<string, (DocumentId Document, List<Diagnostic> Diagnostics)>(StringComparer.Ordinal);
+        foreach (var (diagnostic, id, file) in found)
+        {
+            var reason = diagnostic.Properties.TryGetValue(Catalog.SkipReason, out var skip) ? skip : null;
+            if (reason is null && codemod.Id == Catalog.AssemblyInfo.Id && shared.TryGetValue(file.Path, out var why))
+            {
+                reason = Kept(why);
             }
 
-            var reason = diagnostic.Properties.TryGetValue(Catalog.SkipReason, out var skip) ? skip : null;
             if (reason is null && implementation.Fixer is not null)
             {
                 reason = file.Check(request.RepositoryRoot, request.Diagnostics);
@@ -237,6 +274,97 @@ public static class CodemodRunner
             workspace.Solution = fixedDocument.Project.Solution;
         }
     }
+
+    /// <summary>
+    /// <c>assemblyinfo</c> edits only the project's own AssemblyInfo files (OFR4306). <paramref name="shared"/>
+    /// gets the compile items it must leave alone, and the files the compilation has but the project's
+    /// compile items do not (a version file a build target writes, a file outside the repository), each
+    /// with the attributes it declares. Sites in the latter are recorded here, as skipped.
+    /// </summary>
+    private static async Task GuardAssemblyInfoAsync(CodemodRequest request, ProjectInfo project, IEnumerable<(Diagnostic Diagnostic, string Path)> compiled,
+        List<Diagnostic> elsewhere, IEnumerable<string> generatedCode, List<(CodemodSite Site, Diagnostic Diagnostic)> sites, SortedDictionary<string, SharedFile> shared,
+        CancellationToken cancellationToken)
+    {
+        var root = request.RepositoryRoot;
+        var own = compiled.ToList();
+        var added = elsewhere.Select(d => (Diagnostic: d, Path: CodemodWorkspace.FileOf(root, d.Location.SourceTree!))).ToList();
+        var inside = added.Where(a => a.Path is not null).Select(a => (a.Diagnostic, Path: a.Path!)).ToList();
+        var found = await AssemblyInfoGuard.FindAsync(root, request.Model, project, own.Select(o => o.Path), inside.Select(a => a.Path), generatedCode, request.Git, cancellationToken);
+        foreach (var (path, why) in found)
+        {
+            shared[path] = why with { Switches = Switches(own.Concat(inside).Where(a => a.Path == path).Select(a => a.Diagnostic)) };
+        }
+
+        foreach (var file in added.Where(a => a.Path is null).GroupBy(a => a.Diagnostic.Location.SourceTree!.FilePath, StringComparer.Ordinal))
+        {
+            shared[file.Key] = new SharedFile
+            {
+                File = Path.GetFileName(file.Key.Replace('\\', '/')),
+                InRepository = false,
+                Switches = Switches(file.Select(a => a.Diagnostic)),
+            };
+        }
+
+        foreach (var (diagnostic, path) in inside)
+        {
+            var position = diagnostic.Location.GetLineSpan().StartLinePosition;
+            sites.Add((new CodemodSite
+            {
+                Codemod = Catalog.AssemblyInfo.Name,
+                File = path,
+                Line = position.Line + 1,
+                Column = position.Character + 1,
+                Outcome = CodemodSiteOutcome.Skipped,
+                Reason = Kept(shared[path]),
+            }, diagnostic));
+        }
+    }
+
+    /// <summary>
+    /// <c>assemblyinfo</c> sites in generated code (an <c>&lt;auto-generated&gt;</c> header, a <c>.g.cs</c>
+    /// name), which analyzers do not look at: a version file a build tool writes declares the attributes
+    /// the SDK would generate again. The SDK's own generated AssemblyInfo file is not one of them.
+    /// </summary>
+    private static async Task<List<Diagnostic>> GeneratedCodeSitesAsync(CodemodWorkspace workspace, Compilation compilation, IEnumerable<Diagnostic> analyzed,
+        HashSet<SyntaxTree> generatedCode, CancellationToken cancellationToken)
+    {
+        var result = new List<Diagnostic>();
+        if (!AssemblyInfoAnalyzer.Applies(workspace.Options.AnalyzerConfigOptionsProvider.GlobalOptions))
+        {
+            return result;
+        }
+
+        var seen = analyzed.Select(d => d.Location.SourceTree).OfType<SyntaxTree>().ToHashSet();
+        foreach (var tree in compilation.SyntaxTrees.Where(t => !seen.Contains(t) && !CodemodWorkspace.GeneratedAssemblyInfo(t)))
+        {
+            if (await tree.GetRootAsync(cancellationToken) is not CompilationUnitSyntax { AttributeLists.Count: > 0 } unit)
+            {
+                continue;
+            }
+
+            var model = compilation.GetSemanticModel(tree);
+            foreach (var attribute in unit.AttributeLists.SelectMany(l => l.Attributes))
+            {
+                if (AssemblyInfoAnalyzer.Site(attribute, model, cancellationToken) is { } site)
+                {
+                    result.Add(site);
+                    generatedCode.Add(tree);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>The <c>GenerateAssembly&lt;Name&gt;Attribute</c> property of each <c>assemblyinfo</c> site, in file order.</summary>
+    private static List<string> Switches(IEnumerable<Diagnostic> diagnostics) =>
+        [.. diagnostics.OrderBy(d => d.Location.SourceSpan.Start)
+            .Select(d => d.Properties.TryGetValue(AssemblyInfoAnalyzer.Switch, out var name) ? name : null)
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)];
+
+    private static string Kept(SharedFile why) =>
+        $"the file is shared or generated ({why.Describe()}): it stays as is, and the SDK's attribute is turned off instead";
 
     /// <summary>Adds each package a codemod with rewritten (or referenced) sites needs, unless the project has it.</summary>
     private static CodemodProjectResult AddPackages(CodemodRequest request, ProjectInfo project, CodemodProjectResult result, ProjectFileEdits projectFiles)
@@ -366,6 +494,46 @@ public static class CodemodRunner
                 editor.SetProperty(name, value);
                 properties.Add(new CodemodPropertyEdit(name, value));
             }
+        }
+
+        return result with { Properties = properties };
+    }
+
+    /// <summary>
+    /// <c>assemblyinfo</c> in a shared or generated file (<see cref="AssemblyInfoGuard"/>): the attributes
+    /// stay, and the project turns the SDK's own off (<c>GenerateAssemblyVersionAttribute</c> and the
+    /// like set to false) unless it already sets that property. One <c>OFR4306</c> per file.
+    /// </summary>
+    private static CodemodProjectResult KeepSharedFiles(CodemodRequest request, ProjectInfo project, CodemodProjectResult result,
+        SortedDictionary<string, SharedFile> shared, ProjectFileEdits projectFiles)
+    {
+        var properties = result.Properties.ToList();
+        foreach (var why in shared.Values.Where(w => w.Switches.Count > 0))
+        {
+            var editor = projectFiles.Editor(project.Id);
+            var set = new List<string>();
+            foreach (var name in why.Switches.Where(n => editor.Property(n) is null && !properties.Any(p => p.Name == n)))
+            {
+                editor.SetProperty(name, "false");
+                properties.Add(new CodemodPropertyEdit(name, "false"));
+                set.Add(name);
+            }
+
+            var attributes = string.Join(", ", why.Switches.Select(s => s["Generate".Length..^"Attribute".Length]));
+            request.Diagnostics.Report(DiagnosticCatalog.OFR4306,
+                $"{why.File} is shared or generated ({why.Describe()}), so it is left as is: its {attributes} attributes stay there"
+                + (set.Count > 0
+                    ? $", and {project.Id} sets {string.Join(", ", set)} to false so the SDK does not generate them again."
+                    : $", and {project.Id} already turns the SDK's off."),
+                new DiagnosticLocation(project.Id, why.InRepository ? why.File : null),
+                [
+                    KeyValuePair.Create<string, JsonNode?>("outsideProject", why.OutsideProject),
+                    KeyValuePair.Create<string, JsonNode?>("sharedWith", new JsonArray([.. why.SharedWith.Select(p => (JsonNode?)p)])),
+                    KeyValuePair.Create<string, JsonNode?>("ignoredByGit", why.IgnoredByGit),
+                    KeyValuePair.Create<string, JsonNode?>("addedByBuild", why.AddedByBuild),
+                    KeyValuePair.Create<string, JsonNode?>("generatedCode", why.GeneratedCode),
+                    KeyValuePair.Create<string, JsonNode?>("properties", new JsonArray([.. why.Switches.Select(n => (JsonNode?)n)])),
+                ]);
         }
 
         return result with { Properties = properties };

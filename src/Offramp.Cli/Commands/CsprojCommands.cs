@@ -108,6 +108,7 @@ public sealed class CsprojModernizeCommand : ICommandHandler<CsprojModernizeOpti
             Loader = loader,
             Diagnostics = context.Diagnostics,
             Progress = context.Progress,
+            Git = context.Host.GitService,
         }, cancellationToken);
 
         var changed = plan.Result.Projects.Where(p => p.Changed).Select(p => p.Project).ToList();

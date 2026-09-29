@@ -218,6 +218,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4303](#ofr4303) | error | csproj | converted project compiles different inputs |
 | [OFR4304](#ofr4304) | warning | csproj | project not converted |
 | [OFR4305](#ofr4305) | warning | csproj | converted project fails NuGet audit |
+| [OFR4306](#ofr4306) | info | csproj | shared or generated assembly info file left as is |
 | [OFR4401](#ofr4401) | warning | config convert | setting not representable |
 | [OFR4402](#ofr4402) | warning | config convert | WCF configuration |
 | [OFR4403](#ofr4403) | info | config convert | system.web settings belong to the web migration |
@@ -1959,6 +1960,15 @@ Restoring the PackageReference way turns NuGet audit on, and the project treats 
 
 - **Typical cause:** Old package versions in a `packages.config` project with `TreatWarningsAsErrors`.
 - **Fix:** Upgrade the packages (`offramp deps audit` lists them and their replacements), or keep the findings as warnings with `<WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>` until you do.
+
+### OFR4306
+
+**shared or generated assembly info file left as is** · info · csproj
+
+A file that declares assembly attributes the SDK generates is outside the project's folder, compiled by other projects too, ignored by git, added to the compilation by a build target, or generated code. `csproj modernize` and `codemod run --mod assemblyinfo` do not edit it: its attributes stay, and the project sets the matching `GenerateAssembly<Name>Attribute` properties to false so the SDK does not generate them again. The message and `data` say why the file counts as shared or generated.
+
+- **Typical cause:** A linked SharedAssemblyInfo.cs, GlobalAssemblyInfo.cs, or VersionInfo.cs that versions a whole solution, often written by the build (NAnt, Cake, GitVersion).
+- **Fix:** Nothing, if the file should keep versioning every project that compiles it. To move the values into project properties, do it once every project that compiles the file is SDK-style: set the properties (in Directory.Build.props for all of them), remove the file, and drop the GenerateAssembly<Name>Attribute properties.
 
 ### OFR4401
 

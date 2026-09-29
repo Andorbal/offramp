@@ -61,6 +61,34 @@ public sealed class GitServiceTests
     }
 
     [Fact]
+    public async Task Ignored_files_are_the_untracked_ones_a_gitignore_matches()
+    {
+        using var repo = new ScratchDirectory("git");
+        var git = new GitService(ProcessRunner.Instance);
+        if (await git.GetVersionAsync() is null)
+        {
+            Assert.Skip("git is not installed");
+        }
+
+        await Git(repo, "init", "-q");
+        await Git(repo, "config", "user.email", "test@example.com");
+        await Git(repo, "config", "user.name", "Test");
+        repo.Write(".gitignore", "Generated*.cs\n");
+        repo.Write("src/GeneratedTracked.cs", "// forced in\n");
+        repo.Write("src/GeneratedInfo.cs", "// written by the build\n");
+        repo.Write("src/Plain.cs", "// source\n");
+        await Git(repo, "add", ".gitignore", "src/Plain.cs");
+        await Git(repo, "add", "-f", "src/GeneratedTracked.cs");
+        await Git(repo, "commit", "-q", "-m", "init");
+
+        var ignored = await git.IgnoredAsync(repo.Path, ["src/Plain.cs", "src/GeneratedInfo.cs", "src/GeneratedTracked.cs", "src/Missing.cs"]);
+
+        Assert.Equal(["src/GeneratedInfo.cs"], ignored);
+        Assert.Empty(await git.IgnoredAsync(repo.Path, []));
+        Assert.Empty(await new GitService(new FakeProcessRunner()).IgnoredAsync(repo.Path, ["src/GeneratedInfo.cs"]));
+    }
+
+    [Fact]
     public async Task Moves_outside_a_repository_are_plain_file_moves()
     {
         using var dir = new ScratchDirectory("nogit");

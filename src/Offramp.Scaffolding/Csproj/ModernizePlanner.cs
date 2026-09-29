@@ -2,6 +2,7 @@ using System.Xml.Linq;
 using Offramp.Analysis.Compilations;
 using Offramp.Analyzers.CodeFixes;
 using Offramp.Core.Diagnostics;
+using Offramp.Core.Git;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using Offramp.Core.Progress;
@@ -33,6 +34,9 @@ public sealed record ModernizeRequest
     public required DiagnosticBag Diagnostics { get; init; }
 
     public IProgressSink Progress { get; init; } = NullProgressSink.Instance;
+
+    /// <summary>Tells git-ignored (generated) AssemblyInfo files, which are left alone; null when there is no git to ask.</summary>
+    public IGitService? Git { get; init; }
 }
 
 /// <summary>The dry run and the change set that applies it.</summary>
@@ -137,6 +141,7 @@ public static class ModernizePlanner
                 Loader = request.Loader,
                 Diagnostics = request.Diagnostics,
                 PropertyOverrides = AsSdkProject,
+                Git = request.Git,
             }, cancellationToken);
             properties.AddRange(assemblyInfo.Result.Projects.SelectMany(p => p.Properties));
             sourceEdits.AddRange(assemblyInfo.ChangeSet.Edits.Where(e => e.Path != project.Id));

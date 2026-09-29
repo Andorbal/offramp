@@ -254,7 +254,11 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
     at the same point (`OFR4302`).
   - ASP.NET web application projects and non-C# projects are not converted (`OFR4304`).
   - AssemblyInfo attributes the SDK generates are removed with the `assemblyinfo` codemod
-    (the SDK generates them from properties instead).
+    (the SDK generates them from properties instead), from the project's own files only. A file
+    outside the project's folder, compiled by another project, ignored by git, added to the
+    compilation by a build target, or generated code keeps its attributes, and the converted
+    project sets the matching `GenerateAssembly<Name>Attribute` properties to `false` instead
+    (`OFR4306`; ADR 0039). This holds for a single `--project` and for `--all` alike.
 - SDK-style projects only get `--tfm` and `--nullable` when asked.
 - **Verification always runs**, dry run included: the change set is applied in a scratch
   copy, the changed projects are built with a binary log, and each target's compiler

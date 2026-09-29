@@ -103,6 +103,60 @@ public sealed class CsprojModernizeCommandTests
         Assert.DoesNotContain(node["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR4303");
     }
 
+    /// <summary>
+    /// NHibernate 4.1.2 (P0 #5), SmartStoreNET 4.2.0 (P0 #1), Open Live Writer 0.6.3 (P0 #3, P1 #9): the
+    /// assemblyinfo codemod stripped a linked SharedAssemblyInfo.cs that other projects compile, and
+    /// left the attributes of generated version files for the SDK to duplicate (CS0579).
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR4306")]
+    public async Task Shared_and_generated_assembly_info_files_stay_and_the_sdk_does_not_generate_their_attributes()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared");
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+        var shared = repository.Directory.Read("src/SharedAssemblyInfo.cs");
+        var buildInfo = repository.Directory.Read("src/Layers.Domain/Properties/BuildInfo.cs");
+
+        // One project, as the guide's port step converts them.
+        var single = await cli.RunAsync("csproj", "modernize", "--project", "Layers.Data", "--json");
+
+        Assert.True(single.ExitCode == 0, single.Out);
+        SchemaAssert.ValidEnvelope(single.Out, "csproj-modernize");
+        var node = JsonNode.Parse(single.Out)!;
+        var data = Assert.Single(node["result"]!["projects"]!.AsArray())!;
+        Assert.True(data["verification"]!["passed"]!.GetValue<bool>(), single.Out);
+        Assert.Equal(["src/Layers.Data/Properties/AssemblyInfo.cs"], data["files"]!.AsArray().Select(f => f!.GetValue<string>()));
+        Assert.DoesNotContain("a/src/SharedAssemblyInfo.cs", node["result"]!["preview"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Equal(
+            ["AssemblyTitle=Layers data access", "GenerateAssemblyCompanyAttribute=false", "GenerateAssemblyFileVersionAttribute=false", "GenerateAssemblyProductAttribute=false", "GenerateAssemblyVersionAttribute=false"],
+            data["properties"]!.AsArray().Select(p => $"{p!["name"]}={p["value"]}").Order(StringComparer.Ordinal));
+        var kept = Diagnostics(single.Out, "OFR4306");
+        var linked = Assert.Single(kept, d => d["file"]?.GetValue<string>() == "src/SharedAssemblyInfo.cs");
+        Assert.Equal(["src/Layers.Domain/Layers.Domain.csproj"], linked["data"]!["sharedWith"]!.AsArray().Select(p => p!.GetValue<string>()));
+        Assert.True(linked["data"]!["outsideProject"]!.GetValue<bool>());
+        var version = Assert.Single(kept, d => d["file"]?.GetValue<string>() == "src/GlobalVersionInfo.cs");
+        Assert.True(version["data"]!["addedByBuild"]!.GetValue<bool>());
+        Assert.True(version["data"]!["ignoredByGit"]!.GetValue<bool>());
+
+        // Every project, applied: the shared and generated files are as they were, and the conversions build.
+        var applied = await cli.RunAsync("csproj", "modernize", "--all", "--apply", "--json");
+
+        Assert.True(applied.ExitCode == 0, applied.Out);
+        Assert.True(JsonNode.Parse(applied.Out)!["result"]!["applied"]!.GetValue<bool>(), applied.Out);
+        Assert.Equal(shared, repository.Directory.Read("src/SharedAssemblyInfo.cs"));
+        Assert.Equal(buildInfo, repository.Directory.Read("src/Layers.Domain/Properties/BuildInfo.cs"));
+        Assert.DoesNotContain("AssemblyTitle", repository.Directory.Read("src/Layers.Domain/Properties/AssemblyInfo.cs"), StringComparison.Ordinal);
+        var generated = Assert.Single(Diagnostics(applied.Out, "OFR4306"), d => d["file"]?.GetValue<string>() == "src/Layers.Domain/Properties/BuildInfo.cs");
+        Assert.True(generated["data"]!["generatedCode"]!.GetValue<bool>());
+        var domain = repository.Directory.Read("src/Layers.Domain/Layers.Domain.csproj");
+        Assert.Contains("<GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>", domain, StringComparison.Ordinal);
+        Assert.Contains("<AssemblyTitle>Layers domain model</AssemblyTitle>", domain, StringComparison.Ordinal);
+    }
+
+    private static List<JsonNode> Diagnostics(string envelope, string code) =>
+        [.. JsonNode.Parse(envelope)!["diagnostics"]!.AsArray().OfType<JsonNode>().Where(d => d["code"]!.GetValue<string>() == code)];
+
     [Fact]
     [ProducesDiagnostic("OFR4304")]
     public async Task Web_application_projects_are_not_converted()

@@ -32,7 +32,7 @@
           },
           "properties": {
             "type": "array",
-            "description": "Project properties that replace the AssemblyInfo attributes the SDK generates.",
+            "description": "Project properties that replace the AssemblyInfo attributes the SDK generates, and GenerateAssembly<Name>Attribute=false for the attributes a shared or generated file keeps (OFR4306).",
             "items": {
               "type": "object",
               "additionalProperties": false,

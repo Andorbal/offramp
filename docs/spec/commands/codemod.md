@@ -93,7 +93,14 @@ Decisions in `docs/decisions/0025-codemods.md`.
     OFR4505 instead.
 - `assemblyinfo` moves the removed attributes' values to project properties
   (`AssemblyTitle`, `Company`, `Product`, `AssemblyVersion`, `FileVersion`,
-  `InformationalVersion`) unless the project already sets them.
+  `InformationalVersion`) unless the project already sets them. It edits only the project's
+  own files: a file outside the project's folder, compiled by another project of the model,
+  ignored by git (`git check-ignore`), added to the compilation by a build target rather than
+  the project file, or generated code (which the driver checks itself, since analyzers skip it;
+  the SDK's own generated AssemblyInfo file excepted) keeps its attributes. Its sites are
+  skipped, and the project sets `GenerateAssembly<Name>Attribute` to `false` for each attribute
+  such a file declares, unless it sets that property already: `OFR4306` once per file, instead
+  of `OFR4501` (ADR 0039).
 - Skipped sites are OFR4501, once per codemod and reason in each project (a reason about the
   project, such as "does not reference ASP.NET Core", would repeat at every site).
   `sqlclient` adds OFR4510 once per project.
@@ -132,7 +139,7 @@ Decisions in `docs/decisions/0025-codemods.md`.
 | `codepages` | `Encoding.RegisterProvider(CodePagesEncodingProvider.Instance)` as the entry point's first statement, when the project asks for an encoding modern .NET does not have built in and registers no provider | none (a project without an entry point is not reported) |
 | `timezone-ids` | `FindSystemTimeZoneById(id)` → `TZConvert.GetTimeZoneInfo(id)`, which takes Windows and IANA IDs | constant IANA IDs, which work as they are |
 | `service-controller` | no code change: the `System.ServiceProcess.ServiceController` package for modern targets, when `ServiceController` is used outside a `ServiceBase` class | none |
-| `assemblyinfo` | removes `AssemblyTitle`, `AssemblyCompany`, `AssemblyProduct`, `AssemblyConfiguration`, and the three version attributes in an SDK-style project that generates them; values move to project properties | projects with `GenerateAssemblyInfo=false` |
+| `assemblyinfo` | removes `AssemblyTitle`, `AssemblyCompany`, `AssemblyProduct`, `AssemblyConfiguration`, and the three version attributes in an SDK-style project that generates them; values move to project properties | projects with `GenerateAssemblyInfo=false`; shared and generated files, whose attributes the SDK stops generating instead (`OFR4306`) |
 
 ### The package
 
