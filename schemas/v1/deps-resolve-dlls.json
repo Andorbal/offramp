@@ -5,7 +5,7 @@
   "description": "The result of `offramp deps resolve-dlls`. See docs/spec/commands/deps.md#deps-resolve-dlls.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["projects", "summary", "applied", "journal", "preview"],
+  "required": ["projects", "summary", "applied", "journal", "preview", "verify", "rolledBack"],
   "properties": {
     "projects": {
       "type": "array",
@@ -65,6 +65,8 @@
     },
     "applied": { "type": "boolean" },
     "journal": { "type": ["string", "null"] },
-    "preview": { "type": ["string", "null"] }
+    "preview": { "type": ["string", "null"] },
+    "verify": { "oneOf": [{ "type": "null" }, { "$ref": "verify.json" }], "description": "The verification after --apply (restore and build of the edited projects and their direct dependents); null in a dry run or with --verify none." },
+    "rolledBack": { "type": "boolean", "description": "Verification failed and every project file was restored from the journal (OFR1408)." }
   }
 }

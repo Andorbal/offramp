@@ -13,6 +13,7 @@ using Offramp.NuGet.Inspection;
 using Offramp.NuGet.Rules;
 using Offramp.Refactoring.ChangeSets;
 using Offramp.Refactoring.ProjectFiles;
+using Offramp.Workspace.Verification;
 
 namespace Offramp.Refactoring.Dependencies.Resolution;
 
@@ -113,6 +114,12 @@ public sealed record ResolveDllsResult
     public string? Journal { get; init; }
 
     public string? Preview { get; init; }
+
+    /// <summary>The verification after <c>--apply</c>; null in a dry run or with <c>--verify none</c>.</summary>
+    public VerifyResult? Verify { get; init; }
+
+    /// <summary>True when verification failed and the edits were restored from the journal (<c>OFR1408</c>).</summary>
+    public bool RolledBack { get; init; }
 }
 
 public sealed record ResolveDllsRequest
@@ -134,6 +141,13 @@ public sealed record ResolveDllsRequest
 
     /// <summary><c>deps.assemblyPackages</c>: packages that ship an assembly under another name, before rules/assembly-packages.yml.</summary>
     public IReadOnlyList<AssemblyPackageEntry> AssemblyPackages { get; init; } = [];
+
+    /// <summary>
+    /// Whether Offramp runs on Windows. Elsewhere a legacy (non-SDK) project gets no
+    /// <c>PackageReference</c>: the .NET SDK restores it but never passes its assemblies to the
+    /// compiler (only Visual Studio's <c>Microsoft.NuGet.targets</c> does).
+    /// </summary>
+    public bool OnWindows { get; init; } = OperatingSystem.IsWindows();
 }
 
 public sealed record ResolveDllsPlan(ResolveDllsResult Result, ChangeSet? ChangeSet);
@@ -476,8 +490,14 @@ public static class DllResolver
     private static List<(string Name, string? DeclaredIn)> Edit(ResolveDllsRequest request, ProjectInfo project, List<LooseDll> dlls, ChangeSet changeSet)
     {
         var elsewhere = new List<(string, string?)>();
+        var legacyOutsideWindows = !project.SdkStyle && !project.PackagesConfig && !request.OnWindows;
+        if (legacyOutsideWindows)
+        {
+            ReportLegacyOutsideWindows(request, project, [.. dlls.Where(d => d.Resolution.Kind == DllResolutionKind.Package)]);
+        }
+
         var resolved = dlls.Where(d => d.Resolution.Kind == DllResolutionKind.Project
-            || (d.Resolution.Kind == DllResolutionKind.Package && !project.PackagesConfig)).ToList();
+            || (d.Resolution.Kind == DllResolutionKind.Package && !project.PackagesConfig && !legacyOutsideWindows)).ToList();
         if (resolved.Count == 0)
         {
             return elsewhere;
@@ -511,6 +531,26 @@ public static class DllResolver
         }
 
         return elsewhere;
+    }
+
+    /// <summary>
+    /// <c>OFR1407</c>: outside Windows, the .NET SDK restores a legacy project's <c>PackageReference</c>
+    /// items but resolves no assemblies from them (<c>ResolveNuGetPackageAssets</c> is in Visual
+    /// Studio's <c>Microsoft.NuGet.targets</c>), so replacing the References would break the build
+    /// (NHibernate: 2,505 errors).
+    /// </summary>
+    private static void ReportLegacyOutsideWindows(ResolveDllsRequest request, ProjectInfo project, List<LooseDll> packages)
+    {
+        if (packages.Count == 0)
+        {
+            return;
+        }
+
+        var names = string.Join(", ", packages.Select(p => $"{p.Resolution.Package} {p.Resolution.Version}"));
+        request.Diagnostics.Report(DiagnosticCatalog.OFR1407,
+            $"{project.Id} is a legacy (non-SDK) project, and outside Windows the .NET SDK gives the compiler none of a PackageReference's assemblies in such a project, so its References stay ({names}). Convert it with `offramp csproj modernize` first, or apply on Windows.",
+            new DiagnosticLocation(project.Id),
+            [KeyValuePair.Create<string, JsonNode?>("packages", new JsonArray([.. packages.Select(p => (JsonNode?)$"{p.Resolution.Package} {p.Resolution.Version}")]))]);
     }
 
     /// <summary>

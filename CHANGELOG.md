@@ -434,6 +434,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `.exe` is an application's installer (Open Live Writer's Squirrel package carries every DLL of
   the application) and ships nothing. `deadCode.externalConsumers` is now documented in
   `docs/spec/03-configuration.md`.
+- `deps resolve-dlls --apply` verifies its edits and rolls them back when the build fails (new
+  `OFR1408`), as `move apply` and `codemod run` do; `--verify none` skips it. On NHibernate 4.1 it
+  exited 0 with `applied: true`, and the solution then failed with 2,505 errors outside Windows,
+  where the .NET SDK gives a legacy project's compiler none of a `PackageReference`'s assemblies.
+  Outside Windows a legacy project now keeps its References (new `OFR1407`, pointing to `csproj
+  modernize`), and `codemod run` leaves the sites of a codemod that needs a package in such a
+  project alone instead of rewriting code that cannot compile (new `OFR4512`). The result has
+  `verify` and `rolledBack`.
 - `deps resolve-dlls` no longer guesses the version of a DLL outside the repository, nor edits
   projects that do not declare the reference. On Open Live Writer, a `System.Resources.Extensions`
   6.0.0 reference declared once in `Directory.Build.props` through `$(NuGetPackageRoot)` was

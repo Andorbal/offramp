@@ -188,6 +188,22 @@ public static partial class DiagnosticCatalog
         "Change the reference in the file the message names (for SDK-style projects, a `PackageReference` there), or leave it if it is how legacy projects get the package outside Windows.",
         DependenciesArea);
 
+    public static readonly DiagnosticDescriptor OFR1407 = new(
+        "OFR1407", Severity.Warning,
+        "package reference not added to a legacy project outside Windows",
+        "Outside Windows the .NET SDK restores a legacy (non-SDK) project's `PackageReference` items but never gives their assemblies to the compiler: that is `ResolveNuGetPackageAssets`, in Visual Studio's `Microsoft.NuGet.targets`, which the SDK does not ship. So `deps resolve-dlls` leaves the project's `Reference` items as they are instead of breaking its build.",
+        "Running `deps resolve-dlls` on Linux or macOS on a solution of legacy projects (NHibernate 4.1 had 2,505 errors after `--apply`).",
+        "Convert the project with `offramp csproj modernize` first and run `deps resolve-dlls` again, or apply it on Windows, where Visual Studio's MSBuild resolves the package's assemblies.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1408 = new(
+        "OFR1408", Severity.Error,
+        "verification failed; resolve-dlls rolled back",
+        "After `deps resolve-dlls --apply` replaced the references, the configured verification (a restore and build of the edited projects and their direct dependents, or `verify.command`) failed, and `verify.onFailure: rollback` restored every file from the journal.",
+        "A package that restores but does not give the compiler what the DLL did (another assembly version, a missing framework), or a build that was already broken.",
+        "Read the verification errors; fix them, or apply the references one project at a time (`--project`). `verify.onFailure: keep` leaves the change in place.",
+        DependenciesArea);
+
     public static readonly DiagnosticDescriptor OFR1501 = new(
         "OFR1501", Severity.Info,
         "binding redirect added",

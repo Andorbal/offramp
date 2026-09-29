@@ -242,7 +242,7 @@ Result: per package `{ id, current: [...], selected, reason, constraints: [...],
 Loose assembly references (`HintPath`) → package or project references.
 
 ```
-offramp deps resolve-dlls [--project P] [--apply]
+offramp deps resolve-dlls [--project P] [--apply] [--verify end|none]
 ```
 
 For each `Reference` with a `HintPath`:
@@ -320,7 +320,16 @@ Details (M6, ADR 0020):
   the project's folder or above, or a file the project imports by a literal path)
   once per assembly, with the projects it reaches. A `packages.config`
   project gets `ProjectReference`s only (NuGet does not mix the two styles in a
-  project; `csproj modernize` converts it). It writes through a journal.
+  project; `csproj modernize` converts it). Outside Windows a legacy (non-SDK)
+  project gets no `PackageReference` either: the .NET SDK restores it but gives
+  the compiler none of its assemblies (`ResolveNuGetPackageAssets` is in Visual
+  Studio's `Microsoft.NuGet.targets`), so its References stay and `OFR1407`
+  points to `csproj modernize` (ADR 0042). It writes through a journal, then
+  runs the configured verification (`verify.mode`: a restore and build of the
+  edited projects and their direct dependents, or `verify.command`; `--verify
+  none` skips it). A failed verification restores every file from the journal
+  (`OFR1408`, `rolledBack: true`) unless `verify.onFailure: keep`. The result
+  has `verify` and `rolledBack`.
 - **Schema:** `schemas/v1/deps-resolve-dlls.json`.
 
 ## `deps gac`

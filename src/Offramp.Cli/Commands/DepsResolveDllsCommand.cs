@@ -6,12 +6,12 @@ using Offramp.Cli.Rendering;
 using Offramp.NuGet.Feeds;
 using Offramp.Refactoring;
 using Offramp.Refactoring.Dependencies.Resolution;
-using Offramp.Refactoring.ChangeSets;
+using Offramp.Refactoring.Moves;
 using Spectre.Console;
 
 namespace Offramp.Cli.Commands;
 
-public sealed record DepsResolveDllsOptions(string? Project);
+public sealed record DepsResolveDllsOptions(string? Project, string? Verify = null);
 
 /// <summary><c>offramp deps resolve-dlls</c>: loose DLL references become project or package references.</summary>
 public sealed class DepsResolveDllsCommand : ICommandHandler<DepsResolveDllsOptions, ResolveDllsResult>
@@ -23,11 +23,13 @@ public sealed class DepsResolveDllsCommand : ICommandHandler<DepsResolveDllsOpti
     public static Command Create(CliHost host, GlobalOptions globals)
     {
         var project = new Option<string?>("--project") { Description = "Only this project (path or name).", HelpName = "PROJECT" };
+        var verify = new Option<string?>("--verify") { Description = "After --apply: end (default) restores and builds the edited projects and their dependents, rolling back on failure; none skips it.", HelpName = "WHEN" };
+        verify.AcceptOnlyFromAmong("end", "none");
         var command = new Command("resolve-dlls", "Replace References with a HintPath by the project that builds the DLL or the package that ships it; report the rest.")
         {
-            project,
+            project, verify,
         };
-        command.SetAction((parse, ct) => CommandRunner.RunAsync(new DepsResolveDllsCommand(), new DepsResolveDllsOptions(parse.GetValue(project)), globals.Bind(parse), host, ct));
+        command.SetAction((parse, ct) => CommandRunner.RunAsync(new DepsResolveDllsCommand(), new DepsResolveDllsOptions(parse.GetValue(project), parse.GetValue(verify)), globals.Bind(parse), host, ct));
         HelpExamples.Add(command,
             "offramp deps resolve-dlls",
             "offramp deps resolve-dlls --project src/App/App.csproj --apply");
@@ -66,8 +68,19 @@ public sealed class DepsResolveDllsCommand : ICommandHandler<DepsResolveDllsOpti
             return CommandOutcome<ResolveDllsResult>.Completed(plan.Result);
         }
 
-        var journal = await new ChangeSetApplier(root, context.Host.GitService).ApplyAsync(plan.ChangeSet, "deps resolve-dlls", context.Host.Time.GetUtcNow(), cancellationToken);
-        return CommandOutcome<ResolveDllsResult>.Completed(plan.Result with { Applied = true, Journal = journal, Preview = null });
+        var outcome = await DllResolveExecutor.ApplyAsync(plan, new MoveExecution
+        {
+            RepositoryRoot = root,
+            Model = model,
+            Config = config,
+            VerifyPolicy = options.Verify ?? "end",
+            Git = context.Host.GitService,
+            Processes = context.Host.Processes,
+            Diagnostics = context.Diagnostics,
+            Progress = context.Progress,
+            Now = context.Host.Time.GetUtcNow(),
+        }, cancellationToken);
+        return outcome.Partial ? new CommandOutcome<ResolveDllsResult>(outcome.Result, OutcomeKind.Partial) : CommandOutcome<ResolveDllsResult>.Completed(outcome.Result);
     }
 
     public void Render(ResolveDllsResult result, CommandContext context, HumanOutput output)
@@ -107,6 +120,15 @@ public sealed class DepsResolveDllsCommand : ICommandHandler<DepsResolveDllsOpti
             MoveCommandSupport.WriteDiff(preview, output);
             output.Line();
             output.MarkupLine("[dim]Dry run. Apply with[/] --apply");
+        }
+
+        if (result.RolledBack)
+        {
+            output.MarkupLine($"[{Theme.BlockingStyle}]Verification failed, so every project file was restored.[/]");
+        }
+        else if (result.Applied)
+        {
+            output.MarkupLine($"[dim]Applied{(result.Verify is { Passed: true } ? " and verified" : "")}. Undo with[/] offramp move rollback --journal {Markup.Escape(result.Journal!)}");
         }
     }
 

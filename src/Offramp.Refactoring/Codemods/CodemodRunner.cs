@@ -51,6 +51,13 @@ public sealed record CodemodRequest
     /// null when there is no git to ask.
     /// </summary>
     public IGitService? Git { get; init; }
+
+    /// <summary>
+    /// Whether Offramp runs on Windows. Elsewhere a legacy (non-SDK) project cannot use a
+    /// <c>PackageReference</c>'s assemblies, so a codemod that needs a package leaves its sites alone
+    /// there (<c>OFR4512</c>).
+    /// </summary>
+    public bool OnWindows { get; init; } = OperatingSystem.IsWindows();
 }
 
 /// <summary>A dry run's result and the change set that applies it.</summary>
@@ -137,9 +144,10 @@ public static class CodemodRunner
 
         var sites = new List<(CodemodSite Site, Diagnostic Diagnostic)>();
         var shared = new SortedDictionary<string, SharedFile>(StringComparer.Ordinal);
+        var blocked = PackageProblems(request, project, projectFiles);
         foreach (var implementation in request.Codemods)
         {
-            await RunCodemodAsync(request, project, workspace, implementation, files, sites, shared, cancellationToken);
+            await RunCodemodAsync(request, project, workspace, implementation, files, sites, shared, blocked.GetValueOrDefault(implementation.Codemod.Name)?.Reason, cancellationToken);
         }
 
         var edited = new List<string>();
@@ -170,7 +178,10 @@ public static class CodemodRunner
         result = AddPackages(request, project, result, projectFiles);
         result = AddProperties(project, result, sites, projectFiles);
         result = KeepSharedFiles(request, project, result, shared, projectFiles);
-        ReportSkipped(request.Diagnostics, project.Id, result.Sites.Where(s => !(s.Codemod == Catalog.AssemblyInfo.Name && shared.ContainsKey(s.File))));
+        ReportSkipped(request.Diagnostics, project.Id, result.Sites
+            .Where(s => !(s.Codemod == Catalog.AssemblyInfo.Name && shared.ContainsKey(s.File)))
+            .Where(s => !(blocked.TryGetValue(s.Codemod, out var problem) && s.Reason == problem.Reason)));
+        ReportPackageProblems(request, project, blocked, result.Sites);
 
         if (result.Sites.Any(s => s.Codemod == Catalog.SqlClient.Name && s.Outcome == CodemodSiteOutcome.Rewritten))
         {
@@ -203,7 +214,7 @@ public static class CodemodRunner
     /// <summary>Analyzes the project as it is now, records every site, and fixes the fixable ones document by document.</summary>
     private static async Task RunCodemodAsync(CodemodRequest request, ProjectInfo project, CodemodWorkspace workspace, CodemodImplementation implementation,
         Dictionary<DocumentId, SourceFile> files, List<(CodemodSite Site, Diagnostic Diagnostic)> sites, SortedDictionary<string, SharedFile> shared,
-        CancellationToken cancellationToken)
+        string? blocked, CancellationToken cancellationToken)
     {
         var codemod = implementation.Codemod;
         var compilation = await workspace.Solution.GetProject(workspace.Project)!.GetCompilationAsync(cancellationToken);
@@ -243,6 +254,7 @@ public static class CodemodRunner
                 reason = Kept(why);
             }
 
+            reason ??= blocked;
             if (reason is null && implementation.Fixer is not null)
             {
                 reason = file.Check(request.RepositoryRoot, request.Diagnostics);
@@ -365,6 +377,65 @@ public static class CodemodRunner
 
     private static string Kept(SharedFile why) =>
         $"the file is shared or generated ({why.Describe()}): it stays as is, and the SDK's attribute is turned off instead";
+
+    /// <summary>Why a codemod's sites in a project are left alone because of a package it needs, and the diagnostic that says so.</summary>
+    private sealed record PackageProblem(string Reason, Offramp.Core.Diagnostics.DiagnosticDescriptor Code, string Message);
+
+    /// <summary>
+    /// The codemods whose rewrite needs a package this project cannot use: outside Windows, a
+    /// legacy (non-SDK) project that does not use packages.config gets no assemblies from a
+    /// <c>PackageReference</c> (OFR4512). Their sites are skipped rather than rewritten into code
+    /// that cannot compile.
+    /// </summary>
+    private static Dictionary<string, PackageProblem> PackageProblems(CodemodRequest request, ProjectInfo project, ProjectFileEdits projectFiles)
+    {
+        var problems = new Dictionary<string, PackageProblem>(StringComparer.Ordinal);
+        foreach (var codemod in request.Codemods.Select(c => c.Codemod))
+        {
+            var needed = NeededPackages(project, codemod, projectFiles);
+            if (needed.Count == 0)
+            {
+                continue;
+            }
+
+            var packages = string.Join(", ", needed.Select(p => $"{p.Id} {p.Version}"));
+            if (!project.SdkStyle && !project.PackagesConfig && !request.OnWindows)
+            {
+                problems[codemod.Name] = new PackageProblem(
+                    $"the project is a legacy (non-SDK) project, which gets no assemblies from {packages} outside Windows",
+                    DiagnosticCatalog.OFR4512,
+                    $"{codemod.Name} needs {packages}, but {project.Id} is a legacy (non-SDK) project, and outside Windows the .NET SDK gives the compiler none of a PackageReference's assemblies in such a project");
+            }
+        }
+
+        return problems;
+    }
+
+    /// <summary>The packages a codemod adds that the project needs and does not reference yet.</summary>
+    private static List<CodemodPackage> NeededPackages(ProjectInfo project, Codemod codemod, ProjectFileEdits projectFiles) =>
+        [.. codemod.Packages.Where(p =>
+            (p.Targets != CodemodPackageTargets.Framework || project.TargetFrameworks.Any(Workspace.Ingest.Tfm.IsNetFramework))
+            && !project.PackageReferences.Any(r => string.Equals(r.Id, p.Id, StringComparison.OrdinalIgnoreCase))
+            && !projectFiles.Editor(project.Id).ReferencesPackage(p.Id))];
+
+    /// <summary>One diagnostic per codemod left alone in a project for its package, with the number of sites.</summary>
+    private static void ReportPackageProblems(CodemodRequest request, ProjectInfo project, Dictionary<string, PackageProblem> problems, IReadOnlyList<CodemodSite> sites)
+    {
+        foreach (var (name, problem) in problems.OrderBy(p => p.Key, StringComparer.Ordinal))
+        {
+            var count = sites.Count(s => s.Codemod == name && s.Reason == problem.Reason);
+            if (count == 0)
+            {
+                continue;
+            }
+
+            var remedy = problem.Code == DiagnosticCatalog.OFR4512 ? "Convert the project with `offramp csproj modernize` first, or run the codemod on Windows." : "";
+            request.Diagnostics.Report(problem.Code,
+                string.Create(CultureInfo.InvariantCulture, $"{problem.Message}; its {count} site{(count == 1 ? " was" : "s were")} left alone. {remedy}").TrimEnd(),
+                new DiagnosticLocation(project.Id),
+                [KeyValuePair.Create<string, JsonNode?>("codemod", name), KeyValuePair.Create<string, JsonNode?>("sites", count)]);
+        }
+    }
 
     /// <summary>Adds each package a codemod with rewritten (or referenced) sites needs, unless the project has it.</summary>
     private static CodemodProjectResult AddPackages(CodemodRequest request, ProjectInfo project, CodemodProjectResult result, ProjectFileEdits projectFiles)

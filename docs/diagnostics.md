@@ -112,6 +112,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1404](#ofr1404) | error | deps | loose Framework-only DLL with no replacement |
 | [OFR1405](#ofr1405) | warning | deps | loose DLL is a COM interop assembly |
 | [OFR1406](#ofr1406) | warning | deps | loose DLL reference declared outside the project file |
+| [OFR1407](#ofr1407) | warning | deps | package reference not added to a legacy project outside Windows |
+| [OFR1408](#ofr1408) | error | deps | verification failed; resolve-dlls rolled back |
 | [OFR1501](#ofr1501) | info | deps | binding redirect added |
 | [OFR1502](#ofr1502) | info | deps | binding redirect changed |
 | [OFR1503](#ofr1503) | info | deps | binding redirect pruned |
@@ -259,6 +261,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4507](#ofr4507) | error | codemod | verification failed; codemod rolled back |
 | [OFR4508](#ofr4508) | error | codemod | dotnet format failed |
 | [OFR4510](#ofr4510) | info | codemod | connections encrypted by default (Microsoft.Data.SqlClient) |
+| [OFR4512](#ofr4512) | warning | codemod | codemod needs a package a legacy project cannot use outside Windows |
 | [OFR5001](#ofr5001) | error | verify | verification failed |
 | [OFR5002](#ofr5002) | error | verify | verification timed out |
 | [OFR5010](#ofr5010) | warning | verify | new error code relative to baseline |
@@ -1031,6 +1034,24 @@ The `Reference` comes from a file the project imports (a Directory.Build.props, 
 
 - **Typical cause:** A reference shared by every project, declared once, such as a `HintPath` into the NuGet global packages folder for legacy projects.
 - **Fix:** Change the reference in the file the message names (for SDK-style projects, a `PackageReference` there), or leave it if it is how legacy projects get the package outside Windows.
+
+### OFR1407
+
+**package reference not added to a legacy project outside Windows** · warning · deps
+
+Outside Windows the .NET SDK restores a legacy (non-SDK) project's `PackageReference` items but never gives their assemblies to the compiler: that is `ResolveNuGetPackageAssets`, in Visual Studio's `Microsoft.NuGet.targets`, which the SDK does not ship. So `deps resolve-dlls` leaves the project's `Reference` items as they are instead of breaking its build.
+
+- **Typical cause:** Running `deps resolve-dlls` on Linux or macOS on a solution of legacy projects (NHibernate 4.1 had 2,505 errors after `--apply`).
+- **Fix:** Convert the project with `offramp csproj modernize` first and run `deps resolve-dlls` again, or apply it on Windows, where Visual Studio's MSBuild resolves the package's assemblies.
+
+### OFR1408
+
+**verification failed; resolve-dlls rolled back** · error · deps
+
+After `deps resolve-dlls --apply` replaced the references, the configured verification (a restore and build of the edited projects and their direct dependents, or `verify.command`) failed, and `verify.onFailure: rollback` restored every file from the journal.
+
+- **Typical cause:** A package that restores but does not give the compiler what the DLL did (another assembly version, a missing framework), or a build that was already broken.
+- **Fix:** Read the verification errors; fix them, or apply the references one project at a time (`--project`). `verify.onFailure: keep` leaves the change in place.
 
 ### OFR1501
 
@@ -2354,6 +2375,15 @@ Microsoft.Data.SqlClient defaults Encrypt to true (System.Data.SqlClient default
 
 - **Typical cause:** Development and on-premises SQL Servers with self-signed certificates.
 - **Fix:** Install a trusted certificate on the server, or set TrustServerCertificate=True (or Encrypt=False) in the connection strings that need it.
+
+### OFR4512
+
+**codemod needs a package a legacy project cannot use outside Windows** · warning · codemod
+
+The codemod's rewrite needs a package, and the project is a legacy (non-SDK) project that does not use packages.config. Outside Windows the .NET SDK restores such a project's `PackageReference` items but never gives their assemblies to the compiler (that is Visual Studio's `Microsoft.NuGet.targets`), so the rewritten code could not compile: the codemod's sites in the project are left alone, and the result lists each.
+
+- **Typical cause:** Running `codemod run` on Linux or macOS over legacy projects (`sqlclient` on NHibernate 4.1).
+- **Fix:** Convert the project with `offramp csproj modernize` first and run the codemod again, or run it on Windows.
 
 ### OFR5001
 

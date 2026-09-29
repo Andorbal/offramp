@@ -35,6 +35,7 @@ public sealed class DepsResolveDllsCommandTests
         var applied = await cli.RunAsync("deps", "resolve-dlls", "--apply", "--json");
 
         Assert.True(JsonNode.Parse(applied.Out)!["result"]!["applied"]!.GetValue<bool>());
+        Assert.True(JsonNode.Parse(applied.Out)!["result"]!["verify"]!["passed"]!.GetValue<bool>(), applied.Out);
         var app = repository.Directory.Read("src/App/App.csproj");
         Assert.Contains("<PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.1\" />", app, StringComparison.Ordinal);
         Assert.Contains("<ProjectReference Include=\"..\\Legacy.Core\\Legacy.Core.csproj\" />", app, StringComparison.Ordinal);
@@ -42,6 +43,33 @@ public sealed class DepsResolveDllsCommandTests
         Assert.Contains("lib\\Vendor.Reporting.dll", app, StringComparison.Ordinal);
         var build = await ProcessRunner.Instance.RunAsync(new ProcessSpec("dotnet", ["build", "src/App/App.csproj", "-nologo", "-v:q"]) { WorkingDirectory = repository.Path, Timeout = TimeSpan.FromMinutes(5) });
         Assert.True(build.Succeeded, build.StandardOutput + build.StandardError);
+    }
+
+    /// <summary>
+    /// NHibernate field test (P1 #6): `--apply` exited 0 with `applied: true` and the solution no longer
+    /// built. It now verifies the edited projects and restores every file when verification fails.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR1408")]
+    public async Task A_failed_verification_rolls_the_references_back()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("loose-dlls");
+        using var repository = fixture.Repository;
+        VersionsFeed.WriteFolderFeed(repository.Directory.Combine(".offramp", "recorded-feed"));
+        var command = OperatingSystem.IsWindows() ? "exit /b 1" : "exit 1";
+        repository.Directory.Write("offramp.yml", $"version: 1\ndeps:\n  feeds: [ .offramp/recorded-feed ]\nverify:\n  mode: command\n  command: \"{command}\"\n");
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+        cli.Machine.Setup.Add(r => r.On(OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh", [], spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult()));
+        var before = repository.Directory.Read("src/App/App.csproj");
+
+        var run = await cli.RunAsync("deps", "resolve-dlls", "--apply", "--json");
+
+        Assert.Equal(1, run.ExitCode);
+        SchemaAssert.ValidEnvelope(run.Out, "deps-resolve-dlls");
+        var result = JsonNode.Parse(run.Out)!["result"]!;
+        Assert.Equal((false, true, false), (result["applied"]!.GetValue<bool>(), result["rolledBack"]!.GetValue<bool>(), result["verify"]!["passed"]!.GetValue<bool>()));
+        Assert.Contains(JsonNode.Parse(run.Out)!["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR1408");
+        Assert.Equal(before, repository.Directory.Read("src/App/App.csproj"));
     }
 
     [Fact]

@@ -211,6 +211,30 @@ public sealed class DllResolverTests
         Assert.Equal("Directory.Build.props", declared.File);
     }
 
+    /// <summary>
+    /// NHibernate field test (P1 #6): outside Windows the .NET SDK gives a legacy project none of a
+    /// PackageReference's assemblies, so `--apply` left the solution with 2,505 errors. A legacy
+    /// project keeps its References there; a ProjectReference still replaces a project's output.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR1407")]
+    public async Task Outside_windows_a_legacy_project_gets_no_package_reference()
+    {
+        using var repository = Repository();
+        var diagnostics = new DiagnosticBag();
+
+        var plan = await PlanAsync(repository, diagnostics, request: r => r with { OnWindows = false });
+        var sdkStyle = await PlanAsync(repository, new DiagnosticBag(), customize: p => p with { SdkStyle = true }, request: r => r with { OnWindows = false });
+
+        Assert.Equal(("Iesi.Collections", "4.0.1.4000", DllMatch.Identical), Package(plan.Result.Projects.Single().References.Single(r => r.Name == "Iesi.Collections")));
+        Assert.Null(plan.ChangeSet);
+        var legacy = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR1407");
+        Assert.StartsWith("src/Lib/Lib.csproj is a legacy (non-SDK) project, and outside Windows the .NET SDK gives the compiler none of a PackageReference's assemblies", legacy.Message, StringComparison.Ordinal);
+        Assert.Contains("Antlr3.Runtime 3.5.1, FirebirdSql.Data.FirebirdClient 2.6.5, Iesi.Collections 4.0.1.4000, log4net 1.2.10", legacy.Message, StringComparison.Ordinal);
+        Assert.Contains("offramp csproj modernize", legacy.Message, StringComparison.Ordinal);
+        Assert.NotNull(sdkStyle.ChangeSet);
+    }
+
     [Fact]
     public void Configured_packages_come_before_the_table_and_the_assembly_name()
     {
@@ -223,8 +247,9 @@ public sealed class DllResolverTests
 
     private static (string?, string?, DllMatch?) Package(LooseDll dll) => (dll.Resolution.Package, dll.Resolution.Version, dll.Resolution.Match);
 
-    private static Task<ResolveDllsPlan> PlanAsync(ScratchDirectory repository, DiagnosticBag diagnostics, Func<ProjectInfo, ProjectInfo>? customize = null) =>
-        PlanAsync(repository, diagnostics, ["Antlr3.Runtime", "FirebirdSql.Data.FirebirdClient", "Iesi.Collections", "log4net", "System.Linq.Dynamic"], Feed(), customize);
+    private static Task<ResolveDllsPlan> PlanAsync(
+        ScratchDirectory repository, DiagnosticBag diagnostics, Func<ProjectInfo, ProjectInfo>? customize = null, Func<ResolveDllsRequest, ResolveDllsRequest>? request = null) =>
+        PlanAsync(repository, diagnostics, ["Antlr3.Runtime", "FirebirdSql.Data.FirebirdClient", "Iesi.Collections", "log4net", "System.Linq.Dynamic"], Feed(), customize, request);
 
     private static Task<ResolveDllsPlan> PlanAsync(
         ScratchDirectory repository, DiagnosticBag diagnostics, IReadOnlyList<string> dlls, FeedRecording feed,
@@ -251,6 +276,7 @@ public sealed class DllResolverTests
             Feeds = new RecordedPackageFeeds(feed),
             Cache = NullCache.Instance,
             Diagnostics = diagnostics,
+            OnWindows = true,
         };
         return DllResolver.PlanAsync(request?.Invoke(plan) ?? plan, TestContext.Current.CancellationToken);
     }

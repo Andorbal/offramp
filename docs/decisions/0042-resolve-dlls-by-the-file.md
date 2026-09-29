@@ -61,6 +61,18 @@ versions that ship the same assembly version, nor what to do with conditions.
   found without evaluation: Directory.Build.props/.targets from the project's folder up, and
   imports with literal paths.
 
+- **`--apply` is verified, and legacy projects outside Windows get no `PackageReference`.** On
+  NHibernate, `--apply` exited 0 and the solution then failed with 2,505 errors on Linux: the
+  .NET SDK restores a legacy project's `PackageReference` (the compile-only block's legacy
+  section sets `RestoreProjectStyle`) but never turns its `lib/` assets into compiler
+  references; that is `ResolveNuGetPackageAssets` in Visual Studio's `Microsoft.NuGet.targets`,
+  which the SDK does not ship. So outside Windows a legacy project keeps its References
+  (`OFR1407`, pointing to `csproj modernize`), and `codemod run` leaves the sites of a codemod
+  that needs a package in such a project alone (`OFR4512`). Every `--apply` then runs the
+  configured verification of the edited projects and their direct dependents and rolls back from
+  the journal on failure (`OFR1408`), as `move apply` and `codemod run` do; on Windows, where
+  `dotnet build` has no `Microsoft.NuGet.targets` either, the verification is what catches it.
+
 ## Alternatives considered
 
 - The newest version with the same assembly version: as wrong as the lowest when the DLL is
@@ -68,6 +80,10 @@ versions that ship the same assembly version, nor what to do with conditions.
 - Reading `FileVersionInfo`: on Linux and macOS .NET reads the managed attributes, on Windows
   the Win32 resource; the attributes read with System.Reflection.Metadata give the same answer
   everywhere, and the compiler writes the resource from them.
+- Adding a target to the compile-only block that maps the assets file to references for legacy
+  projects: the SDK's `ResolvePackageAssets` needs SDK properties a legacy project does not
+  have, and a hand-written resolver is the NuGet resolver CLAUDE.md rules out. Converting the
+  project is the supported route.
 - Moving the conditioned `PackageReference` into a new conditioned item group: equivalent
   for a `Reference` condition, but loses a `Choose`; the in-place replacement keeps the
   author's structure.

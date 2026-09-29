@@ -91,6 +91,11 @@ Decisions in `docs/decisions/0025-codemods.md`.
     recorded `DirectoryPackagesPropsPath`, else the nearest one above the project).
   - A packages.config project, or a central project without a versions file, gets
     OFR4505 instead.
+  - Outside Windows, a legacy (non-SDK) project that does not use packages.config gets
+    no assemblies from a `PackageReference` (the .NET SDK has no
+    `ResolveNuGetPackageAssets`), so a codemod that needs a package it lacks leaves its
+    sites in that project alone (`skipped`, with the reason) and reports OFR4512 once,
+    pointing to `csproj modernize`.
 - `assemblyinfo` moves the removed attributes' values to project properties
   (`AssemblyTitle`, `Company`, `Product`, `AssemblyVersion`, `FileVersion`,
   `InformationalVersion`) unless the project already sets them. It edits only the project's
