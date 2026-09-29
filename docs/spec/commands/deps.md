@@ -381,7 +381,12 @@ from a real dependency):
 `usages` counts the names in C# source that bind to a type or member defined in
 the assembly, in the compilation rebuilt from the compiler log for the project's
 .NET Framework target; `null` when there is no compiler log or the project is not
-C#.
+C#. The types the project uses from the assembly make two mappings specific:
+`System.Web` used only for `HttpUtility` is `builtin` (modern .NET has
+`System.Web.HttpUtility`), and with `MimeMapping` too its note says so instead of
+"move to ASP.NET Core"; `System.Web.Services` used only as a SOAP client (a web
+reference's `SoapHttpClientProtocol` proxy) is `package: System.ServiceModel.Http`,
+a WCF client generated with dotnet-svcutil.
 
 ## `redirects sync`
 

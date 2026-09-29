@@ -434,6 +434,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `.exe` is an application's installer (Open Live Writer's Squirrel package carries every DLL of
   the application) and ships nothing. `deadCode.externalConsumers` is now documented in
   `docs/spec/03-configuration.md`.
+- `deps gac` judges `System.Web` and `System.Web.Services` by what the project uses from them. On
+  Open Live Writer it told 9 projects that use only `HttpUtility` and `MimeMapping` to move to
+  ASP.NET Core, and did the same for a SOAP client. `System.Web` used only for `HttpUtility` is
+  now `builtin` (modern .NET has `System.Web.HttpUtility`), with `MimeMapping` the note says what
+  to do about it, and `System.Web.Services` used only as a SOAP client maps to a WCF client
+  (`System.ServiceModel.Http`, dotnet-svcutil).
 - `deps audit` finds Windows-only packages by what their code calls (ADR 0046): a P/Invoke into a
   library only Windows has, or a `[ComImport]` type, is `OFR1004` evidence. On Open Live Writer,
   DeltaCompressionDotNet 2.0.1 (its netstandard2.0 DLL calls msdelta.dll and mspatcha.dll) and
