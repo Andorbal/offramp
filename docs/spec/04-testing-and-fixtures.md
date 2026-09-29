@@ -57,7 +57,7 @@ catalog has no such test. Test stack: `docs/decisions/0005-test-stack.md`.
 | (none) | every CI run, all three OSes |
 | `Category=Windows` | windows runner only |
 | `Category=Network` | needs nuget.org; CI runs it with a warm cache |
-| `Category=Corpus` | `corpus.yml` (weekly and on manual dispatch, with `OFFRAMP_CORPUS=1`; without it the tests skip), `tests/Offramp.Corpus.Tests`: DotNetNuke Platform 9.13.10 cloned (cached under `tests/.cache/corpus/`), then `doctor --fix --apply`, `scan`, `plan`, `deps resolve-dlls`, `redirects sync --prune`, and `deps audit` run as a user would; asserts the findings of `docs/field-tests/2026-09-dnn-platform-9.13.10.md` stay fixed. NHibernate 4.x is still to add |
+| `Category=Corpus` | `corpus.yml`, on manual dispatch only, one job per codebase, with `OFFRAMP_CORPUS` set (without it the tests skip). `tests/Offramp.Corpus.Tests` runs the CLI on real codebases pinned to a commit (`codebases.json`): a standard sweep of read-only commands, checked for crashes, schema matches, and a deterministic model, then each codebase's assertions from its field test (`docs/field-tests/`). Codebases: DotNetNuke Platform 9.13.10. How to add one: `tests/Offramp.Corpus.Tests/README.md` |
 | `Category=Slow` | > 60 s; nightly |
 
 ## Recorded feeds

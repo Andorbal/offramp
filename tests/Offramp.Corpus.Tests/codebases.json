@@ -1,0 +1,12 @@
+[
+  {
+    "name": "dnn",
+    "title": "DotNetNuke Platform 9.13.10",
+    "repository": "https://github.com/dnnsoftware/Dnn.Platform.git",
+    "commit": "53cdf4750477293b4e6316b4d91e1d5e43610127",
+    "ref": "v9.13.10",
+    "solution": "DNN_Platform.sln",
+    "timeoutMinutes": 120,
+    "fieldTest": "docs/field-tests/2026-09-dnn-platform-9.13.10.md"
+  }
+]

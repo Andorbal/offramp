@@ -153,10 +153,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `rules/package-map.yml` maps `Microsoft.NETFramework.ReferenceAssemblies*` and
   `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` (not needed on modern .NET), SQL Server
   Compact, and the rest of the ASP.NET Web Pages packages.
-- `tests/Offramp.Corpus.Tests`: the first `Category=Corpus` test, which `corpus.yml` runs. It
-  clones DotNetNuke Platform 9.13.10, runs `doctor --fix --apply`, `scan`, `plan`,
-  `deps resolve-dlls`, `redirects sync --prune`, and `deps audit` as a user would, and checks the
-  field test's findings stay fixed. The weekly job matched no test before and could not fail.
+- `tests/Offramp.Corpus.Tests`: corpus tests that run the CLI on real codebases pinned to a
+  commit (`codebases.json`), starting with DotNetNuke Platform 9.13.10. Every codebase gets a
+  standard sweep of read-only commands, checked for crashes, schema matches, and a deterministic
+  model, then assertions from its field test. They run only when asked (`OFFRAMP_CORPUS`), and
+  `corpus.yml` runs them on manual dispatch only, one job per codebase, with every command's
+  output uploaded. The weekly job matched no test before and could not fail.
+- How to do a field test (`docs/field-tests/README.md`) and add its codebase to the corpus
+  (`tests/Offramp.Corpus.Tests/README.md`).
 - The `webforms` fixture: a Web Forms web project whose control derives from `UserControl`
   through another project and calls a legacy Visual Basic library, as DotNetNuke modules do.
 
