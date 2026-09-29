@@ -201,6 +201,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   instead of 1,439, 6,989 of them `System.Web.Mvc` and 714 `System.Web.Http`, and `OFR3011`
   names the packages without target support in 23 projects (the audit takes 201 s instead of
   142 s). This was the `audit api` part of DotNetNuke's P1 #7.
+- `scan` reports progress during the build: each project the build finishes (from MSBuild's
+  `Name -> output` lines), out of the solution's projects, and the `packages.config` restore is a
+  phase of its own that reports each package. The build phase was one progress event: 74 silent
+  seconds on SmartStoreNET, 34 on NHibernate, and about 200 seconds of restore on Open Live Writer
+  (the DotNetNuke "still open" heartbeat).
 - A project that is not C#, Visual Basic, or F# is never in the workspace model, its framework
   counts, `plan`, or `report` (ADR 0049). When MSBuild evaluated Open Live Writer's
   `OpenLiveWriter.Ribbon.vcxproj`, it was a .NET Framework library (`language: other`, no target

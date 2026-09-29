@@ -5,6 +5,7 @@ using NuGet.Packaging.Signing;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
+using Offramp.Core.Progress;
 
 namespace Offramp.Workspace.Restore;
 
@@ -35,12 +36,25 @@ public static class PackagesConfigRestorer
     public static string PackagesFolder(string solutionDirectory, ISettings settings) =>
         SettingsUtility.GetRepositoryPath(settings) ?? Path.Combine(solutionDirectory, "packages");
 
+    /// <summary>True when a <c>packages.config</c> sits beside one of the projects: there is something to restore.</summary>
+    public static bool HasPackagesConfig(IEnumerable<string> projectPaths) =>
+        projectPaths.Any(p => File.Exists(Path.Combine(Path.GetDirectoryName(p)!, "packages.config")));
+
     /// <param name="solutionPath">Absolute path of the solution.</param>
     /// <param name="projectPaths">Absolute paths of its projects; a <c>packages.config</c> beside one is read.</param>
     /// <param name="cancellationToken">Cancels the restore.</param>
     /// <returns>Null when no project has a <c>packages.config</c>.</returns>
+    public static Task<PackagesConfigRestoreResult?> RestoreAsync(
+        string solutionPath, IEnumerable<string> projectPaths, CancellationToken cancellationToken) =>
+        RestoreAsync(solutionPath, projectPaths, progress: null, cancellationToken);
+
+    /// <param name="solutionPath">Absolute path of the solution.</param>
+    /// <param name="projectPaths">Absolute paths of its projects; a <c>packages.config</c> beside one is read.</param>
+    /// <param name="progress">Where each package is reported as it is looked at (<c>Id Version</c>); a download can take long.</param>
+    /// <param name="cancellationToken">Cancels the restore.</param>
+    /// <returns>Null when no project has a <c>packages.config</c>.</returns>
     public static async Task<PackagesConfigRestoreResult?> RestoreAsync(
-        string solutionPath, IEnumerable<string> projectPaths, CancellationToken cancellationToken)
+        string solutionPath, IEnumerable<string> projectPaths, IProgressPhase? progress, CancellationToken cancellationToken)
     {
         var wanted = Wanted(projectPaths);
         if (wanted.Count == 0)
@@ -64,8 +78,10 @@ public static class PackagesConfigRestorer
             PackageSaveMode.Defaultv2, XmlDocFileSaveMode.None, ClientPolicyContext.GetClientPolicy(settings, NullLogger.Instance), NullLogger.Instance);
         var globalPackages = SettingsUtility.GetGlobalPackagesFolder(settings);
 
+        var done = 0;
         foreach (var (id, spelled) in wanted)
         {
+            progress?.Report(done++, wanted.Count, $"{id} {spelled}");
             if (!NuGetVersion.TryParse(spelled, out var version))
             {
                 failed.Add(new PackagesConfigRestoreFailure(id, spelled, $"'{spelled}' is not a valid version."));
@@ -97,6 +113,7 @@ public static class PackagesConfigRestorer
             }
         }
 
+        progress?.Report(wanted.Count, wanted.Count);
         return new PackagesConfigRestoreResult(
             folder,
             [.. restored.Order(StringComparer.Ordinal)],

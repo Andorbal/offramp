@@ -93,14 +93,18 @@ public static class ScanRunner
             binlog = Path.Combine(state, BinlogFileName);
             kind = WorkspaceSourceKind.Build;
             var builder = UsesMsbuild(request.Config) ? " with MSBuild" : "";
-            using (request.Progress.BeginPhase($"Building {solution}{builder}", ++phase, plan))
+            var listed = await ListProjectsAsync(request, solution, cancellationToken);
+            if (!OperatingSystem.IsWindows() && listed is not null && PackagesConfigRestorer.HasPackagesConfig(listed.ProjectPaths))
             {
-                if (!OperatingSystem.IsWindows())
-                {
-                    await RestorePackagesConfigAsync(request, solution, cancellationToken);
-                }
+                plan++;
+                using var restoring = request.Progress.BeginPhase("Restoring packages.config packages", ++phase, plan);
+                await RestorePackagesConfigAsync(request, listed, restoring, cancellationToken);
+            }
 
-                var built = await BuildAsync(request, solution, binlog, cancellationToken);
+            using (var building = request.Progress.BeginPhase($"Building {solution}{builder}", ++phase, plan))
+            {
+                var progress = new BuildProgress(building, listed?.ProjectPaths.Count ?? 0);
+                var built = await BuildAsync(request, solution, binlog, progress.OnLine, cancellationToken);
                 if (built is null)
                 {
                     return new ScanOutcome(null, null, ScanFailure.Environment);
@@ -191,24 +195,27 @@ public static class ScanRunner
         return null;
     }
 
-    /// <summary>
-    /// Outside Windows, fills the packages folder from the solution's packages.config files, as
-    /// <c>nuget restore</c> does on Windows: nothing else will, and every HintPath into it would dangle
-    /// (<c>docs/decisions/0037-legacy-projects-outside-windows.md</c>).
-    /// </summary>
-    private static async Task RestorePackagesConfigAsync(ScanRequest request, string solution, CancellationToken cancellationToken)
+    /// <summary>The solution's projects, or null when it cannot be read (the build reports that).</summary>
+    private static async Task<SolutionProjects?> ListProjectsAsync(ScanRequest request, string solution, CancellationToken cancellationToken)
     {
-        SolutionProjects listed;
         try
         {
-            listed = await SolutionReader.ReadAsync(RepoPaths.ToAbsolute(request.RepositoryRoot, solution), cancellationToken);
+            return await SolutionReader.ReadAsync(RepoPaths.ToAbsolute(request.RepositoryRoot, solution), cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return; // The build reports an unreadable solution.
+            return null;
         }
+    }
 
-        var result = await PackagesConfigRestorer.RestoreAsync(listed.SolutionFile, listed.ProjectPaths, cancellationToken);
+    /// <summary>
+    /// Outside Windows, fills the packages folder from the solution's packages.config files, as
+    /// <c>nuget restore</c> does on Windows: nothing else will, and every HintPath into it would dangle
+    /// (<c>docs/decisions/0037-legacy-projects-outside-windows.md</c>). Reports each package on <paramref name="progress"/>.
+    /// </summary>
+    private static async Task RestorePackagesConfigAsync(ScanRequest request, SolutionProjects listed, IProgressPhase progress, CancellationToken cancellationToken)
+    {
+        var result = await PackagesConfigRestorer.RestoreAsync(listed.SolutionFile, listed.ProjectPaths, progress, cancellationToken);
         if (result is null)
         {
             return;
@@ -238,7 +245,7 @@ public static class ScanRunner
 
     private static bool UsesMsbuild(OfframpConfig config) => config.Scan.Builder == ScanConfig.Msbuild;
 
-    private static async Task<ProcessResult?> BuildAsync(ScanRequest request, string solution, string binlog, CancellationToken cancellationToken)
+    private static async Task<ProcessResult?> BuildAsync(ScanRequest request, string solution, string binlog, Action<string> onOutputLine, CancellationToken cancellationToken)
     {
         string? msbuild = null;
         if (UsesMsbuild(request.Config))
@@ -256,7 +263,7 @@ public static class ScanRunner
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(binlog)!);
-        var result = await request.Processes.RunAsync(BuildCommand(request, msbuild, solution, binlog), cancellationToken);
+        var result = await request.Processes.RunAsync(BuildCommand(request, msbuild, solution, binlog) with { OnOutputLine = onOutputLine }, cancellationToken);
 
         if (result.NotFound && msbuild is not null)
         {

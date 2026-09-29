@@ -39,6 +39,10 @@ offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH 
   `nuget.config`. A folder that exists in any letter case is never touched.
   `OFR0106` (info) lists what was written, `OFR0105` each package that could not
   be found (`docs/decisions/0037-legacy-projects-outside-windows.md`).
+- Progress: the `packages.config` restore is a phase of its own that reports
+  each package (`Id Version`), and the build phase reports each project the
+  build finishes (MSBuild's `Name -> output` lines) out of the solution's
+  projects, so a long build is never silent.
 - Converts the binlog to a complog (`.offramp/build.complog`) so compilations
   can be rebuilt without MSBuild. With `--complog`, copies that one instead.
 - `--no-build` reuses `.offramp/msbuild.binlog` from the previous scan

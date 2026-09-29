@@ -204,4 +204,68 @@ public sealed class ScanModelTests
         Assert.Contains("JavaScript project", web.Message, StringComparison.Ordinal);
         Assert.Contains(outcome.Model.Diagnostics, d => d.Code == "OFR0024");
     }
+
+    /// <summary>
+    /// DotNetNuke (still open), SmartStoreNET, NHibernate, Open Live Writer: the build phase was one progress event
+    /// (74 silent seconds on SmartStoreNET); it now reports each project the build finishes.
+    /// </summary>
+    [Fact]
+    public async Task The_build_reports_each_project_it_finishes()
+    {
+        using var repo = new ScratchDirectory("scan-heartbeat");
+        repo.Write("App.slnx", "<Solution>\n  <Project Path=\"src/A/A.csproj\" />\n  <Project Path=\"src/B/B.csproj\" />\n</Solution>\n");
+        repo.Write("src/A/A.csproj", "<Project />");
+        repo.Write("src/B/B.csproj", "<Project />");
+        var output = string.Join('\n',
+            "  Determining projects to restore...",
+            "  A -> /r/src/A/bin/Debug/net48/A.dll",
+            "  A -> /r/src/A/bin/Debug/net10.0/A.dll",
+            "/r/src/B/C.cs(1,1): warning CS0168: The variable 'x' is declared but never used -> odd [/r/src/B/B.csproj]",
+            "  B -> /r/src/B/bin/Debug/net48/B.dll");
+        var processes = new FakeProcessRunner().On("dotnet", ["build"], 0, output);
+        var progress = new RecordingProgress();
+
+        await ScanRunner.RunAsync(ScannedFixtures.Request(repo.Path, new DiagnosticBag(), processes) with { Progress = progress }, CancellationToken.None);
+
+        Assert.Equal(["Building App.slnx: 1/2 A", "Building App.slnx: 2/2 B"], progress.Reports);
+    }
+
+    private sealed class RecordingProgress : Core.Progress.IProgressSink
+    {
+        private readonly List<string> _reports = [];
+
+        public IReadOnlyList<string> Reports
+        {
+            get
+            {
+                lock (_reports)
+                {
+                    return [.. _reports];
+                }
+            }
+        }
+
+        public Core.Progress.IProgressPhase BeginPhase(string name, int index, int of) => new Phase(name, this);
+
+        public void Log(Core.Progress.ProgressLevel level, string message)
+        {
+        }
+
+        private sealed class Phase(string name, RecordingProgress owner) : Core.Progress.IProgressPhase
+        {
+            public string Name { get; } = name;
+
+            public void Report(int current, int total, string? item = null)
+            {
+                lock (owner._reports)
+                {
+                    owner._reports.Add($"{Name}: {current}/{total}{(item is null ? "" : " " + item)}");
+                }
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+    }
 }

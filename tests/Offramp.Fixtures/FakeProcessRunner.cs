@@ -48,7 +48,14 @@ public sealed class FakeProcessRunner : IProcessRunner
         {
             if (matches(spec))
             {
-                return Task.FromResult(handler(spec));
+                // Standard output reaches the process's line callback, as it does from the real runner.
+                var result = handler(spec);
+                foreach (var line in result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    spec.OnOutputLine?.Invoke(line);
+                }
+
+                return Task.FromResult(result);
             }
         }
 
