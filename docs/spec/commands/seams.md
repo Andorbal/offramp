@@ -11,7 +11,7 @@ offramp seams --project P [--unportable-from audit|list] [--symbols NS.Type,...]
 ```
 
 Inputs: the set of **unportable symbols** in `P`, from `audit api`
-(error-level `OFR3001`/`OFR3004`–`3009` findings, plus `OFR3002` when the
+(error-level `OFR3001`/`OFR3004`–`3009`/`OFR3013` findings, plus `OFR3002` when the
 target is not `-windows`) or an explicit list.
 
 Method:
@@ -152,7 +152,7 @@ Decisions in `docs/decisions/0023-seams-extract-and-remote.md`.
 
 - Unportable symbols: `--unportable-from audit` (default from
   `seams.unportableSources`) runs `audit api` on the project and takes the error-level
-  OFR3001 and OFR3004–3009 findings, plus OFR3002. `list` uses `--symbols` and
+  OFR3001, OFR3004–3009, and OFR3013 findings, plus OFR3002. `list` uses `--symbols` and
   `seams.unportableSymbols`: namespace or type prefixes of fully qualified names.
 - Taint: types that use an unportable symbol, then types that inherit from a tainted
   type or expose one in a public or protected field, property, method parameter, or

@@ -28,6 +28,8 @@ public sealed class AuditRunnerTests
     [ProducesDiagnostic("OFR3008")]
     [ProducesDiagnostic("OFR3009")]
     [ProducesDiagnostic("OFR3011")]
+    [ProducesDiagnostic("OFR3013")]
+    [ProducesDiagnostic("OFR3014")]
     public async Task Every_api_rule_has_a_positive_and_a_negative() =>
         await AssertPositivesAndNegatives(AuditKind.Api, extra: bag => Assert.Contains(bag.ToSortedList(),
             d => d.Code == "OFR3011" && d.Project == Legacy && d.Message.Contains("Microsoft.Web.Infrastructure", StringComparison.Ordinal)));
@@ -96,6 +98,38 @@ public sealed class AuditRunnerTests
         // IAttachment, the type of Invoice.Attachment, and PdfPage through PdfAttachment's field;
         // OFR3205.Positive by nobody.
         Assert.Equal(["Behavior.Rules.OFR3205.Positive"], result.Findings.Where(f => f.Rule == "OFR3205").Select(f => f.Symbol));
+    }
+
+    [Fact]
+    public async Task A_removed_technology_is_not_also_missing_and_CallContext_is_not_remoting()
+    {
+        var (result, _) = await RunAsync("behavior", AuditKind.Api);
+        var fixture = await ScannedFixtures.GetAsync("behavior");
+        const string Api = "src/Behavior.Legacy/Rules/Api.cs";
+        string[] RulesAt(string text)
+        {
+            var line = Array.FindIndex(File.ReadAllLines(Path.Combine(fixture.Root, Api)), l => l.Contains(text, StringComparison.Ordinal)) + 1;
+            Assert.True(line > 0, $"'{text}' is not in {Api}");
+            return [.. result.Findings.Where(f => f.File == Api && f.Line == line).Select(f => f.Rule).Order(StringComparer.Ordinal)];
+        }
+
+        // CallContext is its own rule, with AsyncLocal<T> as the answer: not Remoting, and not also "missing".
+        Assert.Equal(["OFR3013"], RulesAt("CallContext.SetData"));
+        Assert.Contains("AsyncLocal<T>", result.Findings.First(f => f.Rule == "OFR3013").Recommendation, StringComparison.Ordinal);
+        Assert.Equal(["OFR3007"], RulesAt("RemotingConfiguration.Configure"));
+        Assert.Equal(["OFR3008"], RulesAt("System.Activities.Activity activity"));
+        Assert.Equal(["OFR3005"], RulesAt("public class Positive : System.Web.Services.WebService"));
+
+        // Security transparency attributes do nothing on the target (info); CAS permission attributes are gone (OFR3009).
+        Assert.Equal(["OFR3014"], RulesAt("[System.Security.SecurityCritical]").Distinct());
+        Assert.All(result.Findings.Where(f => f.Rule == "OFR3014"), f => Assert.Equal(Severity.Info, f.Severity));
+        Assert.DoesNotContain(result.Findings, f => f.Rule == "OFR3009" && f.Symbol.StartsWith("System.Security.Security", StringComparison.Ordinal));
+        Assert.Contains(result.Findings, f => f.Rule == "OFR3009" && f.Symbol == "System.Security.Permissions.SecurityPermissionAttribute");
+
+        // A missing API with a known replacement names it.
+        var dynamic = Assert.Single(result.Findings, f => f.Rule == "OFR3001" && f.Symbol.StartsWith("System.AppDomain.DefineDynamicAssembly", StringComparison.Ordinal));
+        Assert.Equal("System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly", dynamic.Details["replacement"]);
+        Assert.EndsWith("does not exist on the target. Use System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly.", dynamic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -191,11 +225,16 @@ public sealed class AuditRunnerTests
     public async Task A_fully_qualified_name_is_reported_at_its_type_not_its_namespace()
     {
         var (result, _) = await RunAsync("behavior", AuditKind.Api);
+        var api = result.Findings.Where(f => f.File == "src/Behavior.Legacy/Rules/Api.cs").ToList();
 
-        var control = Assert.Single(result.Findings, f => f.Rule == "OFR3001" && f.Symbol == "System.Web.UI.Control");
-        Assert.Equal("System.Web.UI", control.Namespace);
-        Assert.DoesNotContain(result.Findings, f => f.Rule == "OFR3001" && f.Symbol is "System.Web.UI" or "System.Activities");
-        Assert.Contains(result.Findings, f => f.Rule == "OFR3001" && f.Symbol == "System.Activities.Activity");
+        var context = Assert.Single(api, f => f.Rule == "OFR3001" && f.Symbol == "System.Web.HttpContext");
+        Assert.Equal("System.Web", context.Namespace);
+        Assert.DoesNotContain(api, f => f.Symbol is "System.Web" or "System.Web.UI" or "System.Activities");
+
+        // A removed technology named in full is reported at its type too, as that technology (not also as missing).
+        Assert.Equal("System.Web.UI", Assert.Single(api, f => f.Symbol == "System.Web.UI.Control").Namespace);
+        Assert.Equal(["OFR3004"], api.Where(f => f.Symbol == "System.Web.UI.Control").Select(f => f.Rule));
+        Assert.Equal(["OFR3008"], api.Where(f => f.Symbol == "System.Activities.Activity").Select(f => f.Rule));
     }
 
     [Fact]
@@ -207,11 +246,12 @@ public sealed class AuditRunnerTests
         // every name looked up inside it, including Convert, EventArgs, and ModuleBase itself.
         var (result, diagnostics) = await RunAsync("webforms", AuditKind.Api);
 
-        var missing = result.Findings.Where(f => f.Rule == "OFR3001").ToList();
+        // What the class really uses from Web Forms is reported as Web Forms (OFR3004, not also as missing).
         Assert.Equal(
-            ["System.Web.UI.Control.ClientID", "System.Web.UI.Control.ViewState"],
-            missing.Where(f => f.File == "src/Portal.Modules/EditSettings.ascx.cs").Select(f => f.Symbol).Order(StringComparer.Ordinal));
-        Assert.Single(missing, f => f.Symbol == "System.Web.UI.UserControl" && f.File == "src/Portal.Controls/ModuleBase.cs");
+            ["OFR3004 Portal.Controls.ModuleBase", "OFR3004 System.Web.UI.Control.ClientID", "OFR3004 System.Web.UI.Control.ViewState"],
+            result.Findings.Where(f => f.File == "src/Portal.Modules/EditSettings.ascx.cs").Select(f => $"{f.Rule} {f.Symbol}").Order(StringComparer.Ordinal));
+        Assert.Equal(["OFR3004"], result.Findings.Where(f => f.Symbol == "System.Web.UI.UserControl" && f.File == "src/Portal.Controls/ModuleBase.cs").Select(f => f.Rule));
+        var missing = result.Findings.Where(f => f.Rule == "OFR3001").ToList();
         Assert.All(missing, f => Assert.Equal("System.Web", f.Details["assembly"]));
 
         // PortalException derives from the missing HttpException; ErrorCode, inherited from

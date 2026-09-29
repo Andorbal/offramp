@@ -37,6 +37,8 @@ public static class AuditRules
                     Category = Text(node, "category"),
                     Recommendation = Text(node, "recommendation"),
                     Symbols = List(node, "symbols"),
+                    Exclude = List(node, "exclude"),
+                    Replacements = Map(node, "replacements"),
                     BaseTypes = List(node, "baseTypes"),
                     Attributes = List(node, "attributes"),
                     Matcher = node["matcher"]?.GetValue<string>(),
@@ -52,6 +54,17 @@ public static class AuditRules
 
     private static List<string> List(JsonNode? node, string key) =>
         node?[key] is JsonArray array ? [.. array.Select(v => v!.GetValue<string>())] : [];
+
+    private static SortedDictionary<string, string> Map(JsonNode? node, string key)
+    {
+        var map = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (id, value) in node?[key] as JsonObject ?? new JsonObject())
+        {
+            map[id] = value!.GetValue<string>();
+        }
+
+        return map;
+    }
 
     private static Severity ParseSeverity(string value) => value switch
     {

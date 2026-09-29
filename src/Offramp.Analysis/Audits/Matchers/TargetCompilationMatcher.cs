@@ -8,8 +8,9 @@ namespace Offramp.Analysis.Audits.Matchers;
 /// <c>OFR3001</c> and <c>OFR3002</c> from the target compilation. A missing API is an unresolved
 /// name on the target (CS0234, CS0246, CS0103, CS1061, CS0117, and CS1069 for a type forwarded to
 /// an assembly the target does not reference) whose position resolves to a type
-/// or member in the recorded .NET Framework compilation; it carries that assembly's mapping
-/// (<c>rules/framework-assemblies.yml</c>). A Windows-only API resolves on the target to a
+/// or member in the recorded .NET Framework compilation that the target does not have; it
+/// carries that assembly's mapping (<c>rules/framework-assemblies.yml</c>), and the rule's
+/// replacement when it has one. A Windows-only API resolves on the target to a
 /// symbol marked <c>[SupportedOSPlatform("windows")]</c> (itself, a containing type, or its
 /// assembly); desktop projects, compiled against <c>-windows</c>, have none, but get
 /// <c>OFR3003</c> for the Windows Forms types .NET keeps only as throwing shims.
@@ -113,6 +114,12 @@ public sealed class TargetCompilationMatcher : IAuditMatcher
 
             var qualified = AuditEngine.Name(symbol);
             var message = $"{qualified} ({assembly}) does not exist on the target. " + Mapping(mapping);
+            if (Replacement(rule, symbol) is { } replacement)
+            {
+                details["replacement"] = replacement;
+                message = $"{qualified} ({assembly}) does not exist on the target. Use {replacement}.";
+            }
+
             yield return new RawFinding(rule, name.GetLocation(), qualified, message, details) { Namespace = AuditEngine.NamespaceOf(owner) };
         }
     }
@@ -151,6 +158,10 @@ public sealed class TargetCompilationMatcher : IAuditMatcher
 
         return type.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() + "." + name : name;
     }
+
+    /// <summary>The rule's replacement for the API, matched like its symbols (an <c>M:</c> without parameters covers every overload).</summary>
+    private static string? Replacement(AuditRule rule, ISymbol symbol) =>
+        rule.Replacements.Count == 0 ? null : AuditEngine.Keys(symbol).Select(k => rule.Replacements.GetValueOrDefault(k)).FirstOrDefault(r => r is not null);
 
     private static IEnumerable<RawFinding> WindowsOnly(AuditRule rule, SyntaxTree targetTree, SemanticModel targetModel)
     {

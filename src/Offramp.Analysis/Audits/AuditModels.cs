@@ -37,6 +37,12 @@ public sealed record AuditRule
     /// <summary>Documentation IDs; a <c>T:</c> type covers its members, an <c>N:</c> namespace everything inside, an <c>M:</c> without parameters every overload.</summary>
     public IReadOnlyList<string> Symbols { get; init; } = [];
 
+    /// <summary>Documentation IDs, read like <see cref="Symbols"/>, that <see cref="Symbols"/> leaves to another rule (<c>OFR3007</c> leaves <c>CallContext</c> to <c>OFR3013</c>).</summary>
+    public IReadOnlyList<string> Exclude { get; init; } = [];
+
+    /// <summary>What replaces an API on the target, by documentation ID read like <see cref="Symbols"/> (<c>OFR3001</c>).</summary>
+    public IReadOnlyDictionary<string, string> Replacements { get; init; } = new SortedDictionary<string, string>(StringComparer.Ordinal);
+
     /// <summary>Types whose subclasses match (declarations deriving from them).</summary>
     public IReadOnlyList<string> BaseTypes { get; init; } = [];
 

@@ -148,6 +148,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3010](#ofr3010) | warning | audit | project not compiled against the target |
 | [OFR3011](#ofr3011) | info | audit | packages without target support left out |
 | [OFR3012](#ofr3012) | warning | audit | project not audited |
+| [OFR3013](#ofr3013) | error | audit | call context (CallContext) |
+| [OFR3014](#ofr3014) | info | audit | security transparency attribute without effect |
 | [OFR3015](#ofr3015) | info | audit | package not found for the target compilation |
 | [OFR3016](#ofr3016) | warning | audit | project audited from a failed build |
 | [OFR3101](#ofr3101) | warning | audit | culture-sensitive string operation |
@@ -1305,7 +1307,7 @@ Windows Workflow Foundation is not part of modern .NET.
 
 Enterprise Services (COM+), Code Access Security, and sandboxed AppDomains are gone on modern .NET.
 
-- **Typical cause:** System.EnterpriseServices components, CAS permission attributes, PermissionSet, AllowPartiallyTrustedCallers.
+- **Typical cause:** System.EnterpriseServices components, CAS permission attributes (SecurityPermission, FileIOPermission, and the other CodeAccessSecurityAttribute types), PermissionSet, AppDomain.CreateDomain with a permission set. Security transparency attributes are OFR3014.
 - **Fix:** COM+ services, CAS permissions, and sandboxed AppDomains are gone; isolate the code in a separate process.
 
 ### OFR3010
@@ -1334,6 +1336,24 @@ The audit read none of the project's code: audits read C# compilations, and the 
 
 - **Typical cause:** A Visual Basic library in a C# solution, or a project whose build failed during `scan` (the model marks it partial; `scan` reported the errors as OFR0130).
 - **Fix:** Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build errors `scan` reported and run `offramp scan` again.
+
+### OFR3013
+
+**call context (CallContext)** · error · audit
+
+The code keeps ambient data in CallContext (System.Runtime.Remoting.Messaging), which modern .NET does not have. It is not Remoting: AsyncLocal<T> replaces it.
+
+- **Typical cause:** CallContext.SetData/GetData or LogicalSetData/LogicalGetData for a per-request or per-session context (NHibernate's CallSessionContext, logging scopes).
+- **Fix:** CallContext is gone; keep ambient data in an AsyncLocal<T>, which flows like LogicalSetData (a ThreadLocal<T> where SetData's per-thread behavior is wanted).
+
+### OFR3014
+
+**security transparency attribute without effect** · info · audit
+
+A security transparency attribute ([SecurityCritical], [SecuritySafeCritical], [SecurityTransparent], [AllowPartiallyTrustedCallers], [SecurityRules]) exists on the target and does nothing there, so the code compiles and behaves the same without partial trust.
+
+- **Typical cause:** Libraries written for partial trust, typically on GetObjectData overrides and at assembly level.
+- **Fix:** The attribute exists on the target and does nothing there; it can stay, or go when the .NET Framework build does.
 
 ### OFR3015
 

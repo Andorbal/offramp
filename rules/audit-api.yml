@@ -9,6 +9,10 @@ rules:
     category: missing-api
     recommendation: See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.
     matcher: target-compilation
+    # APIs with a known replacement on the target, named in the finding's message.
+    replacements:
+      M:System.AppDomain.DefineDynamicAssembly: System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly
+      M:System.Reflection.Emit.AssemblyBuilder.Save: System.Reflection.Emit.PersistedAssemblyBuilder (.NET 9 and later)
   OFR3002:
     pack: core
     severity: warning
@@ -67,6 +71,7 @@ rules:
     category: removed-technology
     recommendation: Remoting has no port; use gRPC, HTTP, or named pipes (`offramp remote`).
     symbols: [N:System.Runtime.Remoting]
+    exclude: [T:System.Runtime.Remoting.Messaging.CallContext, T:System.Runtime.Remoting.Messaging.LogicalCallContext, T:System.Runtime.Remoting.Messaging.ILogicalThreadAffinative]
   OFR3008:
     pack: core
     severity: error
@@ -81,4 +86,18 @@ rules:
     category: removed-technology
     recommendation: COM+ services, CAS permissions, and sandboxed AppDomains are gone; isolate the code in a separate process.
     symbols: [N:System.EnterpriseServices, T:System.Security.PermissionSet, "M:System.AppDomain.CreateDomain(System.String,System.Security.Policy.Evidence,System.AppDomainSetup,System.Security.PermissionSet,System.Security.Policy.StrongName[])"]
-    attributes: [T:System.Security.Permissions.CodeAccessSecurityAttribute, T:System.Security.SecurityCriticalAttribute, T:System.Security.AllowPartiallyTrustedCallersAttribute]
+    attributes: [T:System.Security.Permissions.CodeAccessSecurityAttribute]
+  OFR3013:
+    pack: core
+    severity: error
+    title: call context (CallContext)
+    category: removed-technology
+    recommendation: CallContext is gone; keep ambient data in an AsyncLocal<T>, which flows like LogicalSetData (a ThreadLocal<T> where SetData's per-thread behavior is wanted).
+    symbols: [T:System.Runtime.Remoting.Messaging.CallContext, T:System.Runtime.Remoting.Messaging.LogicalCallContext, T:System.Runtime.Remoting.Messaging.ILogicalThreadAffinative]
+  OFR3014:
+    pack: core
+    severity: info
+    title: security transparency attribute without effect
+    category: no-effect
+    recommendation: The attribute exists on the target and does nothing there; it can stay, or go when the .NET Framework build does.
+    attributes: [T:System.Security.SecurityCriticalAttribute, T:System.Security.SecuritySafeCriticalAttribute, T:System.Security.SecurityTransparentAttribute, T:System.Security.SecurityTreatAsSafeAttribute, T:System.Security.AllowPartiallyTrustedCallersAttribute, T:System.Security.SecurityRulesAttribute]

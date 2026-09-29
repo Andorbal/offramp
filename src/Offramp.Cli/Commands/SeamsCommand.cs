@@ -24,7 +24,7 @@ public sealed record SeamsOptions(string Project, string? UnportableFrom, IReadO
 public sealed class SeamsCommand(string format) : ICommandHandler<SeamsOptions, SeamsResult>, IRawOutput<SeamsResult>
 {
     /// <summary>The audit rules whose findings make code unportable (OFR3002 too when the target is not -windows).</summary>
-    private static readonly HashSet<string> UnportableRules = new(StringComparer.Ordinal) { "OFR3001", "OFR3002", "OFR3004", "OFR3005", "OFR3006", "OFR3007", "OFR3008", "OFR3009" };
+    private static readonly HashSet<string> UnportableRules = new(StringComparer.Ordinal) { "OFR3001", "OFR3002", "OFR3004", "OFR3005", "OFR3006", "OFR3007", "OFR3008", "OFR3009", "OFR3013" };
 
     private string? _written;
 

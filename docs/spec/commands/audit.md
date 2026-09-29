@@ -35,11 +35,16 @@ Method:
 3. **Throws on modern .NET** (`OFR3003`): a curated list of APIs that compile
    but throw `PlatformNotSupportedException` (e.g. `Thread.Abort`,
    `AppDomain.CreateDomain`, `Remoting`, `CodeDom` compilation,
-   `System.Drawing` on non-Windows, `BinaryFormatter` without the switch).
-4. **Removed technologies** (`OFR3004`–`3009`, error): WebForms (`System.Web.UI`),
-   ASMX, WCF server without CoreWCF, Remoting, Workflow Foundation,
-   `System.EnterpriseServices`, Code Access Security attributes, AppDomain
-   sandboxing. Each carries the recommended direction.
+   `System.Drawing` on non-Windows, `BinaryFormatter` without the switch), and
+   on a `-windows` target the Windows Forms types kept only for binary
+   compatibility (`MenuItem`, `ContextMenu`, `DataGrid`: `[Obsolete]` `WFDEV006`).
+4. **Removed technologies** (`OFR3004`–`3009` and `OFR3013`, error): WebForms
+   (`System.Web.UI`), ASMX, WCF server without CoreWCF, Remoting, Workflow
+   Foundation, `System.EnterpriseServices`, Code Access Security attributes,
+   AppDomain sandboxing, `CallContext`. Each carries the recommended direction.
+5. **No effect on the target** (`OFR3014`, info): security transparency
+   attributes (`[SecurityCritical]`, `[AllowPartiallyTrustedCallers]`), which
+   exist on the target and do nothing there.
 
 Result: findings plus a **porting ledger**: per project, counts by category and
 by namespace, a `portability` score (fraction of files with no error-level
@@ -129,8 +134,18 @@ Decisions behind the four code audits (ADR 0021).
 - `symbols` are documentation IDs. A `T:` type matches the type and its members, an
   `N:` namespace everything in it, and an `M:` without a parameter list every
   overload. A name that binds to a namespace is never a finding: the types and
-  members used from it are.
+  members used from it are. `exclude` lists documentation IDs, read the same way,
+  that `symbols` leaves to another rule (`OFR3007` leaves `CallContext` to
+  `OFR3013`).
+- `OFR3001` has `replacements`: documentation IDs, read the same way, mapped to what
+  replaces the API on the target (`AppDomain.DefineDynamicAssembly` →
+  `AssemblyBuilder.DefineDynamicAssembly`). The finding's message names it, and its
+  `details.replacement` holds it (ADR 0044).
 - One finding per rule and line.
+- `OFR3001` is not reported where a removed-technology rule (category
+  `removed-technology`) matched: at the same name, or on the same line for the same
+  symbol (a base type or attribute, reported at the declaration). The removed
+  technology's finding says what to do instead (ADR 0044).
 - `--pack` runs only the packs named and overrides `rules.packs.disable`. A rule set to
   `none` in `offramp.yml` does not run. Any other override changes the severity and
   marks the finding `overridden`.
@@ -438,6 +453,7 @@ offramp ifdef strip --symbol NETFRAMEWORK [--keep true|false] [--apply]
   project's C# compile items, active or not, from disk. Totals count a shared file
   once. Trending in the ledger is not in v1.
 - `wrap` reads the `--format json` result (or the `--json` envelope) of `audit api`.
+  Info findings are left out: they name code that works on the target (`OFR3014`).
   - Each finding must still name its symbol at its position, parsed with the owning
     project's .NET Framework preprocessor symbols; one that does not is stale (OFR3602).
     Findings already inside a branch with the same condition are counted and left.

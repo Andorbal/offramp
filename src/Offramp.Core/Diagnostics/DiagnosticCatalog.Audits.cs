@@ -72,7 +72,7 @@ public static partial class DiagnosticCatalog
         "OFR3009", Severity.Error,
         "COM+, Code Access Security, or AppDomain sandboxing",
         "Enterprise Services (COM+), Code Access Security, and sandboxed AppDomains are gone on modern .NET.",
-        "System.EnterpriseServices components, CAS permission attributes, PermissionSet, AllowPartiallyTrustedCallers.",
+        "System.EnterpriseServices components, CAS permission attributes (SecurityPermission, FileIOPermission, and the other CodeAccessSecurityAttribute types), PermissionSet, AppDomain.CreateDomain with a permission set. Security transparency attributes are OFR3014.",
         "COM+ services, CAS permissions, and sandboxed AppDomains are gone; isolate the code in a separate process.",
         AuditArea);
 
@@ -98,6 +98,22 @@ public static partial class DiagnosticCatalog
         "The audit read none of the project's code: audits read C# compilations, and the project is Visual Basic or F#, or the scan recorded no compiler call for it. The message gives the reason; the result lists it under `skipped`.",
         "A Visual Basic library in a C# solution, or a project whose build failed during `scan` (the model marks it partial; `scan` reported the errors as OFR0130).",
         "Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build errors `scan` reported and run `offramp scan` again.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3013 = new(
+        "OFR3013", Severity.Error,
+        "call context (CallContext)",
+        "The code keeps ambient data in CallContext (System.Runtime.Remoting.Messaging), which modern .NET does not have. It is not Remoting: AsyncLocal<T> replaces it.",
+        "CallContext.SetData/GetData or LogicalSetData/LogicalGetData for a per-request or per-session context (NHibernate's CallSessionContext, logging scopes).",
+        "CallContext is gone; keep ambient data in an AsyncLocal<T>, which flows like LogicalSetData (a ThreadLocal<T> where SetData's per-thread behavior is wanted).",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3014 = new(
+        "OFR3014", Severity.Info,
+        "security transparency attribute without effect",
+        "A security transparency attribute ([SecurityCritical], [SecuritySafeCritical], [SecurityTransparent], [AllowPartiallyTrustedCallers], [SecurityRules]) exists on the target and does nothing there, so the code compiles and behaves the same without partial trust.",
+        "Libraries written for partial trust, typically on GetObjectData overrides and at assembly level.",
+        "The attribute exists on the target and does nothing there; it can stay, or go when the .NET Framework build does.",
         AuditArea);
 
     public static readonly DiagnosticDescriptor OFR3015 = new(

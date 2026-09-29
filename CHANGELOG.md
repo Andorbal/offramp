@@ -12,6 +12,15 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- `OFR3013` (error): `CallContext` (and `LogicalCallContext`), which modern .NET does not have,
+  with `AsyncLocal<T>` as the replacement. It was reported as .NET Remoting (`OFR3007`, "use gRPC,
+  HTTP, or named pipes") and as missing (`OFR3001`) at the same place.
+- `OFR3014` (info): security transparency attributes (`[SecurityCritical]`,
+  `[SecuritySafeCritical]`, `[AllowPartiallyTrustedCallers]`, ...), which exist on the target and
+  do nothing there.
+- Audit rules can `exclude` documentation IDs that their `symbols` leave to another rule, and
+  `OFR3001` names a known replacement (`replacements` in `rules/audit-api.yml`, the finding's
+  `details.replacement`): `AppDomain.DefineDynamicAssembly` says `AssemblyBuilder.DefineDynamicAssembly`.
 - `OFR3016` (warning): `audit` read a project the model marks partial, whose build failed during
   `scan`; the compiler call it recorded can lack sources or references.
 - `OFR3015` (info): `audit api` could not find one of a project's packages on the feeds (NU1101,
@@ -83,6 +92,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `OFR0017` (MSBuild not found): `--msbuild` found no MSBuild.exe, or could not start it; scan exits 3.
 
 ### Changed
+- `audit api` reports an API of a removed technology once, under that technology's rule (ADR
+  0044): `OFR3001` is no longer repeated where Web Forms, ASMX, WCF hosting, Remoting, WF, COM+ or
+  `CallContext` (`OFR3004`–`OFR3009`, `OFR3013`) matched. `OFR3001` counts drop on such code;
+  `seams` and the porting ledger count those rules too, so they see the same code as unportable.
+  Disabling the technology's rule or pack brings the `OFR3001` findings back.
+- `OFR3009` no longer covers `[SecurityCritical]` and `[AllowPartiallyTrustedCallers]`: they are
+  `OFR3014` (info). 23 of NHibernate 4.1's 24 `OFR3009` errors were those attributes, with the
+  advice to isolate the code in a separate process. `ifdef wrap` leaves info findings alone.
 - Every envelope's `effectiveConfig` has a `scan` section (`builder`, `msbuildPath`), and `init`
   writes it to `offramp.yml` with its defaults.
 

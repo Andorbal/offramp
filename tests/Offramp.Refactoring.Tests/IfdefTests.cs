@@ -160,6 +160,19 @@ public sealed class IfdefTests
         Assert.Throws<System.Text.Json.JsonException>(() => WrapFinding.Parse("""{ "graph": [] }"""));
     }
 
+    [Fact]
+    public void Info_findings_are_not_wrapped()
+    {
+        // OFR3014: [SecurityCritical] exists on the target and does nothing there.
+        const string Document = """
+            { "audit": "api", "findings": [
+              { "rule": "OFR3001", "severity": "error", "file": "a.cs", "line": 3, "column": 5, "symbol": "X" },
+              { "rule": "OFR3014", "severity": "info", "file": "a.cs", "line": 9, "column": 6, "symbol": "System.Security.SecurityCriticalAttribute" } ] }
+            """;
+
+        Assert.Equal([new WrapFinding("OFR3001", "a.cs", 3, 5, "X")], WrapFinding.Parse(Document));
+    }
+
     /// <summary>A finding at the first line containing <paramref name="line"/>, at <paramref name="token"/> on it.</summary>
     private static WrapFinding At(FixtureRepository repository, string rule, string file, string line, string token, string symbol)
     {
