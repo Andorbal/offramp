@@ -60,6 +60,14 @@ public static partial class DiagnosticCatalog
         "Replace the package with its successor (the message names one when the package map knows it), ask its authors for a modern build, or isolate the code that uses it behind a seam. Moving back to the older version is a decision to make with its release notes, not an upgrade.",
         DependenciesArea);
 
+    public static readonly DiagnosticDescriptor OFR1008 = new(
+        "OFR1008", Severity.Info,
+        "DLL references the audit does not see",
+        "Projects reference DLLs by `HintPath` that no packages.config installs: checked-in or copied DLLs, which are dependencies too, but not packages, so `deps audit` has nothing to say about them. `deps resolve-dlls` matches them to packages and projects.",
+        "A codebase from before NuGet, with third-party DLLs in a lib folder (NHibernate 4.1: 15 references, no package).",
+        "Run `offramp deps resolve-dlls`, apply what it finds, and audit again.",
+        DependenciesArea);
+
     public static readonly DiagnosticDescriptor OFR1200 = new(
         "OFR1200", Severity.Error,
         "package not referenced",

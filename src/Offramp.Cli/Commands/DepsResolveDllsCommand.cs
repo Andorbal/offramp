@@ -51,7 +51,7 @@ public sealed class DepsResolveDllsCommand : ICommandHandler<DepsResolveDllsOpti
 
         var root = context.Repository.Path;
         var config = context.Config.Config;
-        using var feeds = NuGetPackageFeeds.ForRepository(root, config.Deps.Feeds);
+        using var feeds = NuGetPackageFeeds.ForWorkspace(root, config.Deps.Feeds, model);
         var plan = await DllResolver.PlanAsync(new ResolveDllsRequest
         {
             RepositoryRoot = root,

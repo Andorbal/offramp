@@ -96,6 +96,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1005](#ofr1005) | warning | deps | package not found on any feed |
 | [OFR1006](#ofr1006) | warning | deps | feed unreachable; result partial |
 | [OFR1007](#ofr1007) | error | deps | only versions older than the one in use support the target |
+| [OFR1008](#ofr1008) | info | deps | DLL references the audit does not see |
 | [OFR1200](#ofr1200) | error | deps | package not referenced |
 | [OFR1203](#ofr1203) | warning | deps | pin kept a package below the otherwise-selected version |
 | [OFR1204](#ofr1204) | info | deps | packages.config project keeps its version |
@@ -891,6 +892,15 @@ The version in use does not support the target and no newer version does; only o
 
 - **Typical cause:** A package that dropped its .NET Standard or modern .NET build in a later release.
 - **Fix:** Replace the package with its successor (the message names one when the package map knows it), ask its authors for a modern build, or isolate the code that uses it behind a seam. Moving back to the older version is a decision to make with its release notes, not an upgrade.
+
+### OFR1008
+
+**DLL references the audit does not see** · info · deps
+
+Projects reference DLLs by `HintPath` that no packages.config installs: checked-in or copied DLLs, which are dependencies too, but not packages, so `deps audit` has nothing to say about them. `deps resolve-dlls` matches them to packages and projects.
+
+- **Typical cause:** A codebase from before NuGet, with third-party DLLs in a lib folder (NHibernate 4.1: 15 references, no package).
+- **Fix:** Run `offramp deps resolve-dlls`, apply what it finds, and audit again.
 
 ### OFR1200
 

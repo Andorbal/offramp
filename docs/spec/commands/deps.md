@@ -3,7 +3,11 @@
 All commands read the workspace model. Feed access goes through
 `NuGet.Protocol` using the repository's `nuget.config` (private feeds and
 credentials included), or exactly the sources in `deps.feeds`. A version already
-in the global packages folder is read from there. Package inspection results are
+in the global packages folder is read from there, then one in a packages.config
+folder (`<Id>.<Version>/<Id>.<Version>.nupkg`, as `scan` and `nuget restore` write
+it: `repositoryPath` from `nuget.config`, else `packages/` beside the solution or at
+the root). Each request to a feed gives up after 60 seconds, and the feed then counts
+as unreachable (`OFR1006`). Package inspection results are
 cached under `.offramp/cache/packages/<id>/<version>.json` and never expire unless
 `--no-cache` (a published version is immutable); version lists, listing state, and
 deprecation are asked for on every run.
@@ -118,7 +122,9 @@ Diagnostics: `OFR1001` no version supports target (error), `OFR1002` in-use
 version does not support target, `OFR1003` package or in-use version deprecated,
 `OFR1004` windows-only assets, `OFR1005` package not found on any feed,
 `OFR1006` feed unreachable (result marked partial, exit 4), `OFR1007` only
-versions older than the one in use support the target.
+versions older than the one in use support the target, `OFR1008` (info) projects
+reference DLLs by `HintPath` that no packages.config installs, which the audit does
+not see: it points to `deps resolve-dlls`.
 
 ## `deps consolidate`
 

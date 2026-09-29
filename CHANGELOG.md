@@ -434,6 +434,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `.exe` is an application's installer (Open Live Writer's Squirrel package carries every DLL of
   the application) and ships nothing. `deadCode.externalConsumers` is now documented in
   `docs/spec/03-configuration.md`.
+- `deps audit` points to `deps resolve-dlls` when projects reference DLLs by `HintPath` that no
+  packages.config installs (new `OFR1008`, info): on NHibernate 4.1, with 15 such references and
+  no package, it said "0 packages" and nothing else. Feed requests give up after 60 seconds (the
+  feed is then unreachable, `OFR1006`): on Open Live Writer a v2 feed whose CDN was blocked kept
+  the audit busy for 1,668 seconds. `deps audit`, `deps resolve-dlls` and `codemod run` read a
+  package from the packages.config folder `scan` restored before downloading it again.
 - `codemod run` checks each package a codemod adds against the project's target frameworks, by
   inspecting the package on the configured feeds (ADR 0046). On NHibernate 4.1, `--mod sqlclient`
   added Microsoft.Data.SqlClient 7.1.0, which starts at .NET Framework 4.6.2, to a net40 project

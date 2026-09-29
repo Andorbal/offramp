@@ -69,6 +69,11 @@ public static class DepsAuditor
             phase.Report(packages.Count, packages.Count);
         }
 
+        if (request.Package is null)
+        {
+            ReportLooseDlls(request);
+        }
+
         foreach (var source in unreachable)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR1006, $"The feed {source} could not be queried; packages that depend on it are marked unknown.",
@@ -375,6 +380,32 @@ public static class DepsAuditor
         var inspection = PackageInspector.Inspect(nupkg);
         request.Cache.Set(ns, key, OfframpJson.Serialize(inspection, NuGetJsonContext.Default.PackageInspection));
         return inspection;
+    }
+
+    /// <summary>
+    /// <c>OFR1008</c>: references to DLLs by <c>HintPath</c> that no packages.config installs are
+    /// packages (or projects) the audit cannot see; <c>deps resolve-dlls</c> is the command for them.
+    /// NHibernate 4.1 has 15 such references and no package, and the audit said "0 packages".
+    /// </summary>
+    private static void ReportLooseDlls(DepsAuditRequest request)
+    {
+        var loose = request.Model.Projects
+            .Where(p => request.Project is null || string.Equals(p.Id, request.Project, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(p => p.AssemblyReferences
+                .Where(r => r.Kind == AssemblyReferenceKind.File && r.HintPath is not null && InstalledPackage.For(p, r.HintPath) is null)
+                .Select(r => (Project: p.Id, r.Name)))
+            .ToList();
+        if (loose.Count == 0)
+        {
+            return;
+        }
+
+        var projects = loose.Select(l => l.Project).Distinct(StringComparer.Ordinal).Count();
+        request.Diagnostics.Report(DiagnosticCatalog.OFR1008,
+            string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"{loose.Count} reference{(loose.Count == 1 ? "" : "s")} in {projects} project{(projects == 1 ? "" : "s")} point at DLLs by HintPath, which deps audit does not see; `offramp deps resolve-dlls` matches them to packages and projects."),
+            data: [KeyValuePair.Create<string, JsonNode?>("references", loose.Count), KeyValuePair.Create<string, JsonNode?>("projects", projects),
+                   KeyValuePair.Create<string, JsonNode?>("assemblies", new JsonArray([.. loose.Select(l => l.Name).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).Select(n => (JsonNode?)n)]))]);
     }
 
     private static SortedDictionary<string, IReadOnlyList<string>> Restrict(PackageUsage usage, string? project)

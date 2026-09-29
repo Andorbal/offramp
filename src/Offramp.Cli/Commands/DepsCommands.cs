@@ -106,7 +106,7 @@ public sealed class DepsAuditCommand(string format = "table") : ICommandHandler<
             config = config with { Deps = config.Deps with { IncludePrerelease = true } };
         }
 
-        using var feeds = NuGetPackageFeeds.ForRepository(context.Repository.Path, config.Deps.Feeds);
+        using var feeds = NuGetPackageFeeds.ForWorkspace(context.Repository.Path, config.Deps.Feeds, model);
         var result = await DepsAuditor.RunAsync(new DepsAuditRequest
         {
             Model = model,

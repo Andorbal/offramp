@@ -237,7 +237,7 @@ public static class DllResolver
             return dll with { Resolution = new DllResolution { Kind = DllResolutionKind.Project, Project = owner.Id, Reason = $"{owner.Id} builds {reference.Name}." } };
         }
 
-        if (Installed(project, reference.HintPath!) is { } installed)
+        if (InstalledPackage.For(project, reference.HintPath!) is { } installed)
         {
             var version = NuGetVersion.TryParse(installed.Version, out var parsed) ? parsed.ToNormalizedString() : installed.Version;
             return dll with
@@ -313,26 +313,6 @@ public static class DllResolver
     }
 
     private static string Wire(DllMatch match) => char.ToLowerInvariant(match.ToString()[0]) + match.ToString()[1..];
-
-    /// <summary>
-    /// The package in the project's packages.config whose <c>packages/&lt;Id&gt;.&lt;Version&gt;/</c> folder the
-    /// <c>HintPath</c> goes through, or null. The folder names the exact package and version; the
-    /// assembly version does not (Newtonsoft.Json 13.0.1 to 13.0.3 all ship 13.0.0.0).
-    /// </summary>
-    private static PackagesConfigPackage? Installed(ProjectInfo project, string hintPath)
-    {
-        var segments = hintPath.Replace('\\', '/').Split('/');
-        for (var i = 0; i + 1 < segments.Length; i++)
-        {
-            if (segments[i].Equals("packages", StringComparison.OrdinalIgnoreCase)
-                && (project.PackagesConfigPackages ?? []).FirstOrDefault(p => string.Equals($"{p.Id}.{p.Version}", segments[i + 1], StringComparison.OrdinalIgnoreCase)) is { } package)
-            {
-                return package;
-            }
-        }
-
-        return null;
-    }
 
     /// <summary>
     /// The package and version a <c>$(NuGetPackageRoot)&lt;id&gt;/&lt;version&gt;/...</c> HintPath goes

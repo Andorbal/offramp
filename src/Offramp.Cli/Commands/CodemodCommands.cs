@@ -155,7 +155,7 @@ public sealed class CodemodRunCommand : ICommandHandler<CodemodRunOptions, Codem
         }
 
         using var loader = new CompilationLoader(root);
-        using var feeds = NuGetPackageFeeds.ForRepository(root, config.Deps.Feeds);
+        using var feeds = NuGetPackageFeeds.ForWorkspace(root, config.Deps.Feeds, model);
         var plan = await CodemodRunner.PlanAsync(new CodemodRequest
         {
             RepositoryRoot = root,
