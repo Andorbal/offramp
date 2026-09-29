@@ -161,6 +161,73 @@ public sealed class DeadCodeTests
     }
 
     [Fact]
+    public async Task Types_a_type_finder_or_a_generic_type_definition_finds_are_low()
+    {
+        var (result, _) = await AnalyzeAsync(fixture: "dead-code-evidence");
+
+        var all = result.Projects.SelectMany(p => p.Candidates).ToDictionary(c => c.Symbol);
+
+        // SmartStoreNET's type finder: FindClassesOfType<T>() passes typeof(T) to the interface method whose
+        // implementation calls assignTypeFrom.IsAssignableFrom(t).
+        var warmup = all["Evidence.Engine.CacheWarmupTask"];
+        Assert.Equal(DeadCodeConfidence.Low, warmup.Confidence);
+        Assert.Contains(
+            "implements Evidence.Engine.IStartupTask, which the solution finds types by with reflection (FindClassesOfType<IStartupTask> at src/Engine/Bootstrapper.cs:10)",
+            warmup.Evidence);
+        var mapper = all["Evidence.Engine.OrderMapper"];
+        Assert.Equal(DeadCodeConfidence.Low, mapper.Confidence);
+        Assert.Contains(mapper.Evidence, e => e.EndsWith("which the solution finds types by with reflection (FindClassesOfType(typeof(IMapper<,>)) at src/Engine/Bootstrapper.cs:15)", StringComparison.Ordinal));
+
+        // EF6 model builders: t.BaseType.GetGenericTypeDefinition() == typeof(EntityTypeConfiguration<>), through a query's let.
+        var map = all["Evidence.Engine.ProductMap"];
+        Assert.Equal(DeadCodeConfidence.Low, map.Confidence);
+        Assert.Contains(map.Evidence, e => e.EndsWith("which the solution finds types by with reflection (GetGenericTypeDefinition() == typeof(EntityMap<>) at src/Engine/Mapping.cs:33)", StringComparison.Ordinal));
+
+        // Comparing with a base class library definition inspects a type; an interface nothing looks for finds nothing.
+        Assert.Equal(DeadCodeConfidence.High, all["Evidence.Engine.OrderList"].Confidence);
+        Assert.Equal(DeadCodeConfidence.High, all["Evidence.Engine.UnusedTask"].Confidence);
+    }
+
+    [Fact]
+    public async Task Controller_actions_are_never_high_and_are_named_without_regard_to_case()
+    {
+        var (result, _) = await AnalyzeAsync(fixture: "dead-code-evidence");
+
+        var all = result.Projects.SelectMany(p => p.Candidates).ToDictionary(c => c.Symbol);
+
+        var unlinked = all["Evidence.Shop.Controllers.BoardsController.SetSellerNote(string)"];
+        Assert.Equal(DeadCodeConfidence.Medium, unlinked.Confidence);
+        Assert.Equal(["a public action of a controller (derives from Controller): MVC routes requests to it by name"], unlinked.Evidence);
+
+        // Linked as "ActiveDiscussionsRSS": MVC matches action names without regard to case.
+        var linked = all["Evidence.Shop.Controllers.BoardsController.ActiveDiscussionsRss()"];
+        Assert.Equal(DeadCodeConfidence.Low, linked.Confidence);
+        Assert.Contains("the name appears in a string or resource at src/Shop/Program.cs:18", linked.Evidence);
+    }
+
+    [Fact]
+    public void Entity_framework_assembly_scans_find_their_configuration_types()
+    {
+        var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+            "Stubs",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("""
+                namespace System.Data.Entity.ModelConfiguration.Configuration { public class ConfigurationRegistrar { public ConfigurationRegistrar AddFromAssembly(System.Reflection.Assembly a) => this; } }
+                namespace Microsoft.EntityFrameworkCore { public class ModelBuilder { public ModelBuilder ApplyConfigurationsFromAssembly(System.Reflection.Assembly a) => this; } }
+                namespace Other { public class ModelBuilder { public ModelBuilder ApplyConfigurationsFromAssembly(System.Reflection.Assembly a) => this; } }
+                """)],
+            [Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(typeof(object).Assembly.Location)]);
+        Microsoft.CodeAnalysis.IMethodSymbol Method(string type, string name) => (Microsoft.CodeAnalysis.IMethodSymbol)compilation.GetTypeByMetadataName(type)!.GetMembers(name).Single();
+
+        Assert.Equal(
+            ["T:System.Data.Entity.ModelConfiguration.EntityTypeConfiguration`1", "T:System.Data.Entity.ModelConfiguration.ComplexTypeConfiguration`1"],
+            DeadCodeAnalyzer.ConfigurationsFromAssembly(Method("System.Data.Entity.ModelConfiguration.Configuration.ConfigurationRegistrar", "AddFromAssembly")));
+        Assert.Equal(
+            ["T:Microsoft.EntityFrameworkCore.IEntityTypeConfiguration`1"],
+            DeadCodeAnalyzer.ConfigurationsFromAssembly(Method("Microsoft.EntityFrameworkCore.ModelBuilder", "ApplyConfigurationsFromAssembly")));
+        Assert.Empty(DeadCodeAnalyzer.ConfigurationsFromAssembly(Method("Other.ModelBuilder", "ApplyConfigurationsFromAssembly")));
+    }
+
+    [Fact]
     public async Task A_file_that_cannot_be_read_is_skipped_instead_of_ending_the_analysis()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Creating a symbolic link needs a privilege on Windows.");

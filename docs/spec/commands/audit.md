@@ -379,17 +379,33 @@ Decisions behind the two commands (ADR 0022).
     - it is a library (`kind: library`, or a `test` project whose output is a library)
       that no application (`web`, `winforms`, `wpf`, `service`, `console`) depends on,
       directly or through other projects
+  - `medium` at most for a public instance method of a type that derives from `Controller`,
+    `ControllerBase`, or `ApiController` (not `[NonAction]`): an action, which MVC reaches by
+    name from a request's route
 - **`low` overrides the base level** when any of these holds:
   - the name appears as a word in a string literal, or in a `.resx`, `.config`, `.xaml`,
     `.xml`, or `.json` file, an ASP.NET markup file, or another XML file (one that starts
     with `<` and parses, such as a plugin manifest) in a project folder. `bin`, `obj`,
     `node_modules`, and `packages` folders are not read, in any letter case, and a file
-    that cannot be read is listed in `skipped`
+    that cannot be read is listed in `skipped`. A controller action's name matches in any
+    letter case, as MVC matches it
   - it is a `Page_` method of a page or control (`AutoEventWireup` calls it by name), or an
     `Application_` or `Session_` method of an `HttpApplication`
   - the type derives from or implements a type the solution finds types by with
-    reflection: `typeof(X).IsAssignableFrom(t)`, `t.IsSubclassOf(typeof(X))`, or
-    `t.IsAssignableTo(typeof(X))`, the way plugin hosts discover implementations
+    reflection (ADR 0041), the way plugin hosts, type finders, and model builders discover
+    implementations:
+    - `typeof(X).IsAssignableFrom(t)`, `t.IsSubclassOf(typeof(X))`, or
+      `t.IsAssignableTo(typeof(X))`
+    - a call that passes `X` to a discovery method: one that makes such a check on its own
+      type parameter (`typeof(T)`) or `Type` parameter, or passes one of them on to another
+      discovery method (followed four calls deep, through the interface members and base
+      methods it implements), so `FindClassesOfType<X>()` or `FindClassesOfType(typeof(X))`
+      finds `X`
+    - `x.GetGenericTypeDefinition() == typeof(G<>)` (or `!=`, directly or through a local or
+      a query's `let`) for a `G` outside the base class library
+    - EF6 `modelBuilder.Configurations.AddFromAssembly(...)` (`EntityTypeConfiguration<T>`,
+      `ComplexTypeConfiguration<T>`) and EF Core `modelBuilder.ApplyConfigurationsFromAssembly(...)`
+      (`IEntityTypeConfiguration<T>`)
   - the type implements an interface declared in the solution, and the solution calls a
     convention registration (`Scan`, `RegisterAssemblyTypes`, `AddMediatR`,
     `AddControllers`, `AddMvc`, `AddClasses`, `FromAssemblyOf`, ...)

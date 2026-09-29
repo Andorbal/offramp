@@ -317,6 +317,17 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
     `PackageReference` to `System.Resources.Extensions` is restored but never referenced under the
     .NET SDK: a target that references the DLL, with the version per target framework (6.0.0 for
     .NET Framework 4.6.1, which 8.0.0 does not support).
+- `audit dead-code` follows the solution's own type discovery (ADR 0041). A method that passes its
+  type parameter or `Type` parameter to `IsAssignableFrom` (or to another such method, four calls
+  deep, through interfaces) is a discovery method, and the type each call passes it is found by
+  reflection; so are `x.GetGenericTypeDefinition() == typeof(G<>)` and the Entity Framework
+  assembly scans (`Configurations.AddFromAssembly`, `ApplyConfigurationsFromAssembly`). On
+  SmartStoreNET 4.2, 182 live classes found with `typeFinder.FindClassesOfType<T>()` or by their
+  `EntityTypeConfiguration<>` base were `high`; now 184 of the 254 high-confidence classes are
+  `low`, each naming the call that finds it, and the removable lines drop from 12,802 to 7,764. A
+  public controller action is `medium` at most, and its name matches strings in any letter case,
+  as MVC matches it: 8 actions were `high`, among them `BoardsController.ActiveDiscussionsRss`,
+  linked as `"ActiveDiscussionsRSS"`.
 - `audit dead-code` rates the public symbols of a shipped library `medium`, never `high`, and says
   which rule shipped it (ADR 0041). Before, only `IsPackable` and `deadCode.externalConsumers`
   counted, which legacy projects never have: on NHibernate 4.1, which NAnt packs from

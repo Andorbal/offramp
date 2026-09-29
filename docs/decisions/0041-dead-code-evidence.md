@@ -1,4 +1,4 @@
-# 0041. Treat packed libraries, and libraries no application uses, as shipped
+# 0041. Dead-code evidence: shipped libraries, and the solution's own type discovery
 
 - Status: accepted
 - Date: 2026-09-29
@@ -20,6 +20,16 @@ code:
 The spec did not say what "packed" means for a project without `IsPackable`, nor where a
 `.nuspec` may be.
 
+It also names "DI convention patterns" and controllers as reasons for `low`, and ADR 0022
+recognizes `typeof(X).IsAssignableFrom(t)`, but a solution often wraps its reflection in a
+method of its own. SmartStoreNET 4.2 finds its dependency registrars, route providers, startup
+tasks, and mappers with `typeFinder.FindClassesOfType<T>()`, which passes `typeof(T)` to
+`FindClassesOfType(Type assignTypeFrom)`, whose implementation calls
+`assignTypeFrom.IsAssignableFrom(t)`. Its EF6 context finds 110 mapping classes with
+`t.BaseType.GetGenericTypeDefinition() == typeof(EntityTypeConfiguration<>)`. 182 live classes
+were `high`. So were 7 live controller actions, one of them linked as
+`Url.Action("ActiveDiscussionsRSS")` for `ActiveDiscussionsRss`.
+
 ## Decision
 
 A project is **shipped** when the first of these holds, and that rule is the evidence:
@@ -39,6 +49,22 @@ A project is **shipped** when the first of these holds, and that rule is the evi
 ("public in an assembly packed by src/NHibernate/NHibernate.nuspec.template: other repositories
 may use it").
 
+**Type discovery the solution does itself.** A method is a discovery method for one of its
+type parameters or `Type` parameters when it passes it to `IsAssignableFrom`,
+`IsSubclassOf`, or `IsAssignableTo`, or to a discovery method's slot. Calls are followed
+back four levels, and a call through an interface member or a base method counts for the
+implementation. At every call of a discovery method, the named type passed into a
+discovering slot (a type argument, or `typeof(X)`) is found by reflection, and so are the
+types that derive from or implement it. `x.GetGenericTypeDefinition() == typeof(G<>)`
+discovers `G<>` when `G` is outside the base class library, and the Entity Framework assembly
+scans discover their configuration base types. All of it is read from the semantic model and
+`IOperation`, not from names.
+
+**Controller actions.** A public instance method of a type deriving from `Controller`,
+`ControllerBase`, or `ApiController` is `medium` at most: MVC reaches it from a URL, which
+static analysis does not see, and a name in a string or view that matches it in any letter
+case makes it `low`.
+
 ## Alternatives considered
 
 - **Only the rules the report proposed, with "no non-test project references it" for rule 4.**
@@ -50,6 +76,12 @@ may use it").
   a `.nuspec` that packs a project's DLL by name ships it whatever its kind.
 - **Honoring wildcards in `<file src>`.** `bin\**\*.dll` would ship every project whose output
   lands there; literal names are rare to get wrong.
+- **Any `typeof(G<>)` compared with a `Type`.** `t.GetGenericTypeDefinition() == typeof(IEnumerable<>)`
+  is how serializers inspect a type; it would make every collection class `low`. The base
+  class library's definitions are left out; EF6's, the solution's, and other libraries' count.
+- **`low` for controller actions.** `low` means a use static analysis cannot see is likely;
+  an action nothing links to is often dead, but only its routes and logs can say so.
+  `medium` keeps it off the removable total without hiding it.
 
 ## Consequences
 
@@ -60,3 +92,6 @@ may use it").
   internal and private dead code is still `high`.
 - `deadCode.externalConsumers` remains the way to name consumers Offramp cannot see, and is
   documented in `docs/spec/03-configuration.md`.
+- On SmartStoreNET 4.2, 184 of 254 high-confidence classes are now `low`, each naming the call
+  that finds it, and no controller action is `high`. A discovery method that stores its `Type`
+  in a field, or a class-level type parameter, is not followed.
