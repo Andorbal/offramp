@@ -40,6 +40,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0015](#ofr0015) | warning | environment | not a git repository |
 | [OFR0016](#ofr0016) | info | configuration | no offramp.yml; built-in defaults in effect |
 | [OFR0017](#ofr0017) | error | environment | MSBuild not found |
+| [OFR0018](#ofr0018) | warning | environment | legacy projects get no reference assemblies outside Windows |
 | [OFR0020](#ofr0020) | error | workspace | more than one solution found |
 | [OFR0021](#ofr0021) | error | workspace | project not in the workspace model |
 | [OFR0022](#ofr0022) | error | workspace | no solution found |
@@ -60,6 +61,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0102](#ofr0102) | info | project loading | project kind unknown |
 | [OFR0103](#ofr0103) | info | scan | model built from a compiler log alone |
 | [OFR0104](#ofr0104) | warning | project loading | package graph unavailable |
+| [OFR0105](#ofr0105) | warning | scan | packages.config package not restored |
+| [OFR0106](#ofr0106) | info | scan | packages.config packages restored |
 | [OFR0110](#ofr0110) | warning | project loading | build step needs Windows: sgen |
 | [OFR0111](#ofr0111) | warning | project loading | build step needs Windows: COM reference |
 | [OFR0112](#ofr0112) | warning | project loading | build step needs Windows: EDMX EntityDeploy |
@@ -67,7 +70,11 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0114](#ofr0114) | warning | project loading | build step needs Windows: SSDT |
 | [OFR0115](#ofr0115) | warning | project loading | build step needs Windows: build event calling a Windows executable |
 | [OFR0116](#ofr0116) | warning | project loading | build step needs Windows: ASP.NET web application targets |
+| [OFR0117](#ofr0117) | warning | project loading | build step needs a case-insensitive file system |
+| [OFR0118](#ofr0118) | warning | project loading | build step needs Windows: inline task |
+| [OFR0119](#ofr0119) | warning | project loading | build step needs Windows: non-string resources |
 | [OFR0120](#ofr0120) | warning | project loading | project reference cycle |
+| [OFR0121](#ofr0121) | warning | project loading | portable target references a framework-only project |
 | [OFR0130](#ofr0130) | error | scan | analysis build failed; model partial |
 | [OFR0131](#ofr0131) | error | scan | analysis build timed out |
 | [OFR0132](#ofr0132) | warning | scan | compiler calls unavailable for some projects |
@@ -81,6 +88,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1006](#ofr1006) | warning | deps | feed unreachable; result partial |
 | [OFR1200](#ofr1200) | error | deps | package not referenced |
 | [OFR1203](#ofr1203) | warning | deps | pin kept a package below the otherwise-selected version |
+| [OFR1204](#ofr1204) | info | deps | packages.config project keeps its version |
 | [OFR1210](#ofr1210) | error | deps | pin conflicts with a transitive lower bound |
 | [OFR1211](#ofr1211) | error | deps | restore verification failed |
 | [OFR1212](#ofr1212) | error | deps | no version satisfies every constraint |
@@ -96,6 +104,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1502](#ofr1502) | info | deps | binding redirect changed |
 | [OFR1503](#ofr1503) | info | deps | binding redirect pruned |
 | [OFR1504](#ofr1504) | warning | deps | stale binding redirect |
+| [OFR1505](#ofr1505) | warning | deps | deployed assembly older than a reference to it |
+| [OFR1506](#ofr1506) | warning | deps | application skipped: partial model |
 | [OFR2001](#ofr2001) | warning | move | move would create a project reference cycle |
 | [OFR2002](#ofr2002) | error | move | destination equals source |
 | [OFR2003](#ofr2003) | error | move | project is frozen |
@@ -112,6 +122,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR2105](#ofr2105) | warning | move | moved file uses Windows-only APIs |
 | [OFR2110](#ofr2110) | info | move | partial type co-moved |
 | [OFR2111](#ofr2111) | warning | move | destination excludes the file path |
+| [OFR2112](#ofr2112) | warning | move | file breaks the destination's warning policy |
 | [OFR2120](#ofr2120) | warning | move | namespace differs from destination root namespace |
 | [OFR2150](#ofr2150) | warning | move | file changed since plan |
 | [OFR2151](#ofr2151) | error | move | file changed since the move; rollback stopped |
@@ -136,6 +147,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3009](#ofr3009) | error | audit | COM+, Code Access Security, or AppDomain sandboxing |
 | [OFR3010](#ofr3010) | warning | audit | project not compiled against the target |
 | [OFR3011](#ofr3011) | info | audit | packages without target support left out |
+| [OFR3012](#ofr3012) | warning | audit | project not audited |
 | [OFR3101](#ofr3101) | warning | audit | culture-sensitive string operation |
 | [OFR3102](#ofr3102) | warning | audit | non-Unicode code page |
 | [OFR3103](#ofr3103) | warning | audit | path assumes Windows separators or folders |
@@ -205,6 +217,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4302](#ofr4302) | info | csproj | build step converted for review |
 | [OFR4303](#ofr4303) | error | csproj | converted project compiles different inputs |
 | [OFR4304](#ofr4304) | warning | csproj | project not converted |
+| [OFR4305](#ofr4305) | warning | csproj | converted project fails NuGet audit |
 | [OFR4401](#ofr4401) | warning | config convert | setting not representable |
 | [OFR4402](#ofr4402) | warning | config convert | WCF configuration |
 | [OFR4403](#ofr4403) | info | config convert | system.web settings belong to the web migration |
@@ -344,6 +357,15 @@ No configuration file was found at the repository root, so every setting has its
 
 - **Typical cause:** Neither Visual Studio nor the Build Tools for Visual Studio is installed with the MSBuild component, `--msbuild-path` or `scan.msbuildPath` names something that is neither MSBuild.exe nor a folder holding it, or the machine cannot run MSBuild.exe.
 - **Fix:** Install Visual Studio or the Build Tools with the MSBuild component, pass `--msbuild-path` (MSBuild.exe or the installation folder), or build with `dotnet` and scan a log captured on Windows with `--binlog`.
+
+### OFR0018
+
+**legacy projects get no reference assemblies outside Windows** · warning · environment
+
+The .NET SDK gives SDK-style projects the .NET Framework reference assemblies as a package; legacy (non-SDK) projects get them only from the compile-only block's legacy section, which `Directory.Build.props` does not have. Their `net4x` builds fail outside Windows (MSB3644).
+
+- **Typical cause:** A legacy solution checked out on macOS or Linux, or a compile-only block added by an Offramp version before the legacy section.
+- **Fix:** Run `offramp doctor --fix --apply`; it adds only the sections the file lacks.
 
 ### OFR0020
 
@@ -525,6 +547,24 @@ The project's `project.assets.json` does not exist in this checkout, so its reso
 - **Typical cause:** Scanning a log built on another machine or in another checkout without restoring here, or a restore that failed.
 - **Fix:** Run `dotnet restore` on the solution, then scan again.
 
+### OFR0105
+
+**packages.config package not restored** · warning · scan
+
+Outside Windows, `scan` restores what `packages.config` files list into the solution's packages folder, as `nuget restore` does on Windows, because `dotnet restore` skips `packages.config`. This package is neither in the NuGet global packages folder nor on a feed `nuget.config` enables, so references into its folder stay unresolved.
+
+- **Typical cause:** A package from a private feed that `nuget.config` does not list, a feed that needs credentials, or no network.
+- **Fix:** Add the feed (and its credentials) to `nuget.config`, or restore the solution once with `nuget restore` and scan again.
+
+### OFR0106
+
+**packages.config packages restored** · info · scan
+
+Outside Windows, `scan` restored the packages that `packages.config` files list into the solution's packages folder (`packages/<Id>.<Version>/`), as `nuget restore` does on Windows. It never overwrites a folder that exists. The message names the folder; `data.packages` lists what was written.
+
+- **Typical cause:** A legacy solution scanned on macOS or Linux for the first time.
+- **Fix:** Nothing to do. The folder is `nuget restore`'s, which `.gitignore` files of such repositories exclude.
+
 ### OFR0110
 
 **build step needs Windows: sgen** · warning · project loading
@@ -588,6 +628,33 @@ An ASP.NET (System.Web) project imports `$(VSToolsPath)/WebApplications/Microsof
 - **Typical cause:** A project on the `MSBuild.SDK.SystemWeb` SDK, which imports the web targets unconditionally, or a legacy web application project; a Release build of either, which turns `MvcBuildViews` on.
 - **Fix:** Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`). Outside Windows it takes the web targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package and turns `MvcBuildViews` off. Build with the .NET SDK (`dotnet build`), not Mono's `msbuild`.
 
+### OFR0117
+
+**build step needs a case-insensitive file system** · warning · project loading
+
+An import, source file, or copied file is spelled in another letter case than the file on disk. Windows and macOS file systems ignore case by default; Linux does not, so the build fails there (MSB4019, CS2001, MSB3030). The message names the first differing path segment and counts the rest.
+
+- **Typical cause:** `..\Build\` in a project file for a folder named `build`, or a `Compile` item written as `Default.aspx.CS`.
+- **Fix:** Rename the reference to the spelling on disk (or the file to the reference's spelling). Offramp does not edit either.
+
+### OFR0118
+
+**build step needs Windows: inline task** · warning · project loading
+
+A target defines a task with `CodeTaskFactory` (or another task factory only .NET Framework's MSBuild has), which .NET's MSBuild cannot run (MSB4801). The build targets of `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`, in nearly every ASP.NET site, do this.
+
+- **Typical cause:** An older package's build targets, or a hand-written inline task in a `.targets` file.
+- **Fix:** In your own targets, use `RoslynCodeTaskFactory`, which runs on both, or guard the target with `Condition="'$(OfframpCompileOnly)' != 'true'"`. For a package's targets, redefine the targets that call the task as empty ones in a file that `Directory.Build.targets` imports only when `'$(OfframpCompileOnly)' == 'true'` (for `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`: `KillVBCSCompilerBeforeCopy` and `KillVBCSCompilerBeforeClean`).
+
+### OFR0119
+
+**build step needs Windows: non-string resources** · warning · project loading
+
+A `.resx` file holds non-string resources (images, icons, serialized objects). .NET's MSBuild embeds those only as preserialized resources (MSB3822, MSB3823).
+
+- **Typical cause:** Images or icons in a WinForms or Web Forms `.resx` file.
+- **Fix:** Set `GenerateResourceUsePreserializedResources` to `true` and reference the `System.Resources.Extensions` package, which .NET Framework applications then need at run time.
+
 ### OFR0120
 
 **project reference cycle** · warning · project loading
@@ -596,6 +663,15 @@ Projects depend on each other in a loop, through `ProjectReference` items or `Hi
 
 - **Typical cause:** A `HintPath` to another project's `bin` folder added to work around a build order problem.
 - **Fix:** Break the loop: extract the shared code into a new project, or replace the `HintPath` with a `ProjectReference` in one direction only.
+
+### OFR0121
+
+**portable target references a framework-only project** · warning · project loading
+
+A standard, modern, or dual project's portable targets reference a project that targets only .NET Framework, through a `ProjectReference` or a `HintPath` to its output. The build accepts it only because the referenced project skips NuGet's compatibility check (a legacy project does), and the code fails at run time on the portable target. `plan` counts the project as blocked by the framework-only one, not done.
+
+- **Typical cause:** A `netstandard2.0` project added beside a legacy solution and wired to the projects it needed.
+- **Fix:** Port the referenced project first (`offramp plan --for` lists the order), move what the portable project needs out of it (`offramp move`), or condition the reference on the .NET Framework targets of a dual project.
 
 ### OFR0130
 
@@ -713,6 +789,15 @@ A pin in offramp.yml keeps a project on an older version than the one the rest o
 
 - **Typical cause:** A deliberate pin (its reason is quoted).
 - **Fix:** Nothing, while the pin's reason holds; remove the pin to consolidate the project too.
+
+### OFR1204
+
+**packages.config project keeps its version** · info · deps
+
+A project on `packages.config` uses the package at another version than the one `deps consolidate` selects. Consolidation changes `PackageReference` versions only, so the project keeps its version.
+
+- **Typical cause:** A legacy project not yet converted to `PackageReference`.
+- **Fix:** Convert the project with `offramp csproj modernize`, then consolidate again; or update it with NuGet in Visual Studio.
 
 ### OFR1210
 
@@ -848,6 +933,24 @@ A redirect names an assembly no package in the application's graph provides, so 
 
 - **Typical cause:** A package removed, a redirect copied from another application, or a redirect for a framework assembly.
 - **Fix:** Run `offramp redirects sync --prune`, or keep the redirect when a framework assembly needs it.
+
+### OFR1505
+
+**deployed assembly older than a reference to it** · warning · deps
+
+The application's packages deploy an assembly at a lower version than other deployed assemblies reference. A redirect would send those references down to a version that may lack what they call, so none is written.
+
+- **Typical cause:** packages.config lists a package at a lower version than a package depending on it needs (installed with dependencies ignored), or a build step copies a newer DLL in from elsewhere.
+- **Fix:** Update the package that ships the assembly to the version its dependents reference, then run `offramp redirects sync` again.
+
+### OFR1506
+
+**application skipped: partial model** · warning · deps
+
+The application, or a project it references, is partial in the workspace model: its build failed during `scan`, so its references and packages are not all known. Redirects computed from that would be wrong, and `--prune` would remove live ones, so the application's configuration file is left alone.
+
+- **Typical cause:** A build that fails outside Windows (letter case, Windows-only steps), or a missing package.
+- **Fix:** Fix the build errors `scan` reported (`OFR0130` and the step diagnostics), run `offramp scan` again, then `offramp redirects sync`.
 
 ### OFR2001
 
@@ -992,6 +1095,15 @@ The destination's project file removes the path the file would move to from its 
 
 - **Typical cause:** A `<Compile Remove="..." />` glob in the destination covering the moved folder.
 - **Fix:** Adjust the destination's Remove pattern in a separate change, then plan again.
+
+### OFR2112
+
+**file breaks the destination's warning policy** · warning · move
+
+The file compiles in the destination, but raises warnings the destination treats as errors (`TreatWarningsAsErrors`, `WarningsAsErrors`), so it stays where it is. The message names the warnings and the first one; the file is portable.
+
+- **Typical cause:** A destination that generates documentation (CS1591 for public members without XML comments), enables nullable warnings, or runs analyzers the source does not, with warnings as errors.
+- **Fix:** Fix the warnings in the source project first (they are the destination's rules), or relax them for the moved code in the destination (`NoWarn`, `WarningsNotAsErrors`, an `.editorconfig` section), then plan the move again.
 
 ### OFR2120
 
@@ -1208,6 +1320,15 @@ Some of the project's packages have no assets for the target, so the target comp
 
 - **Typical cause:** Packages that only ever shipped .NET Framework assemblies (for example Microsoft.AspNet.Mvc or Microsoft.Web.Infrastructure).
 - **Fix:** Run `offramp deps audit` for replacements; the APIs used from these packages are the ones to port.
+
+### OFR3012
+
+**project not audited** · warning · audit
+
+The audit read none of the project's code: audits read C# compilations, and the project is Visual Basic or F#, or the scan recorded no compiler call for it. The message gives the reason; the result lists it under `skipped`.
+
+- **Typical cause:** A Visual Basic library in a C# solution, or a project whose build failed during `scan`.
+- **Fix:** Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build and run `offramp scan` again.
 
 ### OFR3101
 
@@ -1829,6 +1950,15 @@ The project is not converted to SDK style: an ASP.NET web application project (t
 
 - **Typical cause:** ASP.NET MVC and Web Forms applications.
 - **Fix:** Keep the project as it is and move its routes to ASP.NET Core with `offramp web scaffold`.
+
+### OFR4305
+
+**converted project fails NuGet audit** · warning · csproj
+
+Restoring the PackageReference way turns NuGet audit on, and the project treats warnings as errors, so its build stops at packages with known vulnerabilities (NU1901–NU1904). The conversion is verified with audit off; the message lists the packages.
+
+- **Typical cause:** Old package versions in a `packages.config` project with `TreatWarningsAsErrors`.
+- **Fix:** Upgrade the packages (`offramp deps audit` lists them and their replacements), or keep the findings as warnings with `<WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>` until you do.
 
 ### OFR4401
 

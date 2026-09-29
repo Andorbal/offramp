@@ -13,6 +13,10 @@ packages:
     replacement: Razor in ASP.NET Core
   - package: Microsoft.AspNet.WebPages
     replacement: Razor Pages in ASP.NET Core
+  - prefix: Microsoft.AspNet.WebPages.
+    replacement: Razor Pages in ASP.NET Core
+  - package: Microsoft.AspNet.WebHelpers
+    replacement: ASP.NET Core tag helpers and view components
   - prefix: Microsoft.AspNet.Identity.
     replacement: Microsoft.AspNetCore.Identity
   - prefix: Microsoft.AspNet.SignalR
@@ -51,3 +55,9 @@ packages:
     replacement: built in (System.Net.Http)
   - prefix: Microsoft.Bcl
     replacement: built in on modern .NET
+  - prefix: Microsoft.NETFramework.ReferenceAssemblies
+    replacement: none needed; it only lets a machine without the targeting pack compile for .NET Framework
+  - package: Microsoft.CodeDom.Providers.DotNetCompilerPlatform
+    replacement: none needed; ASP.NET Core compiles Razor views at build time
+  - package: Microsoft.SqlServer.Compact
+    replacement: Microsoft.Data.Sqlite, or SQL Server LocalDB; SQL Server Compact is out of support

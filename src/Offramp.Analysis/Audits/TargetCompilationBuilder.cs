@@ -21,6 +21,7 @@ public sealed class TargetCompilationBuilder(
 {
     private readonly Dictionary<string, TargetCompilation?> _built = new(StringComparer.Ordinal);
     private readonly Dictionary<string, MetadataReference> _files = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, MetadataReference?> _recorded = new(StringComparer.Ordinal);
 
     public async Task<TargetCompilation?> BuildAsync(ProjectInfo project, List<string> skipped, CancellationToken cancellationToken)
     {
@@ -99,16 +100,43 @@ public sealed class TargetCompilationBuilder(
         return TargetCompilation.Create(recorded, tfm, targetMajor, metadata);
     }
 
-    /// <summary>A referenced project as the target sees it: its own target compilation, or its recorded modern or standard build.</summary>
+    /// <summary>
+    /// A referenced project as the target sees it: its own target compilation, or its recorded
+    /// modern or standard build. A .NET Framework project that cannot be compiled against the
+    /// target here (a Visual Basic project) is referenced as recorded, the way a DLL is, so
+    /// its types are not reported as missing from every project that uses them.
+    /// </summary>
     private async Task<MetadataReference?> ReferenceAsync(ProjectInfo dependency, List<string> skipped, CancellationToken cancellationToken)
     {
         if (dependency.FrameworkClass == FrameworkClass.Framework)
         {
-            return (await BuildAsync(dependency, skipped, cancellationToken).ConfigureAwait(false))?.Compilation.ToMetadataReference();
+            return (await BuildAsync(dependency, skipped, cancellationToken).ConfigureAwait(false))?.Compilation.ToMetadataReference()
+                ?? Recorded(dependency);
         }
 
         var modern = dependency.CompilerCalls.Keys.Where(t => !t.StartsWith("net4", StringComparison.Ordinal)).Order(StringComparer.Ordinal).LastOrDefault();
         return modern is not null && compilations.LoadForProject(dependency, modern) is { } compilation ? compilation.ToMetadataReference() : null;
+    }
+
+    /// <summary>The recorded compilation of a project that is not C#, emitted once as an in-memory assembly (Roslyn cannot reference another language's compilation).</summary>
+    private MetadataReference? Recorded(ProjectInfo project)
+    {
+        if (_recorded.TryGetValue(project.Id, out var known))
+        {
+            return known;
+        }
+
+        MetadataReference? reference = null;
+        if (compilations.LoadPreferred(project) is { } recorded and not CSharpCompilation)
+        {
+            using var image = new MemoryStream();
+            if (recorded.Emit(image).Success)
+            {
+                reference = MetadataReference.CreateFromImage(image.ToArray());
+            }
+        }
+
+        return _recorded[project.Id] = reference;
     }
 
     private MetadataReference File(string path) =>

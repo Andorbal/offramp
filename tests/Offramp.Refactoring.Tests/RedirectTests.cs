@@ -1,6 +1,7 @@
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Fixtures;
+using Offramp.Fixtures.Feeds;
 using Offramp.Refactoring.Dependencies.Redirects;
 
 namespace Offramp.Refactoring.Tests;
@@ -78,6 +79,84 @@ public sealed class RedirectTests
         Assert.Contains(newtonsoft.Replace("culture=\"neutral\" />", "culture=\"neutral\" />", StringComparison.Ordinal), withAdded, StringComparison.Ordinal);
         Assert.EndsWith("    </assemblyBinding>\n  </runtime>\n</configuration>\n", withAdded, StringComparison.Ordinal);
         Assert.True(addedDiagnostics.Contains("OFR1501"));
+    }
+
+    [Fact]
+    public async Task A_packages_config_application_deploys_what_it_and_its_references_install()
+    {
+        // Billing.Tool, a legacy console, references Billing, whose packages.config installs
+        // Newtonsoft.Json 13.0.3; neither has a restored graph to read. Its App.config redirects
+        // Newtonsoft.Json, which must not look stale.
+        var scanned = await ScannedFixtures.ScanAsync("legacy-csproj");
+        using var _ = scanned.Repository;
+        var diagnostics = new DiagnosticBag();
+
+        var plan = RedirectPlanner.Plan(Request(scanned.Root, scanned.Outcome.Model!, diagnostics, prune: true) with { Apps = ["src/Billing.Tool/Billing.Tool.csproj"] });
+
+        var redirect = Assert.Single(Assert.Single(plan.Result.Apps).Redirects);
+        Assert.Equal(("Newtonsoft.Json", RedirectAction.Unchanged), (redirect.Assembly, redirect.Action));
+        Assert.False(diagnostics.Contains("OFR1503") || diagnostics.Contains("OFR1504"));
+
+        // The same entry twice, as hand-edited configuration files sometimes have, is read, not fatal.
+        var config = Path.Combine(scanned.Root, "src", "Billing.Tool", "App.config");
+        var text = File.ReadAllText(config);
+        var entry = text[text.IndexOf("<dependentAssembly>", StringComparison.Ordinal)..(text.IndexOf("</dependentAssembly>", StringComparison.Ordinal) + "</dependentAssembly>".Length)];
+        File.WriteAllText(config, text.Replace(entry, entry + "\n      " + entry, StringComparison.Ordinal));
+
+        var twice = RedirectPlanner.Plan(Request(scanned.Root, scanned.Outcome.Model!, new DiagnosticBag(), prune: false) with { Apps = ["src/Billing.Tool/Billing.Tool.csproj"] });
+
+        Assert.All(Assert.Single(twice.Result.Apps).Redirects, r => Assert.Equal(RedirectAction.Unchanged, r.Action));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR1506")]
+    public async Task An_application_with_a_partial_model_is_left_alone_even_with_prune()
+    {
+        // As on a fresh DotNetNuke checkout on Linux: a project whose build failed has no references in the
+        // model, so Newtonsoft.Json looked unused and --prune would have removed its live redirect.
+        var scanned = await ScannedFixtures.GetAsync("legacy-csproj");
+        var model = scanned.Outcome.Model!;
+        var partial = model with { Projects = [.. model.Projects.Select(p => p.Id == "src/Billing/Billing.csproj" ? p with { Partial = true } : p)] };
+        var diagnostics = new DiagnosticBag();
+
+        var plan = RedirectPlanner.Plan(Request(scanned.Root, partial, diagnostics, prune: true) with { Apps = ["src/Billing.Tool/Billing.Tool.csproj"] });
+
+        var app = Assert.Single(plan.Result.Apps);
+        Assert.Empty(app.Redirects);
+        Assert.Equal("src/Billing/Billing.csproj, which it references, is partial in the workspace model (its build failed), so what it deploys is not known", app.Skipped);
+        Assert.Null(plan.ChangeSet);
+        Assert.Equal("src/Billing.Tool/Billing.Tool.csproj", Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR1506").Project);
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR1505")]
+    public async Task A_redirect_down_to_an_older_deployed_version_is_never_written()
+    {
+        // Billing's packages.config also lists a package whose assembly references Newtonsoft.Json
+        // 14.0.0.0, while Newtonsoft.Json 13.0.3 (13.0.0.0) is what deploys: packages.config lets that happen.
+        var scanned = await ScannedFixtures.ScanAsync("legacy-csproj", (root, request) =>
+        {
+            var lib = Directory.CreateDirectory(Path.Combine(root, "packages", "Contoso.Needs.Newer.1.0.0", "lib", "net45")).FullName;
+            File.WriteAllBytes(Path.Combine(lib, "Contoso.Needs.Newer.dll"), StubAssembly.Build(new RecordedAssembly
+            {
+                Name = "Contoso.Needs.Newer",
+                Version = "1.0.0.0",
+                References = [new RecordedAssemblyReference("Newtonsoft.Json", "14.0.0.0", "30ad4fe6b2a6aeed")],
+            }));
+            var packagesConfig = Path.Combine(root, "src", "Billing", "packages.config");
+            File.WriteAllText(packagesConfig, File.ReadAllText(packagesConfig).Replace(
+                "</packages>", "  <package id=\"Contoso.Needs.Newer\" version=\"1.0.0\" targetFramework=\"net48\" />\n</packages>", StringComparison.Ordinal));
+            return request;
+        });
+        using var _ = scanned.Repository;
+        var diagnostics = new DiagnosticBag();
+
+        var plan = RedirectPlanner.Plan(Request(scanned.Root, scanned.Outcome.Model!, diagnostics, prune: false) with { Apps = ["src/Billing.Tool/Billing.Tool.csproj"] });
+
+        var redirect = Assert.Single(Assert.Single(plan.Result.Apps).Redirects);
+        Assert.Equal(("Newtonsoft.Json", RedirectAction.Unchanged, "13.0.0.0"), (redirect.Assembly, redirect.Action, redirect.NewVersion));
+        var older = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR1505");
+        Assert.Contains("deploys Newtonsoft.Json 13.0.0.0, older than the 14.0.0.0", older.Message, StringComparison.Ordinal);
     }
 
     private static RedirectsRequest Request(string root, WorkspaceModel model, DiagnosticBag diagnostics, bool prune) => new()

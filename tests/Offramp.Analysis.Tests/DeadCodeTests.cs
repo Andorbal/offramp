@@ -94,14 +94,72 @@ public sealed class DeadCodeTests
             second.Projects.SelectMany(p => p.Candidates).Select(c => $"{c.Symbol} {c.Confidence} {c.File}:{c.Line} {c.Loc} {string.Join("|", c.Evidence)}"));
     }
 
-    private static async Task<(DeadCodeResult Result, DiagnosticBag Diagnostics)> AnalyzeAsync(Func<DeadCodeRequest, DeadCodeRequest>? customize = null)
+    [Fact]
+    public async Task Types_named_by_markup_are_used_and_page_handlers_are_called_by_name()
     {
-        var fixture = await ScannedFixtures.GetAsync("dead-code");
+        var (result, diagnostics) = await AnalyzeAsync(fixture: "webforms");
+
+        var all = result.Projects.SelectMany(p => p.Candidates).ToDictionary(c => c.Symbol);
+
+        // The Visual Basic library's uses of C# code are not seen, and the analysis says so.
+        Assert.Equal("src/Portal.Utilities/Portal.Utilities.vbproj", Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR3012").Project);
+
+        // Default.aspx and EditSettings.ascx name their classes in Inherits: ASP.NET creates them.
+        Assert.DoesNotContain("Portal.Modules.DefaultPage", all.Keys);
+        Assert.DoesNotContain("Portal.Modules.EditSettings", all.Keys);
+
+        // AutoEventWireup calls Page_Load by name.
+        var loads = all.Values.Where(c => c.Symbol.Contains(".Page_Load(", StringComparison.Ordinal)).ToList();
+        Assert.Equal(2, loads.Count);
+        Assert.All(loads, c =>
+        {
+            Assert.Equal(DeadCodeConfidence.Low, c.Confidence);
+            Assert.Contains("ASP.NET calls the Page_ handlers of pages and controls by name (AutoEventWireup)", c.Evidence);
+        });
+
+        // Found by reflection: RouteRegistry looks for types assignable to IModuleRoutes.
+        var routes = all["Portal.Modules.ModuleRoutes"];
+        Assert.Equal(DeadCodeConfidence.Low, routes.Confidence);
+        Assert.Contains(routes.Evidence, e => e.StartsWith(
+            "implements Portal.Controls.IModuleRoutes, which the solution finds types by with reflection (typeof(IModuleRoutes).IsAssignableFrom at src/Portal.Controls/RouteRegistry.cs:", StringComparison.Ordinal));
+
+        // Named by a plugin manifest: XML under an extension of its own.
+        var upgrade = all["Portal.Modules.UpgradeController"];
+        Assert.Equal(DeadCodeConfidence.Low, upgrade.Confidence);
+        Assert.Contains("the name appears in a string or resource at src/Portal.Modules/Portal.Modules.dnn", upgrade.Evidence);
+
+        // Named by nothing, in code or markup.
+        Assert.Equal(DeadCodeConfidence.High, all["Portal.Modules.Leftover"].Confidence);
+    }
+
+    [Fact]
+    public async Task A_file_that_cannot_be_read_is_skipped_instead_of_ending_the_analysis()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Creating a symbolic link needs a privilege on Windows.");
+
+        var scanned = await ScannedFixtures.ScanAsync("webforms");
+        using var _ = scanned.Repository;
+        File.CreateSymbolicLink(Path.Combine(scanned.Root, "src", "Portal.Modules", "Strings.xml"), "Missing.xml");
+
+        var result = DeadCodeAnalyzer.Analyze(new DeadCodeRequest
+        {
+            RepositoryRoot = scanned.Root,
+            Model = WorkspaceStore.Read(scanned.WorkspacePath),
+            Diagnostics = new DiagnosticBag(),
+        });
+
+        Assert.Contains("src/Portal.Modules/Strings.xml: could not be read, so names in it are not seen.", result.Skipped);
+        Assert.Contains(result.Projects.SelectMany(p => p.Candidates), c => c.Symbol == "Portal.Modules.Leftover");
+    }
+
+    private static async Task<(DeadCodeResult Result, DiagnosticBag Diagnostics)> AnalyzeAsync(Func<DeadCodeRequest, DeadCodeRequest>? customize = null, string fixture = "dead-code")
+    {
+        var scanned = await ScannedFixtures.GetAsync(fixture);
         var bag = new DiagnosticBag();
         var request = new DeadCodeRequest
         {
-            RepositoryRoot = fixture.Root,
-            Model = WorkspaceStore.Read(fixture.WorkspacePath),
+            RepositoryRoot = scanned.Root,
+            Model = WorkspaceStore.Read(scanned.WorkspacePath),
             Diagnostics = bag,
         };
         return (DeadCodeAnalyzer.Analyze(customize?.Invoke(request) ?? request), bag);

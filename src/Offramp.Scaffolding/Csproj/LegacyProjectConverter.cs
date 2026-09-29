@@ -193,6 +193,13 @@ public static class LegacyProjectConverter
             group.Add(new XElement("EnableDefaultCompileItems", "false"));
         }
 
+        // The SDK appends the target framework to the output path; a legacy project's output
+        // stays where build steps and HintPaths into its bin folder expect it.
+        if (frameworks.Count == 1)
+        {
+            group.Add(new XElement("AppendTargetFrameworkToOutputPath", "false"));
+        }
+
         foreach (var property in context.Input.Properties.Where(p => !group.Elements().Any(e => e.Name.LocalName == p.Name)))
         {
             group.Add(new XElement(property.Name, property.Value));
@@ -272,7 +279,11 @@ public static class LegacyProjectConverter
         {
             var type = item.Name.LocalName;
             var include = Include(item);
-            var metadata = item.Elements().Select(Strip).ToList();
+            // Metadata written as attributes (ReferenceOutputAssembly="false") and the item's Condition count too.
+            var metadata = item.Attributes().Where(a => !a.IsNamespaceDeclaration && a.Name.LocalName is not ("Include" or "Update" or "Remove"))
+                .Select(a => (object)new XAttribute(a.Name.LocalName, a.Value))
+                .Concat(item.Elements().Select(Strip))
+                .ToList();
             switch (type)
             {
                 case "Reference":
@@ -326,7 +337,7 @@ public static class LegacyProjectConverter
                     break;
                 case "ProjectReference":
                     projects.Add(new XElement("ProjectReference", new XAttribute("Include", include),
-                        metadata.Where(m => m.Name.LocalName is not ("Project" or "Name"))));
+                        metadata.Where(m => m is not XElement { Name.LocalName: "Project" or "Name" })));
                     break;
                 case "Analyzer" when FromPackages(include):
                     context.Drop("Analyzer " + Path.GetFileName(include) + " (packages.config)");

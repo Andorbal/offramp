@@ -67,6 +67,14 @@ public static class CpmHazards
         return [.. hazards.OrderBy(h => h.Descriptor.Code, StringComparer.Ordinal).ThenBy(h => h.Path, StringComparer.Ordinal)];
     }
 
+    /// <summary>True when any Directory.Packages.props is in the repository (outside build output).</summary>
+    public static bool AnyCentralVersions(string repositoryRoot)
+    {
+        var props = new List<string>();
+        Walk(repositoryRoot, repositoryRoot, props, []);
+        return props.Count > 0;
+    }
+
     /// <summary>
     /// Projects outside the solution at or below <paramref name="directory"/>: a Directory.Packages.props
     /// created there would govern them (OFR1301), sorted.

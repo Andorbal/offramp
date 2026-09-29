@@ -30,6 +30,7 @@ macos, and windows GitHub runners.
 | `mvc5` | ASP.NET MVC 5 + Web API 2 app with filters, routes, an `HttpModule`, an `HttpHandler`, Web Forms pages, `Global.asax`; builds on any OS like `legacy-csproj` | web inventory/scaffold (the scaffolded app is built and run against a stand-in legacy server) |
 | `systemweb` | an `MSBuild.SDK.SystemWeb` site that `dotnet build` cannot evaluate without Visual Studio's web targets, and a `net48` library; built by tests before and after `doctor --fix` | scan and doctor (OFR0116), the compile-only block's web targets section |
 | `legacy-csproj` | old-style csproj with packages.config, `AssemblyInfo.cs`, explicit `Compile` items; builds on any OS (reference assemblies as a package, `packages/` filled by the tests; ADR 0026) | csproj modernize, config convert |
+| `webforms` | a Web Forms web project whose `.ascx` control derives from `UserControl` through another `net48` project and calls a Visual Basic library, a page named only by `Default.aspx`'s `Inherits`, and an unused class | audit api (a base type missing on the target is not blamed on the names inside the derived class), audit dead-code (markup references) |
 
 The fixture generator (`tests/Offramp.Fixtures`) is a small library that can
 also write parameterized fixtures to a temp directory for property-style tests
@@ -56,7 +57,7 @@ catalog has no such test. Test stack: `docs/decisions/0005-test-stack.md`.
 | (none) | every CI run, all three OSes |
 | `Category=Windows` | windows runner only |
 | `Category=Network` | needs nuget.org; CI runs it with a warm cache |
-| `Category=Corpus` | `corpus.yml` on manual dispatch: NHibernate 4.x, DotNetNuke 8.x tags cloned and scanned; asserts no crashes and records counts |
+| `Category=Corpus` | `corpus.yml`, on manual dispatch only, one job per codebase, with `OFFRAMP_CORPUS` set (without it the tests skip). `tests/Offramp.Corpus.Tests` runs the CLI on real codebases pinned to a commit (`codebases.json`): a standard sweep of read-only commands, checked for crashes, schema matches, and a deterministic model, then each codebase's assertions from its field test (`docs/field-tests/`). Codebases: DotNetNuke Platform 9.13.10. How to add one: `tests/Offramp.Corpus.Tests/README.md` |
 | `Category=Slow` | > 60 s; nightly |
 
 ## Recorded feeds

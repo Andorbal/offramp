@@ -63,5 +63,5 @@
     "src/Office/Office.csproj",
     "src/Soap/Soap.csproj"
   ],
-  "ledgerSnapshot": ".offramp/ledger/2026-09-25-bd7acf72.json"
+  "ledgerSnapshot": null
 }

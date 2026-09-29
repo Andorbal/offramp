@@ -12,7 +12,9 @@ using Offramp.Workspace.Environment;
 using Offramp.Workspace.Ingest;
 using Offramp.Workspace.Init;
 using Offramp.Workspace.Model;
+using Offramp.Workspace.Restore;
 using Offramp.Workspace.Store;
+using Offramp.Workspace.Verification;
 
 namespace Offramp.Workspace.Scanning;
 
@@ -93,6 +95,11 @@ public static class ScanRunner
             var builder = UsesMsbuild(request.Config) ? " with MSBuild" : "";
             using (request.Progress.BeginPhase($"Building {solution}{builder}", ++phase, plan))
             {
+                if (!OperatingSystem.IsWindows())
+                {
+                    await RestorePackagesConfigAsync(request, solution, cancellationToken);
+                }
+
                 var built = await BuildAsync(request, solution, binlog, cancellationToken);
                 if (built is null)
                 {
@@ -147,11 +154,12 @@ public static class ScanRunner
             (model, notLoaded) = await BuildModelAsync(request, data, mapper, callMap, defines, source, solution, state, cancellationToken);
         }
 
-        string ledgerPath;
+        // A failed build gives a partial model, which would put a false step in report's trend.
+        string? ledgerPath;
         using (request.Progress.BeginPhase("Writing the model and ledger snapshot", ++phase, plan))
         {
             WorkspaceStore.Save(request.WorkspacePath, model);
-            ledgerPath = Ledger.Write(Ledger.Snapshot(model), Path.GetFullPath(request.Config.Report.Ledger, root), root);
+            ledgerPath = buildSucceeded == false ? null : Ledger.Write(Ledger.Snapshot(model), Path.GetFullPath(request.Config.Report.Ledger, root), root);
         }
 
         return new ScanOutcome(Summarize(model, request, ledgerPath, upToDate: false, buildSucceeded, notLoaded), model, ScanFailure.None);
@@ -179,6 +187,51 @@ public static class ScanRunner
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Outside Windows, fills the packages folder from the solution's packages.config files, as
+    /// <c>nuget restore</c> does on Windows: nothing else will, and every HintPath into it would dangle
+    /// (<c>docs/decisions/0037-legacy-projects-outside-windows.md</c>).
+    /// </summary>
+    private static async Task RestorePackagesConfigAsync(ScanRequest request, string solution, CancellationToken cancellationToken)
+    {
+        SolutionProjects listed;
+        try
+        {
+            listed = await SolutionReader.ReadAsync(RepoPaths.ToAbsolute(request.RepositoryRoot, solution), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return; // The build reports an unreadable solution.
+        }
+
+        var result = await PackagesConfigRestorer.RestoreAsync(listed.SolutionFile, listed.ProjectPaths, cancellationToken);
+        if (result is null)
+        {
+            return;
+        }
+
+        var folder = RepoPaths.ToRepositoryRelative(request.RepositoryRoot, result.PackagesFolder);
+        if (result.Restored.Count > 0)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR0106,
+                string.Create(CultureInfo.InvariantCulture, $"Restored {result.Restored.Count} packages.config package(s) into {folder}/, as nuget restore does on Windows."),
+                data: [
+                    KeyValuePair.Create<string, JsonNode?>("folder", folder),
+                    KeyValuePair.Create<string, JsonNode?>("packages", new JsonArray([.. result.Restored.Select(p => (JsonNode?)p)])),
+                ]);
+        }
+
+        foreach (var failure in result.Failed)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR0105,
+                $"{failure.Id} {failure.Version} from packages.config could not be restored into {folder}/: {failure.Reason}",
+                data: [
+                    KeyValuePair.Create<string, JsonNode?>("package", failure.Id),
+                    KeyValuePair.Create<string, JsonNode?>("version", failure.Version),
+                ]);
+        }
     }
 
     private static bool UsesMsbuild(OfframpConfig config) => config.Scan.Builder == ScanConfig.Msbuild;
@@ -259,11 +312,11 @@ public static class ScanRunner
                 "-p:RestorePackagesConfig=true",
             };
 
-        // After Offramp's own properties, so verify.properties can override them.
-        foreach (var (name, value) in request.Config.Verify.Properties)
-        {
-            arguments.Add($"-p:{name}={value}");
-        }
+        // After Offramp's own properties, so verify.properties can override them. MSBuild.exe runs a
+        // legacy .nuget/NuGet.targets as Visual Studio does, so only dotnet build turns it off.
+        arguments.AddRange(msbuild is null
+            ? BuildProperties.Arguments(request.Config.Verify)
+            : request.Config.Verify.Properties.Select(p => $"-p:{p.Key}={p.Value}"));
 
         return new ProcessSpec(msbuild ?? "dotnet", arguments)
         {
@@ -296,13 +349,23 @@ public static class ScanRunner
             .Distinct(StringComparer.Ordinal)
             .ToList();
         var shown = string.Join("; ", errors.Take(MaxErrorsInMessage));
+
+        // Most first, then by code: one cause (a missing import, a letter case) often makes most of them.
+        var byCode = data.Errors
+            .DistinctBy(e => (e.Code, e.File, e.Line, e.Message))
+            .GroupBy(e => e.Code, StringComparer.Ordinal)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key, StringComparer.Ordinal)
+            .ToList();
+        var counts = string.Join(", ", byCode.Select(g => string.Create(CultureInfo.InvariantCulture, $"{g.Key} ×{g.Count()}")));
         request.Diagnostics.Report(DiagnosticCatalog.OFR0130,
             errors.Count == 0
                 ? "The build failed; the model is partial."
-                : $"The build failed with {errors.Count} error(s); the model is partial. First: {shown}",
+                : $"The build failed with {errors.Count} error(s) ({counts}); the model is partial. First: {shown}",
             data:
             [
                 KeyValuePair.Create<string, JsonNode?>("errorCount", errors.Count),
+                KeyValuePair.Create<string, JsonNode?>("byCode", new JsonObject(byCode.Select(g => KeyValuePair.Create<string, JsonNode?>(g.Key, g.Count())))),
                 KeyValuePair.Create<string, JsonNode?>("errors", new JsonArray([.. errors.Take(20).Select(e => (JsonNode?)e)])),
             ]);
     }
@@ -421,12 +484,9 @@ public static class ScanRunner
                     new DiagnosticLocation(Project: missing.Project),
                     [KeyValuePair.Create<string, JsonNode?>("step", "ssdt")])!);
             }
-            else if (EvaluationError(data, mapper, missing.Project) is { } error && WindowsOnlyBuildSteps.FromEvaluationError(error.Code, error.Message) is { } step)
+            else if (EvaluationError(data, mapper, missing.Project) is { } error && WindowsOnlyBuildSteps.Detect(missing.Project, [], [error]).FirstOrDefault() is { } step)
             {
-                loading.Add(request.Diagnostics.Report(step.Descriptor,
-                    $"Needs Windows to build: {step.Evidence}.",
-                    new DiagnosticLocation(Project: missing.Project),
-                    [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", step.Evidence)])!);
+                loading.Add(ReportStep(request, step, missing.Project, mapper));
             }
         }
 
@@ -454,10 +514,7 @@ public static class ScanRunner
             var errors = data.Errors.Where(e => e.ProjectFile is not null && string.Equals(mapper.ToRelative(e.ProjectFile), project.Id, StringComparison.OrdinalIgnoreCase));
             foreach (var step in WindowsOnlyBuildSteps.Detect(project.Id, evaluations, errors))
             {
-                loading.Add(request.Diagnostics.Report(step.Descriptor,
-                    $"Needs Windows to build: {step.Evidence}.",
-                    new DiagnosticLocation(Project: project.Id),
-                    [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", step.Evidence)])!);
+                loading.Add(ReportStep(request, step, project.Id, mapper));
             }
         }
 
@@ -470,6 +527,8 @@ public static class ScanRunner
                 new DiagnosticLocation(Project: cycle[0]),
                 [KeyValuePair.Create<string, JsonNode?>("path", new JsonArray([.. path.Select(p => (JsonNode?)p)]))])!);
         }
+
+        loading.AddRange(FrameworkOnlyReferences(request.Diagnostics, projects, graph));
 
         var model = new WorkspaceModel
         {
@@ -513,26 +572,69 @@ public static class ScanRunner
         }
 
         var loaded = projects.Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missing = listed.ProjectPaths.Select(p => RepoPaths.ToRepositoryRelative(request.RepositoryRoot, p)).Where(id => !loaded.Contains(id)).ToList();
+        var failed = data.Errors.Where(e => e.ProjectFile is not null)
+            .Select(e => mapper.ToRelative(e.ProjectFile))
+            .OfType<string>()
+            .Concat(missing)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var result = new List<NotLoadedProject>();
-        foreach (var path in listed.ProjectPaths)
+        foreach (var id in missing)
         {
-            var id = RepoPaths.ToRepositoryRelative(request.RepositoryRoot, path);
-            if (loaded.Contains(id))
-            {
-                continue;
-            }
-
             var error = EvaluationError(data, mapper, id);
             var extension = Path.GetExtension(id).ToLowerInvariant();
             var reason = error is not null
                 ? $"{error.Code}: {error.Message}"
-                : extension is ".csproj" or ".vbproj" or ".fsproj"
-                    ? "no evaluation for it in the build log"
-                    : $"unsupported project type ({extension})";
+                : extension is not (".csproj" or ".vbproj" or ".fsproj")
+                    ? $"unsupported project type ({extension})"
+                    : FailedReference(request.RepositoryRoot, id, failed) is { } reference
+                        ? $"not built: it references {reference}, which failed"
+                        : "no evaluation for it in the build log; MSBuild did not build it (check the solution configuration)";
             result.Add(new NotLoadedProject(id, reason));
         }
 
         return [.. result.OrderBy(r => r.Project, StringComparer.Ordinal)];
+    }
+
+    /// <summary>A Windows-only build step's diagnostic, with the build's paths made repository-relative.</summary>
+    private static Diagnostic ReportStep(ScanRequest request, WindowsOnlyStep step, string project, CapturePathMapper mapper)
+    {
+        var evidence = Scrub(step.Evidence, mapper);
+        var message = step.Id == "path-case"
+            ? $"Does not build on a case-sensitive file system: {evidence}."
+            : $"Needs Windows to build: {evidence}.";
+        return request.Diagnostics.Report(step.Descriptor, message,
+            new DiagnosticLocation(Project: project),
+            [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", evidence)])!;
+    }
+
+    /// <summary>
+    /// A project the project file references (read as XML, since there is no evaluation) that failed, which is
+    /// why MSBuild did not build it; letter case is ignored, as the reference may be the reason.
+    /// </summary>
+    internal static string? FailedReference(string root, string project, IReadOnlySet<string> failed)
+    {
+        var path = RepoPaths.ToAbsolute(root, project);
+        System.Xml.Linq.XDocument document;
+        try
+        {
+            document = System.Xml.Linq.XDocument.Load(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Xml.XmlException)
+        {
+            return null;
+        }
+
+        var directory = Path.GetDirectoryName(path)!;
+        return document.Descendants()
+            .Where(e => e.Name.LocalName == "ProjectReference")
+            .Select(e => e.Attribute("Include")?.Value)
+            .OfType<string>()
+            .Where(include => !include.Contains("$(", StringComparison.Ordinal))
+            .Select(include => RepoPaths.ToRepositoryRelative(root, Path.GetFullPath(Path.Combine(directory, include.Replace('\\', '/')))))
+            .Where(failed.Contains)
+            .Order(StringComparer.Ordinal)
+            .FirstOrDefault();
     }
 
     /// <summary>The first error the log records for a project, which explains why it has no evaluation.</summary>
@@ -540,17 +642,47 @@ public static class ScanRunner
         data.Errors.FirstOrDefault(e => e.ProjectFile is not null
             && string.Equals(mapper.ToRelative(e.ProjectFile), project, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>One <c>OFR0121</c> per reference from a portable target to a framework-only project.</summary>
+    internal static IEnumerable<Diagnostic> FrameworkOnlyReferences(DiagnosticBag diagnostics, IReadOnlyList<ProjectInfo> projects, ProjectGraph graph)
+    {
+        var byId = projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        foreach (var edge in Readiness.FrameworkOnlyReferences(projects, graph))
+        {
+            var from = byId[edge.From];
+            var to = byId[edge.To];
+            var how = edge.Kind == GraphEdgeKind.Project ? "references" : "references the output of";
+            var reported = diagnostics.Report(DiagnosticCatalog.OFR0121,
+                $"{from.Id} ({string.Join(";", from.TargetFrameworks)}) {how} {to.Id}, which targets only .NET Framework ({string.Join(";", to.TargetFrameworks)}); it fails at run time on {from.Id}'s portable targets.",
+                new DiagnosticLocation(Project: from.Id),
+                [
+                    KeyValuePair.Create<string, JsonNode?>("reference", to.Id),
+                    KeyValuePair.Create<string, JsonNode?>("kind", edge.Kind == GraphEdgeKind.Project ? "project" : "assembly"),
+                ]);
+            if (reported is not null)
+            {
+                yield return reported;
+            }
+        }
+    }
+
+    /// <summary>A packages.config version as NuGet normalizes it (<c>1.0.0.0</c> is <c>1.0.0</c>), so both kinds of project share one spelling.</summary>
+    private static string NormalizedVersion(string version) =>
+        NuGet.Versioning.NuGetVersion.TryParse(version, out var parsed) ? parsed.ToNormalizedString() : version;
+
+    /// <summary>Package id → version → the projects using it, from PackageReference items and packages.config files.</summary>
     private static SortedDictionary<string, PackageUsage> PackageIndex(IEnumerable<ProjectInfo> projects)
     {
         var index = new SortedDictionary<string, SortedDictionary<string, SortedSet<string>>>(StringComparer.OrdinalIgnoreCase);
         foreach (var project in projects)
         {
-            foreach (var package in project.PackageReferences)
+            var used = project.PackageReferences
+                .Select(p => (p.Id, Version: p.VersionOverride ?? p.Version ?? ResolvedVersion(project, p.Id) ?? "unknown"))
+                .Concat((project.PackagesConfigPackages ?? []).Select(p => (p.Id, Version: NormalizedVersion(p.Version))));
+            foreach (var (id, version) in used)
             {
-                var version = package.VersionOverride ?? package.Version ?? ResolvedVersion(project, package.Id) ?? "unknown";
-                if (!index.TryGetValue(package.Id, out var versions))
+                if (!index.TryGetValue(id, out var versions))
                 {
-                    index[package.Id] = versions = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+                    index[id] = versions = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
                 }
 
                 if (!versions.TryGetValue(version, out var users))
@@ -623,6 +755,8 @@ public static class ScanRunner
                 diagnostics.Add(request.Diagnostics.Report(DiagnosticCatalog.OFR0120,
                     $"Project reference cycle: {string.Join(" → ", path)}.", new DiagnosticLocation(Project: cycle[0]))!);
             }
+
+            diagnostics.AddRange(FrameworkOnlyReferences(request.Diagnostics, projects, graph));
 
             model = new WorkspaceModel
             {

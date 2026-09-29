@@ -160,6 +160,9 @@
       "projectReferences": [
         "src/Contracts/Contracts.csproj"
       ],
+      "modernProjectReferences": [
+        "src/Contracts/Contracts.csproj"
+      ],
       "packageReferences": [
         {
           "id": "Newtonsoft.Json",

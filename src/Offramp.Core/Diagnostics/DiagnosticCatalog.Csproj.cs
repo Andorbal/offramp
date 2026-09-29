@@ -35,4 +35,12 @@ public static partial class DiagnosticCatalog
         "ASP.NET MVC and Web Forms applications.",
         "Keep the project as it is and move its routes to ASP.NET Core with `offramp web scaffold`.",
         CsprojArea);
+
+    public static readonly DiagnosticDescriptor OFR4305 = new(
+        "OFR4305", Severity.Warning,
+        "converted project fails NuGet audit",
+        "Restoring the PackageReference way turns NuGet audit on, and the project treats warnings as errors, so its build stops at packages with known vulnerabilities (NU1901–NU1904). The conversion is verified with audit off; the message lists the packages.",
+        "Old package versions in a `packages.config` project with `TreatWarningsAsErrors`.",
+        "Upgrade the packages (`offramp deps audit` lists them and their replacements), or keep the findings as warnings with `<WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>` until you do.",
+        CsprojArea);
 }

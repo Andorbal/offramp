@@ -53,6 +53,7 @@ public static class ProjectModelBuilder
         var packages = PackageReferences(all);
         var assemblies = AssemblyReferences(all, projectDirectory, context);
         var localDirectory = Path.GetDirectoryName(RepoPaths.ToAbsolute(context.Paths.RepositoryRoot, projectId))!;
+        var installed = PackagesConfigReader.Read(Path.Combine(localDirectory, "packages.config"));
         var facts = new ProjectFacts
         {
             Sdk = sdk,
@@ -61,6 +62,7 @@ public static class ProjectModelBuilder
             UseWpf = all.Any(e => e.IsTrue("UseWPF")),
             UseWindowsForms = all.Any(e => e.IsTrue("UseWindowsForms")),
             PackageIds = packages.Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase),
+            PackagesConfigIds = (installed ?? []).Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase),
             AssemblyReferences = assemblies.Select(a => a.Name).ToHashSet(StringComparer.OrdinalIgnoreCase),
             ProjectTypeGuids = first.Property("ProjectTypeGuids"),
             HasWebConfig = File.Exists(Path.Combine(localDirectory, "web.config")) || File.Exists(Path.Combine(localDirectory, "Web.config")),
@@ -110,10 +112,14 @@ public static class ProjectModelBuilder
             DefineConstants = DefineConstants(projectId, inner, context),
             WindowsOnlyBuildSteps = [.. WindowsOnlyBuildSteps.Detect(projectFile, evaluations, context.Errors.Where(e => string.Equals(e.ProjectFile, projectFile, StringComparison.OrdinalIgnoreCase))).Select(s => s.Id)],
             PackagesConfig = File.Exists(Path.Combine(localDirectory, "packages.config")),
+            PackagesConfigPackages = installed,
             Compile = compile,
             CompileExplicit = !first.IsTrue("UsingMicrosoftNETSdk")
                 || string.Equals(first.Property("EnableDefaultCompileItems"), "false", StringComparison.OrdinalIgnoreCase),
             ProjectReferences = ProjectReferences(all, projectDirectory, context),
+            ModernProjectReferences = Tfm.Classify(tfms) == FrameworkClass.Dual
+                ? ProjectReferences([.. inner.Where(e => Tfm.Classify([e.TargetFramework!]) != FrameworkClass.Framework)], projectDirectory, context)
+                : null,
             PackageReferences = packages,
             AssemblyReferences = assemblies,
             ComReferences = [.. all
@@ -259,6 +265,7 @@ public static class ProjectModelBuilder
         var implicitReferences = evaluations
             .SelectMany(e => e.ItemsOf("_SDKImplicitReference"))
             .Select(i => i.Include)
+            .Concat(evaluations.SelectMany(e => SplitList(e.Property("AdditionalExplicitAssemblyReferences"))))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var item in evaluations.SelectMany(e => e.ItemsOf("Reference")))
         {
@@ -323,10 +330,12 @@ public static class ProjectModelBuilder
     }
 
     /// <summary>
-    /// Implicit references: SDK-defined ones, mscorlib, and references a package's build
-    /// targets inject (NuGetPackageId metadata, or Pack=false without a HintPath). Those vary
-    /// with the machine (the reference-assemblies package on macOS/Linux, the targeting pack
-    /// on Windows, NETStandard.Library's facades) and are the package's, not the project's.
+    /// Implicit references: SDK-defined ones, the ones MSBuild adds to every legacy project
+    /// (<c>AdditionalExplicitAssemblyReferences</c>, System.Core, declared or not), mscorlib,
+    /// and references a package's build targets inject (NuGetPackageId metadata, or Pack=false
+    /// without a HintPath). Those vary with the machine (the reference-assemblies package on
+    /// macOS/Linux, the targeting pack on Windows, NETStandard.Library's facades, System.Core
+    /// in a legacy project's evaluation on Windows only) and are not the project's.
     /// </summary>
     private static bool IsImplicitReference(EvaluatedItem item, HashSet<string> implicitReferences)
     {

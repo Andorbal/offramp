@@ -11,14 +11,14 @@ Windows-only build steps:
   src/Office/Office.csproj: com
   src/Soap/Soap.csproj: sgen, entity-deploy, t4, fakes, build-event
 
-Model: .offramp/workspace.json  Ledger: .offramp/ledger/2026-09-25-bd7acf72.json
+Model: .offramp/workspace.json  Ledger: -
 
-✗ OFR0130 The build failed with 2 error(s); the model is partial. First: Microsoft.Common.CurrentVersion.targets(3084):
-MSB4803: The task "ResolveComReference" is not supported on the .NET Core version of MSBuild. Please use the .NET
-Framework version of MSBuild. See https://aka.ms/msbuild/MSB4803 for further details.;
-Microsoft.Common.CurrentVersion.targets(3983): MSB3474: The task "SGen" is not supported on the .NET Core version of
-MSBuild. Use the Microsoft XML Serializer Generator package instead. See https://go.microsoft.com/fwlink/?linkid=858594
-for more information.
+✗ OFR0130 The build failed with 2 error(s) (MSB3474 ×1, MSB4803 ×1); the model is partial. First:
+Microsoft.Common.CurrentVersion.targets(3084): MSB4803: The task "ResolveComReference" is not supported on the .NET Core
+version of MSBuild. Please use the .NET Framework version of MSBuild. See https://aka.ms/msbuild/MSB4803 for further
+details.; Microsoft.Common.CurrentVersion.targets(3983): MSB3474: The task "SGen" is not supported on the .NET Core
+version of MSBuild. Use the Microsoft XML Serializer Generator package instead. See
+https://go.microsoft.com/fwlink/?linkid=858594 for more information.
 ! OFR0101 src/Database/Database.sqlproj Not loaded: unsupported project type (.sqlproj).
 ! OFR0104 src/Office/Office.csproj src/Office/obj/project.assets.json does not exist; restore the solution to include
 resolved packages.

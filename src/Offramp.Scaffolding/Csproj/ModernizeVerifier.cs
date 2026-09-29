@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json.Nodes;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Git;
@@ -84,13 +85,20 @@ public static class ModernizeVerifier
             "build", scratch.Resolve(project), "-bl:" + binlog, "-c", request.Config.Verify.Configuration,
             "-nologo", "-v:minimal", "-clp:NoSummary", "-nodeReuse:false", "--no-incremental",
         };
-        arguments.AddRange(request.Config.Verify.Properties.Select(p => $"-p:{p.Key}={p.Value}"));
-        var build = await request.Processes.RunAsync(new ProcessSpec("dotnet", arguments)
+        arguments.AddRange(BuildProperties.Arguments(request.Config.Verify));
+        var build = await BuildAsync(request, scratch, arguments, cancellationToken);
+
+        // Restoring the PackageReference way turns NuGet audit on. When known vulnerabilities, made
+        // errors by TreatWarningsAsErrors, are all that failed, the conversion is not at fault:
+        // report them and verify with audit off.
+        if (build.ExitCode != 0 && Errors(build) is { Count: > 0 } auditErrors && auditErrors.All(IsAudit))
         {
-            WorkingDirectory = scratch.Path,
-            Timeout = TimeSpan.FromSeconds(request.Config.Verify.TimeoutSeconds),
-            Environment = new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" },
-        }, cancellationToken);
+            request.Diagnostics.Report(DiagnosticCatalog.OFR4305,
+                $"{project}: the converted project restores its packages the PackageReference way, which turns NuGet audit on, and its warnings are errors: {string.Join(" | ", auditErrors.Take(3))}",
+                new DiagnosticLocation(project),
+                [KeyValuePair.Create<string, JsonNode?>("errors", new JsonArray([.. auditErrors.Select(e => (JsonNode?)e)]))]);
+            build = await BuildAsync(request, scratch, [.. arguments, "-p:NuGetAudit=false"], cancellationToken);
+        }
 
         var frameworks = request.Model.Projects.FirstOrDefault(p => p.Id == project)?.TargetFrameworks ?? [];
         var before = CompileSets.Read(beforeLog, RepoPaths.ToAbsolute(request.RepositoryRoot, project), request.RepositoryRoot, frameworks.Count == 1 ? frameworks[0] : "");
@@ -202,6 +210,20 @@ public static class ModernizeVerifier
         Add("resources removed:", difference.ResourcesRemoved);
         return difference.TargetFramework + ": " + string.Join("; ", parts);
     }
+
+    private static Task<ProcessResult> BuildAsync(ModernizeVerifyRequest request, ScratchWorktree scratch, List<string> arguments, CancellationToken cancellationToken) =>
+        request.Processes.RunAsync(new ProcessSpec("dotnet", arguments)
+        {
+            WorkingDirectory = scratch.Path,
+            Timeout = TimeSpan.FromSeconds(request.Config.Verify.TimeoutSeconds),
+            Environment = new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" },
+        }, cancellationToken);
+
+    /// <summary>NU1901–NU1904: a package with a known vulnerability (low to critical).</summary>
+    private static readonly string[] AuditCodes = ["NU1901", "NU1902", "NU1903", "NU1904"];
+
+    private static bool IsAudit(string error) =>
+        AuditCodes.Any(code => error.Contains(": error " + code + ":", StringComparison.Ordinal));
 
     private static List<string> Errors(ProcessResult build) =>
         [.. (build.StandardOutput + "\n" + build.StandardError).Split('\n')

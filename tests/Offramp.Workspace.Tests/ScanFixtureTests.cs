@@ -15,7 +15,7 @@ namespace Offramp.Workspace.Tests;
 /// </summary>
 public sealed class ScanFixtureTests
 {
-    public static TheoryData<string> Fixtures => ["netfx-only", "dual-target", "cycle", "windows-only-build-steps", "versions", "tests-in-prod", "move-cases", "loose-dlls", "cpm-shadowing"];
+    public static TheoryData<string> Fixtures => ["netfx-only", "dual-target", "cycle", "windows-only-build-steps", "versions", "tests-in-prod", "move-cases", "loose-dlls", "cpm-shadowing", "legacy-csproj", "webforms"];
 
     [Theory]
     [MemberData(nameof(Fixtures))]
@@ -36,8 +36,14 @@ public sealed class ScanFixtureTests
         var result = scanned.Outcome.Result!;
 
         SchemaAssert.Valid("scan", OfframpJson.Serialize(result, WorkspaceJsonContext.Default.ScanResult));
-        Assert.NotNull(result.LedgerSnapshot);
-        SchemaAssert.Valid("ledger", File.ReadAllText(Path.Combine(scanned.Root, result.LedgerSnapshot!)));
+
+        // A failed build writes no ledger snapshot.
+        Assert.Equal(result.BuildSucceeded != false, result.LedgerSnapshot is not null);
+        if (result.LedgerSnapshot is not null)
+        {
+            SchemaAssert.Valid("ledger", File.ReadAllText(Path.Combine(scanned.Root, result.LedgerSnapshot)));
+        }
+
         await Verify(Scrub.Model(OfframpJson.Serialize(result, WorkspaceJsonContext.Default.ScanResult), scanned.Root), extension: "json")
             .UseParameters(fixture);
     }
@@ -102,6 +108,10 @@ public sealed class ScanFixtureTests
 
         Assert.Equal(model.Projects.Select(p => p.Id), model.Projects.Where(p => p.Partial).Select(p => p.Id));
         Assert.Contains(scanned.Outcome.Result!.WindowsOnlyBuildSteps, w => w.Project == "src/Database/Database.sqlproj" && w.Steps.SequenceEqual(["ssdt"]));
+
+        // A failed build's partial model stays out of report's trend.
+        Assert.Null(scanned.Outcome.Result!.LedgerSnapshot);
+        Assert.False(Directory.Exists(Path.Combine(scanned.Root, ".offramp", "ledger")));
         Assert.False(scanned.Outcome.Result.BuildSucceeded);
         Assert.DoesNotContain("/home/", scanned.ModelJson, StringComparison.Ordinal);
     }

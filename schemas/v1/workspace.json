@@ -97,12 +97,31 @@
         "defineConstants": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
         "windowsOnlyBuildSteps": {
           "type": "array",
-          "items": { "enum": ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event"] }
+          "items": { "enum": ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event", "web-targets", "aspnet-compiler", "path-case", "inline-task", "resources"] }
         },
         "packagesConfig": { "type": "boolean" },
+        "packagesConfigPackages": {
+          "description": "The packages the project's packages.config lists, sorted by id and version; absent without one.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version", "targetFramework", "developmentDependency"],
+            "properties": {
+              "id": { "type": "string" },
+              "version": { "type": "string" },
+              "targetFramework": { "type": ["string", "null"] },
+              "developmentDependency": { "type": "boolean" }
+            }
+          }
+        },
         "compile": { "$ref": "#/$defs/pathList" },
         "compileExplicit": { "type": "boolean" },
         "projectReferences": { "$ref": "#/$defs/pathList" },
+        "modernProjectReferences": {
+          "description": "Dual projects only: the project references their standard and modern targets use. Absent for other projects and in a model from a compiler log alone.",
+          "$ref": "#/$defs/pathList"
+        },
         "packageReferences": {
           "type": "array",
           "items": {

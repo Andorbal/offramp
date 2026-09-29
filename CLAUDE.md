@@ -61,10 +61,11 @@ editors/
 tests/
   Offramp.*.Tests/        one test project per src project (xunit + Verify)
   Offramp.Fixtures/       fixture generator + checked-in fixture solutions (tests/fixtures/)
-  Offramp.Corpus.Tests/   opt-in tests against real open-source codebases
+  Offramp.Corpus.Tests/   opt-in tests against real open-source codebases (its README says how to add one)
 docs/
   spec/                   the specification (architecture, conventions, per-command contracts)
   decisions/              ADRs; write one whenever you resolve an ambiguity in the spec
+  field-tests/            reports from running Offramp on real codebases (README: how to do one)
   ROADMAP.md              ordered milestones with acceptance criteria
   RELEASING.md            how a release happens
 eng/                      shared MSBuild props, scripts
@@ -99,7 +100,7 @@ nothing else references, and `Core` references nothing else in `src/`.
 ```bash
 dotnet build                      # whole solution, warnings as errors
 dotnet test                       # unit + fixture tests, all platforms
-dotnet test --filter Category=Corpus   # opt-in, slow, needs network
+OFFRAMP_CORPUS=dnn dotnet test tests/Offramp.Corpus.Tests --no-build --filter "Category=Corpus&Codebase=dnn"   # opt-in, slow, needs network
 dotnet run --project src/Offramp.Cli -- doctor
 dotnet pack src/Offramp.Cli -c Release -o artifacts/   # produces the tool package
 (cd editors/vscode && npm ci && npm test)               # the VS Code extension

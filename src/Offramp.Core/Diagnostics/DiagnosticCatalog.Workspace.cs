@@ -79,6 +79,14 @@ public static partial class DiagnosticCatalog
         "Install Visual Studio or the Build Tools with the MSBuild component, pass `--msbuild-path` (MSBuild.exe or the installation folder), or build with `dotnet` and scan a log captured on Windows with `--binlog`.",
         EnvironmentArea);
 
+    public static readonly DiagnosticDescriptor OFR0018 = new(
+        "OFR0018", Severity.Warning,
+        "legacy projects get no reference assemblies outside Windows",
+        "The .NET SDK gives SDK-style projects the .NET Framework reference assemblies as a package; legacy (non-SDK) projects get them only from the compile-only block's legacy section, which `Directory.Build.props` does not have. Their `net4x` builds fail outside Windows (MSB3644).",
+        "A legacy solution checked out on macOS or Linux, or a compile-only block added by an Offramp version before the legacy section.",
+        "Run `offramp doctor --fix --apply`; it adds only the sections the file lacks.",
+        EnvironmentArea);
+
     public static readonly DiagnosticDescriptor OFR0020 = new(
         "OFR0020", Severity.Error,
         "more than one solution found",

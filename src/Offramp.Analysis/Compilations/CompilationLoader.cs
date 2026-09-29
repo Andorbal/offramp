@@ -41,8 +41,45 @@ public sealed class CompilationLoader : ICompilationSource, IDisposable
     public CompilationLoader(string repositoryRoot) => _repositoryRoot = repositoryRoot;
 
     /// <summary>The compilation for a recorded compiler call, or null when the compiler log is missing.</summary>
-    public Compilation? Load(CompilerCallRef call) =>
-        Reader(call)?.ReadCompilationData(call.Index).GetCompilationAfterGenerators();
+    public Compilation? Load(CompilerCallRef call)
+    {
+        if (Reader(call) is not { } reader)
+        {
+            return null;
+        }
+
+        var compilation = reader.ReadCompilationData(call.Index).GetCompilationAfterGenerators();
+        return WithCoreLibrary(compilation, () => reader.ReadArguments(reader.ReadCompilerCall(call.Index)));
+    }
+
+    /// <summary>
+    /// A Visual Basic compilation with the core library it was compiled against. Legacy
+    /// (non-SDK) Visual Basic projects pass <c>/nostdlib /sdkpath:DIR</c> and no <c>mscorlib</c>
+    /// reference: <c>vbc</c> takes <c>mscorlib.dll</c> from the SDK path by itself, and the compiler
+    /// log records only the references named on the command line. Without it nothing binds.
+    /// Other compilations, and one whose SDK path is gone, are returned as they are.
+    /// </summary>
+    public static Compilation WithCoreLibrary(Compilation compilation, Func<IEnumerable<string>> arguments)
+    {
+        if (compilation.Language != LanguageNames.VisualBasic || compilation.GetSpecialType(SpecialType.System_Object).TypeKind != TypeKind.Error)
+        {
+            return compilation;
+        }
+
+        foreach (var argument in arguments())
+        {
+            var value = argument.StartsWith("/sdkpath:", StringComparison.OrdinalIgnoreCase) || argument.StartsWith("-sdkpath:", StringComparison.OrdinalIgnoreCase)
+                ? argument["/sdkpath:".Length..].Trim('"')
+                : null;
+            var mscorlib = value is null ? null : Path.Combine(value, "mscorlib.dll");
+            if (mscorlib is not null && File.Exists(mscorlib))
+            {
+                return compilation.AddReferences(MetadataReference.CreateFromFile(mscorlib));
+            }
+        }
+
+        return compilation;
+    }
 
     /// <summary>The compilation of a project for its first .NET Framework target (or its first target), or null.</summary>
     public Compilation? LoadForProject(ProjectInfo project) =>

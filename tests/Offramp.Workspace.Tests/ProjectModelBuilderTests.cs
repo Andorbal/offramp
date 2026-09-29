@@ -59,6 +59,25 @@ public sealed class ProjectModelBuilderTests : IDisposable
     }
 
     /// <summary>
+    /// MSBuild gives every legacy project System.Core, declared or not; an evaluation on Windows
+    /// already lists it for a project that does not declare it, one on Linux does not.
+    /// </summary>
+    [Fact]
+    public void References_msbuild_adds_to_every_legacy_project_are_implicit()
+    {
+        var project = Build(Evaluation(
+            properties: new() { ["AdditionalExplicitAssemblyReferences"] = "System.Core;" },
+            compile: ["Code.cs"],
+            references:
+            [
+                new EvaluatedItem("System", new Dictionary<string, string>()),
+                new EvaluatedItem("System.Core", new Dictionary<string, string> { ["Implicit"] = "true" }),
+            ]));
+
+        Assert.Equal(["System"], project.AssemblyReferences.Select(r => r.Name));
+    }
+
+    /// <summary>
     /// Logs captured on Windows also record the ProjectReference items the SDK adds for
     /// transitive references (IncludeTransitiveProjectReferences); only the references restore
     /// saw declared are the project's.

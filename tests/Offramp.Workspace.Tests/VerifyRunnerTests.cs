@@ -105,10 +105,14 @@ public sealed class VerifyRunnerTests
             NoWarn = ["CS1591", "NU1603"],
         };
 
+        // Outside Windows, a legacy .nuget/NuGet.targets must not run NuGet.exe through Mono.
+        string[] restorePackages = OperatingSystem.IsWindows() ? [] : ["-p:RestorePackages=false"];
         Assert.Equal(
             ["build", "App.sln", "-nologo", "-v:minimal", "-nodeReuse:false", "-bl:.offramp/verify/verify.binlog", "-c", "Release", "--no-restore",
-             "-p:A=1", "-p:TreatWarningsAsErrors=false", "-warnaserror:CS0168;CS0219", "-nowarn:CS1591;NU1603"],
+             "-p:A=1", "-p:TreatWarningsAsErrors=false", .. restorePackages, "-warnaserror:CS0168;CS0219", "-nowarn:CS1591;NU1603"],
             VerifyRunner.BuildArguments("App.sln", ".offramp/verify/verify.binlog", config));
+        Assert.DoesNotContain("-p:RestorePackages=false",
+            VerifyRunner.BuildArguments("App.sln", "v.binlog", config with { Properties = new(StringComparer.Ordinal) { ["RestorePackages"] = "true" } }));
     }
 
     [Fact]

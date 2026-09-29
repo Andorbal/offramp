@@ -245,7 +245,8 @@ public static class TestMovePlanner
         {
             foreach (var failure in failures)
             {
-                Skip(context, skipped, failure.File, DiagnosticCatalog.OFR2103, $"Does not compile in {context.Destination}.", failure.Errors);
+                Skip(context, skipped, failure.File, DiagnosticCatalog.OFR2103,
+                    failure.Errors.Count > 0 ? $"Does not compile in {context.Destination}: {failure.Errors[0]}" : $"Does not compile in {context.Destination}.", failure.Errors);
                 trees.Remove(failure.File);
             }
 

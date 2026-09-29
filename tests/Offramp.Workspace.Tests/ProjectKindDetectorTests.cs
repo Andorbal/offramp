@@ -9,6 +9,7 @@ public sealed class ProjectKindDetectorTests
     {
         { "is-test-project", new ProjectFacts { IsTestProject = true, OutputType = "Exe" }, ProjectKind.Test, "IsTestProject=true" },
         { "test-package", Facts(packages: ["xunit"]), ProjectKind.Test, "PackageReference xunit" },
+        { "test-package-in-packages-config", new ProjectFacts { PackagesConfigIds = Set("NUnit") }, ProjectKind.Test, "packages.config NUnit" },
         { "test-guid", new ProjectFacts { ProjectTypeGuids = "{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}" }, ProjectKind.Test, "ProjectTypeGuids {3AC096D0-A1C2-E12C-1390-A8335801FDAB}" },
         { "test-beats-web", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", PackageIds = Set("NUnit") }, ProjectKind.Test, "PackageReference NUnit" },
         { "web-sdk", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", OutputType = "Exe" }, ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web" },
@@ -22,6 +23,8 @@ public sealed class ProjectKindDetectorTests
         { "wpf-guid", new ProjectFacts { ProjectTypeGuids = "{60DC8134-EBA5-43B8-BCC9-BB4BC16C2548}", OutputType = "WinExe" }, ProjectKind.Wpf, "ProjectTypeGuids {60DC8134-EBA5-43B8-BCC9-BB4BC16C2548}" },
         { "service-reference", new ProjectFacts { AssemblyReferences = Set("System.ServiceProcess"), OutputType = "Exe" }, ProjectKind.Service, "Reference System.ServiceProcess + OutputType=Exe" },
         { "topshelf", Facts(packages: ["Topshelf"], outputType: "Exe"), ProjectKind.Service, "PackageReference Topshelf" },
+        { "topshelf-in-packages-config", new ProjectFacts { PackagesConfigIds = Set("Topshelf"), OutputType = "Exe" }, ProjectKind.Service, "packages.config Topshelf + OutputType=Exe" },
+        { "topshelf-library-is-library", new ProjectFacts { PackagesConfigIds = Set("Topshelf") }, ProjectKind.Library, "OutputType=Library" },
         { "worker-sdk", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Worker", OutputType = "Exe" }, ProjectKind.Service, "Sdk=Microsoft.NET.Sdk.Worker" },
         { "console", new ProjectFacts { OutputType = "Exe" }, ProjectKind.Console, "OutputType=Exe" },
         { "library-default", new ProjectFacts(), ProjectKind.Library, "OutputType=Library" },

@@ -184,7 +184,7 @@
       "src/Office/Office.csproj",
       "src/Soap/Soap.csproj"
     ],
-    "ledgerSnapshot": ".offramp/ledger/2026-09-25-bd7acf72.json"
+    "ledgerSnapshot": null
   },
   "diagnostics": [
     {
@@ -337,12 +337,16 @@
     {
       "code": "OFR0130",
       "severity": "error",
-      "message": "The build failed with 2 error(s); the model is partial. First: Microsoft.Common.CurrentVersion.targets(3084): MSB4803: The task \"ResolveComReference\" is not supported on the .NET Core version of MSBuild. Please use the .NET Framework version of MSBuild. See https://aka.ms/msbuild/MSB4803 for further details.; Microsoft.Common.CurrentVersion.targets(3983): MSB3474: The task \"SGen\" is not supported on the .NET Core version of MSBuild. Use the Microsoft XML Serializer Generator package instead. See https://go.microsoft.com/fwlink/?linkid=858594 for more information.",
+      "message": "The build failed with 2 error(s) (MSB3474 ×1, MSB4803 ×1); the model is partial. First: Microsoft.Common.CurrentVersion.targets(3084): MSB4803: The task \"ResolveComReference\" is not supported on the .NET Core version of MSBuild. Please use the .NET Framework version of MSBuild. See https://aka.ms/msbuild/MSB4803 for further details.; Microsoft.Common.CurrentVersion.targets(3983): MSB3474: The task \"SGen\" is not supported on the .NET Core version of MSBuild. Use the Microsoft XML Serializer Generator package instead. See https://go.microsoft.com/fwlink/?linkid=858594 for more information.",
       "project": null,
       "file": null,
       "line": null,
       "column": null,
       "data": {
+        "byCode": {
+          "MSB3474": 1,
+          "MSB4803": 1
+        },
         "errorCount": 2,
         "errors": [
           "Microsoft.Common.CurrentVersion.targets(3084): MSB4803: The task \"ResolveComReference\" is not supported on the .NET Core version of MSBuild. Please use the .NET Framework version of MSBuild. See https://aka.ms/msbuild/MSB4803 for further details.",

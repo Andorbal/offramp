@@ -107,6 +107,28 @@ public sealed class AuditRunnerTests
     }
 
     [Fact]
+    [ProducesDiagnostic("OFR3012")]
+    public async Task A_base_type_missing_on_the_target_is_not_blamed_on_the_names_inside_a_derived_class()
+    {
+        // EditSettings, in a web project, derives from System.Web.UI.UserControl through another
+        // project's ModuleBase. On the target, Roslyn reports "UserControl could not be found" at
+        // every name looked up inside it, including Convert, EventArgs, and ModuleBase itself.
+        var (result, diagnostics) = await RunAsync("webforms", AuditKind.Api);
+
+        var missing = result.Findings.Where(f => f.Rule == "OFR3001").ToList();
+        Assert.Equal(
+            ["System.Web.UI.Control.ClientID", "System.Web.UI.Control.ViewState"],
+            missing.Where(f => f.File == "src/Portal.Modules/EditSettings.ascx.cs").Select(f => f.Symbol).Order(StringComparer.Ordinal));
+        Assert.Single(missing, f => f.Symbol == "System.Web.UI.UserControl" && f.File == "src/Portal.Controls/ModuleBase.cs");
+        Assert.All(missing, f => Assert.Equal("System.Web", f.Details["assembly"]));
+
+        // The Visual Basic library is not audited, and says so.
+        Assert.Equal(["src/Portal.Utilities/Portal.Utilities.vbproj: audits read C# only."], result.Skipped);
+        var skipped = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR3012");
+        Assert.Equal(("src/Portal.Utilities/Portal.Utilities.vbproj", "Not audited: audits read C# only."), (skipped.Project, skipped.Message));
+    }
+
+    [Fact]
     public async Task Audit_api_on_netfx_only_maps_system_web_and_system_drawing()
     {
         var (result, _) = await RunAsync("netfx-only", AuditKind.Api);

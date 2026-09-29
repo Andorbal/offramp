@@ -17,6 +17,9 @@ public sealed record ProjectFacts
 
     public IReadOnlySet<string> PackageIds { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The packages a packages.config lists.</summary>
+    public IReadOnlySet<string> PackagesConfigIds { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
     public IReadOnlySet<string> AssemblyReferences { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     public string? ProjectTypeGuids { get; init; }
@@ -68,6 +71,12 @@ public static class ProjectKindDetector
         if (testPackage is not null)
         {
             return (ProjectKind.Test, $"PackageReference {testPackage}");
+        }
+
+        var installedTestPackage = TestPackages.FirstOrDefault(facts.PackagesConfigIds.Contains);
+        if (installedTestPackage is not null)
+        {
+            return (ProjectKind.Test, $"packages.config {installedTestPackage}");
         }
 
         if (HasGuid(facts, TestProjectGuid))
@@ -130,6 +139,11 @@ public static class ProjectKindDetector
             if (facts.PackageIds.Contains(package))
             {
                 return (ProjectKind.Service, $"PackageReference {package}");
+            }
+
+            if (facts.PackagesConfigIds.Contains(package) && isExe)
+            {
+                return (ProjectKind.Service, $"packages.config {package} + OutputType=Exe");
             }
         }
 

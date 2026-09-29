@@ -73,6 +73,37 @@ public sealed class CsprojModernizeCommandTests
     }
 
     [Fact]
+    [ProducesDiagnostic("OFR4305")]
+    public async Task Known_vulnerabilities_that_warnings_as_errors_stop_are_reported_not_counted_against_the_conversion()
+    {
+        // Billing treats warnings as errors; Newtonsoft.Json 12.0.1 has a known vulnerability (NU1903),
+        // which NuGet audit reports once the project restores the PackageReference way.
+        var fixture = await ScannedFixtures.ScanAsync("legacy-csproj", (root, request) =>
+        {
+            foreach (var file in new[] { "src/Billing/Billing.csproj", "src/Billing/packages.config" })
+            {
+                var path = Path.Combine(root, file);
+                File.WriteAllText(path, File.ReadAllText(path)
+                    .Replace("13.0.3", "12.0.1", StringComparison.Ordinal)
+                    .Replace("<LangVersion>7.3</LangVersion>", "<LangVersion>7.3</LangVersion>\n    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>", StringComparison.Ordinal));
+            }
+
+            return request;
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Billing", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        var node = JsonNode.Parse(run.Out)!;
+        Assert.True(node["result"]!["projects"]![0]!["verification"]!["passed"]!.GetValue<bool>(), run.Out);
+        var audit = Assert.Single(node["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR4305");
+        Assert.Contains("NU1903", audit!["message"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.DoesNotContain(node["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR4303");
+    }
+
+    [Fact]
     [ProducesDiagnostic("OFR4304")]
     public async Task Web_application_projects_are_not_converted()
     {

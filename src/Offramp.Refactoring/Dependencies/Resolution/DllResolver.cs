@@ -23,6 +23,13 @@ public enum DllResolutionKind
     /// <summary>A package supplies the assembly: reference the package.</summary>
     Package,
 
+    /// <summary>
+    /// The project's packages.config installs the package the DLL comes from (the <c>HintPath</c>
+    /// goes through its <c>packages/&lt;Id&gt;.&lt;Version&gt;/</c> folder): NuGet manages the reference
+    /// already, so nothing changes; <c>csproj modernize</c> converts it with the rest.
+    /// </summary>
+    PackagesConfig,
+
     /// <summary>Nothing does; the metadata is reported for a person to decide.</summary>
     None,
 }
@@ -61,7 +68,7 @@ public sealed record LooseDll
 
 public sealed record ProjectDlls(string Project, IReadOnlyList<LooseDll> References);
 
-public sealed record ResolveDllsSummary(int Project, int Package, int Unmatched, int Blockers);
+public sealed record ResolveDllsSummary(int Project, int Package, int Unmatched, int Blockers, int PackagesConfig);
 
 /// <summary>The <c>result</c> of <c>offramp deps resolve-dlls</c> (<c>schemas/v1/deps-resolve-dlls.json</c>).</summary>
 public sealed record ResolveDllsResult
@@ -135,7 +142,8 @@ public static class DllResolver
             Projects = results,
             Summary = new ResolveDllsSummary(
                 all.Count(d => d.Resolution.Kind == DllResolutionKind.Project), all.Count(d => d.Resolution.Kind == DllResolutionKind.Package),
-                all.Count(d => d.Resolution.Kind == DllResolutionKind.None), all.Count(d => d.Blocker)),
+                all.Count(d => d.Resolution.Kind == DllResolutionKind.None), all.Count(d => d.Blocker),
+                all.Count(d => d.Resolution.Kind == DllResolutionKind.PackagesConfig)),
             Preview = changeSet.IsEmpty ? null : changeSet.Preview(),
         };
         return new ResolveDllsPlan(result, changeSet.IsEmpty ? null : changeSet);
@@ -162,6 +170,21 @@ public static class DllResolver
             return dll with { Resolution = new DllResolution { Kind = DllResolutionKind.Project, Project = owner.Id, Reason = $"{owner.Id} builds {reference.Name}." } };
         }
 
+        if (Installed(project, reference.HintPath!) is { } installed)
+        {
+            var version = NuGetVersion.TryParse(installed.Version, out var parsed) ? parsed.ToNormalizedString() : installed.Version;
+            return dll with
+            {
+                Resolution = new DllResolution
+                {
+                    Kind = DllResolutionKind.PackagesConfig,
+                    Package = installed.Id,
+                    Version = version,
+                    Reason = $"packages.config installs {installed.Id} {installed.Version}, which ships it; NuGet manages the reference.",
+                },
+            };
+        }
+
         if (await FindPackageAsync(request, inspections, project, dll, cancellationToken) is { } found)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR1402, $"{reference.HintPath} is {reference.Name} {dll.AssemblyVersion} from package {found.Package} {found.Version}.", location);
@@ -181,6 +204,26 @@ public static class DllResolver
         request.Diagnostics.Report(DiagnosticCatalog.OFR1403, $"{reference.HintPath} ({described}) matches no project or package.", location,
             [KeyValuePair.Create<string, JsonNode?>("assembly", reference.Name)]);
         return dll with { Resolution = none };
+    }
+
+    /// <summary>
+    /// The package in the project's packages.config whose <c>packages/&lt;Id&gt;.&lt;Version&gt;/</c> folder the
+    /// <c>HintPath</c> goes through, or null. The folder names the exact package and version; the
+    /// assembly version does not (Newtonsoft.Json 13.0.1 to 13.0.3 all ship 13.0.0.0).
+    /// </summary>
+    private static PackagesConfigPackage? Installed(ProjectInfo project, string hintPath)
+    {
+        var segments = hintPath.Replace('\\', '/').Split('/');
+        for (var i = 0; i + 1 < segments.Length; i++)
+        {
+            if (segments[i].Equals("packages", StringComparison.OrdinalIgnoreCase)
+                && (project.PackagesConfigPackages ?? []).FirstOrDefault(p => string.Equals($"{p.Id}.{p.Version}", segments[i + 1], StringComparison.OrdinalIgnoreCase)) is { } package)
+            {
+                return package;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -233,10 +276,15 @@ public static class DllResolver
             : null;
     }
 
-    /// <summary>Replaces each resolved Reference with a ProjectReference or PackageReference.</summary>
+    /// <summary>
+    /// Replaces each resolved Reference with a ProjectReference or PackageReference. A packages.config
+    /// project gets no PackageReference (NuGet does not mix the two in one project): its packages
+    /// change with <c>csproj modernize</c>.
+    /// </summary>
     private static void Edit(ResolveDllsRequest request, ProjectInfo project, List<LooseDll> dlls, ChangeSet changeSet)
     {
-        var resolved = dlls.Where(d => d.Resolution.Kind != DllResolutionKind.None).ToList();
+        var resolved = dlls.Where(d => d.Resolution.Kind == DllResolutionKind.Project
+            || (d.Resolution.Kind == DllResolutionKind.Package && !project.PackagesConfig)).ToList();
         if (resolved.Count == 0)
         {
             return;

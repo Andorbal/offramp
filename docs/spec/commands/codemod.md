@@ -18,7 +18,8 @@ offramp codemod run --mod NAME --format-mode   # delegates to `dotnet format ana
 - Formatting-preserving: only the rewritten nodes change; trivia is kept.
 - Semantically checked: the fixer uses the semantic model, never names.
 - Reports: files changed, sites rewritten, sites skipped with reasons
-  (`OFR4501` per skipped site).
+  (`OFR4501` per codemod and reason in a project, at the first site, with the
+  number of sites; the result lists every site).
 - Tested with `Microsoft.CodeAnalysis.CSharp.CodeFix.Testing` (before/after
   pairs) and with a fixture-level run.
 - Each codemod has an ID `OFRM###` (analyzer diagnostic) and a short name.
@@ -93,7 +94,9 @@ Decisions in `docs/decisions/0025-codemods.md`.
 - `assemblyinfo` moves the removed attributes' values to project properties
   (`AssemblyTitle`, `Company`, `Product`, `AssemblyVersion`, `FileVersion`,
   `InformationalVersion`) unless the project already sets them.
-- Every skipped site is OFR4501. `sqlclient` adds OFR4510 once per project.
+- Skipped sites are OFR4501, once per codemod and reason in each project (a reason about the
+  project, such as "does not reference ASP.NET Core", would repeat at every site).
+  `sqlclient` adds OFR4510 once per project.
 - A dry run by default, with the diff in `preview`. `--apply` writes through a journal
   (`move rollback --journal` undoes it), then builds the changed projects and their direct
   dependents (`--verify end`, the default; `--verify none` skips it). A failed build

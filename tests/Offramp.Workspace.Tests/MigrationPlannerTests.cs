@@ -1,7 +1,9 @@
+using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Fixtures;
 using Offramp.Workspace.Model;
 using Offramp.Workspace.Planning;
+using Offramp.Workspace.Scanning;
 using static Offramp.Workspace.Tests.GraphBuilderTests;
 
 namespace Offramp.Workspace.Tests;
@@ -102,6 +104,83 @@ public sealed class MigrationPlannerTests
         Assert.Throws<Xunit.Sdk.TrueException>(() => AssertOrder(Model, broken));
     }
 
+    [Fact]
+    public void A_portable_project_behind_which_sits_a_framework_only_project_is_blocked_not_done()
+    {
+        // As in DotNetNuke: netstandard projects reference legacy net472 projects, which build
+        // only because a legacy project skips NuGet's compatibility check.
+        var model = ModelOf(
+            Project("src/Instrumentation/Instrumentation.csproj"),
+            Project("src/Library/Library.csproj", references: ["src/Instrumentation/Instrumentation.csproj"]),
+            Project("src/DependencyInjection/DependencyInjection.csproj", references: ["src/Instrumentation/Instrumentation.csproj"]) with { FrameworkClass = FrameworkClass.Standard },
+            Project("src/Maintenance/Maintenance.csproj", references: ["src/Library/Library.csproj"]) with { FrameworkClass = FrameworkClass.Standard },
+            Project("src/Pipeline/Pipeline.csproj", references: ["src/Library/Library.csproj"]) with { FrameworkClass = FrameworkClass.Dual, ModernProjectReferences = ["src/Library/Library.csproj"] },
+            Project("src/Bridge/Bridge.csproj", references: ["src/Library/Library.csproj"]) with { FrameworkClass = FrameworkClass.Dual, ModernProjectReferences = [] },
+            Project("src/Tools/Tools.csproj", files: [("Library", "src/Library/bin/Library.dll")]) with { FrameworkClass = FrameworkClass.Modern },
+            Project("src/Web/Web.csproj", references: ["src/Bridge/Bridge.csproj"], kind: ProjectKind.Web));
+
+        var byId = MigrationPlanner.Plan(model, null, false, []).Order.ToDictionary(e => e.Project);
+
+        Assert.Equal((ProjectReadiness.Ready, 1), (byId["src/Instrumentation/Instrumentation.csproj"].Readiness, byId["src/Instrumentation/Instrumentation.csproj"].Wave));
+        Assert.Equal((ProjectReadiness.Blocked, 2), (byId["src/DependencyInjection/DependencyInjection.csproj"].Readiness, byId["src/DependencyInjection/DependencyInjection.csproj"].Wave));
+        Assert.Equal(["src/Instrumentation/Instrumentation.csproj"], byId["src/DependencyInjection/DependencyInjection.csproj"].Blockers);
+        Assert.Equal((ProjectReadiness.Blocked, 3), (byId["src/Maintenance/Maintenance.csproj"].Readiness, byId["src/Maintenance/Maintenance.csproj"].Wave));
+        Assert.Equal((ProjectReadiness.Blocked, 3), (byId["src/Pipeline/Pipeline.csproj"].Readiness, byId["src/Pipeline/Pipeline.csproj"].Wave));
+        Assert.Equal((ProjectReadiness.Blocked, 3), (byId["src/Tools/Tools.csproj"].Readiness, byId["src/Tools/Tools.csproj"].Wave));
+
+        // A dual project whose net4x target alone uses the framework-only project is done, and so
+        // is nothing behind it for a project that references it.
+        Assert.Equal((ProjectReadiness.Done, 0), (byId["src/Bridge/Bridge.csproj"].Readiness, byId["src/Bridge/Bridge.csproj"].Wave));
+        Assert.Empty(byId["src/Bridge/Bridge.csproj"].Blockers);
+        Assert.Equal((ProjectReadiness.Ready, 1), (byId["src/Web/Web.csproj"].Readiness, byId["src/Web/Web.csproj"].Wave));
+        AssertWavesAreValid(model);
+
+        Assert.Equal(
+            [
+                ("src/DependencyInjection/DependencyInjection.csproj", "src/Instrumentation/Instrumentation.csproj", GraphEdgeKind.Project),
+                ("src/Maintenance/Maintenance.csproj", "src/Library/Library.csproj", GraphEdgeKind.Project),
+                ("src/Pipeline/Pipeline.csproj", "src/Library/Library.csproj", GraphEdgeKind.Project),
+                ("src/Tools/Tools.csproj", "src/Library/Library.csproj", GraphEdgeKind.Assembly),
+            ],
+            Readiness.FrameworkOnlyReferences(model.Projects, model.Graph).Select(e => (e.From, e.To, e.Kind)));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0121")]
+    public void Scan_names_each_reference_from_a_portable_target_to_a_framework_only_project()
+    {
+        var model = ModelOf(
+            Project("src/Library/Library.csproj") with { TargetFrameworks = ["net472"] },
+            Project("src/Contracts/Contracts.csproj", references: ["src/Library/Library.csproj"]) with { FrameworkClass = FrameworkClass.Standard, TargetFrameworks = ["netstandard2.0"] },
+            Project("src/Bridge/Bridge.csproj", references: ["src/Library/Library.csproj"]) with { FrameworkClass = FrameworkClass.Dual, TargetFrameworks = ["net472", "net8.0"], ModernProjectReferences = [] });
+        var bag = new DiagnosticBag();
+
+        var reported = ScanRunner.FrameworkOnlyReferences(bag, model.Projects, model.Graph).ToList();
+
+        var diagnostic = Assert.Single(reported);
+        Assert.Equal("OFR0121", diagnostic.Code);
+        Assert.Equal(Severity.Warning, diagnostic.Severity);
+        Assert.Equal("src/Contracts/Contracts.csproj", diagnostic.Project);
+        Assert.Equal(
+            "src/Contracts/Contracts.csproj (netstandard2.0) references src/Library/Library.csproj, which targets only .NET Framework (net472); it fails at run time on src/Contracts/Contracts.csproj's portable targets.",
+            diagnostic.Message);
+        Assert.Equal("src/Library/Library.csproj", diagnostic.Data["reference"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void A_check_that_ignores_portable_projects_would_be_caught()
+    {
+        // The validity check must fail for a portable project placed before the framework-only project it needs.
+        var model = ModelOf(
+            Project("src/Library/Library.csproj"),
+            Project("src/Contracts/Contracts.csproj", references: ["src/Library/Library.csproj"]) with { FrameworkClass = FrameworkClass.Standard });
+        var broken = MigrationPlanner.Plan(model, null, false, []).Order
+            .Select(e => e.Project == "src/Contracts/Contracts.csproj" ? e with { Wave = 0 } : e)
+            .ToList();
+
+        Assert.Throws<Xunit.Sdk.TrueException>(() => AssertOrder(model, broken));
+    }
+
     private static void AssertWavesAreValid(WorkspaceModel model) =>
         AssertOrder(model, MigrationPlanner.Plan(model, null, false, []).Order);
 
@@ -109,10 +188,13 @@ public sealed class MigrationPlannerTests
     {
         var wave = order.ToDictionary(e => e.Project, e => e.Wave);
         var cycleOf = model.Graph.Cycles.SelectMany((c, i) => c.Select(m => (m, i))).ToDictionary(x => x.m, x => x.i);
-        var classes = model.Projects.ToDictionary(p => p.Id, p => p.FrameworkClass);
+        var byId = model.Projects.ToDictionary(p => p.Id);
         foreach (var edge in model.Graph.Edges)
         {
-            if (classes[edge.From] != FrameworkClass.Framework || classes[edge.To] != FrameworkClass.Framework)
+            // Every edge into a framework-only project counts, except a dual project's net4x-only references.
+            var from = byId[edge.From];
+            var netFrameworkOnly = edge.Kind == GraphEdgeKind.Project && from.ModernProjectReferences is { } modern && !modern.Contains(edge.To);
+            if (byId[edge.To].FrameworkClass != FrameworkClass.Framework || netFrameworkOnly)
             {
                 continue;
             }

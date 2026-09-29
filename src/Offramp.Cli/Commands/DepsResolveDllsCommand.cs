@@ -73,14 +73,22 @@ public sealed class DepsResolveDllsCommand : ICommandHandler<DepsResolveDllsOpti
     {
         var s = result.Summary;
         var total = s.Project + s.Package + s.Unmatched;
+        var installed = s.PackagesConfig == 0 ? ""
+            : string.Create(CultureInfo.InvariantCulture, $" {s.PackagesConfig} more come from packages.config packages and need nothing.");
         output.Headline(
-            total == 0 ? "No loose DLL references."
-            : string.Create(CultureInfo.InvariantCulture, $"{total} loose DLL reference{(total == 1 ? "" : "s")}: {s.Project} to a project, {s.Package} to a package, {s.Unmatched} unmatched{(s.Blockers > 0 ? $" ({s.Blockers} blocking the target)" : "")}."),
+            (total == 0 ? "No loose DLL references."
+            : string.Create(CultureInfo.InvariantCulture, $"{total} loose DLL reference{(total == 1 ? "" : "s")}: {s.Project} to a project, {s.Package} to a package, {s.Unmatched} unmatched{(s.Blockers > 0 ? $" ({s.Blockers} blocking the target)" : "")}.")) + installed,
             s.Blockers > 0 ? Theme.BlockingStyle : s.Unmatched > 0 ? Theme.DecisionStyle : Theme.ReadyStyle);
         foreach (var project in result.Projects)
         {
+            var loose = project.References.Where(r => r.Resolution.Kind != DllResolutionKind.PackagesConfig).ToList();
+            if (loose.Count == 0)
+            {
+                continue;
+            }
+
             output.MarkupLine($"[bold]{Markup.Escape(project.Project)}[/]");
-            foreach (var dll in project.References)
+            foreach (var dll in loose)
             {
                 var target = dll.Resolution.Kind switch
                 {

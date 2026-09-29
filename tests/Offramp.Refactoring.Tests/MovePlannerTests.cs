@@ -157,6 +157,39 @@ public sealed class MovePlannerTests
             plan.Excluded.Select(e => e.File));
     }
 
+    [Fact]
+    [ProducesDiagnostic("OFR2112")]
+    public async Task The_destinations_policy_is_not_portability_and_an_inert_InternalsVisibleTo_item_moves_nothing()
+    {
+        // As in DotNetNuke: the destination treats a warning as an error, and a shared SolutionInfo.cs
+        // turned GenerateAssemblyInfo off, so an InternalsVisibleTo item would be ignored.
+        var fixture = await ScannedFixtures.ScanAsync("move-cases", (root, request) =>
+        {
+            var core = Path.Combine(root, "src", "Core", "Core.csproj");
+            File.WriteAllText(core, File.ReadAllText(core).Replace("<RootNamespace>Core</RootNamespace>",
+                "<RootNamespace>Core</RootNamespace>\n    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>\n    <WarningsAsErrors>CS0168</WarningsAsErrors>", StringComparison.Ordinal));
+            Directory.CreateDirectory(Path.Combine(root, "src", "Legacy", "Warnings"));
+            File.WriteAllText(Path.Combine(root, "src", "Legacy", "Warnings", "Unused.cs"),
+                "namespace Legacy.Warnings\n{\n    public static class Unused\n    {\n        public static void Run()\n        {\n            int x;\n        }\n    }\n}\n");
+            return request;
+        });
+        using var _ = fixture.Repository;
+
+        var warnings = new DiagnosticBag();
+        var policy = Plan(fixture, ["src/Legacy/Warnings/Unused.cs"], warnings)!.Plan;
+        var internals = Plan(fixture, ["src/Legacy/Internal/Rounding.cs"], new DiagnosticBag())!.Plan;
+
+        var excluded = Assert.Single(policy.Excluded);
+        Assert.Equal("OFR2112", excluded.Code);
+        Assert.Equal("Compiles in src/Core/Core.csproj, which treats warnings as errors (CS0168): netstandard2.0: CS0168: The variable 'x' is declared but never used", excluded.Message);
+        Assert.True(warnings.Contains("OFR2112"));
+        Assert.Empty(internals.Moves);
+        var rounding = Assert.Single(internals.Excluded);
+        Assert.Equal("OFR2103", rounding.Code);
+        Assert.Equal("Code staying in src/Legacy/Legacy.csproj uses its internal members, and src/Core/Core.csproj does not generate its assembly info (GenerateAssemblyInfo=false), so an InternalsVisibleTo item would have no effect.", rounding.Message);
+        Assert.DoesNotContain(internals.ProjectEdits, e => e.Kind == ProjectEditKind.AddInternalsVisibleTo);
+    }
+
     private static MovePlanResult? Plan(
         ScannedFixture fixture, IReadOnlyList<string> files, DiagnosticBag diagnostics, string coMove = "closure", string namespaces = "allow",
         string from = "src/Legacy/Legacy.csproj", string to = "src/Core/Core.csproj", OfframpConfig? config = null) =>

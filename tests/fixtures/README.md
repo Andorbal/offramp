@@ -28,6 +28,7 @@ Offramp's own settings when a fixture is built in place.
 | `legacy-csproj` | csproj modernize (packages.config, Compile lists, AssemblyInfo, build events, links), config convert; see its README |
 | `mvc5` | web inventory, web scaffold (controllers that port and ones that do not, routes, a module, a handler, Web Forms); see its README |
 | `systemweb` | an `MSBuild.SDK.SystemWeb` site: the missing Visual Studio web targets (OFR0116) and the compile-only block that supplies them; see its README |
+| `webforms` | audit api (a missing base type reached through another project), audit dead-code (classes named only by markup); see its README |
 
 `hollow` is generated, not checked in (`GeneratedFixtures.Hollow` in
 `tests/Offramp.Fixtures`): 500 files in `src/Big` to be moved into `src/Big.Core`

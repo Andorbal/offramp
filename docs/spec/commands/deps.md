@@ -27,8 +27,9 @@ For a package version and a target framework:
    folder, read `System.Reflection.Metadata` assembly references and the
    `SupportedOSPlatform` assembly attribute. Referencing `System.Windows.Forms`,
    `PresentationFramework`, `System.Web` (the Framework one), `System.Drawing`
-   (Framework), `Microsoft.Win32.Registry`, or `System.DirectoryServices`
-   marks the version `windowsOnly: true`. Only the assets NuGet would pick for
+   (Framework), or `System.DirectoryServices` marks the version
+   `windowsOnly: true`. `Microsoft.Win32.Registry` does not: it ships with .NET
+   on every OS, and libraries reference it for code they guard. Only the assets NuGet would pick for
    the target count (the nearest `lib/` folder, else `ref/`): System.Drawing.Common
    8.0 is Windows-only for `net10.0` but not for `netstandard2.0` consumers. This is
    a warning (`OFR1004`), not a fail.
@@ -51,6 +52,9 @@ built-in table) lists Framework-era packages and their modern successors, e.g.
 ```
 offramp deps audit [--target N] [--package ID] [--project P] [--include-prerelease] [--format table|json|markdown]
 ```
+
+It audits every package in the model's `packages` index: `PackageReference` items and the
+packages each `packages.config` lists (ADR 0035).
 
 Result (`schemas/v1/deps-audit.json`):
 
@@ -108,7 +112,9 @@ version does not support target, `OFR1003` package or in-use version deprecated,
 ## `deps consolidate`
 
 One version per package across the solution, respecting pins, families, and
-transitive constraints, validated by NuGet's own restore.
+transitive constraints, validated by NuGet's own restore. Projects on `packages.config`
+count in `current`, but only `PackageReference` projects are written; one on another
+version than the selected one is `OFR1204` (ADR 0035).
 
 ```
 offramp deps consolidate (--package ID | --all | --family PREFIX) [--prefer newest|lowest]
@@ -254,9 +260,16 @@ Details (M6, ADR 0020):
 - **Blockers and unmatched DLLs.** A .NET Framework DLL with no replacement is
   reported only as a blocker (`OFR1404`). Other unmatched DLLs are `OFR1403`,
   with their metadata.
+- **Installed packages.** A `HintPath` through `packages/<Id>.<Version>/` for a
+  package the project's `packages.config` lists resolves to that package and
+  version (`packagesConfig`): NuGet manages it already, so it is neither
+  reported nor changed, and never a blocker (`deps audit` judges the package).
+  The folder, not the assembly version, names the version: Newtonsoft.Json
+  13.0.1 to 13.0.3 all ship assembly version 13.0.0.0.
 - **`--apply`** replaces the `Reference` with the `ProjectReference` or
-  `PackageReference`; versionless under central management. It writes
-  through a journal.
+  `PackageReference`; versionless under central management. A `packages.config`
+  project gets `ProjectReference`s only (NuGet does not mix the two styles in a
+  project; `csproj modernize` converts it). It writes through a journal.
 - **Schema:** `schemas/v1/deps-resolve-dlls.json`.
 
 ## `deps gac`
@@ -315,9 +328,14 @@ offramp redirects sync [--app PATH ...] [--apply] [--prune]
   assemblies no longer referenced. Redirects the SDK would auto-generate for
   exe projects are still written for web projects, which the SDK does not
   handle.
+- An application that is partial in the model, or references a partial
+  project (its build failed during `scan`), is skipped with the reason
+  (`OFR1506`): its references are not known, so redirects computed from them
+  would be wrong and `--prune` would remove live ones.
 - Diagnostics: `OFR1501` redirect added, `OFR1502` redirect changed,
   `OFR1503` redirect pruned, `OFR1504` redirect points at a version not in the
-  graph (stale).
+  graph (stale), `OFR1505` deployed version older than a reference,
+  `OFR1506` application skipped (partial model).
 - After `deps consolidate`, `redirects sync` typically deletes most redirects;
   the summary says how many.
 
@@ -329,10 +347,18 @@ Details (M6, ADR 0020):
   for executables' output.
 - **The graph** is the assemblies in each resolved package's nearest `lib/`
   folder, from the global packages folder, with their references read by
-  System.Reflection.Metadata.
+  System.Reflection.Metadata. The packages are the application's restored ones
+  and those its `packages.config` and the `packages.config` of every project it
+  references list (copy-local deploys them; ADR 0035); an application without a
+  restored graph also takes its referenced projects' restored packages. A
+  `packages.config` package is read from `packages/<Id>.<Version>/` beside the
+  solution or at the repository root before the global packages folder.
 - **Needing a redirect.** A signed assembly needs one when a reference names
   another version than the deployed one. The redirect is `0.0.0.0-<highest
-  referenced or deployed>` → the deployed version.
+  referenced or deployed>` → the deployed version. When a reference names a
+  higher version than the deployed one, no redirect is written, since callers
+  compiled against the newer version may call what the older lacks (`OFR1505`,
+  warning; `packages.config` allows such sets).
 - **Existing redirects:**
   - A needed redirect that matches is `unchanged`.
   - One that differs is changed in place (`OFR1502`); a missing one is
@@ -341,6 +367,7 @@ Details (M6, ADR 0020):
     alone.
   - A redirect for an assembly no package provides is `stale` (`OFR1504`,
     warning) and is removed only with `--prune` (`OFR1503`).
+  - An assembly named by two entries is compared by its first.
 - **Edits** replace only the characters of the changed entry. Removals take
   their whole line; additions copy the siblings' indentation. Everything else
   in the file, including the byte order mark and line endings, is kept.

@@ -58,8 +58,14 @@ public sealed class TargetCompilationMatcher : IAuditMatcher
     private static IEnumerable<RawFinding> Missing(AuditRule rule, SyntaxTree tree, SemanticModel recordedModel, SemanticModel targetModel)
     {
         var root = tree.GetRoot();
+        var targetRoot = targetModel.SyntaxTree.GetRoot();
         foreach (var error in targetModel.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error && MissingCodes.Contains(d.Id)).OrderBy(d => d.Location.SourceSpan.Start))
         {
+            if (BindsOnTarget(targetModel, Rightmost(targetRoot.FindNode(error.Location.SourceSpan, getInnermostNodeForTie: true))))
+            {
+                continue;
+            }
+
             var node = root.FindNode(error.Location.SourceSpan, getInnermostNodeForTie: true);
             if (TypeOrMember(recordedModel, Rightmost(node)) is not var (name, symbol) || !FromMetadata(symbol))
             {
@@ -151,6 +157,26 @@ public sealed class TargetCompilationMatcher : IAuditMatcher
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether the name the target reports an error at still exists there. A type missing on the
+    /// target is reported wherever it is reached, not only where it is named: at every name
+    /// looked up inside a class whose base chain contains it (in a <c>UserControl</c> subclass,
+    /// <c>Convert.ToInt32</c> carries "<c>UserControl</c> could not be found" although
+    /// <c>Convert</c> resolves), and at a call to a method whose signature contains it (the
+    /// method is a candidate that failed overload resolution). Such an error is about that type,
+    /// which is reported where the code names or inherits it, not about the name.
+    /// </summary>
+    private static bool BindsOnTarget(SemanticModel targetModel, SimpleNameSyntax? name)
+    {
+        if (name is null)
+        {
+            return false;
+        }
+
+        var info = targetModel.GetSymbolInfo(name);
+        return info.Symbol is { Kind: not SymbolKind.ErrorType } || !info.CandidateSymbols.IsEmpty;
     }
 
     /// <summary>The platform (<c>windows</c>, <c>windows6.1</c>) when the symbol, a containing type, or its assembly is Windows-only.</summary>

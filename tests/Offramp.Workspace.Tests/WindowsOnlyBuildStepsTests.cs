@@ -1,3 +1,4 @@
+using Offramp.Fixtures;
 using Offramp.Workspace.Ingest;
 using Offramp.Workspace.Model;
 
@@ -77,6 +78,62 @@ public sealed class WindowsOnlyBuildStepsTests
         Assert.Equal("web-targets", step.Id);
         Assert.Null(WindowsOnlyBuildSteps.FromEvaluationError("MSB4019", "The imported project \"/x/Other.targets\" was not found."));
         Assert.Null(WindowsOnlyBuildSteps.FromEvaluationError("CS0246", message));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0117")]
+    public void A_path_that_exists_only_in_another_letter_case_is_named_with_its_spelling_on_disk()
+    {
+        using var repo = new ScratchDirectory("path-case");
+        repo.Write("build/Scripts/Package.targets", "<Project />");
+        Assert.SkipWhen(Directory.Exists(Path.Combine(repo.Path, "BUILD")), "This file system ignores letter case (Windows, macOS), so every spelling exists.");
+        repo.Write("src/A/Layout/XMLLayout.cs", "class L {}");
+        var import = Path.Combine(repo.Path, "Build", "Scripts", "Package.Targets");
+        var source = Path.Combine(repo.Path, "src", "A", "Layout", "XmlLayout.cs");
+        BuildError[] errors =
+        [
+            new("MSB4019", $"The imported project \"{import}\" was not found. Confirm that the expression in the Import declaration \"x\" is correct.", "/repo/src/A/A.csproj", null, null, null),
+            new("CS2001", $"Source file '{source}' could not be found.", "/repo/src/A/A.csproj", null, null, null),
+            new("CS2001", $"Source file '{Path.Combine(repo.Path, "src", "A", "Gone.cs")}' could not be found.", "/repo/src/A/A.csproj", null, null, null),
+        ];
+
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [], errors));
+
+        Assert.Equal("path-case", step.Id);
+        Assert.Equal("OFR0117", step.Descriptor.Code);
+        Assert.Equal($"{import}: 'Build' is 'build' on disk (and 1 more)", step.Evidence);
+    }
+
+    [Fact]
+    public void A_path_missing_in_every_letter_case_is_not_a_case_mismatch()
+    {
+        using var repo = new ScratchDirectory("path-case");
+        BuildError[] errors = [new("CS2001", $"Source file '{Path.Combine(repo.Path, "Gone.cs")}' could not be found.", "/repo/src/A/A.csproj", null, null, null)];
+
+        Assert.Empty(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [], errors));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0118")]
+    [ProducesDiagnostic("OFR0119")]
+    public void Inline_tasks_non_string_resources_and_cmd_commands_are_named_from_the_build_errors()
+    {
+        BuildError[] errors =
+        [
+            new("MSB4801", "The task factory \"CodeTaskFactory\" is not supported on the .NET Core version of MSBuild.", "/repo/src/Web/Web.csproj", "/repo/packages/Microsoft.CodeDom.Providers.DotNetCompilerPlatform.2.0.1/build/net46/Microsoft.CodeDom.Providers.DotNetCompilerPlatform.props", 31, 5),
+            new("MSB3823", "Non-string resources require the property GenerateResourceUsePreserializedResources to be set to true.", "/repo/src/Web/Web.csproj", "/usr/share/dotnet/sdk/10.0.100/Microsoft.Common.CurrentVersion.targets", 3442, 5),
+            new("MSB3073", "The command \"echo done\" exited with code 1.", "/repo/src/Web/Web.csproj", null, null, null),
+            new("MSB3073", "The command \"XCOPY \"bin\\Debug\\Web*\" \"../Website/bin\" /S /Y\" exited with code 127.", "/repo/src/Web/Web.csproj", null, null, null),
+        ];
+
+        var steps = WindowsOnlyBuildSteps.Detect("src/Web/Web.csproj", [], errors);
+
+        Assert.Equal(["build-event", "inline-task", "resources"], steps.Select(s => s.Id));
+        Assert.Equal("Exec: XCOPY \"bin\\Debug\\Web*\" \"../Website/bin\" /S /Y (MSB3073)", steps[0].Evidence);
+        Assert.Equal("CodeTaskFactory in Microsoft.CodeDom.Providers.DotNetCompilerPlatform.props (MSB4801)", steps[1].Evidence);
+        Assert.Equal("OFR0118", steps[1].Descriptor.Code);
+        Assert.Equal("non-string resources in a .resx file (MSB3823)", steps[2].Evidence);
+        Assert.Equal("OFR0119", steps[2].Descriptor.Code);
     }
 
     private static EvaluatedProject Evaluation(

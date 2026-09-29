@@ -37,9 +37,11 @@ same JSON in `<script type="application/json" id="offramp-graph">`.
 }
 ```
 
-Readiness: `done` for standard, modern, and dual projects; a framework-only
-project is `blocked` by every framework-only project it depends on, directly or
-transitively, and `ready` when there is none. Readiness, blockers, and
+Readiness: a project is `blocked` by every framework-only project it depends on,
+directly or transitively, through the references its portable targets use (a
+dual project's `net4x`-only references do not count). With none, a
+framework-only project is `ready` and a standard, modern, or dual one is `done`
+(`plan` has the details). Readiness, blockers, and
 dependents always come from the whole model, so a filtered view never hides why
 a project is blocked, and cycles stay listed even when `--edges project` hides
 the edges that form them (`docs/decisions/0013-graph-views.md`).

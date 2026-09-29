@@ -28,7 +28,8 @@ rename to src/Foo.Tests/TestData/Builders.cs
 
 Dry run. Apply with offramp move tests --project src/Foo/Foo.csproj --apply
 
-! OFR2103 src/Foo/Web/Tests/UrlTests.cs Does not compile in src/Foo.Tests/Foo.Tests.csproj.
+! OFR2103 src/Foo/Web/Tests/UrlTests.cs Does not compile in src/Foo.Tests/Foo.Tests.csproj: CS0103: The name
+'HttpUtility' does not exist in the current context
 ! OFR2201 src/Foo/Health/StartupChecks.cs A test that src/Foo/Service/Startup.cs uses; it stays.
 ! OFR2206 src/Common/SharedTests.cs Linked from outside src/Foo/Foo.csproj's folder; it stays.
 · OFR0016 No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.

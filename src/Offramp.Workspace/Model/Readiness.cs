@@ -11,10 +11,13 @@ public enum ProjectReadiness
     /// <summary>Framework-only, and every dependency is already portable.</summary>
     Ready,
 
-    /// <summary>Framework-only, with at least one framework-only dependency.</summary>
+    /// <summary>
+    /// Depends on at least one framework-only project: framework-only itself, or standard,
+    /// modern, or dual with a framework-only project behind its portable targets.
+    /// </summary>
     Blocked,
 
-    /// <summary>Already portable: standard, modern, or dual.</summary>
+    /// <summary>Portable: standard, modern, or dual, with no framework-only project behind its portable targets.</summary>
     Done,
 }
 
@@ -23,15 +26,15 @@ public sealed record ProjectStanding(ProjectReadiness Readiness, IReadOnlyList<s
 
 /// <summary>
 /// Structural readiness from the project graph (docs/spec/commands/workspace.md#plan):
-/// a framework-only project is blocked by every framework-only project it depends on,
-/// directly or transitively.
+/// a project is blocked by every framework-only project it depends on, directly or
+/// transitively, through the references its portable targets use.
 /// </summary>
 public static class Readiness
 {
     public static IReadOnlyDictionary<string, ProjectStanding> Compute(WorkspaceModel model)
     {
         var classes = model.Projects.ToDictionary(p => p.Id, p => p.FrameworkClass, StringComparer.Ordinal);
-        var dependencies = Adjacency(model.Graph.Edges, reverse: false);
+        var dependencies = Adjacency(UsedEdges(model.Projects, model.Graph), reverse: false);
         var dependents = Adjacency(model.Graph.Edges, reverse: true);
 
         var result = new SortedDictionary<string, ProjectStanding>(StringComparer.Ordinal);
@@ -41,13 +44,41 @@ public static class Readiness
                 .Where(id => classes.TryGetValue(id, out var c) && c == FrameworkClass.Framework)
                 .Order(StringComparer.Ordinal)
                 .ToList();
-            var readiness = project.FrameworkClass != FrameworkClass.Framework
-                ? ProjectReadiness.Done
-                : blockers.Count == 0 ? ProjectReadiness.Ready : ProjectReadiness.Blocked;
+            var readiness = blockers.Count > 0 ? ProjectReadiness.Blocked
+                : project.FrameworkClass == FrameworkClass.Framework ? ProjectReadiness.Ready
+                : ProjectReadiness.Done;
             result[project.Id] = new ProjectStanding(readiness, blockers, Reach(project.Id, dependents).Count);
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// References from a standard, modern, or dual project's portable targets to a framework-only
+    /// project (<c>OFR0121</c>). They build only when the referenced project skips NuGet's
+    /// compatibility check, as a legacy project does, and fail at run time.
+    /// </summary>
+    public static IReadOnlyList<GraphEdge> FrameworkOnlyReferences(IReadOnlyList<ProjectInfo> projects, ProjectGraph graph)
+    {
+        var classes = projects.ToDictionary(p => p.Id, p => p.FrameworkClass, StringComparer.Ordinal);
+        return [.. UsedEdges(projects, graph)
+            .Where(e => classes.TryGetValue(e.From, out var from) && from != FrameworkClass.Framework
+                && classes.TryGetValue(e.To, out var to) && to == FrameworkClass.Framework)];
+    }
+
+    /// <summary>
+    /// The graph's edges, without the project references of a dual project that only its
+    /// .NET Framework targets use. A framework-only project does not block a dual project
+    /// through those: they stay on .NET Framework with it.
+    /// </summary>
+    private static IEnumerable<GraphEdge> UsedEdges(IReadOnlyList<ProjectInfo> projects, ProjectGraph graph)
+    {
+        var modern = projects
+            .Where(p => p.ModernProjectReferences is not null)
+            .ToDictionary(p => p.Id, p => p.ModernProjectReferences!.ToHashSet(StringComparer.Ordinal), StringComparer.Ordinal);
+        return graph.Edges.Where(e => e.Kind != GraphEdgeKind.Project
+            || !modern.TryGetValue(e.From, out var used)
+            || used.Contains(e.To));
     }
 
     private static Dictionary<string, List<string>> Adjacency(IEnumerable<GraphEdge> edges, bool reverse) =>

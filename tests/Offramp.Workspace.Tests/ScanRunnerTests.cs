@@ -304,4 +304,25 @@ public sealed class ScanRunnerTests : IDisposable
 
     private static Task<ProcessResult> RunDotnetAsync(string directory, params string[] arguments) =>
         ProcessRunner.Instance.RunAsync(new ProcessSpec("dotnet", arguments) { WorkingDirectory = directory }, TestContext.Current.CancellationToken);
+
+    [Fact]
+    public void A_project_msbuild_left_out_names_the_reference_that_failed_in_any_letter_case()
+    {
+        // As in DotNetNuke: projects referencing ones whose imports failed on Linux had no evaluation.
+        using var repo = new ScratchDirectory("not-built");
+        repo.Write("src/Web/Web.csproj", """
+            <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <ItemGroup>
+                <ProjectReference Include="..\Tools\Tools.csproj" />
+                <ProjectReference Include="..\library\Library.csproj" />
+                <ProjectReference Include="$(SolutionDir)Other\Other.csproj" />
+              </ItemGroup>
+            </Project>
+            """);
+        var failed = new HashSet<string>(["src/Library/Library.csproj"], StringComparer.OrdinalIgnoreCase);
+
+        Assert.Equal("src/library/Library.csproj", ScanRunner.FailedReference(repo.Path, "src/Web/Web.csproj", failed), StringComparer.OrdinalIgnoreCase);
+        Assert.Null(ScanRunner.FailedReference(repo.Path, "src/Web/Web.csproj", new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
+        Assert.Null(ScanRunner.FailedReference(repo.Path, "src/Missing/Missing.csproj", failed));
+    }
 }

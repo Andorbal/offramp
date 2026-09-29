@@ -160,20 +160,29 @@ Decisions behind the four code audits (ADR 0021).
 - Implicit asset target fallback is off, so a package without assets for the target
   fails restore with NU1202. It is left out, together with every direct package that
   depends on it (OFR3011), and the APIs used from it become OFR3001 findings.
+- A project an audit cannot read (Visual Basic or F#, or no compiler call) is listed in
+  `skipped` and reported as OFR3012; `audit dead-code` does the same, since what such a
+  project uses from C# projects is not seen.
 - Any other restore failure leaves the project uncompiled (OFR3010). Its symbol rules
   still run.
 - The target compilation keeps the recorded sources, compilation options, and language
   version. It swaps the .NET Framework preprocessor symbols (`NETFRAMEWORK`, `NET48`,
   ...) for the target's (`NET`, `NET10_0`, `NET10_0_OR_GREATER`, ...).
 - Project references become the referenced project's own target compilation
-  (`framework` class) or its recorded modern or standard build. `HintPath` DLLs are
-  referenced as they are.
+  (`framework` class) or its recorded modern or standard build. A `framework` project
+  that is not C# (Visual Basic) is referenced as recorded, like a DLL. `HintPath` DLLs
+  are referenced as they are.
 - OFR3001 comes from CS0234, CS0246, CS0103, CS1061, CS0117, and CS1069 (a type
   forwarded to an assembly the target does not reference). It is reported when the
   same position binds, in the recorded compilation, to a type or member from metadata.
   - When the error names a namespace (`System.Web.UI.Page` on a target without
     `System.Web.UI`), the finding is the first type or member to its right.
   - An attribute or constructor is reported as its type.
+  - An error at a name that still exists on the target is not a finding: a type missing
+    on the target is also reported at every name looked up inside a class whose base
+    chain contains it, and at calls to methods whose signatures contain it (the method
+    is a candidate that failed overload resolution). The type is reported where the code
+    names it or reaches its members.
   - The finding carries the assembly and its `rules/framework-assemblies.yml` mapping.
 - OFR3002: a symbol from metadata marked `[SupportedOSPlatform("windows")]` on itself,
   a containing type, or its assembly. `OperatingSystem.IsWindows()` guards are not
@@ -295,6 +304,9 @@ Decisions behind the two commands (ADR 0022).
   - A member's use also counts for the types containing it, since extension methods are
     called without naming their class.
   - Uses inside a symbol's own declaration do not count.
+  - ASP.NET markup (`.aspx`, `.ascx`, `.master`, `.ashx`, `.asmx`, `.asax`, `.svc`, Razor
+    views) in a project folder uses the types its directives name for the runtime to
+    create: `Inherits`, `Class`, and `Service` in `<%@ … %>`, and `@inherits` and `@model`.
 - **Candidates.** Types, methods, properties, fields, and events declared in non-test C#
   projects, generated files aside. Never candidates:
   - overrides, abstract and virtual members
@@ -310,7 +322,15 @@ Decisions behind the two commands (ADR 0022).
     (`medium`)
 - **`low` overrides the base level** when any of these holds:
   - the name appears as a word in a string literal, or in a `.resx`, `.config`, `.xaml`,
-    `.xml`, or `.json` file in a project folder
+    `.xml`, or `.json` file, an ASP.NET markup file, or another XML file (one that starts
+    with `<` and parses, such as a plugin manifest) in a project folder. `bin`, `obj`,
+    `node_modules`, and `packages` folders are not read, in any letter case, and a file
+    that cannot be read is listed in `skipped`
+  - it is a `Page_` method of a page or control (`AutoEventWireup` calls it by name), or an
+    `Application_` or `Session_` method of an `HttpApplication`
+  - the type derives from or implements a type the solution finds types by with
+    reflection: `typeof(X).IsAssignableFrom(t)`, `t.IsSubclassOf(typeof(X))`, or
+    `t.IsAssignableTo(typeof(X))`, the way plugin hosts discover implementations
   - the type implements an interface declared in the solution, and the solution calls a
     convention registration (`Scan`, `RegisterAssemblyTypes`, `AddMediatR`,
     `AddControllers`, `AddMvc`, `AddClasses`, `FromAssemblyOf`, ...)
@@ -326,7 +346,7 @@ Decisions behind the two commands (ADR 0022).
 - **Lines.** Each declaration counts from its documentation comment (plain `///` comments
   too) through its closing line. Partial types add up their declarations. The summary's
   `removableLoc` is the high-confidence total.
-- **Tests.** Test projects (`IsTestProject`) are never scanned for candidates, but their
+- **Tests.** Test projects (`IsTestProject`, or kind `test`) are never scanned for candidates, but their
   uses count. With `--include-tests`, a symbol only test projects use is listed under
   `testOnly` (OFR3402) instead.
 - **Diagnostics:** one OFR3401 per project with candidates (the count and the lines at

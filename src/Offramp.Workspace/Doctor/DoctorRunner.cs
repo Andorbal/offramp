@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
@@ -38,9 +39,10 @@ public static class DoctorRunner
         checks.Add(CheckSdkSelection(context, sdk, globalJson));
         checks.Add(CheckTarget(context, sdk, target, targetMoniker));
 
+        var model = TryReadModel(context);
         using (context.Progress.BeginPhase("Checking .NET Framework reference assemblies", 2, PhaseCount))
         {
-            checks.Add(await CheckReferenceAssembliesAsync(context, cancellationToken));
+            checks.Add(LegacyReferenceAssemblies(context, model) ?? await CheckReferenceAssembliesAsync(context, cancellationToken));
         }
 
         string? gitVersion;
@@ -52,7 +54,6 @@ public static class DoctorRunner
         checks.Add(CheckGit(context, gitVersion));
         checks.Add(CheckRepository(context, gitVersion));
         checks.Add(CheckConfig(context));
-        var model = TryReadModel(context);
         checks.Add(CheckWorkspace(context, model));
         checks.Add(CheckWindowsOnlySteps(context, model));
         checks.Add(await CheckCpmAsync(context, model, cancellationToken));
@@ -116,21 +117,45 @@ public static class DoctorRunner
         if (sdk.Selected is null)
         {
             var requested = globalJson?.Version ?? "?";
-            var message = $"{globalJsonPath ?? "global.json"} requests SDK {requested}, which is not installed: {sdk.SelectionError}";
+            var file = globalJsonPath ?? "global.json";
+            var message = $"{file} requests SDK {requested} (rollForward {globalJson?.RollForward ?? "default"}), and none of the installed SDKs ({string.Join(", ", sdk.Installed)}) satisfies it.";
             Report(context, DiagnosticCatalog.OFR0011, message, data:
             [
                 KeyValuePair.Create<string, JsonNode?>("requested", requested),
                 KeyValuePair.Create<string, JsonNode?>("rollForward", globalJson?.RollForward),
+                KeyValuePair.Create<string, JsonNode?>("dotnet", sdk.SelectionError),
             ]);
-            return Fail(id, title, message,
-                $"Install .NET SDK {requested}, or relax `sdk.rollForward` in {globalJsonPath ?? "global.json"} (for example `latestFeature`).",
-                DiagnosticCatalog.OFR0011);
+            var remedy = RollForwardFor(requested, sdk.Installed) is { } policy
+                ? $"Install .NET SDK {requested}, or set `sdk.rollForward` to `{policy}` in {file}, the least permissive setting that selects an installed SDK."
+                : $"Install .NET SDK {requested} or newer; no installed SDK is.";
+            return Fail(id, title, message, remedy, DiagnosticCatalog.OFR0011);
         }
 
         var detail = globalJson is null
             ? $"No global.json; dotnet uses the newest SDK, {sdk.Selected}."
             : $"{globalJsonPath} requests {globalJson.Version ?? "any"} (rollForward {globalJson.RollForward ?? "default"}); dotnet selects {sdk.Selected}.";
         return Pass(id, title, detail);
+    }
+
+    /// <summary>
+    /// The least permissive <c>rollForward</c> that lets <paramref name="requested"/> select an installed
+    /// SDK: <c>latestFeature</c> (same major and minor), <c>latestMinor</c> (same major), or
+    /// <c>latestMajor</c>; null when every installed SDK is older.
+    /// </summary>
+    internal static string? RollForwardFor(string requested, IReadOnlyList<string> installed)
+    {
+        if (Numeric(requested) is not { } wanted)
+        {
+            return null;
+        }
+
+        var newer = installed.Select(Numeric).OfType<Version>().Where(v => v >= wanted).ToList();
+        return newer.Count == 0 ? null
+            : newer.Any(v => v.Major == wanted.Major && v.Minor == wanted.Minor) ? "latestFeature"
+            : newer.Any(v => v.Major == wanted.Major) ? "latestMinor"
+            : "latestMajor";
+
+        static Version? Numeric(string version) => Version.TryParse(version.Split('-')[0], out var parsed) ? parsed : null;
     }
 
     private static DoctorCheck CheckTarget(DoctorContext context, DotnetSdkState sdk, int target, string moniker)
@@ -157,6 +182,26 @@ public static class DoctorRunner
         }
 
         return Pass(id, title, $"SDK {sdk.Selected} can build {moniker}.");
+    }
+
+    /// <summary>
+    /// Outside Windows, legacy projects get the reference assemblies only through the compile-only block's
+    /// legacy section (docs/decisions/0037-legacy-projects-outside-windows.md); a cached package does not reach them.
+    /// </summary>
+    private static DoctorCheck? LegacyReferenceAssemblies(DoctorContext context, WorkspaceModel? model)
+    {
+        var legacy = model?.Projects.Count(p => !p.SdkStyle && p.FrameworkClass != FrameworkClass.Modern && p.FrameworkClass != FrameworkClass.Standard) ?? 0;
+        var propsPath = Path.Combine(context.Repository.Path, CompileOnlyConditional.FileName);
+        if (OperatingSystem.IsWindows() || legacy == 0 || CompileOnlyConditional.HasLegacySection(File.Exists(propsPath) ? File.ReadAllText(propsPath) : null))
+        {
+            return null;
+        }
+
+        var message = string.Create(CultureInfo.InvariantCulture,
+            $"{legacy} legacy (non-SDK) project(s) get no reference assemblies from the SDK, and {CompileOnlyConditional.FileName} has no legacy section to supply them.");
+        Report(context, DiagnosticCatalog.OFR0018, message);
+        return Warn("reference-assemblies", ".NET Framework reference assemblies", message,
+            "Run `offramp doctor --fix --apply` to add the compile-only block's legacy section.", DiagnosticCatalog.OFR0018);
     }
 
     private static async Task<DoctorCheck> CheckReferenceAssembliesAsync(DoctorContext context, CancellationToken cancellationToken)
@@ -383,10 +428,14 @@ public static class DoctorRunner
             }
         }
 
+        // packages.config projects (OFR1303) matter only once central package management is in use;
+        // `deps consolidate --cpm` runs the full preflight itself.
         var hazards = CpmHazards.Find(root, projects);
+        var inUse = CpmHazards.AnyCentralVersions(root) || File.Exists(RepoPaths.ToAbsolute(root, context.Config.Config.Deps.Cpm.File));
+        hazards = [.. hazards.Where(h => inUse || h.Descriptor != DiagnosticCatalog.OFR1303)];
         if (hazards.Count == 0)
         {
-            return Pass(id, title, "No central package management hazards.");
+            return Pass(id, title, inUse ? "No central package management hazards." : "Central package management is not in use.");
         }
 
         foreach (var hazard in hazards)
