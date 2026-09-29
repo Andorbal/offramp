@@ -1,4 +1,4 @@
-# 0036. Build legacy (non-SDK) solutions outside Windows
+# 0037. Build legacy (non-SDK) solutions outside Windows
 
 - Status: accepted
 - Date: 2026-09-29
@@ -48,10 +48,12 @@ and which of it Offramp can supply:
   there, else from the feeds `nuget.config` enables, through the NuGet client
   libraries. A folder that exists in any letter case is never touched. What was written
   is `OFR0106` (info), each package not found `OFR0105` (warning).
-- **Every build Offramp runs** (scan, verification, `csproj modernize`) passes
+- **Every `dotnet build` Offramp runs** (scan, verification, `csproj modernize`) passes
   `RestorePackages=false` outside Windows unless `verify.properties` sets it. Only
   `.nuget/NuGet.targets` reads the property, and the project file sets it after
-  `Directory.Build.props`, so the block cannot.
+  `Directory.Build.props`, so the block cannot. `scan --msbuild` (ADR 0034) runs
+  Visual Studio's MSBuild, which runs those targets as Visual Studio does, so it leaves
+  the property alone.
 - **What Offramp cannot supply is detected and named** from the build's errors, each with
   the file to change: a path that differs from the file on disk in letter case only
   (`OFR0117`, from MSB4019, CS2001, MSB3030, or CS0006), an inline task factory only
@@ -59,7 +61,7 @@ and which of it Offramp can supply:
   `cmd.exe` command in an `Exec` that failed (MSB3073) is a `build-event` step
   (`OFR0115`) whether it came from `PostBuildEvent` or a target. Paths in the evidence
   are repository-relative.
-- **`doctor`'s reference assemblies check** warns (`OFR0017`) when the model has legacy
+- **`doctor`'s reference assemblies check** warns (`OFR0018`) when the model has legacy
   projects and the compile-only block lacks the legacy section, instead of passing
   because the package is in the cache.
 

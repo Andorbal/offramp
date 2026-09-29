@@ -75,7 +75,7 @@ public static class CompileOnlyConditional
 
     /// <summary>
     /// Legacy (non-SDK) projects get neither the .NET Framework reference assemblies nor the web targets
-    /// from the SDK (docs/decisions/0036-legacy-projects-outside-windows.md). Restored as
+    /// from the SDK (docs/decisions/0037-legacy-projects-outside-windows.md). Restored as
     /// <c>PackageReference</c> projects, they take both from packages, as SDK-style projects do; their
     /// <c>packages.config</c> is still ignored by <c>dotnet restore</c>, and <c>offramp scan</c> restores it.
     /// The reference assemblies package wires Visual Basic's runtime for SDK-style projects only, so a

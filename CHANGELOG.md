@@ -11,111 +11,15 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
-### Fixed
-- `deps resolve-dlls` takes a DLL's package and version from the `packages/<Id>.<Version>/`
-  folder its `HintPath` goes through when the project's `packages.config` lists it, as the new
-  `packagesConfig` resolution, and leaves it alone. It matched by assembly version before and
-  picked the lowest package version shipping it, so `--apply` would have written 184 wrong
-  versions on DotNetNuke (Newtonsoft.Json 13.0.3 as 13.0.1, Castle.Core 5.1.1 as 5.0.0), and it
-  reported DLLs of packages that support the target (NUnit 4.2.2, BouncyCastle 1.9.0) as
-  blockers (OFR1404): 172 blockers before, 6 now. `--apply` no longer adds `PackageReference`
-  items to `packages.config` projects. The result's `summary` has `packagesConfig`.
-- `redirects sync` counts the packages `packages.config` deploys (the application's and those of
-  the projects it references), read from the solution's `packages/` folder. It called the
-  redirects of every `packages.config` application stale, and `--prune` would have removed live
-  ones (Newtonsoft.Json, BouncyCastle) from DotNetNuke's `web.config`.
-- `redirects sync` skips an application whose model is partial, itself or through a project it
-  references (new `OFR1506`). On a fresh DotNetNuke checkout on Linux, module projects whose
-  evaluation failed had no references in the model, so `--prune` would have removed their live
-  Newtonsoft.Json and BouncyCastle redirects.
-- `redirects sync` never writes a redirect down to an older deployed version than one referenced
-  (new `OFR1505`, warning), and a configuration file naming an assembly twice no longer ends the
-  command with an exception.
-- `deps audit` no longer calls a package Windows-only because its assembly references
-  `Microsoft.Win32.Registry`, which ships with .NET on every OS (NUnit was OFR1004). Cached
-  inspections are recomputed.
-- `schemas/v1/workspace.json` accepts the `web-targets` Windows-only build step that `OFR0116`
-  records.
-- `audit api` no longer blames the wrong API when a type is missing on the target. Roslyn
-  reports a missing base type (a Web Forms `UserControl` or `Page`) at every name looked up
-  inside the derived class, and a missing parameter type at every call of the method, so
-  `System.Convert`, `System.Exception`, and the solution's own types were reported as
-  "does not exist on the target". A name that still exists on the target is no longer a
-  finding. On DotNetNuke 9.13 this removed about 5,200 false findings, among them 1,240
-  against `mscorlib` and 4,060 against DotNetNuke's own assemblies.
-- `audit api` references a Visual Basic project from a C# project's target compilation as
-  recorded, instead of leaving it out and reporting every type used from it as missing.
-- `audit dead-code` reads ASP.NET markup. A class a page or control names in `Inherits`
-  (and a handler's `Class`, a Razor view's `@model`) is used, not dead: on DotNetNuke the page
-  class behind `Default.aspx` was a high-confidence candidate. Other names in markup, `Page_`
-  handlers that `AutoEventWireup` calls by name, `Application_` handlers of `Global.asax`, types
-  a plugin host finds with `typeof(X).IsAssignableFrom(t)`, and names in XML under other
-  extensions (plugin manifests) now rate `low`.
-- `audit dead-code` no longer stops at a file it cannot read (OFR0099); it lists it under
-  `skipped`. Build output is left out in any letter case (`Bin/`), so documentation XML copied
-  there no longer counts as a mention.
-- `plan`, `graph`, `report`, and the guide no longer count a standard, modern, or dual project
-  as `done` when a framework-only project sits behind the references its portable targets use.
-  It is `blocked` by those projects and gets a wave after them (ADR 0035). On DotNetNuke 9.13,
-  two `netstandard2.0` projects referencing `net472` legacy projects, and a
-  `netstandard2.0;net472` project referencing three unconditionally, were wave 0 and `done`
-  while their `blockers` listed framework-only projects. A dual project's `net4x`-only
-  references no longer block it or the projects that reference it.
-- `doctor`'s reference assemblies check no longer passes for legacy (non-SDK) projects outside
-  Windows because the package is in the cache: the SDK gives it to SDK-style projects only. It
-  now warns (`OFR0017`) until the compile-only block has its legacy section.
-- The evidence of Windows-only build steps in `scan`'s messages uses repository-relative paths
-  (a `PostBuildEvent` quoted the checkout's absolute path).
-- `schemas/v1/workspace.json` accepts the `aspnet-compiler` Windows-only build step.
-- `csproj modernize` keeps item attributes: metadata written as attributes and `Condition`.
-  A source generator's `ProjectReference` (`ReferenceOutputAssembly="false"
-  OutputItemType="Analyzer"`) became a plain reference, so the generator no longer ran.
-- `csproj modernize` keeps a single-target project's output where the legacy project wrote it
-  (`AppendTargetFrameworkToOutputPath=false`); the SDK's `bin/net472/` broke `AfterBuild` copies
-  and sibling projects' `HintPath`s into `bin/`.
-- `csproj modernize` no longer calls a conversion failed when the converted project's build
-  stops only at NuGet audit (known vulnerabilities, made errors by `TreatWarningsAsErrors`): 42
-  of the 43 failures on DotNetNuke. They are reported as `OFR4305` and verification runs with
-  audit off.
-- `move plan` names the first compiler error in `OFR2103`'s message (it was only in
-  `data.details`), and tells the destination's warning policy from portability: a file whose
-  only errors are warnings the destination treats as errors is `OFR2112`. On DotNetNuke, 287 of
-  389 `OFR2103` exclusions were CS1591 (missing XML comment) in a destination that builds its
-  documentation with warnings as errors.
-- `move plan` no longer plans moves that rely on an `InternalsVisibleTo` item a destination
-  ignores: an SDK-style project with `GenerateAssemblyInfo=false` (a shared `SolutionInfo.cs`)
-  does not turn the item into an attribute, so verification failed with CS0122 and rolled back.
-  Files that need internals then stay, with the reason; the same for a strong-named assembly or
-  a legacy project without `Properties/AssemblyInfo.cs`.
-- `codemod run` reports a skip reason once per project, with the number of sites, instead of at
-  every site (367 identical notices for `http-context` on a System.Web project); the result
-  still lists each site.
-- `doctor`'s global.json check names the least permissive `rollForward` that selects an
-  installed SDK. With `latestMinor` and only SDK 10 installed it suggested `latestFeature`, which
-  is stricter; its message no longer embeds a cut-off line of `dotnet`'s output.
-- `doctor`'s CPM check reports `packages.config` projects (`OFR1303`) only once central package
-  management is in use; it raised 64 warnings on a repository without a `Directory.Packages.props`.
-- `OFR0101` names the referenced project that failed when MSBuild never evaluated a project,
-  instead of "no evaluation for it in the build log".
-- `OFR0130` counts the errors per code (`CS2001 ×99, MSB4019 ×37, ...`) in its message and
-  `data.byCode`.
-- `scan` writes no ledger snapshot when the build failed, so `report`'s trend no longer shows
-  a partial model as a drop in framework code (`ledgerSnapshot` is null).
-- `audit` and `audit dead-code` report a project they cannot read (Visual Basic, F#, or no
-  compiler call) as `OFR3012` instead of listing it silently under `skipped`.
-- Compilations of legacy (non-SDK) Visual Basic projects rebuilt from the compiler log get
-  `mscorlib` from the recorded `/sdkpath`; `vbc` adds it by itself, so the log did not name it
-  and nothing in them bound.
-
 ### Added
 - The workspace model records the packages each `packages.config` lists
   (`packagesConfigPackages`: id, version, target framework, development dependency), and the
-  `packages` index includes them (ADR 0034). `deps audit` audits them: on DotNetNuke 9.13 it
+  `packages` index includes them (ADR 0035). `deps audit` audits them: on DotNetNuke 9.13 it
   saw 23 packages before and 77 now, among them the blockers (WebFormsMvp, ClientDependency, SQL
   Server Compact) and the ASP.NET packages to replace. A test framework or Topshelf listed in
   `packages.config` sets the project's kind, which moved 12 DotNetNuke projects from `library`
   to `test`.
-- Legacy (non-SDK) solutions build on macOS and Linux (ADR 0036): Offramp now supplies what
+- Legacy (non-SDK) solutions build on macOS and Linux (ADR 0037): Offramp now supplies what
   they lack there, and `scan` names what it cannot supply. On a fresh DotNetNuke 9.13 checkout,
   the build still stops at DotNetNuke's own problems (`XCOPY` build targets, and on Linux paths
   in the wrong letter case), each named; with those fixed, all 71 projects load and 4 are partial,
@@ -163,6 +67,116 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   (`tests/Offramp.Corpus.Tests/README.md`).
 - The `webforms` fixture: a Web Forms web project whose control derives from `UserControl`
   through another project and calls a legacy Visual Basic library, as DotNetNuke modules do.
+- `scan --msbuild` and `scan.builder: msbuild` in `offramp.yml`: `scan` builds with MSBuild.exe
+  from Visual Studio or the Build Tools instead of `dotnet build`, for solutions with projects only
+  .NET Framework's MSBuild builds (sgen, COM references). It runs the same never-incremental build
+  (`-restore -t:Rebuild`, `verify.configuration`, `verify.properties`) and also restores
+  packages.config projects, as Visual Studio does.
+- `scan --msbuild-path PATH` and `scan.msbuildPath`: MSBuild.exe, a folder holding it, or a Visual
+  Studio or Build Tools installation folder. Without one, scan uses the Developer Command Prompt's
+  installation, else the newest one vswhere reports. `OFFRAMP_SCAN__BUILDER` and
+  `OFFRAMP_SCAN__MSBUILD_PATH` set both per machine. ADR 0034.
+- `OFR0017` (MSBuild not found): `--msbuild` found no MSBuild.exe, or could not start it; scan exits 3.
+
+### Changed
+- Every envelope's `effectiveConfig` has a `scan` section (`builder`, `msbuildPath`), and `init`
+  writes it to `offramp.yml` with its defaults.
+
+### Fixed
+- `deps resolve-dlls` takes a DLL's package and version from the `packages/<Id>.<Version>/`
+  folder its `HintPath` goes through when the project's `packages.config` lists it, as the new
+  `packagesConfig` resolution, and leaves it alone. It matched by assembly version before and
+  picked the lowest package version shipping it, so `--apply` would have written 184 wrong
+  versions on DotNetNuke (Newtonsoft.Json 13.0.3 as 13.0.1, Castle.Core 5.1.1 as 5.0.0), and it
+  reported DLLs of packages that support the target (NUnit 4.2.2, BouncyCastle 1.9.0) as
+  blockers (OFR1404): 172 blockers before, 6 now. `--apply` no longer adds `PackageReference`
+  items to `packages.config` projects. The result's `summary` has `packagesConfig`.
+- `redirects sync` counts the packages `packages.config` deploys (the application's and those of
+  the projects it references), read from the solution's `packages/` folder. It called the
+  redirects of every `packages.config` application stale, and `--prune` would have removed live
+  ones (Newtonsoft.Json, BouncyCastle) from DotNetNuke's `web.config`.
+- `redirects sync` skips an application whose model is partial, itself or through a project it
+  references (new `OFR1506`). On a fresh DotNetNuke checkout on Linux, module projects whose
+  evaluation failed had no references in the model, so `--prune` would have removed their live
+  Newtonsoft.Json and BouncyCastle redirects.
+- `redirects sync` never writes a redirect down to an older deployed version than one referenced
+  (new `OFR1505`, warning), and a configuration file naming an assembly twice no longer ends the
+  command with an exception.
+- `deps audit` no longer calls a package Windows-only because its assembly references
+  `Microsoft.Win32.Registry`, which ships with .NET on every OS (NUnit was OFR1004). Cached
+  inspections are recomputed.
+- `schemas/v1/workspace.json` accepts the `web-targets` Windows-only build step that `OFR0116`
+  records.
+- `audit api` no longer blames the wrong API when a type is missing on the target. Roslyn
+  reports a missing base type (a Web Forms `UserControl` or `Page`) at every name looked up
+  inside the derived class, and a missing parameter type at every call of the method, so
+  `System.Convert`, `System.Exception`, and the solution's own types were reported as
+  "does not exist on the target". A name that still exists on the target is no longer a
+  finding. On DotNetNuke 9.13 this removed about 5,200 false findings, among them 1,240
+  against `mscorlib` and 4,060 against DotNetNuke's own assemblies.
+- `audit api` references a Visual Basic project from a C# project's target compilation as
+  recorded, instead of leaving it out and reporting every type used from it as missing.
+- `audit dead-code` reads ASP.NET markup. A class a page or control names in `Inherits`
+  (and a handler's `Class`, a Razor view's `@model`) is used, not dead: on DotNetNuke the page
+  class behind `Default.aspx` was a high-confidence candidate. Other names in markup, `Page_`
+  handlers that `AutoEventWireup` calls by name, `Application_` handlers of `Global.asax`, types
+  a plugin host finds with `typeof(X).IsAssignableFrom(t)`, and names in XML under other
+  extensions (plugin manifests) now rate `low`.
+- `audit dead-code` no longer stops at a file it cannot read (OFR0099); it lists it under
+  `skipped`. Build output is left out in any letter case (`Bin/`), so documentation XML copied
+  there no longer counts as a mention.
+- `plan`, `graph`, `report`, and the guide no longer count a standard, modern, or dual project
+  as `done` when a framework-only project sits behind the references its portable targets use.
+  It is `blocked` by those projects and gets a wave after them (ADR 0036). On DotNetNuke 9.13,
+  two `netstandard2.0` projects referencing `net472` legacy projects, and a
+  `netstandard2.0;net472` project referencing three unconditionally, were wave 0 and `done`
+  while their `blockers` listed framework-only projects. A dual project's `net4x`-only
+  references no longer block it or the projects that reference it.
+- `doctor`'s reference assemblies check no longer passes for legacy (non-SDK) projects outside
+  Windows because the package is in the cache: the SDK gives it to SDK-style projects only. It
+  now warns (`OFR0018`) until the compile-only block has its legacy section.
+- The evidence of Windows-only build steps in `scan`'s messages uses repository-relative paths
+  (a `PostBuildEvent` quoted the checkout's absolute path).
+- `schemas/v1/workspace.json` accepts the `aspnet-compiler` Windows-only build step.
+- `csproj modernize` keeps item attributes: metadata written as attributes and `Condition`.
+  A source generator's `ProjectReference` (`ReferenceOutputAssembly="false"
+  OutputItemType="Analyzer"`) became a plain reference, so the generator no longer ran.
+- `csproj modernize` keeps a single-target project's output where the legacy project wrote it
+  (`AppendTargetFrameworkToOutputPath=false`); the SDK's `bin/net472/` broke `AfterBuild` copies
+  and sibling projects' `HintPath`s into `bin/`.
+- `csproj modernize` no longer calls a conversion failed when the converted project's build
+  stops only at NuGet audit (known vulnerabilities, made errors by `TreatWarningsAsErrors`): 42
+  of the 43 failures on DotNetNuke. They are reported as `OFR4305` and verification runs with
+  audit off.
+- `move plan` names the first compiler error in `OFR2103`'s message (it was only in
+  `data.details`), and tells the destination's warning policy from portability: a file whose
+  only errors are warnings the destination treats as errors is `OFR2112`. On DotNetNuke, 287 of
+  389 `OFR2103` exclusions were CS1591 (missing XML comment) in a destination that builds its
+  documentation with warnings as errors.
+- `move plan` no longer plans moves that rely on an `InternalsVisibleTo` item a destination
+  ignores: an SDK-style project with `GenerateAssemblyInfo=false` (a shared `SolutionInfo.cs`)
+  does not turn the item into an attribute, so verification failed with CS0122 and rolled back.
+  Files that need internals then stay, with the reason; the same for a strong-named assembly or
+  a legacy project without `Properties/AssemblyInfo.cs`.
+- `codemod run` reports a skip reason once per project, with the number of sites, instead of at
+  every site (367 identical notices for `http-context` on a System.Web project); the result
+  still lists each site.
+- `doctor`'s global.json check names the least permissive `rollForward` that selects an
+  installed SDK. With `latestMinor` and only SDK 10 installed it suggested `latestFeature`, which
+  is stricter; its message no longer embeds a cut-off line of `dotnet`'s output.
+- `doctor`'s CPM check reports `packages.config` projects (`OFR1303`) only once central package
+  management is in use; it raised 64 warnings on a repository without a `Directory.Packages.props`.
+- `OFR0101` names the referenced project that failed when MSBuild never evaluated a project,
+  instead of "no evaluation for it in the build log".
+- `OFR0130` counts the errors per code (`CS2001 ×99, MSB4019 ×37, ...`) in its message and
+  `data.byCode`.
+- `scan` writes no ledger snapshot when the build failed, so `report`'s trend no longer shows
+  a partial model as a drop in framework code (`ledgerSnapshot` is null).
+- `audit` and `audit dead-code` report a project they cannot read (Visual Basic, F#, or no
+  compiler call) as `OFR3012` instead of listing it silently under `skipped`.
+- Compilations of legacy (non-SDK) Visual Basic projects rebuilt from the compiler log get
+  `mscorlib` from the recorded `/sdkpath`; `vbc` adds it by itself, so the log did not name it
+  and nothing in them bound.
 
 ## [0.16.0] - 2026-09-28
 

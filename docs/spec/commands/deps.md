@@ -54,7 +54,7 @@ offramp deps audit [--target N] [--package ID] [--project P] [--include-prerelea
 ```
 
 It audits every package in the model's `packages` index: `PackageReference` items and the
-packages each `packages.config` lists (ADR 0034).
+packages each `packages.config` lists (ADR 0035).
 
 Result (`schemas/v1/deps-audit.json`):
 
@@ -114,7 +114,7 @@ version does not support target, `OFR1003` package or in-use version deprecated,
 One version per package across the solution, respecting pins, families, and
 transitive constraints, validated by NuGet's own restore. Projects on `packages.config`
 count in `current`, but only `PackageReference` projects are written; one on another
-version than the selected one is `OFR1204` (ADR 0034).
+version than the selected one is `OFR1204` (ADR 0035).
 
 ```
 offramp deps consolidate (--package ID | --all | --family PREFIX) [--prefer newest|lowest]
@@ -349,7 +349,7 @@ Details (M6, ADR 0020):
   folder, from the global packages folder, with their references read by
   System.Reflection.Metadata. The packages are the application's restored ones
   and those its `packages.config` and the `packages.config` of every project it
-  references list (copy-local deploys them; ADR 0034); an application without a
+  references list (copy-local deploys them; ADR 0035); an application without a
   restored graph also takes its referenced projects' restored packages. A
   `packages.config` package is read from `packages/<Id>.<Version>/` beside the
   solution or at the repository root before the global packages folder.

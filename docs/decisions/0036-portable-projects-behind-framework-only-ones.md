@@ -1,4 +1,4 @@
-# 0035. Count a portable project that references a framework-only one as blocked
+# 0036. Count a portable project that references a framework-only one as blocked
 
 - Status: accepted
 - Date: 2026-09-29

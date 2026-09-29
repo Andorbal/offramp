@@ -22,7 +22,7 @@ public sealed record PackagesConfigRestoreResult(
 /// Restores what the projects' <c>packages.config</c> files list into the solution's packages
 /// folder, laid out as <c>nuget restore</c> lays it out (<c>packages/&lt;Id&gt;.&lt;Version&gt;/</c>,
 /// named from the package's nuspec), because <c>dotnet restore</c> skips <c>packages.config</c>
-/// and <c>NuGet.exe</c> does not run outside Windows (docs/decisions/0036-legacy-projects-outside-windows.md).
+/// and <c>NuGet.exe</c> does not run outside Windows (docs/decisions/0037-legacy-projects-outside-windows.md).
 /// A package already in the folder, in any letter case, is left alone; nothing is overwritten.
 /// Packages come from the NuGet global packages folder when it has them, else from the feeds
 /// of the solution's <c>nuget.config</c>.

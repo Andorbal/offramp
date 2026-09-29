@@ -9,7 +9,7 @@ public static class BuildProperties
     /// <c>verify.properties</c>, and outside Windows <c>RestorePackages=false</c> unless they set it: a legacy
     /// project that imports <c>.nuget/NuGet.targets</c> would run <c>NuGet.exe</c> through Mono and fail
     /// (MSB3073), and <c>scan</c> restores <c>packages.config</c> itself
-    /// (<c>docs/decisions/0036-legacy-projects-outside-windows.md</c>). Only those targets read the property.
+    /// (<c>docs/decisions/0037-legacy-projects-outside-windows.md</c>). Only those targets read the property.
     /// </summary>
     public static IEnumerable<string> Arguments(VerifyConfig config)
     {

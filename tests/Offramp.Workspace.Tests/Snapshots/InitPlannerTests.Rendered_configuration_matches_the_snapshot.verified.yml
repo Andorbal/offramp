@@ -14,6 +14,13 @@ paths:
   exclude: []
   state: .offramp
 
+scan:
+  # What builds the solution for scan: dotnet (dotnet build) | msbuild (MSBuild.exe from Visual Studio
+  # or Build Tools, for projects only it builds, such as sgen or COM references). --msbuild overrides.
+  builder: dotnet
+  # MSBuild.exe or a Visual Studio or Build Tools folder; null: the Developer Command Prompt's, else vswhere's newest.
+  msbuildPath: null
+
 verify:
   # How Offramp checks each change it writes before keeping it:
   # build: dotnet build the affected projects | command: run verify.command | none: no check

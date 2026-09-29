@@ -186,7 +186,7 @@ public static class DoctorRunner
 
     /// <summary>
     /// Outside Windows, legacy projects get the reference assemblies only through the compile-only block's
-    /// legacy section (docs/decisions/0036-legacy-projects-outside-windows.md); a cached package does not reach them.
+    /// legacy section (docs/decisions/0037-legacy-projects-outside-windows.md); a cached package does not reach them.
     /// </summary>
     private static DoctorCheck? LegacyReferenceAssemblies(DoctorContext context, WorkspaceModel? model)
     {
@@ -199,9 +199,9 @@ public static class DoctorRunner
 
         var message = string.Create(CultureInfo.InvariantCulture,
             $"{legacy} legacy (non-SDK) project(s) get no reference assemblies from the SDK, and {CompileOnlyConditional.FileName} has no legacy section to supply them.");
-        Report(context, DiagnosticCatalog.OFR0017, message);
+        Report(context, DiagnosticCatalog.OFR0018, message);
         return Warn("reference-assemblies", ".NET Framework reference assemblies", message,
-            "Run `offramp doctor --fix --apply` to add the compile-only block's legacy section.", DiagnosticCatalog.OFR0017);
+            "Run `offramp doctor --fix --apply` to add the compile-only block's legacy section.", DiagnosticCatalog.OFR0018);
     }
 
     private static async Task<DoctorCheck> CheckReferenceAssembliesAsync(DoctorContext context, CancellationToken cancellationToken)

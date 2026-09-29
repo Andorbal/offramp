@@ -214,7 +214,7 @@ public sealed class DoctorRunnerTests : IDisposable
     }
 
     [Fact]
-    [ProducesDiagnostic("OFR0017")]
+    [ProducesDiagnostic("OFR0018")]
     public async Task Legacy_projects_outside_windows_need_the_legacy_section_whatever_the_package_cache_holds()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has the .NET Framework targeting packs.");
@@ -227,7 +227,7 @@ public sealed class DoctorRunnerTests : IDisposable
         var check = report.Checks.Single(c => c.Id == "reference-assemblies");
         Assert.Equal(CheckStatus.Warn, check.Status);
         Assert.Equal("1 legacy (non-SDK) project(s) get no reference assemblies from the SDK, and Directory.Build.props has no legacy section to supply them.", check.Message);
-        Assert.Equal(Severity.Warning, bag.ToSortedList().Single(d => d.Code == "OFR0017").Severity);
+        Assert.Equal(Severity.Warning, bag.ToSortedList().Single(d => d.Code == "OFR0018").Severity);
 
         DoctorRunner.ApplyFix(_repo.Path);
         (report, _) = await RunAsync(Healthy());

@@ -39,7 +39,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0014](#ofr0014) | warning | environment | git not found |
 | [OFR0015](#ofr0015) | warning | environment | not a git repository |
 | [OFR0016](#ofr0016) | info | configuration | no offramp.yml; built-in defaults in effect |
-| [OFR0017](#ofr0017) | warning | environment | legacy projects get no reference assemblies outside Windows |
+| [OFR0017](#ofr0017) | error | environment | MSBuild not found |
+| [OFR0018](#ofr0018) | warning | environment | legacy projects get no reference assemblies outside Windows |
 | [OFR0020](#ofr0020) | error | workspace | more than one solution found |
 | [OFR0021](#ofr0021) | error | workspace | project not in the workspace model |
 | [OFR0022](#ofr0022) | error | workspace | no solution found |
@@ -349,6 +350,15 @@ No configuration file was found at the repository root, so every setting has its
 - **Fix:** Run `offramp init` to write `offramp.yml` with detected values.
 
 ### OFR0017
+
+**MSBuild not found** · error · environment
+
+`scan` was asked to build with MSBuild (`--msbuild` or `scan.builder: msbuild`), but no MSBuild.exe could be found or started, so the solution cannot be built.
+
+- **Typical cause:** Neither Visual Studio nor the Build Tools for Visual Studio is installed with the MSBuild component, `--msbuild-path` or `scan.msbuildPath` names something that is neither MSBuild.exe nor a folder holding it, or the machine cannot run MSBuild.exe.
+- **Fix:** Install Visual Studio or the Build Tools with the MSBuild component, pass `--msbuild-path` (MSBuild.exe or the installation folder), or build with `dotnet` and scan a log captured on Windows with `--binlog`.
+
+### OFR0018
 
 **legacy projects get no reference assemblies outside Windows** · warning · environment
 

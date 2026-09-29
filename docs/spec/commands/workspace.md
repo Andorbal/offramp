@@ -5,23 +5,40 @@
 Builds the workspace model. See `02-workspace-model.md` for inputs and schema.
 
 ```
-offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH | --no-build] [--if-stale]
+offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH | --no-build | --msbuild | --msbuild-path PATH] [--if-stale]
 ```
 
 - Runs `dotnet build -bl` unless a log is supplied. Uses `verify.properties`
   and `verify.configuration` from config so the analysis build matches
   verification builds, and `verify.timeoutSeconds` as the build timeout.
-  Outside Windows, every build Offramp runs also passes `RestorePackages=false`
-  unless `verify.properties` sets it, so a legacy `.nuget/NuGet.targets` does
-  not run `NuGet.exe` through Mono.
-- Outside Windows, before that build, restores the packages the solution's
+  Outside Windows, every `dotnet build` Offramp runs also passes
+  `RestorePackages=false` unless `verify.properties` sets it, so a legacy
+  `.nuget/NuGet.targets` does not run `NuGet.exe` through Mono.
+- `--msbuild` (or `scan.builder: msbuild`) runs MSBuild.exe from Visual Studio
+  or the Build Tools instead, for solutions with projects that only .NET
+  Framework's MSBuild builds (sgen, COM references, the ASP.NET web application
+  targets): `MSBuild.exe <solution> -restore -t:Rebuild -m -bl:<log>
+  -p:Configuration=<verify.configuration> ... -p:RestorePackagesConfig=true`,
+  then `verify.properties`. That is the build `dotnet build --no-incremental`
+  runs, with packages.config projects restored as Visual Studio restores them.
+- MSBuild.exe is `--msbuild-path` (which implies `--msbuild`, relative to the
+  working directory) or `scan.msbuildPath` (relative to the repository root):
+  the file itself, a folder holding it, or an installation folder
+  (`MSBuild/Current/Bin`, then `MSBuild/15.0/Bin`). Without either, scan uses
+  the Developer Command Prompt's installation (`VSINSTALLDIR`), else the newest
+  installation with the MSBuild component that vswhere reports. `PATH` is not
+  searched (`docs/decisions/0034-msbuild-for-scan.md`). An MSBuild.exe that is
+  not found or cannot be started is `OFR0017` (exit 3). `--msbuild` and
+  `--msbuild-path` cannot be combined with `--binlog`, `--complog`, or
+  `--no-build` (exit 2).
+- Outside Windows, before the build, restores the packages the solution's
   `packages.config` files list into its packages folder (`repositoryPath` from
   `nuget.config`, else `packages/` beside the solution), laid out as
   `nuget restore` lays it out, because `dotnet restore` skips `packages.config`.
   A package comes from the NuGet global packages folder, else from the feeds in
   `nuget.config`. A folder that exists in any letter case is never touched.
   `OFR0106` (info) lists what was written, `OFR0105` each package that could not
-  be found (`docs/decisions/0036-legacy-projects-outside-windows.md`).
+  be found (`docs/decisions/0037-legacy-projects-outside-windows.md`).
 - Converts the binlog to a complog (`.offramp/build.complog`) so compilations
   can be rebuilt without MSBuild. With `--complog`, copies that one instead.
 - `--no-build` reuses `.offramp/msbuild.binlog` from the previous scan
@@ -60,7 +77,8 @@ error) exits 1 with the model written; a missing log, a build that cannot run
 or times out exits 3.
 
 Diagnostics: `OFR0003` no binary log to reuse, `OFR0004` log not found or
-unreadable, `OFR0010` no `dotnet`, `OFR0020` several solutions, `OFR0022` no
+unreadable, `OFR0010` no `dotnet`, `OFR0017` no MSBuild.exe (with `--msbuild`),
+`OFR0020` several solutions, `OFR0022` no
 solution, `OFR0101` project not understood (reason: its evaluation error, or,
 when MSBuild never evaluated it, the referenced project that failed), `OFR0102` kind unknown,
 `OFR0103` model from a compiler log alone, `OFR0104` assets file missing,
@@ -90,7 +108,7 @@ Checks, each with pass/warn/fail and a remedy:
   `latestMinor`, `latestMajor`), or says none is new enough.
 - `Microsoft.NETFramework.ReferenceAssemblies` resolvable (offline cache or feed).
   Outside Windows, when the model has legacy (non-SDK) projects, the check
-  warns (`OFR0017`) unless the compile-only block has its legacy section, the
+  warns (`OFR0018`) unless the compile-only block has its legacy section, the
   only way those projects get the package.
 - git present; repo detected; `git mv` will be used.
 - `offramp.yml` valid; unknown keys; pins without reasons.
@@ -133,7 +151,7 @@ matches its diagnostic's severity (fail = error, warn = warning), so the exit co
 follows `--fail-on`. Diagnostics: `OFR0010` no SDK, `OFR0011` global.json SDK not
 installed, `OFR0012` SDK cannot target `--target`, `OFR0013` reference assemblies
 unresolvable, `OFR0014` git not found, `OFR0015` not a git repository, `OFR0016`
-no `offramp.yml` (info), `OFR0017` legacy projects without the legacy section,
+no `offramp.yml` (info), `OFR0018` legacy projects without the legacy section,
 `OFR0001` workspace model missing (reported as a warning
 by doctor), `OFR0002` model stale, `OFR0110`–`OFR0119` Windows-only build
 steps (from the model), `OFR1301`–`OFR1303` CPM hazards, `OFR1006` feed
@@ -166,7 +184,7 @@ offramp plan [--frontier] [--for PROJECT] [--waves] [--exclude-kind test,...]
   a framework-only project. Such a project builds only because the reference
   skips NuGet's compatibility check (a legacy project does), and fails on the
   target at run time; `scan` reports each such reference as `OFR0121`
-  (`docs/decisions/0035-portable-projects-behind-framework-only-ones.md`). Members of a reference
+  (`docs/decisions/0036-portable-projects-behind-framework-only-ones.md`). Members of a reference
   cycle share a wave and are marked `inCycle`; the cycle must be broken first.
   The order is by wave, then blast radius (largest first), then path, so every
   project comes after the framework-only projects it needs

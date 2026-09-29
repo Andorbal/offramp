@@ -1,4 +1,4 @@
-# 0034. Record packages.config packages in the workspace model
+# 0035. Record packages.config packages in the workspace model
 
 - Status: accepted
 - Date: 2026-09-29

@@ -8,7 +8,7 @@ namespace Offramp.Workspace.Tests;
 
 /// <summary>
 /// The restore <c>scan</c> runs outside Windows for packages.config projects
-/// (docs/decisions/0036-legacy-projects-outside-windows.md), against a local folder feed and an
+/// (docs/decisions/0037-legacy-projects-outside-windows.md), against a local folder feed and an
 /// empty global packages folder, so nothing leaves the machine.
 /// </summary>
 public sealed class PackagesConfigRestorerTests : IDisposable

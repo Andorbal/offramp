@@ -141,7 +141,7 @@ public static class WindowsOnlyBuildSteps
     }
 
     /// <summary>
-    /// Steps only a failed build shows (docs/decisions/0036-legacy-projects-outside-windows.md): paths spelled in
+    /// Steps only a failed build shows (docs/decisions/0037-legacy-projects-outside-windows.md): paths spelled in
     /// another letter case than on disk, inline tasks, non-string resources, and <c>Exec</c> commands written for
     /// cmd.exe, from a target or a build event.
     /// </summary>

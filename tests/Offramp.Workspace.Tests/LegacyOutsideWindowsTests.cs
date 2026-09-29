@@ -5,7 +5,7 @@ namespace Offramp.Workspace.Tests;
 
 /// <summary>
 /// Legacy (non-SDK) projects on macOS and Linux with nothing but the compile-only block and the
-/// restore <c>scan</c> runs (docs/decisions/0036-legacy-projects-outside-windows.md). The fixtures'
+/// restore <c>scan</c> runs (docs/decisions/0037-legacy-projects-outside-windows.md). The fixtures'
 /// own Directory.Build.props, which gives legacy projects the reference assemblies on every OS, is
 /// replaced by an empty one first, and the packages folder the fixture helper fills is removed.
 /// </summary>

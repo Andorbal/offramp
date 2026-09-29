@@ -25,6 +25,8 @@ public sealed record OfframpConfig
 
     public IReadOnlyList<ProjectOverride> Projects { get; init; } = [];
 
+    public ScanConfig Scan { get; init; } = new();
+
     public VerifyConfig Verify { get; init; } = new();
 
     public DepsConfig Deps { get; init; } = new();
@@ -75,6 +77,22 @@ public sealed record ProjectOverride
     public string? Kind { get; init; }
 
     public bool Frozen { get; init; }
+}
+
+/// <summary><c>scan:</c>, how the analysis build runs (docs/spec/commands/workspace.md#scan).</summary>
+public sealed record ScanConfig
+{
+    public const string Dotnet = "dotnet";
+    public const string Msbuild = "msbuild";
+
+    /// <summary><c>dotnet</c> (<c>dotnet build</c>) or <c>msbuild</c> (MSBuild.exe from Visual Studio or Build Tools).</summary>
+    public string Builder { get; init; } = Dotnet;
+
+    /// <summary>
+    /// MSBuild.exe, a folder holding it, or a Visual Studio or Build Tools installation folder;
+    /// relative to the repository root. Null uses the Developer Command Prompt's installation, else the newest vswhere reports.
+    /// </summary>
+    public string? MsbuildPath { get; init; }
 }
 
 public sealed record VerifyConfig

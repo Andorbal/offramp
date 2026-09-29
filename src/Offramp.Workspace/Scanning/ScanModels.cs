@@ -29,6 +29,9 @@ public sealed record ScanRequest
 
     public required IProcessRunner Processes { get; init; }
 
+    /// <summary>The process environment, where <c>scan.builder: msbuild</c> looks for Visual Studio.</summary>
+    public IReadOnlyDictionary<string, string> Environment { get; init; } = new Dictionary<string, string>();
+
     public required DiagnosticBag Diagnostics { get; init; }
 
     public IProgressSink Progress { get; init; } = NullProgressSink.Instance;

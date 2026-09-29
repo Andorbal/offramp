@@ -1,11 +1,14 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Offramp.Core.Caching;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Core.Output;
 using Offramp.Core.Paths;
 using Offramp.Core.Processes;
+using Offramp.Core.Progress;
+using Offramp.Workspace.Environment;
 using Offramp.Workspace.Ingest;
 using Offramp.Workspace.Init;
 using Offramp.Workspace.Model;
@@ -89,7 +92,8 @@ public static class ScanRunner
 
             binlog = Path.Combine(state, BinlogFileName);
             kind = WorkspaceSourceKind.Build;
-            using (request.Progress.BeginPhase($"Building {solution}", ++phase, plan))
+            var builder = UsesMsbuild(request.Config) ? " with MSBuild" : "";
+            using (request.Progress.BeginPhase($"Building {solution}{builder}", ++phase, plan))
             {
                 if (!OperatingSystem.IsWindows())
                 {
@@ -188,7 +192,7 @@ public static class ScanRunner
     /// <summary>
     /// Outside Windows, fills the packages folder from the solution's packages.config files, as
     /// <c>nuget restore</c> does on Windows: nothing else will, and every HintPath into it would dangle
-    /// (<c>docs/decisions/0036-legacy-projects-outside-windows.md</c>).
+    /// (<c>docs/decisions/0037-legacy-projects-outside-windows.md</c>).
     /// </summary>
     private static async Task RestorePackagesConfigAsync(ScanRequest request, string solution, CancellationToken cancellationToken)
     {
@@ -230,27 +234,33 @@ public static class ScanRunner
         }
     }
 
+    private static bool UsesMsbuild(OfframpConfig config) => config.Scan.Builder == ScanConfig.Msbuild;
+
     private static async Task<ProcessResult?> BuildAsync(ScanRequest request, string solution, string binlog, CancellationToken cancellationToken)
     {
+        string? msbuild = null;
+        if (UsesMsbuild(request.Config))
+        {
+            var location = await MsbuildLocator.LocateAsync(
+                request.Config.Scan.MsbuildPath, request.RepositoryRoot, request.Environment, request.Processes, cancellationToken);
+            if (location.Path is null)
+            {
+                ReportMsbuildNotFound(request, $"MSBuild was not found: {location.NotFound}");
+                return null;
+            }
+
+            msbuild = location.Path;
+            request.Progress.Log(ProgressLevel.Info, $"Building with {msbuild} ({Describe(location.Source)}).");
+        }
+
         Directory.CreateDirectory(Path.GetDirectoryName(binlog)!);
-        var arguments = new List<string>
-        {
-            "build", RepoPaths.ToAbsolute(request.RepositoryRoot, solution),
-            "-bl:" + binlog, "-c", request.Config.Verify.Configuration,
-            "-nologo", "-v:minimal", "-clp:NoSummary", "-nodeReuse:false",
+        var result = await request.Processes.RunAsync(BuildCommand(request, msbuild, solution, binlog), cancellationToken);
 
-            // An incremental build skips the compiler for up-to-date projects, and the model
-            // needs every project's compiler call.
-            "--no-incremental",
-        };
-        arguments.AddRange(BuildProperties.Arguments(request.Config.Verify));
-
-        var result = await request.Processes.RunAsync(new ProcessSpec("dotnet", arguments)
+        if (result.NotFound && msbuild is not null)
         {
-            WorkingDirectory = request.RepositoryRoot,
-            Timeout = TimeSpan.FromSeconds(request.Config.Verify.TimeoutSeconds),
-            Environment = new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" },
-        }, cancellationToken);
+            ReportMsbuildNotFound(request, $"'{msbuild}' could not be started, so the solution cannot be built.");
+            return null;
+        }
 
         if (result.NotFound)
         {
@@ -275,6 +285,57 @@ public static class ScanRunner
 
         return result;
     }
+
+    /// <summary>
+    /// The analysis build: <c>dotnet build</c>, or MSBuild.exe when <paramref name="msbuild"/> is set, with
+    /// the same meaning either way. It is never incremental (an up-to-date project skips the compiler, and
+    /// the model needs every project's compiler call) and it restores, packages.config projects included
+    /// under MSBuild, as Visual Studio does.
+    /// </summary>
+    private static ProcessSpec BuildCommand(ScanRequest request, string? msbuild, string solution, string binlog)
+    {
+        var solutionPath = RepoPaths.ToAbsolute(request.RepositoryRoot, solution);
+        var configuration = request.Config.Verify.Configuration;
+        var arguments = msbuild is null
+            ? new List<string>
+            {
+                "build", solutionPath,
+                "-bl:" + binlog, "-c", configuration,
+                "-nologo", "-v:minimal", "-clp:NoSummary", "-nodeReuse:false",
+                "--no-incremental",
+            }
+            : new List<string>
+            {
+                solutionPath, "-restore", "-t:Rebuild", "-m",
+                "-bl:" + binlog, "-p:Configuration=" + configuration,
+                "-nologo", "-v:minimal", "-clp:NoSummary", "-nodeReuse:false",
+                "-p:RestorePackagesConfig=true",
+            };
+
+        // After Offramp's own properties, so verify.properties can override them. MSBuild.exe runs a
+        // legacy .nuget/NuGet.targets as Visual Studio does, so only dotnet build turns it off.
+        arguments.AddRange(msbuild is null
+            ? BuildProperties.Arguments(request.Config.Verify)
+            : request.Config.Verify.Properties.Select(p => $"-p:{p.Key}={p.Value}"));
+
+        return new ProcessSpec(msbuild ?? "dotnet", arguments)
+        {
+            WorkingDirectory = request.RepositoryRoot,
+            Timeout = TimeSpan.FromSeconds(request.Config.Verify.TimeoutSeconds),
+            Environment = new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" },
+        };
+    }
+
+    private static void ReportMsbuildNotFound(ScanRequest request, string message) =>
+        request.Diagnostics.Report(DiagnosticCatalog.OFR0017,
+            message + " Install Visual Studio or the Build Tools with MSBuild, or pass --msbuild-path (MSBuild.exe or the installation folder).");
+
+    private static string Describe(MsbuildSource? source) => source switch
+    {
+        MsbuildSource.Configured => "configured",
+        MsbuildSource.DeveloperPrompt => "the Developer Command Prompt's installation",
+        _ => "found by vswhere",
+    };
 
     private static void ReportBuildErrors(ScanRequest request, BinlogData data, CapturePathMapper mapper)
     {

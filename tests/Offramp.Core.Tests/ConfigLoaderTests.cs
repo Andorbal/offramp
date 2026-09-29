@@ -35,6 +35,8 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.Equal("build", result.Config.Verify.Mode);
         Assert.Equal(1800, result.Config.Verify.TimeoutSeconds);
         Assert.Equal(".offramp", result.Config.Paths.State);
+        Assert.Equal("dotnet", result.Config.Scan.Builder);
+        Assert.Null(result.Config.Scan.MsbuildPath);
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("OFR0016", diagnostic.Code);
         Assert.Equal(Severity.Info, diagnostic.Severity);
@@ -98,6 +100,7 @@ public sealed class ConfigLoaderTests : IDisposable
     [InlineData("OFFRAMP_TARGET", "ten")]
     [InlineData("OFFRAMP_VERIFY__MODE", "compile")]
     [InlineData("OFFRAMP_VERIFY__RESTORE", "perhaps")]
+    [InlineData("OFFRAMP_SCAN__BUILDER", "xbuild")]
     [ProducesDiagnostic("OFR0056")]
     public void Invalid_environment_values_are_reported(string name, string value)
     {
@@ -129,6 +132,41 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.Null(result.Effective["verfy"]);
         Assert.Equal("build", result.Config.Verify.Mode);
         Assert.Equal(9, result.Config.Target);
+    }
+
+    [Fact]
+    public void The_scan_builder_and_msbuild_path_come_from_the_file_and_the_environment()
+    {
+        _repo.Write("offramp.yml", "scan:\n  builder: msbuild\n  msbuildPath: tools/MSBuild.exe\n");
+
+        var fromFile = Load();
+        Assert.True(fromFile.IsValid);
+        Assert.Equal("msbuild", fromFile.Config.Scan.Builder);
+        Assert.Equal("tools/MSBuild.exe", fromFile.Config.Scan.MsbuildPath);
+
+        var fromEnvironment = Load(new Dictionary<string, string>
+        {
+            ["OFFRAMP_SCAN__BUILDER"] = "dotnet",
+            ["OFFRAMP_SCAN__MSBUILD_PATH"] = @"C:\BuildTools",
+        });
+        Assert.True(fromEnvironment.IsValid);
+        Assert.Equal("dotnet", fromEnvironment.Config.Scan.Builder);
+        Assert.Equal(@"C:\BuildTools", fromEnvironment.Config.Scan.MsbuildPath);
+    }
+
+    [Fact]
+    public void An_unknown_scan_builder_names_the_allowed_ones()
+    {
+        _repo.Write("offramp.yml", "scan:\n  builder: xbuild\n");
+
+        var result = Load();
+
+        Assert.False(result.IsValid);
+        var error = Assert.Single(result.Diagnostics, d => d.Code == "OFR0053");
+        Assert.Contains("scan.builder", error.Message, StringComparison.Ordinal);
+        Assert.Contains("dotnet, msbuild", error.Message, StringComparison.Ordinal);
+        Assert.Equal(2, error.Line);
+        Assert.Equal("dotnet", result.Config.Scan.Builder);
     }
 
     [Fact]
@@ -295,6 +333,7 @@ public sealed class ConfigLoaderTests : IDisposable
     [InlineData("OFFRAMP_TARGET", "/target")]
     [InlineData("OFFRAMP_MOVE__TESTS__STRIP_TESTS_SEGMENT", "/move/tests/stripTestsSegment")]
     [InlineData("OFFRAMP_LLM__API_KEY_ENV", "/llm/apiKeyEnv")]
+    [InlineData("OFFRAMP_SCAN__MSBUILD_PATH", "/scan/msbuildPath")]
     [InlineData("OFFRAMP_", null)]
     public void Environment_names_map_to_pointers(string name, string? pointer) =>
         Assert.Equal(pointer, ConfigLoader.EnvironmentPointer(name));

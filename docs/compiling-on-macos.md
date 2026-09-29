@@ -132,7 +132,7 @@ them under Windows-only build steps.
 
 Most .NET Framework codebases are legacy projects on `packages.config`
 (DotNetNuke 9.13: 64 of 71). Outside Windows they lack four things, and
-Offramp supplies each (`docs/decisions/0036-legacy-projects-outside-windows.md`):
+Offramp supplies each (`docs/decisions/0037-legacy-projects-outside-windows.md`):
 
 - **Reference assemblies.** The legacy section restores legacy projects the
   `PackageReference` way (`RestoreProjectStyle`), so they take
@@ -156,7 +156,7 @@ Offramp supplies each (`docs/decisions/0036-legacy-projects-outside-windows.md`)
   does not try to run `NuGet.exe` through Mono (MSB3073).
 
 `offramp doctor` warns when the workspace has legacy projects and the file has
-no legacy section (`OFR0017`).
+no legacy section (`OFR0018`).
 
 What is left is the repository's own, and `scan` names each case with the file
 to change:
@@ -201,6 +201,11 @@ dotnet tool install -g complog
 dotnet build Monolith.sln -bl:msbuild.binlog
 complog create msbuild.binlog -o monolith.complog
 ```
+
+When some projects build only with Visual Studio's MSBuild (sgen, COM
+references), capture the log with `msbuild Monolith.sln -restore -t:Rebuild
+-bl:msbuild.binlog` from a Developer Command Prompt instead, or run Offramp on
+that machine with `offramp scan --msbuild`.
 
 On the Mac, with both logs (restore first so the package graph is complete):
 
