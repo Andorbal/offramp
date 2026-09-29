@@ -27,6 +27,10 @@ projects:                      # per-project overrides
   - path: src/Legacy/Legacy.csproj
     frozen: true               # never move files into or out of, never edit csproj
 
+scan:
+  builder: dotnet              # dotnet | msbuild (MSBuild.exe from Visual Studio or Build Tools); --msbuild overrides
+  msbuildPath: null            # MSBuild.exe, its folder, or an installation folder; null = the Developer Command Prompt's, else vswhere's newest
+
 verify:
   mode: build                  # build | command | none
   command: null                # when mode=command: run this; exit 0 = pass; stdout may be a JSON envelope
@@ -174,6 +178,7 @@ refuse answers that are not one. `init --defaults` writes without asking. It als
 | `OFFRAMP_LLM_PROVIDER`, `OFFRAMP_LLM_URL`, `OFFRAMP_LLM_MODEL`, `OFFRAMP_LLM_API_KEY` | LLM |
 | `OFFRAMP_NO_COLOR`, `NO_COLOR` | disable color |
 | `OFFRAMP_VERIFY__*` | any `verify.*` key |
+| `OFFRAMP_SCAN__BUILDER`, `OFFRAMP_SCAN__MSBUILD_PATH` | how `scan` builds, per machine |
 
 In general `OFFRAMP_A__B_C` sets `a.bC`: `__` separates levels and each
 `UPPER_SNAKE` segment becomes camelCase (`OFFRAMP_MOVE__TESTS__TARGET_SUFFIX` sets

@@ -5,12 +5,29 @@
 Builds the workspace model. See `02-workspace-model.md` for inputs and schema.
 
 ```
-offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH | --no-build] [--if-stale]
+offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH | --no-build | --msbuild | --msbuild-path PATH] [--if-stale]
 ```
 
 - Runs `dotnet build -bl` unless a log is supplied. Uses `verify.properties`
   and `verify.configuration` from config so the analysis build matches
   verification builds, and `verify.timeoutSeconds` as the build timeout.
+- `--msbuild` (or `scan.builder: msbuild`) runs MSBuild.exe from Visual Studio
+  or the Build Tools instead, for solutions with projects that only .NET
+  Framework's MSBuild builds (sgen, COM references, the ASP.NET web application
+  targets): `MSBuild.exe <solution> -restore -t:Rebuild -m -bl:<log>
+  -p:Configuration=<verify.configuration> ... -p:RestorePackagesConfig=true`,
+  then `verify.properties`. That is the build `dotnet build --no-incremental`
+  runs, with packages.config projects restored as Visual Studio restores them.
+- MSBuild.exe is `--msbuild-path` (which implies `--msbuild`, relative to the
+  working directory) or `scan.msbuildPath` (relative to the repository root):
+  the file itself, a folder holding it, or an installation folder
+  (`MSBuild/Current/Bin`, then `MSBuild/15.0/Bin`). Without either, scan uses
+  the Developer Command Prompt's installation (`VSINSTALLDIR`), else the newest
+  installation with the MSBuild component that vswhere reports. `PATH` is not
+  searched (`docs/decisions/0034-msbuild-for-scan.md`). An MSBuild.exe that is
+  not found or cannot be started is `OFR0017` (exit 3). `--msbuild` and
+  `--msbuild-path` cannot be combined with `--binlog`, `--complog`, or
+  `--no-build` (exit 2).
 - Converts the binlog to a complog (`.offramp/build.complog`) so compilations
   can be rebuilt without MSBuild. With `--complog`, copies that one instead.
 - `--no-build` reuses `.offramp/msbuild.binlog` from the previous scan
@@ -47,7 +64,8 @@ error) exits 1 with the model written; a missing log, a build that cannot run
 or times out exits 3.
 
 Diagnostics: `OFR0003` no binary log to reuse, `OFR0004` log not found or
-unreadable, `OFR0010` no `dotnet`, `OFR0020` several solutions, `OFR0022` no
+unreadable, `OFR0010` no `dotnet`, `OFR0017` no MSBuild.exe (with `--msbuild`),
+`OFR0020` several solutions, `OFR0022` no
 solution, `OFR0101` project not understood (reason), `OFR0102` kind unknown,
 `OFR0103` model from a compiler log alone, `OFR0104` assets file missing,
 `OFR0110`–`0115` Windows-only build step detected (one code per step family),

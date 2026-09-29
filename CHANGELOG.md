@@ -11,6 +11,22 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `scan --msbuild` and `scan.builder: msbuild` in `offramp.yml`: `scan` builds with MSBuild.exe
+  from Visual Studio or the Build Tools instead of `dotnet build`, for solutions with projects only
+  .NET Framework's MSBuild builds (sgen, COM references). It runs the same never-incremental build
+  (`-restore -t:Rebuild`, `verify.configuration`, `verify.properties`) and also restores
+  packages.config projects, as Visual Studio does.
+- `scan --msbuild-path PATH` and `scan.msbuildPath`: MSBuild.exe, a folder holding it, or a Visual
+  Studio or Build Tools installation folder. Without one, scan uses the Developer Command Prompt's
+  installation, else the newest one vswhere reports. `OFFRAMP_SCAN__BUILDER` and
+  `OFFRAMP_SCAN__MSBUILD_PATH` set both per machine. ADR 0034.
+- `OFR0017` (MSBuild not found): `--msbuild` found no MSBuild.exe, or could not start it; scan exits 3.
+
+### Changed
+- Every envelope's `effectiveConfig` has a `scan` section (`builder`, `msbuildPath`), and `init`
+  writes it to `offramp.yml` with its defaults.
+
 ## [0.16.0] - 2026-09-28
 
 ### Added

@@ -231,6 +231,12 @@ public static partial class InitPlanner
         b.Append("  # Repository-relative globs. Excluded projects stay in the model but are never modified.\n");
         b.Append("  exclude: []\n");
         b.Append("  state: .offramp\n\n");
+        b.Append("scan:\n");
+        b.Append("  # What builds the solution for scan: dotnet (dotnet build) | msbuild (MSBuild.exe from Visual Studio\n");
+        b.Append("  # or Build Tools, for projects only it builds, such as sgen or COM references). --msbuild overrides.\n");
+        b.Append("  builder: dotnet\n");
+        b.Append("  # MSBuild.exe or a Visual Studio or Build Tools folder; null: the Developer Command Prompt's, else vswhere's newest.\n");
+        b.Append("  msbuildPath: null\n\n");
         b.Append("verify:\n");
         b.Append("  # How Offramp checks each change it writes before keeping it:\n");
         b.Append("  # build: dotnet build the affected projects | command: run verify.command | none: no check\n");

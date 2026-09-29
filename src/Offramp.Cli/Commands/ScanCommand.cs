@@ -2,13 +2,14 @@ using System.CommandLine;
 using System.Text.Json.Serialization.Metadata;
 using Offramp.Cli.Infrastructure;
 using Offramp.Cli.Rendering;
+using Offramp.Core.Configuration;
 using Offramp.Workspace;
 using Offramp.Workspace.Scanning;
 using Spectre.Console;
 
 namespace Offramp.Cli.Commands;
 
-public sealed record ScanOptions(string? Binlog, string? Complog, bool IfStale, bool NoBuild);
+public sealed record ScanOptions(string? Binlog, string? Complog, bool IfStale, bool NoBuild, bool Msbuild, string? MsbuildPath);
 
 /// <summary><c>offramp scan</c>: builds the workspace model (docs/spec/commands/workspace.md#scan).</summary>
 public sealed class ScanCommand : ICommandHandler<ScanOptions, ScanResult>, INextStep<ScanResult>
@@ -31,24 +32,42 @@ public sealed class ScanCommand : ICommandHandler<ScanOptions, ScanResult>, INex
         };
         var ifStale = new Option<bool>("--if-stale") { Description = "Rescan only when the model is stale." };
         var noBuild = new Option<bool>("--no-build") { Description = "Reuse the previous scan's binary log instead of building." };
+        var msbuild = new Option<bool>("--msbuild")
+        {
+            Description = "Build with MSBuild.exe from Visual Studio or Build Tools instead of `dotnet build`, for projects only it builds (sgen, COM references). Default: scan.builder.",
+        };
+        var msbuildPath = new Option<string?>("--msbuild-path")
+        {
+            Description = "MSBuild.exe, or the Visual Studio or Build Tools folder holding it; implies --msbuild. Default: scan.msbuildPath, else the Developer Command Prompt's installation, else vswhere.",
+            HelpName = "PATH",
+        };
         var command = new Command("scan", "Build the workspace model (.offramp/workspace.json) from a build of the solution or from logs, and record a ledger snapshot.")
         {
-            binlog, complog, ifStale, noBuild,
+            binlog, complog, ifStale, noBuild, msbuild, msbuildPath,
         };
         command.Validators.Add(result =>
         {
-            if (result.GetValue(noBuild) && (result.GetValue(binlog) is not null || result.GetValue(complog) is not null))
+            var logs = result.GetValue(binlog) is not null || result.GetValue(complog) is not null;
+            if (result.GetValue(noBuild) && logs)
             {
                 result.AddError("--no-build cannot be combined with --binlog or --complog.");
+            }
+
+            if ((result.GetValue(msbuild) || result.GetValue(msbuildPath) is not null) && (logs || result.GetValue(noBuild)))
+            {
+                result.AddError("--msbuild and --msbuild-path choose how scan builds, so they cannot be combined with --binlog, --complog, or --no-build.");
             }
         });
         command.SetAction((parse, ct) => CommandRunner.RunAsync(
             new ScanCommand(),
-            new ScanOptions(parse.GetValue(binlog), parse.GetValue(complog), parse.GetValue(ifStale), parse.GetValue(noBuild)),
+            new ScanOptions(parse.GetValue(binlog), parse.GetValue(complog), parse.GetValue(ifStale), parse.GetValue(noBuild),
+                parse.GetValue(msbuild), parse.GetValue(msbuildPath)),
             globals.Bind(parse), host, ct));
         HelpExamples.Add(command,
             "offramp scan",
             "offramp scan --solution src/Monolith.sln",
+            "offramp scan --msbuild",
+            "offramp scan --msbuild-path \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\"",
             "offramp scan --binlog windows.binlog --complog windows.complog",
             "offramp scan --if-stale --json");
         return command;
@@ -60,13 +79,14 @@ public sealed class ScanCommand : ICommandHandler<ScanOptions, ScanResult>, INex
         var outcome = await ScanRunner.RunAsync(new ScanRequest
         {
             RepositoryRoot = context.Repository.Path,
-            Config = context.Config.Config,
+            Config = WithBuilder(context.Config.Config, options, cwd),
             WorkspacePath = context.WorkspacePath,
             BinlogPath = options.Binlog is null ? null : Path.GetFullPath(options.Binlog, cwd),
             ComplogPath = options.Complog is null ? null : Path.GetFullPath(options.Complog, cwd),
             IfStale = options.IfStale,
             NoBuild = options.NoBuild,
             Processes = context.Host.Processes,
+            Environment = context.Host.Environment,
             Diagnostics = context.Diagnostics,
             Progress = context.Progress,
             Time = context.Host.Time,
@@ -77,6 +97,24 @@ public sealed class ScanCommand : ICommandHandler<ScanOptions, ScanResult>, INex
             ScanFailure.Usage => CommandOutcome<ScanResult>.Usage(),
             ScanFailure.Environment => CommandOutcome<ScanResult>.Environment(),
             _ => CommandOutcome<ScanResult>.Completed(outcome.Result!),
+        };
+    }
+
+    /// <summary><c>--msbuild</c> and <c>--msbuild-path</c> over <c>scan:</c>; a path on the command line is relative to the working directory.</summary>
+    private static OfframpConfig WithBuilder(OfframpConfig config, ScanOptions options, string cwd)
+    {
+        if (!options.Msbuild && options.MsbuildPath is null)
+        {
+            return config;
+        }
+
+        return config with
+        {
+            Scan = config.Scan with
+            {
+                Builder = ScanConfig.Msbuild,
+                MsbuildPath = options.MsbuildPath is null ? config.Scan.MsbuildPath : Path.GetFullPath(options.MsbuildPath, cwd),
+            },
         };
     }
 

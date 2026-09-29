@@ -122,6 +122,11 @@ dotnet build Monolith.sln -bl:msbuild.binlog
 complog create msbuild.binlog -o monolith.complog
 ```
 
+When some projects build only with Visual Studio's MSBuild (sgen, COM
+references), capture the log with `msbuild Monolith.sln -restore -t:Rebuild
+-bl:msbuild.binlog` from a Developer Command Prompt instead, or run Offramp on
+that machine with `offramp scan --msbuild`.
+
 On the Mac, with both logs (restore first so the package graph is complete):
 
 ```bash

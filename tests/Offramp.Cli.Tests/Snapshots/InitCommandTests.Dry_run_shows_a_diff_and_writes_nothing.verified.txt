@@ -2,7 +2,7 @@
 
 --- /dev/null
 +++ b/offramp.yml
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,65 @@
 +# offramp.yml: Offramp configuration.
 +# Reference: https://github.com/Andorbal/offramp/blob/main/docs/spec/03-configuration.md
 +# Precedence: built-in defaults < this file < OFFRAMP_* environment variables < command-line flags.
@@ -18,6 +18,13 @@
 +  # Repository-relative globs. Excluded projects stay in the model but are never modified.
 +  exclude: []
 +  state: .offramp
++
++scan:
++  # What builds the solution for scan: dotnet (dotnet build) | msbuild (MSBuild.exe from Visual Studio
++  # or Build Tools, for projects only it builds, such as sgen or COM references). --msbuild overrides.
++  builder: dotnet
++  # MSBuild.exe or a Visual Studio or Build Tools folder; null: the Developer Command Prompt's, else vswhere's newest.
++  msbuildPath: null
 +
 +verify:
 +  # How Offramp checks each change it writes before keeping it:
