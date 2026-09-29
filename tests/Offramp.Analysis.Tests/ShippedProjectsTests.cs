@@ -47,6 +47,12 @@ public sealed class ShippedProjectsTests : IDisposable
         _repo.Write("src/Broken/Broken.nuspec.template", "<package><metadata><id>@id@</metadata>");
         _repo.Write("src/Api/bin/Release/Leftover.nuspec", "<package />");
 
+        // Open Live Writer's Squirrel package carries the application with every DLL it loads.
+        _repo.Write("OpenLiveWriter.nuspec",
+            "<package><files><file src=\"OpenLiveWriter.exe\" target=\"lib\\net451\" />"
+            + "<file src=\"OpenLiveWriter.CoreServices.dll\" target=\"lib\\net451\" /></files></package>");
+        _repo.Write("src/Desktop/Desktop.nuspec", "<package><files><file src=\"bin\\Desktop.exe\" /></files></package>");
+
         var shipped = Read(
             Project("src/Core/Core.csproj", ProjectKind.Library),
             Project("src/managed/OpenLiveWriter.Api/OpenLiveWriter.Api.csproj", ProjectKind.Library) with { AssemblyName = "OpenLiveWriter.Api" },
@@ -54,8 +60,11 @@ public sealed class ShippedProjectsTests : IDisposable
             Project("src/Web/Web.csproj", ProjectKind.Web),
             Project("src/Broken/Broken.csproj", ProjectKind.Library),
             Project("src/Api/Api.csproj", ProjectKind.Library),
+            Project("src/managed/OpenLiveWriter.CoreServices/OpenLiveWriter.CoreServices.csproj", ProjectKind.Library),
+            Project("src/Desktop/Desktop.csproj", ProjectKind.Library),
             Project("src/App/App.csproj", ProjectKind.Console,
-                "src/Core/Core.csproj", "src/managed/OpenLiveWriter.Api/OpenLiveWriter.Api.csproj", "src/Wild/Wild.csproj", "src/Broken/Broken.csproj", "src/Api/Api.csproj"));
+                "src/Core/Core.csproj", "src/managed/OpenLiveWriter.Api/OpenLiveWriter.Api.csproj", "src/Wild/Wild.csproj", "src/Broken/Broken.csproj", "src/Api/Api.csproj",
+                "src/managed/OpenLiveWriter.CoreServices/OpenLiveWriter.CoreServices.csproj", "src/Desktop/Desktop.csproj"));
 
         Assert.Equal(new ShippedReason(ShippedRule.Nuspec, "packed by src/Core/Core.nuspec.template"), shipped["src/Core/Core.csproj"]);
         Assert.Equal(
@@ -69,6 +78,10 @@ public sealed class ShippedProjectsTests : IDisposable
         Assert.Null(shipped["src/Wild/Wild.csproj"]);
         Assert.Null(shipped["src/Web/Web.csproj"]);
         Assert.Null(shipped["src/Api/Api.csproj"]);
+
+        // A package that carries an .exe ships an application, beside the project or elsewhere.
+        Assert.Null(shipped["src/managed/OpenLiveWriter.CoreServices/OpenLiveWriter.CoreServices.csproj"]);
+        Assert.Null(shipped["src/Desktop/Desktop.csproj"]);
     }
 
     [Fact]

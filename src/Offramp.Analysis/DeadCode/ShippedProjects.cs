@@ -14,7 +14,7 @@ public enum ShippedRule
     /// <summary><c>IsPackable=true</c>.</summary>
     Packable,
 
-    /// <summary>A <c>.nuspec</c> anywhere in the repository packs its DLL, or (for a library) a <c>.nuspec</c> or <c>.nuspec.template</c> sits in its folder.</summary>
+    /// <summary>A <c>.nuspec</c> anywhere in the repository packs its DLL, or (for a library) a <c>.nuspec</c> or <c>.nuspec.template</c> sits in its folder; a package that carries an <c>.exe</c> ships an application and does not count.</summary>
     Nuspec,
 
     /// <summary>A library no application in the solution depends on, directly or through other libraries.</summary>
@@ -123,24 +123,33 @@ public sealed class ShippedProjects
     /// <summary>A <c>.nuspec</c> file (repository-relative) and the file names its <c>&lt;file src&gt;</c> entries pack.</summary>
     private sealed record Nuspec(string Path, HashSet<string> Files);
 
-    /// <summary>Every <c>.nuspec</c> and <c>.nuspec.template</c> in the repository, sorted by path.</summary>
+    /// <summary>
+    /// Every <c>.nuspec</c> and <c>.nuspec.template</c> in the repository that packs a library,
+    /// sorted by path. One that packs an <c>.exe</c> packs an application (a Squirrel or
+    /// Chocolatey installer, an OctoPack deployment): the DLLs it carries are the application's,
+    /// not an API anyone compiles against.
+    /// </summary>
     private static List<Nuspec> Nuspecs(string root)
     {
         var nuspecs = new List<Nuspec>();
         foreach (var path in ProjectFiles.Walk(root))
         {
             var name = System.IO.Path.GetFileName(path);
-            if (name.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".nuspec.template", StringComparison.OrdinalIgnoreCase))
+            if ((name.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".nuspec.template", StringComparison.OrdinalIgnoreCase))
+                && PackedFiles(path) is { } files)
             {
-                nuspecs.Add(new Nuspec(RepoPaths.ToRepositoryRelative(root, path), PackedFiles(path)));
+                nuspecs.Add(new Nuspec(RepoPaths.ToRepositoryRelative(root, path), files));
             }
         }
 
         return [.. nuspecs.OrderBy(n => n.Path, StringComparer.Ordinal)];
     }
 
-    /// <summary>The file names (without folders) that <c>&lt;file src="…"&gt;</c> entries name literally; wildcards name nothing.</summary>
-    private static HashSet<string> PackedFiles(string path)
+    /// <summary>
+    /// The file names (without folders) that <c>&lt;file src="…"&gt;</c> entries name literally
+    /// (wildcards name nothing), or null when the package carries an <c>.exe</c>.
+    /// </summary>
+    private static HashSet<string>? PackedFiles(string path)
     {
         var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         try
@@ -149,6 +158,11 @@ public sealed class ShippedProjects
             {
                 var source = (string?)file.Attribute("src");
                 var name = source?.Replace('\\', '/').Split('/')[^1];
+                if (name?.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    return null;
+                }
+
                 if (name is { Length: > 0 } && name.IndexOfAny(['*', '?']) < 0)
                 {
                     files.Add(name);

@@ -39,7 +39,8 @@ A project is **shipped** when the first of these holds, and that rule is the evi
 3. a `.nuspec` anywhere in the repository packs its DLL: a `<file src>` whose file name is
    `<AssemblyName>.dll`, written without wildcards; or, for a library, a `.nuspec` or
    `.nuspec.template` sits in the project's folder (`bin`, `obj`, `packages`, `node_modules`,
-   and dot folders are not searched);
+   and dot folders are not searched). A `.nuspec` that packs an `.exe` is an application's
+   package and ships nothing;
 4. it is a library that no application in the solution depends on, directly or through other
    projects. A library is a `library` project, or a `test` project whose output is a library (a
    production library that carries its tests is a `test` project by kind). An application is a
@@ -83,6 +84,10 @@ case makes it `low`.
 - **A `.nuspec` beside any project.** A `.nuspec` beside a web application is usually OctoPack's
   deployment package, which nobody compiles against, so the folder rule is for libraries only;
   a `.nuspec` that packs a project's DLL by name ships it whatever its kind.
+- **Every `.nuspec` that names the DLL.** Open Live Writer's `OpenLiveWriter.nuspec` is the
+  Squirrel installer package: it carries `OpenLiveWriter.exe` and every DLL the application
+  loads, so all 19 of its libraries would have looked shipped. A package that carries an `.exe`
+  is an application's, and its DLLs are nobody's API.
 - **Honoring wildcards in `<file src>`.** `bin\**\*.dll` would ship every project whose output
   lands there; literal names are rare to get wrong.
 - **Any `typeof(G<>)` compared with a `Type`.** `t.GetGenericTypeDefinition() == typeof(IEnumerable<>)`

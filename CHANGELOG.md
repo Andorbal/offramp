@@ -344,9 +344,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   configuration, `Configuration.AddXmlReader`, ...) were `high`; now the high-confidence total is
   20 symbols and 184 lines instead of 273 and 3,158. A project is shipped when it is listed in
   `deadCode.externalConsumers`, is packable, has its DLL packed by a `.nuspec` anywhere in the
-  repository (Open Live Writer's `OpenLiveWriter.SDK.nuspec` at the root packs its plugin SDK), is a
-  library with a `.nuspec` or `.nuspec.template` beside it, or is a library no application in the
-  solution depends on. `deadCode.externalConsumers` is now documented in
+  repository (Open Live Writer's `OpenLiveWriter.SDK.nuspec` at the root packs its plugin SDK, whose
+  5 high-confidence symbols are now `medium`), is a library with a `.nuspec` or `.nuspec.template`
+  beside it, or is a library no application in the solution depends on. A `.nuspec` that packs an
+  `.exe` is an application's installer (Open Live Writer's Squirrel package carries every DLL of
+  the application) and ships nothing. `deadCode.externalConsumers` is now documented in
   `docs/spec/03-configuration.md`.
 - A library that references a test framework's assembly (`nunit.framework`, `xunit`, the MSTest
   assemblies, usually a DLL checked in and referenced by `HintPath`) is a `test` project, with the

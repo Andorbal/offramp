@@ -375,7 +375,8 @@ Decisions behind the two commands (ADR 0022).
     - a `.nuspec` anywhere in the repository packs its DLL (a `<file src>` whose file
       name is the assembly's, without wildcards), or, for a library, a `.nuspec` or
       `.nuspec.template` sits in its folder (`bin`, `obj`, `packages`, and dot folders
-      are not searched)
+      are not searched). A `.nuspec` that packs an `.exe` packs an application (a Squirrel
+      or Chocolatey installer) and ships nothing
     - it is a library (`kind: library`, or a `test` project whose output is a library)
       that no application (`web`, `winforms`, `wpf`, `service`, `console`) depends on,
       directly or through other projects
