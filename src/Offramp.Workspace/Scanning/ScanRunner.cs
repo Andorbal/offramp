@@ -30,7 +30,6 @@ public static class ScanRunner
 
     /// <summary>The solution filter <c>scan</c> builds when the solution lists ASP.NET Web Site projects.</summary>
     public const string WebSiteFilterFileName = "scan.slnf";
-    private const int MaxErrorsInMessage = 5;
 
     public static async Task<ScanOutcome> RunAsync(ScanRequest request, CancellationToken cancellationToken)
     {
@@ -380,30 +379,8 @@ public static class ScanRunner
             return;
         }
 
-        var errors = data.Errors
-            .Select(e => $"{(e.File is null ? "" : (mapper.ToRelative(e.File) ?? Path.GetFileName(e.File)) + (e.Line is null ? "" : $"({e.Line})") + ": ")}{e.Code}: {Scrub(e.Message, mapper)}")
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-        var shown = string.Join("; ", errors.Take(MaxErrorsInMessage));
-
-        // Most first, then by code: one cause (a missing import, a letter case) often makes most of them.
-        var byCode = data.Errors
-            .DistinctBy(e => (e.Code, e.File, e.Line, e.Message))
-            .GroupBy(e => e.Code, StringComparer.Ordinal)
-            .OrderByDescending(g => g.Count())
-            .ThenBy(g => g.Key, StringComparer.Ordinal)
-            .ToList();
-        var counts = string.Join(", ", byCode.Select(g => string.Create(CultureInfo.InvariantCulture, $"{g.Key} ×{g.Count()}")));
-        request.Diagnostics.Report(DiagnosticCatalog.OFR0130,
-            errors.Count == 0
-                ? "The build failed; the model is partial."
-                : $"The build failed with {errors.Count} error(s) ({counts}); the model is partial. First: {shown}",
-            data:
-            [
-                KeyValuePair.Create<string, JsonNode?>("errorCount", errors.Count),
-                KeyValuePair.Create<string, JsonNode?>("byCode", new JsonObject(byCode.Select(g => KeyValuePair.Create<string, JsonNode?>(g.Key, g.Count())))),
-                KeyValuePair.Create<string, JsonNode?>("errors", new JsonArray([.. errors.Take(20).Select(e => (JsonNode?)e)])),
-            ]);
+        var (message, summary) = BuildFailures.Summarize(data.Errors, mapper.ToRelative, text => Scrub(text, mapper));
+        request.Diagnostics.Report(DiagnosticCatalog.OFR0130, message, data: summary);
     }
 
     private static IReadOnlyList<CompilerCallInfo> PrepareCompilerLog(ScanRequest request, string binlog, string complog, CapturePathMapper mapper)
@@ -803,26 +780,69 @@ public static class ScanRunner
         var loaded = projects.Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var webSites = WebSites(request.RepositoryRoot, listed);
         var missing = listed.ProjectPaths.Select(p => RepoPaths.ToRepositoryRelative(request.RepositoryRoot, p).TrimEnd('/')).Where(id => !loaded.Contains(id)).ToList();
+        // A project with errors of its own failed; one that is only missing from the log was not built either.
         var failed = data.Errors.Where(e => e.ProjectFile is not null)
             .Select(e => mapper.ToRelative(e.ProjectFile))
             .OfType<string>()
-            .Concat(missing)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var notBuilt = missing.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var restoreFailed = BuildFailures.RestoreFailed(data.Errors, text => Scrub(text, mapper));
+        var nothingBuilt = BuildFailures.NothingBuilt(data.Errors, projects.Count, text => Scrub(text, mapper));
         var result = new List<NotLoadedProject>();
         foreach (var id in missing)
         {
-            var error = EvaluationError(data, mapper, id);
+            result.Add(new NotLoadedProject(id, NotLoadedReason(id)));
+        }
+
+        string NotLoadedReason(string id)
+        {
+            var root = request.RepositoryRoot;
             var extension = Path.GetExtension(id).ToLowerInvariant();
-            var reason = webSites.Contains(id)
-                ? WebSiteReason
-                : error is not null
-                ? $"{error.Code}: {error.Message}"
-                : extension is not (".csproj" or ".vbproj" or ".fsproj")
-                    ? $"unsupported project type ({(extension.Length > 0 ? extension : "no project file")})"
-                    : FailedReference(request.RepositoryRoot, id, failed) is { } reference
-                        ? $"not built: it references {reference}, which failed"
-                        : "no evaluation for it in the build log; MSBuild did not build it (check the solution configuration)";
-            result.Add(new NotLoadedProject(id, reason));
+            if (webSites.Contains(id))
+            {
+                return WebSiteReason;
+            }
+
+            if (EvaluationError(data, mapper, id) is { } error)
+            {
+                return BuildFailures.IsRestoreError(error)
+                    ? $"the restore failed ({BuildFailures.Label(error)}: {Scrub(BuildFailures.FirstLine(error.Message), mapper)})"
+                    : $"{error.Code}: {error.Message}";
+            }
+
+            if (extension is not (".csproj" or ".vbproj" or ".fsproj"))
+            {
+                return $"unsupported project type ({(extension.Length > 0 ? extension : "no project file")})";
+            }
+
+            if (restoreFailed is not null)
+            {
+                return restoreFailed;
+            }
+
+            if (FailedReference(root, id, failed) is { } reference)
+            {
+                return $"not built: it references {reference}, which failed";
+            }
+
+            if (FailedSolutionDependency(root, id, listed, failed) is { } dependency)
+            {
+                return $"not built: the solution makes it depend on {dependency} (ProjectDependencies), which failed";
+            }
+
+            if (nothingBuilt is not null)
+            {
+                return nothingBuilt;
+            }
+
+            if (FailedReference(root, id, notBuilt) is { } unbuilt)
+            {
+                return $"not built: it references {unbuilt}, which was not built either";
+            }
+
+            return FailedSolutionDependency(root, id, listed, notBuilt) is { } unbuiltDependency
+                ? $"not built: the solution makes it depend on {unbuiltDependency} (ProjectDependencies), which was not built either"
+                : "no evaluation for it in the build log; MSBuild did not build it (check the solution configuration)";
         }
 
         return [.. result.OrderBy(r => r.Project, StringComparer.Ordinal)];
@@ -880,6 +900,15 @@ public static class ScanRunner
             .Order(StringComparer.Ordinal)
             .FirstOrDefault();
     }
+
+    /// <summary>
+    /// A project the solution makes this one depend on (<c>ProjectDependencies</c>) that failed: a mixed solution
+    /// orders its native projects this way, and MSBuild builds nothing that depends on one that failed.
+    /// </summary>
+    internal static string? FailedSolutionDependency(string root, string project, SolutionProjects listed, IReadOnlySet<string> failed) =>
+        listed.Dependencies.TryGetValue(RepoPaths.ToAbsolute(root, project), out var dependencies)
+            ? dependencies.Select(d => RepoPaths.ToRepositoryRelative(root, d)).Where(failed.Contains).Order(StringComparer.Ordinal).FirstOrDefault()
+            : null;
 
     /// <summary>The first error the log records for a project, which explains why it has no evaluation.</summary>
     private static BuildError? EvaluationError(BinlogData data, CapturePathMapper mapper, string project) =>

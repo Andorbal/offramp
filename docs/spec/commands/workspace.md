@@ -91,8 +91,13 @@ or times out exits 3.
 Diagnostics: `OFR0003` no binary log to reuse, `OFR0004` log not found or
 unreadable, `OFR0010` no `dotnet`, `OFR0017` no MSBuild.exe (with `--msbuild`),
 `OFR0020` several solutions and none chosen, `OFR0023` solution chosen among several, `OFR0022` no
-solution, `OFR0101` project not understood (reason: its evaluation error, or,
-when MSBuild never evaluated it, the referenced project that failed), `OFR0102` kind unknown,
+solution, `OFR0101` project not understood (reason, first that applies: an
+ASP.NET Web Site project; its evaluation error, or "the restore failed" with
+the error; an unsupported project type, named; the failed restore; the
+project it references, or the solution makes it depend on
+(`ProjectDependencies`), that failed with errors of its own; MSBuild stopped
+before evaluating any project, with the first error; the one it references or
+depends on that was not built either; else the solution configuration), `OFR0102` kind unknown,
 `OFR0103` model from a compiler log alone, `OFR0104` assets file missing,
 `OFR0105` packages.config package not restored, `OFR0106` packages.config
 packages restored, `OFR0110`–`0119` Windows-only build step detected (one code
@@ -107,9 +112,11 @@ evaluation: `MSBuildExtensionsPath` overridden and in which file,
 `Compile` item's file missing in every letter case (naming the git-ignored
 ones, which the repository's own build generates), `OFR0124`–`0126`
 Windows-only build steps (`Microsoft.Bcl.Build`'s binding redirects, MSTest v1,
-an ASP.NET Web Site project), `OFR0130` build failed (with
-the count per error code, most first, and the first N
-errors; scan still produces a model for projects whose compiler call
+an ASP.NET Web Site project), `OFR0130` build failed (errors count
+once per project; with the count per error code, most first, and how many
+projects each affects in the message and `data.projectsByCode`, an error
+without a code labeled `restore` when the restore logged it, and the first N
+distinct errors with repository-relative paths; scan still produces a model for projects whose compiler call
 succeeded, and marks the rest `partial: true`), `OFR0131` build timed out,
 `OFR0132` compiler calls unavailable.
 

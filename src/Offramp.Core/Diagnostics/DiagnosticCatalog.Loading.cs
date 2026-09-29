@@ -49,8 +49,8 @@ public static partial class DiagnosticCatalog
         "OFR0101", Severity.Warning,
         "project could not be loaded",
         "A project listed in the solution has no usable evaluation in the build log, so it is missing from the model. The message carries the reason.",
-        "An unsupported project type (for example `.vcxproj` or `.wixproj`), an evaluation error such as a missing SDK or import, or a project filtered out of the build.",
-        "Fix the evaluation error the message names, or exclude the project from the solution filter you scan.",
+        "An unsupported project type (for example `.vcxproj` or `.wixproj`), an evaluation error such as a missing SDK or import, a failed restore, a project reference or a solution-level dependency (`ProjectDependencies`) that failed, or a project filtered out of the build.",
+        "Fix the error the message names (the restore's, or the failed project's), or exclude the project from the solution filter you scan.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0102 = new(

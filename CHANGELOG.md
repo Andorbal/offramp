@@ -260,6 +260,19 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   projects differed between two scans), and `source.sha256` hashed the binary log, which differs
   with every build; now calls are found in the compiler log by project and target framework, and
   a log Offramp built is not hashed (the model's `inputs` decide staleness, as before).
+- `OFR0101`'s reasons and `OFR0130`'s counts say what happened:
+  - A project the solution makes depend on a failed project (`ProjectDependencies`) names it. Open
+    Live Writer's application depends on its native Ribbon project, which fails evaluation outside
+    Visual Studio (MSB4278), and the reason was "check the solution configuration".
+  - When the restore failed, every missing project's reason is "the restore failed", with the
+    first error, instead of "it references X, which failed" (Open Live Writer behind a blocked
+    feed), and when no project was evaluated at all, the first error (NHibernate's MSB4249). A
+    project referencing one that merely was not built says so instead of "which failed".
+  - `OFR0130` counts errors once per project and says how many projects each code affects
+    (`data.projectsByCode`): Open Live Writer's MSB3644 in 25 projects, all in one shared targets
+    file, read "2 error(s) (MSB3644 ×1, ...)" and now reads "MSB3644 ×25 in 25 projects". A
+    restore error without a code is labeled `restore` (it read "( ×3)"), and paths in the message
+    are repository-relative.
 - `OFR0115` names a build-time generator: an `Exec` that runs a program the solution itself builds.
   Open Live Writer's CoreServices runs `$(OutDir)MarketXmlGenerator.exe` to write an embedded
   resource; the evidence was `Exec: "src/managed//bin/De…`, and the remedy (guard the target)

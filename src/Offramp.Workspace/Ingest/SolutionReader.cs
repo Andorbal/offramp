@@ -12,6 +12,12 @@ public sealed record SolutionProjects(string SolutionFile, IReadOnlyList<string>
     /// builds (absolute, as in <see cref="ProjectPaths"/>, sorted).
     /// </summary>
     public IReadOnlyList<string> WebSites { get; init; } = [];
+
+    /// <summary>
+    /// The solution's own build-order dependencies (<c>ProjectSection(ProjectDependencies)</c>): project → the
+    /// projects it depends on, absolute and sorted. MSBuild does not build a project whose dependency failed.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Dependencies { get; init; } = new Dictionary<string, IReadOnlyList<string>>();
 }
 
 /// <summary>Reads .sln, .slnx (Microsoft.VisualStudio.SolutionPersistence), and .slnf (JSON).</summary>
@@ -39,10 +45,12 @@ public static class SolutionReader
                 .Order(StringComparer.Ordinal)
                 .ToList();
             var listed = projects.ToHashSet(StringComparer.Ordinal);
-            var webSites = await TryOpenAsync(underlying, cancellationToken) is { } model
-                ? WebSitesOf(model, solutionDirectory).Where(listed.Contains).ToList()
-                : [];
-            return new SolutionProjects(underlying, projects) { WebSites = webSites };
+            var model = await TryOpenAsync(underlying, cancellationToken);
+            return new SolutionProjects(underlying, projects)
+            {
+                WebSites = model is null ? [] : [.. WebSitesOf(model, solutionDirectory).Where(listed.Contains)],
+                Dependencies = model is null ? new Dictionary<string, IReadOnlyList<string>>() : DependenciesOf(model, solutionDirectory),
+            };
         }
 
         var directory = Path.GetDirectoryName(solutionPath)!;
@@ -51,7 +59,7 @@ public static class SolutionReader
             .Select(p => FullPath(p, directory))
             .Order(StringComparer.Ordinal)
             .ToList();
-        return new SolutionProjects(solutionPath, paths) { WebSites = WebSitesOf(opened, directory) };
+        return new SolutionProjects(solutionPath, paths) { WebSites = WebSitesOf(opened, directory), Dependencies = DependenciesOf(opened, directory) };
     }
 
     private static async Task<SolutionModel> OpenAsync(string solutionPath, CancellationToken cancellationToken)
@@ -76,6 +84,14 @@ public static class SolutionReader
 
     private static List<string> WebSitesOf(SolutionModel model, string directory) =>
         [.. model.SolutionProjects.Where(p => p.TypeId == WebSiteType).Select(p => FullPath(p, directory)).Order(StringComparer.Ordinal)];
+
+    private static Dictionary<string, IReadOnlyList<string>> DependenciesOf(SolutionModel model, string directory) =>
+        model.SolutionProjects
+            .Where(p => p.Dependencies is { Count: > 0 })
+            .ToDictionary(
+                p => FullPath(p, directory),
+                p => (IReadOnlyList<string>)[.. p.Dependencies!.Select(d => FullPath(d, directory)).Order(StringComparer.Ordinal)],
+                StringComparer.Ordinal);
 
     private static string FullPath(SolutionProjectModel project, string directory) =>
         Path.GetFullPath(project.FilePath.Replace('\\', Path.DirectorySeparatorChar), directory);
