@@ -73,6 +73,7 @@ public static class DeadCodeAnalyzer
         var skipped = new List<string>();
         var compilations = Load(request, loader, skipped);
         var solutionAssemblies = compilations.Select(c => c.Compilation.AssemblyName).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var shipped = ShippedProjects.Read(request.RepositoryRoot, request.Model, request.ExternalConsumers);
 
         Index index;
         using (var phase = request.Progress.BeginPhase("dead code: references", 1, 2))
@@ -90,7 +91,7 @@ public static class DeadCodeAnalyzer
             for (var i = 0; i < inScope.Count; i++)
             {
                 phase.Report(i, inScope.Count, inScope[i].Project.Id);
-                if (Project(request, inScope[i], index, strings, solutionAssemblies) is { } project)
+                if (Project(request, inScope[i], index, strings, solutionAssemblies, shipped.Of(inScope[i].Project)) is { } project)
                 {
                     projects.Add(project);
                 }
@@ -353,7 +354,8 @@ public static class DeadCodeAnalyzer
 
     private sealed record Declared(ISymbol Symbol, IReadOnlyList<SyntaxNode> Declarations);
 
-    private static DeadCodeProject? Project(DeadCodeRequest request, Loaded loaded, Index index, List<(string Text, string Where)> strings, HashSet<string> solutionAssemblies)
+    private static DeadCodeProject? Project(
+        DeadCodeRequest request, Loaded loaded, Index index, List<(string Text, string Where)> strings, HashSet<string> solutionAssemblies, ShippedReason? shipped)
     {
         var (project, compilation) = loaded;
         var sources = AuditEngine.Sources(compilation).ToHashSet();
@@ -399,7 +401,7 @@ public static class DeadCodeAnalyzer
                 unusedTypes.Add(symbol);
             }
 
-            var (confidence, evidence) = Confidence(request, project, symbol, index, strings, solutionAssemblies);
+            var (confidence, evidence) = Confidence(project, symbol, index, strings, solutionAssemblies, shipped);
             if (confidence < request.MinConfidence)
             {
                 continue;
@@ -511,19 +513,14 @@ public static class DeadCodeAnalyzer
         declared.Declarations.Any(d => FileOf(root, d.SyntaxTree) == file && d.FullSpan.Contains(position));
 
     private static (DeadCodeConfidence Confidence, List<string> Evidence) Confidence(
-        DeadCodeRequest request, ProjectInfo project, ISymbol symbol, Index index, List<(string Text, string Where)> strings, HashSet<string> solutionAssemblies)
+        ProjectInfo project, ISymbol symbol, Index index, List<(string Text, string Where)> strings, HashSet<string> solutionAssemblies, ShippedReason? shipped)
     {
         var evidence = new List<string>();
         DeadCodeConfidence confidence;
         var accessibility = Accessibility(symbol);
         if (accessibility == "public")
         {
-            var external = request.ExternalConsumers.Any(c => string.Equals(c, project.Name, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(c, project.AssemblyName, StringComparison.OrdinalIgnoreCase) || string.Equals(c, project.Id, StringComparison.Ordinal));
-            var packable = project.Properties.TryGetValue("IsPackable", out var value) && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
-            (confidence, var why) = external ? (DeadCodeConfidence.Medium, "public, and the assembly is listed in deadCode.externalConsumers")
-                : packable ? (DeadCodeConfidence.Medium, "public in a packable assembly (IsPackable): other repositories may use it")
-                : (DeadCodeConfidence.High, "public, and the assembly is not packed");
+            (confidence, var why) = shipped is null ? (DeadCodeConfidence.High, "public, and the assembly is not packed") : (DeadCodeConfidence.Medium, Shipped(shipped));
             evidence.Add(why);
         }
         else
@@ -544,6 +541,15 @@ public static class DeadCodeAnalyzer
 
         return (confidence, evidence);
     }
+
+    /// <summary>Why a public symbol of a shipped project is only <c>medium</c> (ADR 0041).</summary>
+    private static string Shipped(ShippedReason shipped) => shipped.Rule switch
+    {
+        ShippedRule.ExternalConsumer => "public, and the assembly is listed in deadCode.externalConsumers",
+        ShippedRule.Packable => "public in a packable assembly (IsPackable): other repositories may use it",
+        ShippedRule.Nuspec => $"public in an assembly {shipped.Reason}: other repositories may use it",
+        _ => "public in a library no application in the solution uses (only tests and other libraries reference it): other repositories may use it",
+    };
 
     /// <summary>What static analysis cannot see: strings, conventions, serializers, entry points, reflection-driven attributes.</summary>
     private static IEnumerable<string> LowEvidence(ISymbol symbol, Index index, List<(string Text, string Where)> strings)

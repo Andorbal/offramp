@@ -1,0 +1,11 @@
+<Project>
+  <!-- Standalone fixture repository: nothing is inherited from above. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <!-- As in a legacy solution packed by a build script: no project says it is packable. -->
+    <IsPackable>false</IsPackable>
+    <!-- Advisories change over time; the fixture's package versions are fixed on purpose. -->
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+</Project>

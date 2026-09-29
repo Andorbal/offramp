@@ -206,7 +206,7 @@ internal static class ProjectFiles
         }
     }
 
-    private static IEnumerable<string> Walk(string directory)
+    internal static IEnumerable<string> Walk(string directory)
     {
         IEnumerable<string> files, subdirectories;
         try

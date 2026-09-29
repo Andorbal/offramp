@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- Filled in and packed by the build script, as NHibernate's NAnt build packs NHibernate.nuspec.template. -->
+<package>
+  <metadata>
+    <id>Evidence.Client</id>
+    <version>${project.version}</version>
+    <authors>Evidence</authors>
+    <description>The shop's client library.</description>
+  </metadata>
+</package>

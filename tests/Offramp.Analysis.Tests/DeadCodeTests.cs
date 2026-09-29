@@ -133,6 +133,34 @@ public sealed class DeadCodeTests
     }
 
     [Fact]
+    public async Task Public_symbols_of_shipped_libraries_are_medium_and_say_which_rule_shipped_them()
+    {
+        var (result, _) = await AnalyzeAsync(fixture: "dead-code-evidence");
+
+        var all = result.Projects.SelectMany(p => p.Candidates).ToDictionary(c => c.Symbol);
+
+        // A .nuspec.template beside the project, as NHibernate's NAnt build packs it.
+        var reset = all["Evidence.Client.ShopClient.Reset()"];
+        Assert.Equal(DeadCodeConfidence.Medium, reset.Confidence);
+        Assert.Equal(["public in an assembly packed by src/Client/Client.nuspec.template: other repositories may use it"], reset.Evidence);
+
+        // A .nuspec elsewhere that packs the project's DLL, as Open Live Writer's SDK package does.
+        var ofBytes = all["Evidence.Tools.Checksum.OfBytes(byte[])"];
+        Assert.Equal(DeadCodeConfidence.Medium, ofBytes.Confidence);
+        Assert.Equal(["public in an assembly packed as Evidence.Tools.dll by build/Evidence.Sdk.nuspec: other repositories may use it"], ofBytes.Evidence);
+
+        // A library only a test project uses, and one nothing uses: no application in the solution needs them.
+        const string NoApplication = "public in a library no application in the solution uses (only tests and other libraries reference it): other repositories may use it";
+        Assert.Equal((DeadCodeConfidence.Medium, NoApplication), (all["Evidence.Formats.CsvFormat.Quote(string)"].Confidence, all["Evidence.Formats.CsvFormat.Quote(string)"].Evidence[0]));
+        Assert.Equal((DeadCodeConfidence.Medium, NoApplication), (all["Evidence.Specs.FormatSpecs"].Confidence, all["Evidence.Specs.FormatSpecs"].Evidence[0]));
+
+        // Internal code, and public code of a library the application uses, stay high.
+        Assert.Equal(DeadCodeConfidence.High, all["Evidence.Formats.CsvFormat.Unused()"].Confidence);
+        Assert.Equal(["public, and the assembly is not packed"], all["Evidence.Engine.Orphan"].Evidence);
+        Assert.Equal(DeadCodeConfidence.High, all["Evidence.Engine.Orphan"].Confidence);
+    }
+
+    [Fact]
     public async Task A_file_that_cannot_be_read_is_skipped_instead_of_ending_the_analysis()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Creating a symbolic link needs a privilege on Windows.");

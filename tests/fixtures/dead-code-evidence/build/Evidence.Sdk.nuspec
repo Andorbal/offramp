@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!-- A package made from build output outside the project's folder, as Open Live Writer's OpenLiveWriter.SDK.nuspec is. -->
+<package>
+  <metadata>
+    <id>Evidence.Sdk</id>
+    <version>1.0.0</version>
+    <authors>Evidence</authors>
+    <description>The plugin SDK.</description>
+  </metadata>
+  <files>
+    <file src="..\src\Tools\bin\Release\net48\Evidence.Tools.dll" target="lib\net48" />
+    <file src="..\docs\*.md" target="docs" />
+  </files>
+</package>

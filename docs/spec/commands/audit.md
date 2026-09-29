@@ -313,8 +313,9 @@ offramp audit dead-code [--scope public|all] [--min-confidence high|medium|low] 
   candidate.
 - Confidence: `high` when the symbol is `internal`/`private` or the assembly
   has no `InternalsVisibleTo` and is not packed; `medium` for `public` symbols
-  in assemblies that other repositories might consume (packable, or listed in
-  `deadCode.externalConsumers`); `low` when any of: the symbol name appears in
+  in assemblies that other repositories might consume (listed in
+  `deadCode.externalConsumers`, packable, packed from a `.nuspec`, or a library
+  no application in the solution uses; ADR 0041); `low` when any of: the symbol name appears in
   a string literal or resource anywhere in the solution, the type matches a DI
   convention pattern (`services.Scan`, `RegisterAssemblyTypes`, MediatR
   handlers, controllers, `[Export]`), the type has `[Serializable]`/data
@@ -367,9 +368,17 @@ Decisions behind the two commands (ADR 0022).
 - **Confidence.** The base level is:
   - `high` for `private` and `internal` symbols, unless `InternalsVisibleTo` names an
     assembly outside the solution (`medium`)
-  - `high` for public symbols, unless the project is packable (`IsPackable`, true by
-    default for SDK-style libraries) or listed in `deadCode.externalConsumers`
-    (`medium`)
+  - `high` for public symbols, unless the project is shipped (`medium`, ADR 0041). The
+    first of these that holds is the evidence:
+    - it is listed in `deadCode.externalConsumers` (by name, assembly name, or path)
+    - it is packable (`IsPackable`, true by default for SDK-style libraries)
+    - a `.nuspec` anywhere in the repository packs its DLL (a `<file src>` whose file
+      name is the assembly's, without wildcards), or, for a library, a `.nuspec` or
+      `.nuspec.template` sits in its folder (`bin`, `obj`, `packages`, and dot folders
+      are not searched)
+    - it is a library (`kind: library`, or a `test` project whose output is a library)
+      that no application (`web`, `winforms`, `wpf`, `service`, `console`) depends on,
+      directly or through other projects
 - **`low` overrides the base level** when any of these holds:
   - the name appears as a word in a string literal, or in a `.resx`, `.config`, `.xaml`,
     `.xml`, or `.json` file, an ASP.NET markup file, or another XML file (one that starts

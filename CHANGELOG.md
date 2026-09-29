@@ -317,6 +317,17 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
     `PackageReference` to `System.Resources.Extensions` is restored but never referenced under the
     .NET SDK: a target that references the DLL, with the version per target framework (6.0.0 for
     .NET Framework 4.6.1, which 8.0.0 does not support).
+- `audit dead-code` rates the public symbols of a shipped library `medium`, never `high`, and says
+  which rule shipped it (ADR 0041). Before, only `IsPackable` and `deadCode.externalConsumers`
+  counted, which legacy projects never have: on NHibernate 4.1, which NAnt packs from
+  `src/NHibernate/NHibernate.nuspec.template`, 250 public symbols (SQL dialects chosen by name in
+  configuration, `Configuration.AddXmlReader`, ...) were `high`; now the high-confidence total is
+  20 symbols and 184 lines instead of 273 and 3,158. A project is shipped when it is listed in
+  `deadCode.externalConsumers`, is packable, has its DLL packed by a `.nuspec` anywhere in the
+  repository (Open Live Writer's `OpenLiveWriter.SDK.nuspec` at the root packs its plugin SDK), is a
+  library with a `.nuspec` or `.nuspec.template` beside it, or is a library no application in the
+  solution depends on. `deadCode.externalConsumers` is now documented in
+  `docs/spec/03-configuration.md`.
 - A library that references a test framework's assembly (`nunit.framework`, `xunit`, the MSTest
   assemblies, usually a DLL checked in and referenced by `HintPath`) is a `test` project, with the
   evidence `Reference nunit.framework + OutputType=Library` (ADR 0038). NHibernate 4.1's three

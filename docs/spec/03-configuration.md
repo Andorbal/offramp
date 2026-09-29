@@ -87,6 +87,12 @@ move:
     stripTestsSegment: true   # Foo/Service/Tests/X.cs -> Foo.Tests/Service/X.cs
     targetSuffix: ".Tests"
 
+deadCode:
+  externalConsumers: [ ]      # projects other repositories use (a project name, assembly name, or repository-relative path);
+                              # audit dead-code rates their public symbols medium, never high, and move tests never moves
+                              # their public types. Packable projects, projects a .nuspec packs, and libraries no application
+                              # in the solution uses count without being listed (commands/audit.md, ADR 0041)
+
 rules:                        # audit/behavior/serialization rule overrides
   OFR3105: { severity: none, reason: "We never run on Linux" }        # disable
   OFR3210: { severity: error }                                          # promote
