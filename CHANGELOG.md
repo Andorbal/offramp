@@ -474,7 +474,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `$(NuGetPackageRoot)<id>/<version>/...` and reads the metadata of a DLL outside the repository;
   resolve-dlls takes the package and version from that path (`match: path`), matches no package
   for a DLL of unknown version, and reports a reference declared outside the project file once
-  per assembly and declaring file (new `OFR1406`) instead of editing the projects.
+  per assembly and declaring file (new `OFR1406`) instead of editing the projects. On Open Live
+  Writer now: 32 references resolved by their path (System.Resources.Extensions 6.0.0 in 28
+  projects, MSTest.TestFramework 1.4.0), no project file edited, and 3 `OFR1406` naming
+  `Directory.Build.props`.
 - `deps resolve-dlls` reports a DLL built before .NET 4.0 as a .NET Framework blocker
   (`OFR1404`) by the .NET Framework `mscorlib` it references, since it has no
   `TargetFrameworkAttribute`: 8 of NHibernate 4.1's 9 checked-in DLLs have none, so none could be

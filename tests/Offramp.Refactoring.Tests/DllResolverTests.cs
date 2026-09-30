@@ -179,6 +179,7 @@ public sealed class DllResolverTests
             Id = $"src/{name}/{name}.csproj",
             Name = name,
             AssemblyName = name,
+            SdkStyle = false,
             TargetFrameworks = ["net461"],
             AssemblyReferences =
             [
@@ -200,6 +201,7 @@ public sealed class DllResolverTests
             Feeds = new RecordedPackageFeeds(feed),
             Cache = NullCache.Instance,
             Diagnostics = diagnostics,
+            OnWindows = false,
         }, TestContext.Current.CancellationToken);
 
         var references = plan.Result.Projects.SelectMany(p => p.References).ToList();
@@ -209,6 +211,8 @@ public sealed class DllResolverTests
         var declared = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR1406");
         Assert.Equal("The System.Resources.Extensions reference of 2 projects is declared in Directory.Build.props, not in the project file, so it was left alone; change it there.", declared.Message);
         Assert.Equal("Directory.Build.props", declared.File);
+        // Legacy projects outside Windows, as on Open Live Writer: the reference is not theirs, so OFR1407 does not speak for it.
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR1407");
     }
 
     /// <summary>

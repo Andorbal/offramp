@@ -477,14 +477,7 @@ public static class DllResolver
     private static List<(string Name, string? DeclaredIn)> Edit(ResolveDllsRequest request, ProjectInfo project, List<LooseDll> dlls, ChangeSet changeSet)
     {
         var elsewhere = new List<(string, string?)>();
-        var legacyOutsideWindows = !project.SdkStyle && !project.PackagesConfig && !request.OnWindows;
-        if (legacyOutsideWindows)
-        {
-            ReportLegacyOutsideWindows(request, project, [.. dlls.Where(d => d.Resolution.Kind == DllResolutionKind.Package)]);
-        }
-
-        var resolved = dlls.Where(d => d.Resolution.Kind == DllResolutionKind.Project
-            || (d.Resolution.Kind == DllResolutionKind.Package && !project.PackagesConfig && !legacyOutsideWindows)).ToList();
+        var resolved = dlls.Where(d => d.Resolution.Kind is DllResolutionKind.Project or DllResolutionKind.Package).ToList();
         if (resolved.Count == 0)
         {
             return elsewhere;
@@ -492,15 +485,31 @@ public static class DllResolver
 
         var bytes = File.ReadAllBytes(RepoPaths.ToAbsolute(request.RepositoryRoot, project.Id));
         var editor = ProjectFileEditor.Load(bytes);
-        var central = project.Properties.TryGetValue("ManagePackageVersionsCentrally", out var value) && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+
+        // What the project file does not declare is not the project's to change, whatever it resolves to.
+        var declared = new List<LooseDll>();
         foreach (var dll in resolved)
         {
-            if (!editor.DeclaresReference(dll.Name))
+            if (editor.DeclaresReference(dll.Name))
+            {
+                declared.Add(dll);
+            }
+            else
             {
                 elsewhere.Add((dll.Name, DeclaringFile(request.RepositoryRoot, project.Id, editor, dll.Name)));
-                continue;
             }
+        }
 
+        var legacyOutsideWindows = !project.SdkStyle && !project.PackagesConfig && !request.OnWindows;
+        if (legacyOutsideWindows)
+        {
+            ReportLegacyOutsideWindows(request, project, [.. declared.Where(d => d.Resolution.Kind == DllResolutionKind.Package)]);
+        }
+
+        var replaced = declared.Where(d => d.Resolution.Kind == DllResolutionKind.Project || (!project.PackagesConfig && !legacyOutsideWindows)).ToList();
+        var central = project.Properties.TryGetValue("ManagePackageVersionsCentrally", out var value) && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+        foreach (var dll in replaced)
+        {
             // In place, keeping the Reference's condition and its item group's, when it has one.
             if (dll.Resolution.Kind == DllResolutionKind.Project)
             {
@@ -512,7 +521,7 @@ public static class DllResolver
             }
         }
 
-        if (elsewhere.Count < resolved.Count)
+        if (replaced.Count > 0)
         {
             changeSet.Edit(project.Id, bytes, editor.Save());
         }
