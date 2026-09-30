@@ -224,6 +224,15 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   does, and the baseline gets Offramp's compile-only sections and the git-ignored files the working
   tree compiles, named by `OFR3505` (ADR 0058). On NHibernate `--baseline 4.1.1.GA` now exits 0 in
   46 s (no public API difference), with `OFR3505` naming `src/SharedAssemblyInfo.cs`.
+- `web scaffold` left actions to the legacy application with "no one-to-one ASP.NET Core
+  counterpart" for `EmptyResult` (18 actions of SmartStoreNET 4.2's site), `ModelState.AddModelError`
+  (9) and `IsValid`, `ViewBag` (8), `TempData`, `ViewData`, `RedirectResult`, `Url` (23),
+  `HttpUnauthorizedResult` (50) and `FormCollection` (14). They are ported: the types and members of
+  the same name as they are, `HttpUnauthorizedResult` as `UnauthorizedResult` and `FormCollection`
+  as `IFormCollection`; the in-memory compile still leaves an action whose use differs to the
+  legacy application. On SmartStoreNET's site no action is left for these any more; its 270
+  actions stay for views (151), for their controllers' base classes in the framework library (66),
+  and for other System.Web APIs (`Request`, `RouteValueDictionary`, ...).
 - `web inventory` found 8 of the 68 routes SmartStoreNET 4.2's site declares in code, no areas in
   any project, none of the Web API and OData routes of its framework library, none of the 15
   filters its projects register with Autofac, and 7 of 8 bundles. It now follows the codebase's

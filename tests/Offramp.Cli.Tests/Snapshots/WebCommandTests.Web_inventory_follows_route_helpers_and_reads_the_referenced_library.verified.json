@@ -145,6 +145,61 @@
         ]
       },
       {
+        "name": "AccountController",
+        "type": "Store.Web.Controllers.AccountController",
+        "kind": "mvc",
+        "area": null,
+        "routePrefix": null,
+        "filters": [],
+        "file": "src/Store.Web/Controllers/AccountController.cs",
+        "actions": [
+          {
+            "name": "Ping",
+            "httpMethods": [],
+            "routes": [],
+            "filters": [],
+            "file": "src/Store.Web/Controllers/AccountController.cs",
+            "line": 8
+          },
+          {
+            "name": "Save",
+            "httpMethods": [
+              "POST"
+            ],
+            "routes": [],
+            "filters": [],
+            "file": "src/Store.Web/Controllers/AccountController.cs",
+            "line": 14
+          },
+          {
+            "name": "Secret",
+            "httpMethods": [],
+            "routes": [],
+            "filters": [],
+            "file": "src/Store.Web/Controllers/AccountController.cs",
+            "line": 30
+          },
+          {
+            "name": "Post",
+            "httpMethods": [
+              "POST"
+            ],
+            "routes": [],
+            "filters": [],
+            "file": "src/Store.Web/Controllers/AccountController.cs",
+            "line": 36
+          },
+          {
+            "name": "Flag",
+            "httpMethods": [],
+            "routes": [],
+            "filters": [],
+            "file": "src/Store.Web/Controllers/AccountController.cs",
+            "line": 42
+          }
+        ]
+      },
+      {
         "name": "HomeController",
         "type": "Store.Web.Controllers.HomeController",
         "kind": "mvc",
@@ -451,6 +506,22 @@
         "types": [
           "System.Web.Mvc.ActionResult",
           "System.Web.Mvc.Controller"
+        ]
+      },
+      {
+        "file": "src/Store.Web/Controllers/AccountController.cs",
+        "types": [
+          "System.Web.Mvc.ActionResult",
+          "System.Web.Mvc.Controller",
+          "System.Web.Mvc.ControllerBase",
+          "System.Web.Mvc.EmptyResult",
+          "System.Web.Mvc.FormCollection",
+          "System.Web.Mvc.HttpPostAttribute",
+          "System.Web.Mvc.HttpStatusCodeResult",
+          "System.Web.Mvc.HttpUnauthorizedResult",
+          "System.Web.Mvc.ModelStateDictionary",
+          "System.Web.Mvc.RedirectResult",
+          "System.Web.Mvc.UrlHelper"
         ]
       },
       {

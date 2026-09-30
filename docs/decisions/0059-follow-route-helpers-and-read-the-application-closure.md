@@ -64,6 +64,14 @@ registration builder's `TLimit`, down the fluent chain to `RegisterType<T>()`), 
 controller type argument (often a base class), and the action the selector names.
 `GlobalFilters.Filters.Add` stays in `globalFilters`, now also from the libraries.
 
+**Ports.** `web scaffold`'s porter treats `EmptyResult`, `RedirectResult`,
+`ModelStateDictionary` (MVC and Web API), `TempDataDictionary`, `ViewDataDictionary`, and
+MVC's `UrlHelper` as types whose members have ASP.NET Core counterparts of the same name
+(`ViewBag`, `ViewData`, `TempData`, `Url` join the mapped controller members), and renames
+`HttpUnauthorizedResult` to `UnauthorizedResult` and `FormCollection` to `IFormCollection`
+(with `using Microsoft.AspNetCore.Http;`). The in-memory compile still decides: a member that
+differs (`FormCollection.AllKeys`) leaves its action to the legacy application.
+
 ## Alternatives considered
 
 - **One level of helper** (the field notes' suggestion): misses SmartStoreNET's overload

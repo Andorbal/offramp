@@ -185,8 +185,10 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
 - **Porting.** An action is copied as text, keeping its formatting, when it does not
   render a view (`View`, `PartialView`) and uses no System.Web API beyond the ones with
   an ASP.NET Core counterpart of the same shape (`Ok`, `NotFound`, `Json`, `Content`,
-  `Redirect*`, `Created`, `StatusCode`, `ModelState`, ...). Mapped names are replaced:
+  `Redirect*`, `Created`, `StatusCode`, `ModelState`, `ViewBag`, `ViewData`, `TempData`,
+  `Url`, `EmptyResult`, `RedirectResult`, ...; ADR 0059). Mapped names are replaced:
   `IHttpActionResult` → `IActionResult`, `HttpNotFound()` → `NotFound()`,
+  `HttpUnauthorizedResult` → `UnauthorizedResult`, `FormCollection` → `IFormCollection`,
   `InternalServerError()` → `StatusCode(500)`, `new HttpStatusCodeResult(x)` →
   `StatusCode((int)(x))`, `Json(x, JsonRequestBehavior.*)` → `Json(x)` (MVC) and
   `Json(x)` → `new JsonResult(x)` (Web API); `[RoutePrefix]` → `[Route]`,

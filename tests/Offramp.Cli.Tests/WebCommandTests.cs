@@ -160,6 +160,32 @@ public sealed class WebCommandTests
         Assert.Contains(computed, m => m.StartsWith("Route MediaImage has a template computed at run time (MediaSettings.PublicPath() + \"image/{*path}\")", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Actions whose System.Web APIs have ASP.NET Core counterparts port (field test P2): EmptyResult,
+    /// ModelState, TempData, ViewData, ViewBag, Url, RedirectResult as they are, HttpUnauthorizedResult
+    /// and FormCollection renamed. The in-memory compile accepts them.
+    /// </summary>
+    [Fact]
+    public async Task Web_scaffold_ports_actions_whose_System_Web_APIs_have_counterparts()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("web-registrations");
+        using var repository = fixture.Repository;
+        repository.Directory.Write("offramp.yml", "version: 1\n");
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("web", "scaffold", "--project", "Store.Web", "--new", "src/Store.Web.Core", "--json");
+
+        Assert.Equal(0, run.ExitCode);
+        var result = JsonNode.Parse(run.Out)!["result"]!;
+        var account = result["controllers"]!.AsArray().Single(c => c!["type"]!.GetValue<string>() == "Store.Web.Controllers.AccountController")!;
+        Assert.Equal(["Ping", "Save", "Secret", "Post", "Flag"], account["ported"]!.AsArray().Select(a => a!.GetValue<string>()));
+        Assert.Empty(account["unported"]!.AsArray());
+        var preview = result["preview"]!.GetValue<string>();
+        Assert.Contains("+        public ActionResult Post(IFormCollection form)\n", preview, StringComparison.Ordinal);
+        Assert.Contains("+            return new UnauthorizedResult();\n", preview, StringComparison.Ordinal);
+        Assert.Contains("+using Microsoft.AspNetCore.Http;\n+using Microsoft.AspNetCore.Mvc;\n", preview, StringComparison.Ordinal);
+    }
+
     [Fact]
     [ProducesDiagnostic("OFR4203")]
     public async Task Code_outside_the_actions_that_does_not_compile_is_reported()
