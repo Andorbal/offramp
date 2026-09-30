@@ -245,6 +245,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `scan` said "no evaluation for it in the build log; MSBuild did not build it (check the solution
+  configuration)" for a project whose reference was loaded but never compiled, because something it
+  depends on failed first. It now names that reference ("which did not compile because a project it
+  depends on failed"). The DotNetNuke corpus test found it once `doctor --fix` let more of the build
+  run (DDRMenu and Tests.Urls, after DotNetNuke.Library). The corpus sweep compares a second full
+  scan's model only when both builds succeed: how far a failing parallel build gets varies by run.
 - On Windows: `move extract` added a project to a `.sln` with forward slashes, which its in-place edit
   did not find, so it rewrote the whole solution (`OFR2115`); `csproj modernize`'s verification errors,
   scan's non-string resource evidence, and a build-time generator's outputs had backslashes in their

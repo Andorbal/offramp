@@ -64,7 +64,7 @@ the restored packages), and network access to the repository and the codebase's 
 | `doctor --fix --apply --yes` | Adds the compile-only block, as a user following `doctor` would. |
 | `scan` | Builds the solution. A failed build is fine (exit 1); a crash is not. |
 | `scan --no-build` | Its model must match `scan`'s apart from `createdAt`: Offramp's determinism rule, on real code. |
-| `scan`, again | Its model must match too: a second build finishes its compilations in another order, which `scan --no-build` cannot show. |
+| `scan`, again | When both builds succeed, its model must match too: a second build finishes its compilations in another order, which `scan --no-build` cannot show. A failed parallel build gets further in one run than in another, so its log is not the same input twice. |
 | `graph --format json`, `plan`, `report --format json` | |
 | `deps audit`, `deps resolve-dlls`, `redirects sync --prune` | All dry runs. |
 | `audit api`, `audit behavior`, `audit dead-code`, `csproj modernize --all` | Optional: `SweepAsync("csproj modernize")` leaves that one out. `csproj modernize` is a dry run that builds each conversion. |

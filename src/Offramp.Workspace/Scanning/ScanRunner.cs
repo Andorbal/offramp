@@ -787,6 +787,10 @@ public static class ScanRunner
             .OfType<string>()
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var notBuilt = missing.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Loaded but never compiled, without errors of its own: something it depends on failed first (DotNetNuke's
+        // Library, after Log4Net). A project that references it was not built for that reason.
+        var uncompiled = projects.Where(p => p.Partial && !failed.Contains(p.Id)).Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var restoreFailed = BuildFailures.RestoreFailed(data.Errors, text => Scrub(text, mapper));
         var nothingBuilt = BuildFailures.NothingBuilt(data.Errors, projects.Count, text => Scrub(text, mapper));
         var result = new List<NotLoadedProject>();
@@ -829,6 +833,11 @@ public static class ScanRunner
             if (FailedSolutionDependency(root, id, listed, failed) is { } dependency)
             {
                 return $"not built: the solution makes it depend on {dependency} (ProjectDependencies), which failed";
+            }
+
+            if (FailedReference(root, id, uncompiled) is { } stopped)
+            {
+                return $"not built: it references {stopped}, which did not compile because a project it depends on failed";
             }
 
             if (nothingBuilt is not null)

@@ -176,9 +176,15 @@ public sealed class CorpusRun : IAsyncDisposable
         var rescan = await RunAsync("scan", "scan", "--no-build");
         AssertSameModel(model, Scrubbed(Repository.Read(".offramp/workspace.json")), "scan --no-build");
 
-        // A second build: the parallel build finishes its compilations in another order (SmartStoreNET P1 #8).
-        await RunAsync("scan", "scan");
-        AssertSameModel(model, Scrubbed(Repository.Read(".offramp/workspace.json")), "a second scan");
+        // A second build: the parallel build finishes its compilations in another order (SmartStoreNET P1 #8). Only a
+        // build that succeeds is the same input twice: when one fails, how far the parallel build gets before the
+        // failure stops the projects that depend on it varies from run to run (DotNetNuke on Linux, where letter
+        // case stops part of it), so its log, and the model, may too. scan --no-build above checks that case.
+        var again = await RunAsync("scan", "scan");
+        if (scan.Result["buildSucceeded"]?.GetValue<bool>() == true && again.Result["buildSucceeded"]?.GetValue<bool>() == true)
+        {
+            AssertSameModel(model, Scrubbed(Repository.Read(".offramp/workspace.json")), "a second scan");
+        }
 
         return new CorpusSweep
         {
