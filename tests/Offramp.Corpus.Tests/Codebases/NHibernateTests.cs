@@ -68,6 +68,7 @@ public sealed class NHibernateTests
         Assert.Contains("OFR4306", sweep.Modernize.Codes);
         Assert.DoesNotContain(sweep.Modernize.Diagnostics("OFR4303"), d => Project(d).EndsWith("NHibernate.TestDatabaseSetup.csproj", StringComparison.Ordinal));
         Assert.Contains(sweep.Modernize.Diagnostics("OFR4304"), d => Project(d).EndsWith(".vbproj", StringComparison.Ordinal));
+        Assert.Empty(sweep.Modernize.Diagnostics("OFR4303"));
 
         // P1 #8: transparency attributes are harmless on modern .NET, and CallContext has its own advice.
         var api = sweep.AuditApi!.Result["findings"]!.AsArray();

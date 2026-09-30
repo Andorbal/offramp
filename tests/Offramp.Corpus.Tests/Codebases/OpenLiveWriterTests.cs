@@ -129,13 +129,16 @@ public sealed class OpenLiveWriterTests
         Assert.True(packages.Count >= 15, $"{packages.Count} packages audited.");
         Assert.True(packages.Single(p => p!["id"]!.GetValue<string>() == "DeltaCompressionDotNet")!["windowsOnly"]!.GetValue<bool>());
 
-        // P1 #9: csproj modernize no longer fails on a version file the build generates (CS0579 in 20 of 28).
-        Assert.DoesNotContain(sweep.Modernize!.Diagnostics("OFR4303"), d => Message(d).Contains("CS0579", StringComparison.Ordinal));
+        // P1 #9: every conversion verifies (0 of 28 before) except the two MSTest v1 test projects, which lose the
+        // harness's legacy-only MSTest references once they are SDK-style (still open: csproj modernize could move them
+        // to MSTest.TestFramework, as docs/compiling-on-macos.md recommends).
+        Assert.All(sweep.Modernize!.Diagnostics("OFR4303"), d => Assert.Contains(Path.GetFileNameWithoutExtension(Project(d)), (string[])["OpenLiveWriter.Tests", "OpenLiveWriter.UnitTest"]));
 
         // P0 #3: converting one project, as the guide does, leaves GlobalAssemblyInfo.cs, which 20 projects compile.
         var one = await corpus.RunAsync("csproj-modernize", "csproj", "modernize",
             "--project", $"{Managed}/OpenLiveWriter.Localization/OpenLiveWriter.Localization.csproj", "--tfm", "net461;net10.0-windows");
         Assert.DoesNotContain($"{Managed}/GlobalAssemblyInfo.cs", one.Result["projects"]!.AsArray().SelectMany(p => Strings(p!["files"])));
+        Assert.Empty(one.Diagnostics("OFR4303"));
 
         // P1 #10: the first move out of a .NET Framework project into a new netstandard2.0 project plans moves.
         var extract = await corpus.RunAsync("move-extract", "move", "extract", "--from", coreServices,

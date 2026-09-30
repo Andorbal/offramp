@@ -99,6 +99,11 @@ public sealed class SmartStoreNetTests
         // keeps the NuGet 2 restore import after dropping SolutionDir (MSB4019 on "/.nuget/nuget.targets" in 10 of 11).
         Assert.DoesNotContain(sweep.Modernize!.Result["projects"]!.AsArray().SelectMany(p => Strings(p!["files"])), f => f is "src/AssemblyVersionInfo.cs" or "src/AssemblySharedInfo.cs");
         Assert.DoesNotContain(sweep.Modernize.Diagnostics("OFR4303"), d => d["message"]!.GetValue<string>().Contains("\"/.nuget/nuget.targets\"", StringComparison.OrdinalIgnoreCase));
+
+        // With those fixed, the next causes were fixed too (package-induced references and facades, the working
+        // tree's files in the scratch copy, build events that can be switched off): 10 of 11 conversions verify.
+        // The eleventh, SmartStore.Web.MVC.Tests, hits a satellite folder's letter case on Linux (still open).
+        Assert.All(sweep.Modernize.Diagnostics("OFR4303"), d => Assert.EndsWith("SmartStore.Web.MVC.Tests.csproj", Project(d), StringComparison.Ordinal));
     }
 
     private static JsonNode Package(JsonArray packages, string id) =>
