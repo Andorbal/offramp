@@ -78,3 +78,6 @@ then on, anyone can run it with the **Corpus** workflow.
 | Report | Codebase | Corpus name |
 |---|---|---|
 | [2026-09-dnn-platform-9.13.10.md](2026-09-dnn-platform-9.13.10.md) | DotNetNuke Platform 9.13.10: Web Forms CMS, 71 projects, 64 legacy on `packages.config` | `dnn` |
+| [2026-09-nhibernate-4.1.2.md](2026-09-nhibernate-4.1.2.md) | NHibernate 4.1.2: an ORM library shipped on NuGet, 5 legacy net40 projects with DLLs checked in, one in Visual Basic, built by NAnt | `nhibernate` |
+| [2026-09-smartstorenet-4.2.0.md](2026-09-smartstorenet-4.2.0.md) | SmartStoreNET 4.2.0: an MVC 5 e-commerce site with 12 plugins that build into it, 25 legacy projects on `packages.config` | `smartstore` |
+| [2026-09-open-live-writer-0.6.3.md](2026-09-open-live-writer-0.6.3.md) | Open Live Writer 0.6.3 (master): a WinForms desktop application with COM and P/Invoke interop, 28 legacy projects and a native one | `olw` |

@@ -64,6 +64,35 @@ A library's goal is also not expressible where it matters. Its natural target is
 `audit api` against net10.0 misses about 50 of the 71 errors that a `netstandard2.0` build of
 NHibernate reports.
 
+## Status after the fixes
+
+Every finding below was general, and all but a few are fixed on the branch that carries this report.
+The numbers are from NHibernate after the fixes, measured on copies of the checkout; the corpus test
+`nhibernate` (`tests/Offramp.Corpus.Tests/Codebases/NHibernateTests.cs`) pins them.
+
+| Finding | Fix | On NHibernate now |
+|---|---|---|
+| P0 #1 dead code: a shipped library's public API | `958a363`, `2995ba4` | a `.nuspec`, a `.nuspec.template`, packability, or "no application uses it" makes a library shipped; its public symbols are `medium`, citing `NHibernate.nuspec.template`. High confidence: 20 symbols and 184 lines (was 273 and 3,158) |
+| P0 #2 HintPath test projects are libraries | `668eba4`, `1252b09` | a `Reference` to `nunit.framework` (or xunit, MSTest) makes a library a test project; a class whose methods carry test attributes is `low`. The three NUnit projects are `test`, and `audit dead-code` no longer scans them |
+| P0 #3 `move tests` moves public API | `ec0d6d5` | a public type of a shipped project is never test support; `QueryOverBuilderExtensions` and `WhereBuilder` stay |
+| P0 #4 `deps resolve-dlls` picks an older package | `77b0182`, `c898f40`, `f75fca2` | candidates ranked by identical file, then file and informational version; conditions kept. 14 of 15 DLLs matched, 12 byte-identical (Iesi.Collections 4.0.1.4000, log4net 1.2.10, NUnit 2.6.1 through `rules/assembly-packages.yml`); Firebird is "newer", SQL Server Compact "closest build" |
+| P0 #5 `csproj modernize` rewrites a generated file | `1977a3b` | a file outside the project folder, shared, git-ignored, or generated keeps its attributes; the project sets `GenerateAssembly…Attribute=false` and `OFR4306` names the file (×4) |
+| P1 #6 `resolve-dlls --apply` unverified | `41a0304` | `--apply` verifies and rolls back (`OFR1408`); outside Windows a legacy project keeps its references and gets `OFR1407` (×5), pointing to `csproj modernize` |
+| P1 #7 `netstandard2.0` not expressible | `4698152` | `--target` and `target:` take a framework. `audit api --target netstandard2.0` reports 114 `OFR3001`, 78 of them Reflection.Emit (against net10.0: 36 and 1). The guide proposes `net40;netstandard2.0`; `report` counts 2 libraries |
+| P1 #8 `audit api` rules | `dede634` | `SecurityCritical` and APTCA are `OFR3014` (info), 24 of them; `OFR3009` 24 → 1. `CallContext` is one `OFR3013` recommending `AsyncLocal<T>` (was `OFR3001` and `OFR3007` twice) |
+| P1 #9 `seams` taints 62% | `8c8f498`, `4d5a264` | components from structural edges only, package-supplied APIs left out (`OFR4032`), extractions above a quarter replaced by `OFR4031`. Tainted: 11 of 2,355 types (was 1,445); JSON 2.7 MB (was 14.6 MB) |
+| P1 #10 `audit api-compat` cannot build | `84229ba` | builds with the verify configuration and properties; the baseline gets the compile-only sections and the git-ignored files the working tree compiles (`OFR3505`). `--baseline 4.1.1.GA`: exit 0 in 46 s (was exit 3) |
+| P1 #11 transitive project reference | `684696b` | a converted project whose references have references sets `DisableTransitiveProjectReferences`; `csproj modernize --all` has no `OFR4303` |
+| P1 #12 `move extract` unsigned | `53ab600` | the new project signs with the source's key; `OFR2114` names friend assemblies granted by public key |
+| P1 #13 a Web Site project stops the solution | `35eedc3`, `fb99a66` | `scan` builds `.offramp/scan.slnf` without Web Site projects and names each (`OFR0126`, `OFR0101` with the type); tested on a fixture, not on `NHibernate.Everything.sln` |
+| P1 #14 a generated file is not named | `e3c6c9a`, `e1d4fdf`, `a9ba37c` | a fresh checkout's scan names the missing, git-ignored `src/SharedAssemblyInfo.cs` in every project that links it (`OFR0123` ×5); NHibernate is partial; audits name the failed build (`OFR3012`, `OFR3016`) |
+| P2 polish | see the commits | the VB project in `csproj modernize --all` (`9dadcbe`, `OFR4304`); the `sqlclient` codemod checks frameworks (`a7ba68d`, `OFR4511` ×3, nothing added to net40 projects); `OFR3205` counts implementations of serialized types (`e8459cf`, 753 → 580); `deps audit` points to `resolve-dlls` (`a6aa501`, `OFR1008`); unlisted versions, `OFR1404` from `mscorlib`, unsigned DLLs by file (`c898f40`); `move tests` finds `NHibernate.Test` (`5efc0f4`, `OFR2207`) and reports a broken source once (`5efc0f4`, `66e7a51`); the `.sln` keeps its format (`cb385f1`); `report`'s trend keeps to one solution (`aeb639e`); `doctor` probes net40 (`377dca9`); relative paths (`248d794`, `fb99a66`); defines split as csc does (`e1d4fdf`); a build heartbeat (`546318a`); two scans write the same model (`8a4ef3e`); `init` chooses `src/NHibernate.sln` (`82a861b`) |
+
+Still open: no `audit behavior` rule for distributed transactions; `OFR3205` still counts a library's
+public types as never serialized, although users may serialize them; `move extract` reports friend
+assemblies instead of granting them. NHibernate's own generated file stays a harness adjustment in
+the corpus test, as it is a step every contributor runs.
+
 ## What worked well
 
 - **The legacy compile-only section:** on a .NET Framework 4.0 codebase with a Visual Basic project

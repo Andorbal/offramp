@@ -61,7 +61,7 @@ catalog has no such test. Test stack: `docs/decisions/0005-test-stack.md`.
 | (none) | every CI run, all three OSes |
 | `Category=Windows` | windows runner only |
 | `Category=Network` | needs nuget.org; CI runs it with a warm cache |
-| `Category=Corpus` | `corpus.yml`, on manual dispatch only, one job per codebase, with `OFFRAMP_CORPUS` set (without it the tests skip). `tests/Offramp.Corpus.Tests` runs the CLI on real codebases pinned to a commit (`codebases.json`): a standard sweep of read-only commands, checked for crashes, schema matches, and a deterministic model, then each codebase's assertions from its field test (`docs/field-tests/`). Codebases: DotNetNuke Platform 9.13.10. How to add one: `tests/Offramp.Corpus.Tests/README.md` |
+| `Category=Corpus` | `corpus.yml`, on manual dispatch only, one job per codebase, with `OFFRAMP_CORPUS` set (without it the tests skip). `tests/Offramp.Corpus.Tests` runs the CLI on real codebases pinned to a commit (`codebases.json`): a standard sweep of read-only commands, checked for crashes, schema matches, and a deterministic model, then each codebase's assertions from its field test (`docs/field-tests/`). Codebases: DotNetNuke Platform 9.13.10 (`dnn`), NHibernate 4.1.2 (`nhibernate`), SmartStoreNET 4.2.0 (`smartstore`), Open Live Writer 0.6.3 (`olw`). The sweep compares the model of `scan`, `scan --no-build`, and a second `scan`. How to add one: `tests/Offramp.Corpus.Tests/README.md` |
 | `Category=Slow` | > 60 s; nightly |
 
 ## Recorded feeds

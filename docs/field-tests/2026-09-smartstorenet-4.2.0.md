@@ -54,6 +54,34 @@ shared assembly-info files, and route helpers that wrap `MapRoute`. Offramp coun
 application (16 applications where there is one site and two tools), and `plan --for SmartStore.Web`
 leaves out the 13 projects the site loads at run time.
 
+## Status after the fixes
+
+Every finding was general to MVC 5 plugin hosts or to legacy projects, and all are fixed on the branch
+that carries this report. The numbers are from SmartStoreNET after the fixes, measured on copies of
+the checkout; the corpus test `smartstore` (`tests/Offramp.Corpus.Tests/Codebases/SmartStoreNetTests.cs`)
+pins them.
+
+| Finding | Fix | On SmartStoreNET now |
+|---|---|---|
+| P0 #1 `csproj modernize` strips shared assembly info | `1977a3b` | `src/AssemblyVersionInfo.cs` and `src/AssemblySharedInfo.cs` stay as they are; each converted project sets `GenerateAssembly…Attribute=false` and `OFR4306` names the shared file |
+| P0 #2 `audit api` cannot see MVC or Web API | `1be4374`, `4028394` | `packages.config` packages are resolved for the target and their HintPath DLLs left out: 11,057 `OFR3001` (was 1,439), System.Web.Mvc 6,989 and System.Web.Http 714; `OFR3011` for the 23 projects whose packages have no modern build. Findings attributed to SmartStoreNET's own assemblies: 5 (was 133) |
+| P0 #3 dead code misses the type finder | `ba2bb23`, `958a363` | discovery followed through `typeof(T)` and `Type` parameters, `GetGenericTypeDefinition() == typeof(G<>)`, and EF's `AddFromAssembly`; controller actions at most `medium`, matched in any letter case. High-confidence classes 70 (was 254; the 110 EF mappings and 12 registrars among those gone); removable lines 7,495 (was 12,802); high-confidence actions 0 (was 8) |
+| P0 #4 `deps audit` and asset-less versions | `dbcddb9`, `9e72ddb` | a version without assemblies never replaces one with them, and a lower version is never an upgrade: EntityFramework.SqlServerCompact is `blocked`, not "upgrade to 4.3.1"; 5 packages are Windows-only (the 4 `*.win-x64`/`win-x86` native ones and MsieJavaScriptEngine) |
+| P1 #5 plugins and areas are applications | `7255764` | the model records each project's output folder; a web project whose assembly lands inside another's folder, without a `Global.asax`, is hosted by it (`OFR0204`). `report`: 3 applications (was 16); `plan --for SmartStore.Web`: 18 projects (was 5); `redirects sync` leaves the 13 hosted `web.config` files alone (`OFR1507`) and keeps the MiniProfiler redirect a plugin needs |
+| P1 #6 `SolutionDir` dropped, NuGet.targets kept | `684696b` | the NuGet 2 import goes with `RestorePackages`; `SolutionDir` stays while something uses it; no `OFR4303` mentions `nuget.targets` |
+| P1 #7 letter case one build at a time | `e3c6c9a` | one pass over the project files before the build: the first scan names all 14 paths and all 19 projects that import `nuget.targets` (it took four scans) |
+| P1 #8 two scans, two models | `8a4ef3e` | compiler calls are recorded by project and target framework, not by their position in the log; the corpus sweep now compares a second full scan |
+| P1 #9 orphaned co-moves | `bdc5b89` | the closure is recomputed after every exclusion, and dropped co-moves are listed (`OFR2113`); tested on a fixture chain |
+| P1 #10 Microsoft.Bcl.Build | `35eedc3` | named as a build step (`OFR0124`), and the compile-only block sets `SkipEnsureBindingRedirects` outside Windows; FacebookAuth builds |
+| P1 #11 `web inventory` routes, areas, filters | `aca170e` | route helpers followed through up to 5 calls, areas from `DataTokens` and defaults, the application's libraries read, Autofac filter registrations listed: SmartStore.Web has 71 routes (was 8; the site's 68, 2 `MapHttpRoute`, 1 OData), 5 container filters, 8 of 8 bundles, and the Admin and plugin areas |
+| P2 polish | see the commits | `web scaffold` ports `EmptyResult`, `ModelState`, `ViewBag`, `HttpUnauthorizedResult` and `FormCollection` (`979301c`); `config convert` reads section groups and machine.config's sections (`1e675d9`, `OFR4407`); `OFR3103` looks at path parameters only (`9f1044a`, 13 → 7); evidence made relative before it is shortened (`248d794`, `fbd2695`); `doctor` says the post-build events are overridden and checks legacy projects before the first scan (`377dca9`); `init` chooses `src/SmartStoreNET.sln` (`82a861b`); a build heartbeat (`546318a`); the terminal view of a failed conversion (`9dadcbe`); the `Builder` name heuristic (`ec0d6d5`) |
+
+Still open: `web scaffold` ports none of the site's 270 actions yet: 151 render Razor views, and 66
+derive from controllers in SmartStore.Web.Framework, which the new project does not reference.
+Route conditions such as `if (add)` are not evaluated. `report`'s area names still place the nested
+admin project under its parent folder. SmartStoreNET's own letter-case problems and cmd.exe post-build
+events stay harness adjustments in the corpus test, applied as the diagnostics prescribe.
+
 ## What worked well
 
 - **The legacy-project support from the DotNetNuke fixes.** `doctor --fix --apply` wrote the compile-only

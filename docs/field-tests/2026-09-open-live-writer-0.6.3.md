@@ -66,6 +66,33 @@ The common thread is that desktop applications and hand-written MSBuild customiz
 `.settings` files, build-time generators, solution-level dependencies, native projects) are not
 covered by the fixtures. Real WinForms codebases are made of them.
 
+## Status after the fixes
+
+Every finding was general, and all are fixed on the branch that carries this report, except the
+parts listed under "Still open". The numbers are from Open Live Writer after the fixes, measured on
+copies of the checkout; the corpus test `olw` (`tests/Offramp.Corpus.Tests/Codebases/OpenLiveWriterTests.cs`)
+pins them.
+
+| Finding | Fix | On Open Live Writer now |
+|---|---|---|
+| P0 #1 WinForms libraries compiled for `net10.0` | `1be4374`, `4028394` | a project that references Windows Forms or WPF, or sets `UseWindowsForms`/`UseWPF`, is compiled for `-windows` (one rule, shared with the guide). `OFR3001`: 590 (was 13,910), none for Windows Forms; `OFR3002`: 0 (was 140); the throwing shims (`MenuItem`, `ContextMenu`, `DataGrid`) are `OFR3003` ×165; inherited `Component` members: 0 (was 66) |
+| P0 #2 dead code: the SDK and COM-visible members | `958a363`, `1252b09`, `2995ba4` | a `.nuspec` anywhere that packs a library's DLL makes it shipped (one that packs an `.exe` is an installer); public COM-visible members are `low`; `.htm`, `.html` and `.js` files are string sources. The 5 SDK symbols are `medium`, the 7 COM-visible methods `low`, with `map.html` as evidence |
+| P0 #3 `csproj modernize --project` edits `GlobalAssemblyInfo.cs` | `1977a3b` | shared and build-generated files keep their attributes; the converted project sets `GenerateAssembly…Attribute=false` (`OFR4306`) |
+| P0 #4 `resolve-dlls` guesses a DLL outside the repository | `119592c`, `bd329ae` | a HintPath into the global packages folder is recorded as `$(NuGetPackageRoot)<id>/<version>/…` and resolved to that package: 32 references resolved (System.Resources.Extensions 6.0.0, MSTest.TestFramework 1.4.0); a reference the project file does not declare is left alone and named once with its file (`OFR1406` ×3, `Directory.Build.props`) |
+| P1 #5 the compile-only block reaches no project | `4c3ddff`, `fb99a66` | `OFR0122` names the cause per project: `MSBuildExtensionsPath` set in `writer.build.settings` (×25). `OFR0130` says "26 error(s) (MSB3644 ×25 in 25 projects, …)" (was "2 error(s)") |
+| P1 #6 build steps not named, or fixes that fail | `e3c6c9a`, `35eedc3`, `fbd2695` | one scan names what took eleven: non-string resources in 13 projects (`OFR0119`), 62 paths in the wrong letter case, `.resx` file references included (`OFR0117`), `Microsoft.Bcl.Build` (`OFR0124`, and the block now sets `SkipEnsureBindingRedirects`), MSTest v1 (`OFR0125`), and `OFR0115` says `MarketXmlGenerator.exe` is a generator whose output guarding leaves missing. `docs/compiling-on-macos.md` gives the legacy-project fixes for resources and MSTest v1, verified on Linux |
+| P1 #7 a native dependency hides the application | `fb99a66` | `OFR0101` names the project it depends on through the solution's `ProjectDependencies`, "the restore failed" when it did, and labels codeless errors `restore` |
+| P1 #8 native and MSTest v1 projects misclassified | `c8557ef`, `668eba4` | a project that is not C#, Visual Basic or F# is never in the model (`OFR0024`; C++/CLI is `OFR0025`); a `Reference` to the Visual Studio test framework makes `OpenLiveWriter.UnitTest` a test project |
+| P1 #9 28 of 28 conversions fail | `1977a3b`, `684696b`, `d745250` | the generated version file keeps its attributes (no CS0579); a lower `packages.config` version is raised to what a reference brings (`OFR4307`); a build event keeps its group's condition; `-windows` targets get `UseWindowsForms` and conditioned framework references; overridden common targets and settings imports are `OFR4308`; imported files and `NuGet.config` are model inputs, so the scratch copy has them |
+| P1 #10 `move extract` to `netstandard2.0` plans nothing | `e9dba4c`, `66e7a51` | trial compilations get the .NET Standard facades a build adds: `Progress/*.cs` into a new `netstandard2.0` project plans 12 moves (was 0), and `--apply` passed verification on 19 projects. A source that breaks is one `OFR2104` |
+| P2 polish | see the commits | `init` chooses `src/managed/writer.sln` (`82a861b`); paths relative and normalized (`248d794`, `e3c6c9a`); `deps audit` gives up on a silent feed after 60 s and reads the packages `scan` restored (`a6aa501`); P/Invoke and COM make a package Windows-only, DeltaCompressionDotNet and PlatformSpellCheck included, and Microsoft.Bcl.Build follows the package map (`9e72ddb`); `deps gac` judges System.Web and System.Web.Services by what the project uses (`ba028e6`); a checked-in COM interop DLL is `OFR1405` (`c898f40`); a failed compilation marks its project partial (`e1d4fdf`); `seams` counts `[ComImport]` and Windows P/Invoke off `-windows` (`4d5a264`); `doctor` probes net461 and net472 (`377dca9`); a build heartbeat, the restore included (`546318a`) |
+
+Still open: `scan` still asks MSBuild to build the native project, so the solution's dependency on it
+keeps the application from building until its `Build.0` line is removed (the corpus test does that);
+Offramp could leave native projects out of the build as it does Web Site projects. `deps audit`
+audits a desktop application's packages against `net10.0`, not `net10.0-windows`. OLW's own letter
+case, generator and settings file stay harness adjustments, applied as the diagnostics prescribe.
+
 ## What worked well
 
 - **The DotNetNuke fixes for `packages.config` hold.** `scan` restored all 22 package versions into

@@ -12,6 +12,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- Three field tests (`docs/field-tests/`), each with its fixes and a corpus test that pins them:
+  NHibernate 4.1.2 (a library shipped on NuGet, `nhibernate`), SmartStoreNET 4.2.0 (an MVC 5 site
+  with plugins, `smartstore`), and Open Live Writer 0.6.3 (a WinForms desktop application with COM
+  interop, `olw`). The corpus sweep also runs a second full `scan` and compares its model, which
+  `scan --no-build` could not do, and the harness applies `OFR0117`'s fix on Linux as symbolic links.
 - `--target`, `target:`, and `OFFRAMP_TARGET` take a target framework as well as a .NET major
   version (ADR 0057): `net8.0`, `net10.0-windows` (every project on Windows: Windows-only APIs are
   not findings), and `netstandard2.0`/`netstandard2.1` for a library that keeps serving .NET
