@@ -478,8 +478,8 @@ A C++ project sets `CLRSupport` (`true`, `Pure`, or `Safe`): it compiles .NET Fr
 
 Offramp's own builds (`scan`, verification) do something a plain `dotnet build` of the solution does not: pass `offramp.yml`'s `verify.properties`, restore `packages.config` into the packages folder, or leave an ASP.NET Web Site out of the solution. Until the repository does it itself, a solution that `scan` builds cleanly still fails for someone who clones it and runs `dotnet build`.
 
-- **Typical cause:** `verify.properties` set to switch a step off; legacy projects on `packages.config`, which `dotnet restore` skips; a Web Site project in the solution (`OFR0126`).
-- **Fix:** Move each `verify.properties` entry into the project files (conditioned as `offramp doctor --fix` conditions Windows-only settings) and remove it from `offramp.yml`. For `packages.config`, run `offramp scan` once in each clone, restore on Windows, or convert the projects (`offramp csproj modernize`), whose `PackageReference` items `dotnet restore` restores. Convert a Web Site to a web application project, or build a solution filter without it.
+- **Typical cause:** `verify.properties` set to switch a step off; legacy projects on `packages.config`, which `dotnet restore` skips unless the repository has `Offramp.PackagesConfig.targets`; a Web Site project in the solution (`OFR0126`).
+- **Fix:** Move each `verify.properties` entry into the project files (conditioned as `offramp doctor --fix` conditions Windows-only settings) and remove it from `offramp.yml`. For `packages.config`, run `offramp doctor --fix --apply`: it adds `Offramp.PackagesConfig.targets`, with which `dotnet restore` downloads and lays out what `packages.config` lists, as `nuget restore` does. Convert a Web Site to a web application project, or build a solution filter without it.
 
 ### OFR0030
 

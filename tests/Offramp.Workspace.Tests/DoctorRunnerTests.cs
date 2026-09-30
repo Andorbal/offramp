@@ -7,6 +7,7 @@ using Offramp.Core.Paths;
 using Offramp.Fixtures;
 using Offramp.Workspace.Doctor;
 using Offramp.Workspace.Environment;
+using PackagesConfigRestore = Offramp.Workspace.Doctor.PackagesConfigRestore;
 
 namespace Offramp.Workspace.Tests;
 
@@ -504,6 +505,35 @@ public sealed class DoctorRunnerTests : IDisposable
             "A plain `dotnet build` does less than Offramp's build: 1 project(s) use packages.config, which dotnet restore skips; the solution lists ASP.NET Web Site project(s): src/OldSite/.",
             check.Message);
         Assert.Equal(["packages-config", "web-site"], bag.ToSortedList().Where(d => d.Code == "OFR0026").Select(d => d.Data["cause"]!.ToString()).Order());
+    }
+
+    [Fact]
+    public async Task Packages_config_counts_as_restored_once_the_targets_file_and_its_imports_are_in_place()
+    {
+        _repo.Write("src/Legacy/Legacy.csproj", "<Project ToolsVersion=\"15.0\" />\n");
+        WriteFreshModel([Project("src/Legacy/Legacy.csproj") with { PackagesConfig = true }], []);
+
+        var (planned, _) = await RunAsync(Healthy(), fix: true);
+
+        Assert.True(planned.Fix!.PackagesConfig);
+        Assert.Equal([PackagesConfigRestore.TargetsFileName, PackagesConfigRestore.SolutionTargetsFileName], planned.Fix.PackagesConfigFiles.Select(f => f.File));
+        Assert.Contains(PackagesConfigRestore.TargetsFileName, planned.Fix.Diff, StringComparison.Ordinal);
+
+        DoctorRunner.ApplyFix(_repo.Path, packagesConfig: true);
+        WriteFreshModel([Project("src/Legacy/Legacy.csproj") with { PackagesConfig = true }], []);
+        var (report, bag) = await RunAsync(Healthy());
+
+        var check = report.Checks.Single(c => c.Id == "plain-build");
+        Assert.Equal(CheckStatus.Pass, check.Status);
+        Assert.Equal(
+            "A plain `dotnet build` of the solution does what Offramp's build does. `dotnet restore` restores the 1 packages.config project(s) through Offramp.PackagesConfig.targets.",
+            check.Message);
+        Assert.DoesNotContain(bag.ToSortedList(), d => d.Code == "OFR0026");
+
+        // Without the solution's import, a solution restore would not lay anything out.
+        File.Delete(Path.Combine(_repo.Path, PackagesConfigRestore.SolutionTargetsFileName));
+        var (missing, _) = await RunAsync(Healthy());
+        Assert.Equal(CheckStatus.Warn, missing.Checks.Single(c => c.Id == "plain-build").Status);
     }
 
     [Fact]

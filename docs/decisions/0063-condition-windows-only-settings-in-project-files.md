@@ -97,8 +97,8 @@ the conditioned settings a build outside Windows skips.
   each skipped setting, so a developer knows what only a Windows build proves.
 - Some differences remain that no condition can remove, and `plain-build`
   names them: `packages.config` projects need their packages folder filled
-  (`offramp scan`, or `nuget restore` on Windows) until they are converted, and
-  a Web Site project stops `dotnet build` of the whole solution. Steps that
+  (`offramp scan`, or `nuget restore` on Windows; ADR 0064 has `dotnet restore`
+  fill it), and a Web Site project stops `dotnet build` of the whole solution. Steps that
   compile needs (COM references, EDMX, T4 at build time) stay in
   `windows-only-build-steps`.
 - `csproj modernize` keeps the conditions: it copies property conditions and

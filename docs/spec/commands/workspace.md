@@ -160,14 +160,19 @@ Checks, each with pass/warn/fail and a remedy:
   `PreBuildEvent`/`PostBuildEvent`, an `Exec` in a target whose command reads as
   cmd.exe's, `RestorePackages` (`true`), and `MSBuildExtensionsPath` get
   `'$(OS)' == 'Windows_NT'`. A setting already conditioned on the platform or
-  builder is left alone, so a second run changes nothing.
+  builder is left alone, so a second run changes nothing. When the solution has
+  `packages.config` projects, `--fix` also adds `Offramp.PackagesConfig.targets`
+  and its imports (the block's last section, `Directory.Solution.targets`), with
+  which `dotnet restore` downloads and lays out what `packages.config` lists
+  (`docs/decisions/0064-dotnet-build-and-packages-config-without-offramp.md`).
 - Builds without Offramp (`plain-build`), from the files, not the model: warns
   when a plain `dotnet build` of the solution would do less than Offramp's
   build, with `OFR0019` for each Windows-only setting without its condition
   (file and line) and `OFR0026` for each thing only Offramp's builds supply
-  (`verify.properties`, `packages.config` restore, a Web Site project left out
-  of the solution). The message lists the conditioned settings a build outside
-  Windows skips.
+  (`verify.properties`, `packages.config` restore without
+  `Offramp.PackagesConfig.targets`, a Web Site project left out of the
+  solution). The message lists the conditioned settings a build outside Windows
+  skips.
 - CPM shadowing hazards (see `deps.md`), against the model's projects or, before
   the first scan, the solution's. `packages.config` projects (`OFR1303`) count
   only once a `Directory.Packages.props` (or `deps.cpm.file`) exists; before that
@@ -193,7 +198,8 @@ Result (`schemas/v1/doctor.json`; decided in `docs/decisions/0006-doctor-contrac
   "fix": null   // with --fix: { "file": "Directory.Build.props", "alreadyPresent": false, "applied": false, "diff": "--- a/...",
                 //   "projectFiles": [ { "file": "src/Site/Site.csproj", "applied": false, "diff": "--- a/...",
                 //     "guards": [ { "line": 4, "setting": "MvcBuildViews", "step": "aspnet-compiler",
-                //                   "condition": "'$(MSBuildRuntimeType)' != 'Core'" } ] } ] }
+                //                   "condition": "'$(MSBuildRuntimeType)' != 'Core'" } ] } ],
+                //   "packagesConfigFiles": [ { "file": "Offramp.PackagesConfig.targets", "applied": false, "diff": "--- /dev/null..." } ] }
 }
 ```
 

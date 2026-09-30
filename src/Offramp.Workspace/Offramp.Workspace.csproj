@@ -25,6 +25,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- What doctor fix writes into a repository with packages.config projects (ADR 0064). -->
+    <EmbeddedResource Include="Doctor\Resources\Offramp.PackagesConfig.targets" LogicalName="Offramp.Workspace.Doctor.Offramp.PackagesConfig.targets" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Offramp.Workspace.Tests" />
   </ItemGroup>
 </Project>

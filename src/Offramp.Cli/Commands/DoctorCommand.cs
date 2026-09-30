@@ -58,7 +58,7 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
 
         if (report.Fix is { HasChanges: true } plan && context.Settings.Apply && Confirm(plan, context))
         {
-            report = report with { Fix = DoctorRunner.ApplyFix(context.Repository.Path, [.. plan.ProjectFiles.Select(f => f.File)]) };
+            report = report with { Fix = DoctorRunner.ApplyFix(context.Repository.Path, [.. plan.ProjectFiles.Select(f => f.File)], plan.PackagesConfig) };
         }
 
         return CommandOutcome<DoctorReport>.Completed(report);
@@ -128,7 +128,10 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
 
     /// <summary>The block's diff first, then each project file's, as the fix writes them.</summary>
     private static IEnumerable<string> Diffs(CompileOnlyFix fix) =>
-        new[] { fix.AlreadyPresent ? null : fix.Diff }.Concat(fix.ProjectFiles.Where(f => !f.Applied).Select(f => f.Diff)).OfType<string>();
+        new[] { fix.AlreadyPresent ? null : fix.Diff }
+            .Concat(fix.PackagesConfigFiles.Where(f => !f.Applied).Select(f => f.Diff))
+            .Concat(fix.ProjectFiles.Where(f => !f.Applied).Select(f => f.Diff))
+            .OfType<string>();
 
     private static string Changes(CompileOnlyFix fix)
     {
@@ -139,12 +142,18 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
             parts.Add($"the compile-only block to {fix.File}");
         }
 
+        var restore = fix.PackagesConfigFiles.Where(f => !f.Applied).Select(f => f.File).ToList();
+        if (restore.Count > 0)
+        {
+            parts.Add($"the packages.config restore ({string.Join(", ", restore)})");
+        }
+
         if (guards.Count > 0)
         {
             parts.Add($"{Plural(guards.Sum(f => f.Guards.Count), "Windows condition")} to {Plural(guards.Count, "project file")}");
         }
 
-        return string.Join(" and ", parts);
+        return parts.Count <= 2 ? string.Join(" and ", parts) : string.Join(", ", parts[..^1]) + ", and " + parts[^1];
     }
 
     private static void RenderFix(CompileOnlyFix? fix, HumanOutput output)
@@ -156,7 +165,8 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
 
         output.Line();
         var written = fix.ProjectFiles.Where(f => f.Applied).ToList();
-        if (fix.Applied || written.Count > 0)
+        var restore = fix.PackagesConfigFiles.Where(f => f.Applied).ToList();
+        if (fix.Applied || written.Count > 0 || restore.Count > 0)
         {
             var parts = new List<string>();
             if (fix.Applied)
@@ -164,12 +174,18 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
                 parts.Add($"the compile-only block to {fix.File}");
             }
 
+            if (restore.Count > 0)
+            {
+                parts.Add($"the packages.config restore ({string.Join(", ", restore.Select(f => f.File))})");
+            }
+
             if (written.Count > 0)
             {
                 parts.Add($"{Plural(written.Sum(f => f.Guards.Count), "Windows condition")} to {string.Join(", ", written.Select(f => f.File))}");
             }
 
-            output.MarkupLine($"[{Theme.ReadyStyle}]Added {Markup.Escape(string.Join(" and ", parts))}.[/] Commit them with your next change.");
+            var added = parts.Count <= 2 ? string.Join(" and ", parts) : string.Join(", ", parts[..^1]) + ", and " + parts[^1];
+            output.MarkupLine($"[{Theme.ReadyStyle}]Added {Markup.Escape(added)}.[/] Commit them with your next change.");
             return;
         }
 
@@ -188,7 +204,7 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
 
     public string? NextStep(DoctorReport result, CommandContext context)
     {
-        if (result.Fix is { HasChanges: true } fix && !fix.Applied && fix.ProjectFiles.All(f => !f.Applied))
+        if (result.Fix is { HasChanges: true } fix && !fix.Applied && fix.ProjectFiles.All(f => !f.Applied) && fix.PackagesConfigFiles.All(f => !f.Applied))
         {
             return "offramp doctor --fix --apply";
         }

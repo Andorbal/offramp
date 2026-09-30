@@ -20,17 +20,28 @@ public sealed record CompileOnlyFix
     /// <summary>The MSBuild files whose Windows-only settings the fix conditions, by path (<see cref="WindowsGuards"/>).</summary>
     public IReadOnlyList<ProjectFileFix> ProjectFiles { get; init; } = [];
 
-    /// <summary>True when the fix changes anything: the block is missing, or a setting needs a condition.</summary>
+    /// <summary>
+    /// The files that let <c>dotnet restore</c> restore <c>packages.config</c> (<see cref="PackagesConfigRestore"/>), when
+    /// the repository has such projects; empty when they are in place or there are none.
+    /// </summary>
+    public IReadOnlyList<FileFix> PackagesConfigFiles { get; init; } = [];
+
+    /// <summary>True when the repository has packages.config projects, so the fix includes their restore.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool HasChanges => !AlreadyPresent || ProjectFiles.Any(f => !f.Applied);
+    public bool PackagesConfig { get; init; }
+
+    /// <summary>True when the fix changes anything: the block is missing, a setting needs a condition, or a restore file is.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasChanges => !AlreadyPresent || ProjectFiles.Any(f => !f.Applied) || PackagesConfigFiles.Any(f => !f.Applied);
 }
 
 /// <summary>
 /// The compile-only conditional of docs/compiling-on-macos.md, inserted into the
 /// repository's root Directory.Build.props as text, so every other byte of the
-/// file (formatting, comments, line endings) stays as it was. It has four sections,
-/// each found by its own marker, so a file with the first sections from an earlier
-/// Offramp gains only the sections it lacks.
+/// file (formatting, comments, line endings) stays as it was. It has five sections,
+/// and a sixth for repositories with packages.config projects, each found by its own
+/// marker, so a file with the first sections from an earlier Offramp gains only the
+/// sections it lacks.
 /// </summary>
 public static class CompileOnlyConditional
 {
@@ -91,7 +102,7 @@ public static class CompileOnlyConditional
     /// </summary>
     public static readonly string[] LegacyLines =
     [
-        "<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects; offramp scan restores packages.config (added by offramp doctor). -->",
+        "<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects (added by offramp doctor). -->",
         "<PropertyGroup Condition=\"!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'\">",
         "  <RestoreProjectStyle>PackageReference</RestoreProjectStyle>",
         "  <OfframpLegacyPackages>true</OfframpLegacyPackages>",
@@ -126,22 +137,69 @@ public static class CompileOnlyConditional
         "</PropertyGroup>",
     ];
 
-    /// <summary>All four sections, as a new file gets them.</summary>
-    public static IReadOnlyList<string> BlockLines => [.. CompileOnlyLines, .. WebTargetsLines, .. LegacyLines, .. BclBuildLines];
+    /// <summary>Marks the section for <c>dotnet build</c> on Windows.</summary>
+    public const string DotnetBuildMarker = "<OfframpWindowsDotnetBuild>";
+
+    /// <summary>
+    /// <c>dotnet build</c> on Windows runs .NET's MSBuild, which has none of the tasks sgen, <c>AspNetCompiler</c>, and
+    /// <c>Microsoft.Bcl.Build</c> need, and whose <c>VSToolsPath</c> points into the SDK, where Visual Studio's web
+    /// targets are not: the same as on macOS and Linux. So it gets what the sections above give those, and a build
+    /// that passes there passes with <c>dotnet build</c> on Windows too; Visual Studio's MSBuild (<c>Full</c>) is
+    /// unchanged (docs/decisions/0064-dotnet-build-and-packages-config-without-offramp.md). The web targets package
+    /// goes to SDK-style projects only, as above: a legacy project on Windows restores <c>packages.config</c>'s way.
+    /// </summary>
+    public static readonly string[] DotnetBuildLines =
+    [
+        "<!-- dotnet build on Windows: .NET's MSBuild has no SGen, AspNetCompiler, or Microsoft.Bcl.Build task and no Visual Studio web targets, so it skips and supplies them as on macOS/Linux; Visual Studio's build is unchanged (added by offramp doctor). -->",
+        "<PropertyGroup Condition=\"$([MSBuild]::IsOSPlatform('Windows')) And '$(MSBuildRuntimeType)' == 'Core'\">",
+        "  <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>",
+        "  <MvcBuildViews>false</MvcBuildViews>",
+        "  <AspNetTargetsPath>$(MSBuildThisFileDirectory)</AspNetTargetsPath>",
+        "  <SkipEnsureBindingRedirects>true</SkipEnsureBindingRedirects>",
+        "  " + DotnetBuildMarker + "true</OfframpWindowsDotnetBuild>",
+        "</PropertyGroup>",
+        "<ItemGroup Condition=\"$([MSBuild]::IsOSPlatform('Windows')) And '$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' == 'true' And '$(VSToolsPath)' != ''\">",
+        "  <PackageReference Include=" + WebTargetsMarker + " Version=\"" + WebTargetsVersion + "\" IsImplicitlyDefined=\"true\" PrivateAssets=\"all\" />",
+        "</ItemGroup>",
+    ];
+
+    /// <summary>Marks the packages.config section: the file it imports.</summary>
+    public const string PackagesConfigMarker = PackagesConfigRestore.TargetsFileName;
+
+    /// <summary>
+    /// For repositories with <c>packages.config</c> projects: every project built by .NET's MSBuild imports
+    /// <see cref="PackagesConfigRestore.TargetsFileName"/>, which lays out what <c>packages.config</c> lists after a
+    /// restore, as <c>nuget restore</c> does (<see cref="PackagesConfigRestore"/>). An SDK-style project imports it
+    /// too: it may be what <c>dotnet build</c> starts from, and restores the legacy projects it references.
+    /// </summary>
+    public static readonly string[] PackagesConfigLines =
+    [
+        "<!-- packages.config for dotnet restore: " + PackagesConfigRestore.TargetsFileName + " lays out what each packages.config lists in the packages folder, as nuget restore does (added by offramp doctor). -->",
+        "<Import Project=\"$(MSBuildThisFileDirectory)" + PackagesConfigRestore.TargetsFileName + "\" Condition=\"'$(MSBuildRuntimeType)' == 'Core' And Exists('$(MSBuildThisFileDirectory)" + PackagesConfigRestore.TargetsFileName + "')\" />",
+    ];
+
+    /// <summary>The sections a new file gets; the packages.config one with <paramref name="packagesConfig"/>.</summary>
+    public static IReadOnlyList<string> BlockLines(bool packagesConfig = false) =>
+        [.. CompileOnlyLines, .. WebTargetsLines, .. LegacyLines, .. BclBuildLines, .. DotnetBuildLines, .. packagesConfig ? PackagesConfigLines : []];
 
     /// <summary>True when the legacy projects section is in <paramref name="content"/>.</summary>
     public static bool HasLegacySection(string? content) => content is not null && content.Contains(LegacyMarker, StringComparison.Ordinal);
 
-    /// <summary>True when all four sections are in <paramref name="content"/>.</summary>
-    public static bool IsPresent(string? content) => content is not null && MissingLines(content).Count == 0;
+    /// <summary>True when the packages.config section is in <paramref name="content"/>.</summary>
+    public static bool HasPackagesConfigSection(string? content) => content is not null && content.Contains(PackagesConfigMarker, StringComparison.Ordinal);
+
+    /// <summary>True when every section is in <paramref name="content"/>, the packages.config one with <paramref name="packagesConfig"/>.</summary>
+    public static bool IsPresent(string? content, bool packagesConfig = false) => content is not null && MissingLines(content, packagesConfig).Count == 0;
 
     /// <summary>The new content for <paramref name="current"/> (null when the file does not exist), or null when already present.</summary>
-    public static string? Apply(string? current)
+    /// <param name="current">The file's content, or null when it does not exist.</param>
+    /// <param name="packagesConfig">True to include the packages.config section: the repository has packages.config projects.</param>
+    public static string? Apply(string? current, bool packagesConfig = false)
     {
         if (current is null)
         {
             var created = new StringBuilder("<Project>\n");
-            foreach (var line in BlockLines)
+            foreach (var line in BlockLines(packagesConfig))
             {
                 created.Append("  ").Append(line).Append('\n');
             }
@@ -149,17 +207,26 @@ public static class CompileOnlyConditional
             return created.Append("</Project>\n").ToString();
         }
 
-        var lines = MissingLines(current);
+        var lines = MissingLines(current, packagesConfig);
         if (lines.Count == 0)
         {
             return null;
         }
 
+        return InsertBeforeClose(current, lines, FileName);
+    }
+
+    /// <summary>
+    /// <paramref name="current"/> with <paramref name="lines"/> inserted before its last <c>&lt;/Project&gt;</c>, indented
+    /// as the file indents, in the file's line endings.
+    /// </summary>
+    internal static string InsertBeforeClose(string current, IReadOnlyList<string> lines, string fileName)
+    {
         var newline = current.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
         var close = current.LastIndexOf("</Project>", StringComparison.Ordinal);
         if (close < 0)
         {
-            throw new InvalidDataException($"{FileName} has no closing </Project> element.");
+            throw new InvalidDataException($"{fileName} has no closing </Project> element.");
         }
 
         var lineStart = current.LastIndexOf('\n', Math.Max(close - 1, 0)) + 1;
@@ -197,7 +264,7 @@ public static class CompileOnlyConditional
         return count;
     }
 
-    private static List<string> MissingLines(string content)
+    private static List<string> MissingLines(string content, bool packagesConfig)
     {
         var lines = new List<string>();
         if (!content.Contains(Marker, StringComparison.Ordinal))
@@ -205,10 +272,11 @@ public static class CompileOnlyConditional
             lines.AddRange(CompileOnlyLines);
         }
 
-        // The legacy section names the web targets package too; the web section is there when
-        // the package is named once more than the legacy section accounts for.
+        // The legacy and dotnet build sections name the web targets package too; the web section is there when
+        // the package is named once more than those account for.
         var legacy = content.Contains(LegacyMarker, StringComparison.Ordinal);
-        if (Occurrences(content, WebTargetsMarker) <= (legacy ? 1 : 0))
+        var dotnet = content.Contains(DotnetBuildMarker, StringComparison.Ordinal);
+        if (Occurrences(content, WebTargetsMarker) <= (legacy ? 1 : 0) + (dotnet ? 1 : 0))
         {
             lines.AddRange(WebTargetsLines);
         }
@@ -218,9 +286,20 @@ public static class CompileOnlyConditional
             lines.AddRange(LegacyLines);
         }
 
-        if (!content.Contains(BclBuildMarker, StringComparison.Ordinal))
+        // The dotnet build section sets SkipEnsureBindingRedirects too.
+        if (Occurrences(content, BclBuildMarker) <= (dotnet ? 1 : 0))
         {
             lines.AddRange(BclBuildLines);
+        }
+
+        if (!dotnet)
+        {
+            lines.AddRange(DotnetBuildLines);
+        }
+
+        if (packagesConfig && !HasPackagesConfigSection(content))
+        {
+            lines.AddRange(PackagesConfigLines);
         }
 
         return lines;

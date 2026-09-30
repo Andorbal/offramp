@@ -6,6 +6,6 @@
   </PropertyGroup>
   <!-- A copy written for cmd.exe, in the target Visual Studio adds for an SDK-style project's post-build event. -->
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="copy /y &quot;$(TargetPath)&quot; &quot;$(MSBuildProjectDirectory)\..\..\drop\&quot;" />
+    <Exec Command="xcopy /y /i &quot;$(TargetPath)&quot; &quot;$(MSBuildProjectDirectory)\..\..\drop\&quot;" />
   </Target>
 </Project>

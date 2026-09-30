@@ -63,7 +63,7 @@ public static class DoctorRunner
 
         return new DoctorReport
         {
-            Fix = context.Fix ? PlanFix(context.Repository.Path, guardFiles) : null,
+            Fix = context.Fix ? PlanFix(context.Repository.Path, guardFiles, UsesPackagesConfig(context.Repository.Path, model, files?.Select(f => f.Project))) : null,
             Checks = checks,
             Environment = new DoctorEnvironment
             {
@@ -472,6 +472,24 @@ public static class DoctorRunner
                 .Select(d => d.Data.TryGetValue("file", out var file) ? file?.ToString() : null)
                 .OfType<string>());
 
+    /// <summary>True when a project of the model (before the first scan, of the solution) restores from packages.config.</summary>
+    /// <param name="repositoryRoot">The repository root.</param>
+    /// <param name="model">The workspace model, when there is one.</param>
+    /// <param name="projects">Without a model, the solution's projects, repository-relative.</param>
+    public static bool UsesPackagesConfig(string repositoryRoot, WorkspaceModel? model, IEnumerable<string>? projects) =>
+        PackagesConfigProjects(repositoryRoot, model, projects) > 0;
+
+    private static int PackagesConfigProjects(string root, WorkspaceModel? model, IEnumerable<string>? projects) =>
+        model?.Projects.Count(p => p.PackagesConfig)
+            ?? (projects ?? []).Count(p => File.Exists(Path.Combine(Path.GetDirectoryName(RepoPaths.ToAbsolute(root, p))!, "packages.config")));
+
+    /// <summary>True when <c>dotnet restore</c> restores packages.config: the targets file, its import in the block, and in the solution file.</summary>
+    private static bool PackagesConfigRestored(string root)
+    {
+        var props = Path.Combine(root, CompileOnlyConditional.FileName);
+        return PackagesConfigRestore.IsInPlace(root) && CompileOnlyConditional.HasPackagesConfigSection(File.Exists(props) ? File.ReadAllText(props) : null);
+    }
+
     /// <summary>
     /// Whether a plain <c>dotnet build</c> of the solution does what Offramp's own build does, so that a scan that
     /// builds cleanly means the solution builds for anyone who clones it (docs/decisions/0063-condition-windows-only-settings-in-project-files.md):
@@ -520,16 +538,20 @@ public static class DoctorRunner
             remedies.Add("Set what verify.properties sets in the project files instead (doctor --fix conditions the Windows-only settings), then remove it from offramp.yml.");
         }
 
-        var packagesConfig = model?.Projects.Count(p => p.PackagesConfig)
-            ?? (files ?? []).Count(f => File.Exists(Path.Combine(Path.GetDirectoryName(RepoPaths.ToAbsolute(root, f.Project))!, "packages.config")));
-        if (packagesConfig > 0)
+        var packagesConfig = PackagesConfigProjects(root, model, files?.Select(f => f.Project));
+        var restored = "";
+        if (packagesConfig > 0 && PackagesConfigRestored(root))
+        {
+            restored = string.Create(CultureInfo.InvariantCulture, $" `dotnet restore` restores the {packagesConfig} packages.config project(s) through {PackagesConfigRestore.TargetsFileName}.");
+        }
+        else if (packagesConfig > 0)
         {
             var message = string.Create(CultureInfo.InvariantCulture,
-                $"{packagesConfig} project(s) restore from packages.config, which dotnet restore skips; Offramp's scan restores them into the packages folder, so a fresh clone needs that first.");
+                $"{packagesConfig} project(s) restore from packages.config, which dotnet restore skips, and the repository has no {PackagesConfigRestore.TargetsFileName} to restore it; Offramp's scan restores them into the packages folder, so a fresh clone needs that first.");
             context.Diagnostics.Report(DiagnosticCatalog.OFR0026, message, data: [KeyValuePair.Create<string, JsonNode?>("cause", "packages-config")]);
             codes.Add(DiagnosticCatalog.OFR0026.Code);
             gaps.Add(string.Create(CultureInfo.InvariantCulture, $"{packagesConfig} project(s) use packages.config, which dotnet restore skips"));
-            remedies.Add("For packages.config, run `offramp scan` once in each clone, or convert the projects with `offramp csproj modernize`.");
+            remedies.Add($"Run `offramp doctor --fix --apply`: it adds {PackagesConfigRestore.TargetsFileName}, which has dotnet restore restore packages.config.");
         }
 
         var webSites = (model?.Diagnostics ?? []).Where(d => d.Code == DiagnosticCatalog.OFR0126.Code).Select(d => d.Project ?? d.File).OfType<string>().Order(StringComparer.Ordinal).ToList();
@@ -542,10 +564,10 @@ public static class DoctorRunner
             remedies.Add("Convert a Web Site to a web application project, or build a solution filter without it.");
         }
 
-        var skipped = guarded.Count == 0 ? "" : $"Outside Windows it skips {guarded.Count} conditioned setting(s) that Visual Studio's build runs ({Sites(guarded)}).";
+        var skipped = guarded.Count == 0 ? "" : $" Outside Windows it skips {guarded.Count} conditioned setting(s) that Visual Studio's build runs ({Sites(guarded)}).";
         if (gaps.Count == 0)
         {
-            return Pass(id, title, ("A plain `dotnet build` of the solution does what Offramp's build does. " + skipped).TrimEnd());
+            return Pass(id, title, "A plain `dotnet build` of the solution does what Offramp's build does." + restored + skipped);
         }
 
         return new DoctorCheck
@@ -553,7 +575,7 @@ public static class DoctorRunner
             Id = id,
             Title = title,
             Status = CheckStatus.Warn,
-            Message = ($"A plain `dotnet build` does less than Offramp's build: {string.Join("; ", gaps)}. " + skipped).TrimEnd(),
+            Message = $"A plain `dotnet build` does less than Offramp's build: {string.Join("; ", gaps)}." + restored + skipped,
             Remedy = string.Join(" ", remedies),
             Codes = [.. codes],
         };
@@ -618,14 +640,16 @@ public static class DoctorRunner
     }
 
     /// <summary>
-    /// What <c>--fix</c> would change: the compile-only block in the root Directory.Build.props, and a condition on
-    /// each Windows-only setting in <paramref name="guardFiles"/> (<see cref="GuardFiles"/>).
+    /// What <c>--fix</c> would change: the compile-only block in the root Directory.Build.props, a condition on
+    /// each Windows-only setting in <paramref name="guardFiles"/> (<see cref="GuardFiles"/>), and with
+    /// <paramref name="packagesConfig"/> the files that let <c>dotnet restore</c> restore packages.config
+    /// (<see cref="PackagesConfigRestore"/>).
     /// </summary>
-    public static CompileOnlyFix PlanFix(string repositoryRoot, IReadOnlyList<string>? guardFiles = null)
+    public static CompileOnlyFix PlanFix(string repositoryRoot, IReadOnlyList<string>? guardFiles = null, bool packagesConfig = false)
     {
         var path = Path.Combine(repositoryRoot, CompileOnlyConditional.FileName);
         var current = File.Exists(path) ? File.ReadAllText(path) : null;
-        var updated = CompileOnlyConditional.Apply(current);
+        var updated = CompileOnlyConditional.Apply(current, packagesConfig);
         return new CompileOnlyFix
         {
             File = CompileOnlyConditional.FileName,
@@ -635,17 +659,24 @@ public static class DoctorRunner
                 ? null
                 : UnifiedDiff.Create(current is null ? null : CompileOnlyConditional.FileName, CompileOnlyConditional.FileName, current ?? "", updated),
             ProjectFiles = [.. (guardFiles ?? []).Select(f => WindowsGuards.Plan(repositoryRoot, f)).OfType<ProjectFileFix>()],
+            PackagesConfigFiles = packagesConfig ? PackagesConfigRestore.Plan(repositoryRoot) : [],
+            PackagesConfig = packagesConfig,
         };
     }
 
     /// <summary>
-    /// Conditions the Windows-only settings in <paramref name="guardFiles"/>, then writes the compile-only block;
-    /// returns the fix with <c>Applied</c> set on what was written.
+    /// Conditions the Windows-only settings in <paramref name="guardFiles"/>, writes the packages.config restore files
+    /// with <paramref name="packagesConfig"/>, then the compile-only block; returns the fix with <c>Applied</c> set on
+    /// what was written.
     /// </summary>
-    public static CompileOnlyFix ApplyFix(string repositoryRoot, IReadOnlyList<string>? guardFiles = null)
+    public static CompileOnlyFix ApplyFix(string repositoryRoot, IReadOnlyList<string>? guardFiles = null, bool packagesConfig = false)
     {
-        var plan = PlanFix(repositoryRoot, guardFiles);
-        plan = plan with { ProjectFiles = [.. plan.ProjectFiles.Select(f => WindowsGuards.Apply(repositoryRoot, f.File) ?? f)] };
+        var plan = PlanFix(repositoryRoot, guardFiles, packagesConfig);
+        plan = plan with
+        {
+            ProjectFiles = [.. plan.ProjectFiles.Select(f => WindowsGuards.Apply(repositoryRoot, f.File) ?? f)],
+            PackagesConfigFiles = packagesConfig ? PackagesConfigRestore.Apply(repositoryRoot) : [],
+        };
         if (plan.AlreadyPresent)
         {
             return plan;
@@ -655,7 +686,7 @@ public static class DoctorRunner
         var bytes = File.Exists(path) ? File.ReadAllBytes(path) : null;
         var hasBom = bytes is [0xEF, 0xBB, 0xBF, ..];
         var current = bytes is null ? null : new System.Text.UTF8Encoding(false).GetString(bytes, hasBom ? 3 : 0, bytes.Length - (hasBom ? 3 : 0));
-        File.WriteAllText(path, CompileOnlyConditional.Apply(current)!, new System.Text.UTF8Encoding(hasBom));
+        File.WriteAllText(path, CompileOnlyConditional.Apply(current, packagesConfig)!, new System.Text.UTF8Encoding(hasBom));
         return plan with { Applied = true };
     }
 

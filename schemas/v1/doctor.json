@@ -188,7 +188,8 @@
             "alreadyPresent",
             "applied",
             "diff",
-            "projectFiles"
+            "projectFiles",
+            "packagesConfigFiles"
           ],
           "properties": {
             "file": {
@@ -258,6 +259,33 @@
                         }
                       }
                     }
+                  },
+                  "applied": {
+                    "type": "boolean"
+                  },
+                  "diff": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "packagesConfigFiles": {
+              "type": "array",
+              "description": "With packages.config projects, the files that let dotnet restore restore them (Offramp.PackagesConfig.targets, Directory.Solution.targets), when they are missing or out of date (docs/decisions/0064-dotnet-build-and-packages-config-without-offramp.md).",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file",
+                  "applied",
+                  "diff"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string"
                   },
                   "applied": {
                     "type": "boolean"

@@ -44,7 +44,7 @@ Visual Studio installs. The compile-only block's legacy section and
 | WPF / WinForms on modern targets | need Windows targeting packs | set `EnableWindowsTargeting=true`; they then build on macOS |
 | ASP.NET (System.Web) web application targets, including every `MSBuild.SDK.SystemWeb` project | `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets` ships with Visual Studio only; evaluation stops with MSB4019 | the compile-only block takes them from a package (below) |
 | Precompiled MVC views (`MvcBuildViews=true`, on by default in Release for `MSBuild.SDK.SystemWeb`) | `AspNetCompiler` exists only in .NET Framework's MSBuild (MSB4803) | the compile-only block turns the default off, and `doctor --fix` conditions it where a project sets it |
-| `packages.config` packages | `dotnet restore` skips `packages.config`, and `NuGet.exe` needs Mono | `offramp scan` restores them into `packages/` (below) |
+| `packages.config` packages | `dotnet restore` skips `packages.config`, and `NuGet.exe` needs Mono | `doctor --fix` adds `Offramp.PackagesConfig.targets`, with which `dotnet restore` restores them into `packages/`; `offramp scan` does too ([below](#packagesconfig-with-dotnet-restore)) |
 | Paths in another letter case than the file on disk (Linux only) | Windows and macOS file systems ignore case; Linux does not (MSB4019, CS2001, MSB3030, MSB3554) | rename the reference or the file; `scan` names every one in each project at once (`OFR0117`) |
 | `CodeTaskFactory` inline tasks, as in `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` | only .NET Framework's MSBuild has the factory (MSB4801) | redefine the targets that use it (below); `OFR0118` |
 | `Microsoft.Bcl.Build`'s binding redirects (`EnsureBindingRedirects`) | the task is built against .NET Framework's MSBuild 4.0 (MSB4062) | the compile-only block sets `SkipEnsureBindingRedirects=true`; `OFR0124` |
@@ -72,7 +72,7 @@ Put this in the repository's root `Directory.Build.props` (`offramp doctor
 <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' == 'true' And '$(VSToolsPath)' != ''">
   <PackageReference Include="MSBuild.Microsoft.VisualStudio.Web.targets" Version="14.0.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
 </ItemGroup>
-<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects; offramp scan restores packages.config (added by offramp doctor). -->
+<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects (added by offramp doctor). -->
 <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'">
   <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
   <OfframpLegacyPackages>true</OfframpLegacyPackages>
@@ -92,7 +92,28 @@ Put this in the repository's root `Directory.Build.props` (`offramp doctor
 <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
   <SkipEnsureBindingRedirects>true</SkipEnsureBindingRedirects>
 </PropertyGroup>
+<!-- dotnet build on Windows: .NET's MSBuild has no SGen, AspNetCompiler, or Microsoft.Bcl.Build task and no Visual Studio web targets, so it skips and supplies them as on macOS/Linux; Visual Studio's build is unchanged (added by offramp doctor). -->
+<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(MSBuildRuntimeType)' == 'Core'">
+  <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+  <MvcBuildViews>false</MvcBuildViews>
+  <AspNetTargetsPath>$(MSBuildThisFileDirectory)</AspNetTargetsPath>
+  <SkipEnsureBindingRedirects>true</SkipEnsureBindingRedirects>
+  <OfframpWindowsDotnetBuild>true</OfframpWindowsDotnetBuild>
+</PropertyGroup>
+<ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' == 'true' And '$(VSToolsPath)' != ''">
+  <PackageReference Include="MSBuild.Microsoft.VisualStudio.Web.targets" Version="14.0.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
+</ItemGroup>
+<!-- packages.config for dotnet restore: Offramp.PackagesConfig.targets lays out what each packages.config lists in the packages folder, as nuget restore does (added by offramp doctor). -->
+<Import Project="$(MSBuildThisFileDirectory)Offramp.PackagesConfig.targets" Condition="'$(MSBuildRuntimeType)' == 'Core' And Exists('$(MSBuildThisFileDirectory)Offramp.PackagesConfig.targets')" />
 ```
+
+The last section comes only when the solution has `packages.config` projects
+([below](#packagesconfig-with-dotnet-restore)). The one before it is for `dotnet build` on Windows,
+which runs the same .NET MSBuild as on macOS and Linux and so lacks what they
+lack: with it, a solution that builds with `dotnet build` on a Mac builds with
+`dotnet build` on Windows too (`docs/decisions/0064-dotnet-build-and-packages-config-without-offramp.md`).
+Visual Studio and MSBuild.exe report `MSBuildRuntimeType` `Full` and are
+unaffected.
 
 MSBuild imports `Directory.Build.props` before the project's own properties,
 so a setting the project file makes itself wins over the block; `doctor --fix`
@@ -133,7 +154,7 @@ redirects; on Windows the task still writes the ones the application needs.
 `scan` reports a project that imports the package's targets without the switch
 as `OFR0124`.
 
-## Settings in project files
+### Settings in project files
 
 The compile-only block cannot switch off what a project file sets itself:
 MSBuild reads `Directory.Build.props` first, and the project's own
@@ -176,12 +197,42 @@ warns about what still separates a plain build from Offramp's:
   `offramp doctor --fix --apply`;
 - `verify.properties` in `offramp.yml` (`OFR0026`): Offramp's builds pass them,
   a plain build does not;
-- `packages.config` projects (`OFR0026`): `dotnet restore` does not restore
-  them, so a fresh clone needs its packages folder filled first (`offramp
-  scan` does it, as does `nuget restore` on Windows), until `offramp csproj
-  modernize` moves them to `PackageReference`;
+- `packages.config` projects (`OFR0026`) until the repository has
+  `Offramp.PackagesConfig.targets` ([packages.config with dotnet
+  restore](#packagesconfig-with-dotnet-restore)): without it, `dotnet restore`
+  does not restore them, so a fresh clone fails;
 - an ASP.NET Web Site project (`OFR0026`, `OFR0126`): it stops `dotnet build`
   of the whole solution, so `scan` builds a filter without it.
+
+### packages.config with dotnet restore
+
+`dotnet restore` does not read `packages.config`, and `NuGet.exe` needs Mono
+outside Windows, so a fresh clone of a legacy solution has an empty
+`packages/` folder, and every `HintPath` into it fails. When the solution has
+`packages.config` projects, `offramp doctor --fix --apply` adds, at the
+repository root:
+
+- `Offramp.PackagesConfig.targets`, which Offramp owns and rewrites when it
+  changes. After a restore, of a solution or of a project and the projects it
+  references, it takes what each `packages.config` lists and the packages
+  folder lacks, has NuGet's own restore download it (through a generated
+  project in `obj/offramp-packages-config/`, so the solution's `nuget.config`,
+  feeds, and credentials apply, and a package with two versions in two
+  projects gets both), and lays it out as `nuget restore` does:
+  `<Id>.<Version>/` with the `.nupkg` and the package's files, in
+  `repositoryPath` from `nuget.config`, else `packages/` beside the solution. A
+  project built on its own finds the folder from its `HintPath`s. A package
+  already there, in any letter case, is left alone. The build prints
+  `Offramp: laid out N packages.config package(s)` when it lays any out.
+- the import of that file in `Directory.Build.props` (the block's last
+  section) and in `Directory.Solution.targets`, which MSBuild imports into a
+  solution's build; `doctor --fix` creates that file or adds the import to it.
+
+Both imports are for .NET's MSBuild (`dotnet build`, `dotnet restore`, and IDEs
+that run them) on any OS; Visual Studio restores `packages.config` itself and
+does not import them. Commit all three files: then `git clone` and `dotnet
+build` is all anyone needs, with or without Offramp. `doctor`'s **Builds without
+Offramp** check says whether they are in place.
 
 ### ASP.NET (System.Web) projects
 
@@ -232,8 +283,10 @@ Offramp supplies each (`docs/decisions/0037-legacy-projects-outside-windows.md`)
 - **The Visual Basic runtime.** The reference assemblies package wires it for
   SDK-style projects only; the legacy section references `Microsoft.VisualBasic`
   and passes it to the compiler the way the SDK does.
-- **The `packages.config` packages.** `offramp scan` restores them into the
-  solution's packages folder (`repositoryPath` from `nuget.config`, else
+- **The `packages.config` packages.** `dotnet restore` restores them once
+  `doctor --fix` has added `Offramp.PackagesConfig.targets` ([packages.config
+  with dotnet restore](#packagesconfig-with-dotnet-restore)). `offramp scan`
+  restores them itself, too, into the solution's packages folder (`repositoryPath` from `nuget.config`, else
   `packages/` beside the solution) as `nuget restore` lays it out
   (`packages/<Id>.<Version>/`), from the NuGet global packages folder when it
   has them and otherwise from the feeds in `nuget.config`. It never overwrites a

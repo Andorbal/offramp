@@ -16,10 +16,10 @@ public sealed class WindowsOnlySettingsFixtureTests
 {
     private const string Solution = "WindowsSettings.sln";
 
+    /// <summary>On Windows too: <c>dotnet build</c> is .NET's MSBuild there as well, which has no SGen task.</summary>
     [Fact]
     public async Task The_block_alone_does_not_turn_off_what_a_project_file_sets()
     {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "The compile-only block applies outside Windows only.");
         using var repository = await FixtureRepository.CreateAsync("windows-only-settings");
 
         var fix = DoctorRunner.ApplyFix(repository.Path);
@@ -31,10 +31,13 @@ public sealed class WindowsOnlySettingsFixtureTests
         Assert.Contains("MSB3474", build.StandardOutput, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// On every OS, as anyone would build it. Outside Windows the build events are skipped; on Windows they run, and
+    /// sgen and AspNetCompiler are skipped by dotnet build there too (ADR 0064): the same compile everywhere.
+    /// </summary>
     [Fact]
     public async Task After_doctor_fix_a_plain_build_of_the_whole_solution_succeeds()
     {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "The compile-only block applies outside Windows only.");
         using var repository = await FixtureRepository.CreateAsync("windows-only-settings");
         var projects = (await SolutionReader.ReadAsync(Path.Combine(repository.Path, Solution), CancellationToken.None)).ProjectPaths
             .Select(p => RepoPaths.ToRepositoryRelative(repository.Path, p));
@@ -52,8 +55,8 @@ public sealed class WindowsOnlySettingsFixtureTests
             Assert.True(build.Succeeded, $"dotnet build -c {configuration}:\n{build.StandardOutput}{build.StandardError}");
         }
 
-        // The build events were skipped, not run through /bin/sh.
-        Assert.False(Directory.Exists(Path.Combine(repository.Path, "drop")));
+        // Outside Windows the build events were skipped, not run through /bin/sh; on Windows they ran.
+        Assert.Equal(OperatingSystem.IsWindows(), Directory.Exists(Path.Combine(repository.Path, "drop")));
 
         // Only the conditions changed: git sees one changed line per setting.
         var diff = await repository.GitAsync("diff", "--numstat", "--", "src");

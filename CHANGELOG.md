@@ -12,6 +12,21 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- `doctor --fix` makes `dotnet restore` restore `packages.config` (ADR 0064): for a solution with
+  `packages.config` projects it adds `Offramp.PackagesConfig.targets`, imported from the block and
+  from `Directory.Solution.targets`, which after a restore has NuGet download what each
+  `packages.config` lists (through a generated project, so the solution's feeds and credentials
+  apply) and lays it out in the packages folder as `nuget restore` does. A fresh clone of a legacy
+  solution then builds with a plain `dotnet build` on any OS, without Offramp: on the mvc5 fixture
+  it fails without the file (CS0246) and succeeds with it, and legacy-shared's two versions of
+  Newtonsoft.Json restore from an empty NuGet cache. `doctor`'s plain-build check counts
+  `packages.config` as handled once the files are in place.
+- The compile-only block has a section for `dotnet build` on Windows (ADR 0064): .NET's MSBuild
+  has no `SGen`, `AspNetCompiler`, or `Microsoft.Bcl.Build` task there either, and no Visual
+  Studio web targets, so it gets what macOS and Linux get. An `MSBuild.SDK.SystemWeb` site, which
+  turns `MvcBuildViews` on in Release, built with `dotnet build -c Release` on a Mac and failed on
+  Windows (MSB4803); Visual Studio's build is unchanged. The systemweb and windows-only-settings
+  fixtures now build on Windows in CI as well.
 - `doctor --fix` conditions the Windows-only settings a project file sets itself, which win over the
   compile-only block in `Directory.Build.props` (ADR 0063): `GenerateSerializationAssemblies` and
   `MvcBuildViews` on `'$(MSBuildRuntimeType)' != 'Core'` (only Visual Studio's MSBuild has sgen and
@@ -230,6 +245,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- On Windows: `move extract` added a project to a `.sln` with forward slashes, which its in-place edit
+  did not find, so it rewrote the whole solution (`OFR2115`); `csproj modernize`'s verification errors,
+  scan's non-string resource evidence, and a build-time generator's outputs had backslashes in their
+  repository-relative paths. Found by the Windows CI job, with test helpers that assumed `/`.
+- The test helper that fills `packages/` for fixture scans restored one version of a package that
+  two projects list in two versions (legacy-shared's Newtonsoft.Json 12.0.1 and 13.0.3), so
+  `CsprojModernizeCommandTests.Verification_builds_with_the_working_trees_untracked_imports` failed
+  on a runner with an empty NuGet cache (macOS CI). It now downloads every version.
 - `OFR0110` and `OFR0116` said the compile-only block turns sgen and `MvcBuildViews` off outside
   Windows; it cannot where the project file sets them, and their fixes now say what `doctor --fix`
   does there. `doctor` said "No project needs Windows to build" when `verify.properties` only hid a

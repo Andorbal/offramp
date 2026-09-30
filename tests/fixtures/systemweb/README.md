@@ -13,6 +13,6 @@ library it references:
 file systems are case-sensitive.
 
 Built by tests: scanned as is (`OFR0116`, step `web-targets`), and again after
-`doctor --fix` added the compile-only block, which outside Windows takes the web
-targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package and then
-builds cleanly.
+`doctor --fix` added the compile-only block, which for `dotnet build` (outside
+Windows, and on Windows since ADR 0064) takes the web targets from the
+`MSBuild.Microsoft.VisualStudio.Web.targets` package and then builds cleanly.
