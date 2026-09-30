@@ -50,34 +50,43 @@ public static class CaseLinks
         return linked;
     }
 
-    /// <summary>The existing file or folder whose path equals <paramref name="path"/> ignoring case, or null.</summary>
+    /// <summary>
+    /// The existing file or folder whose path equals <paramref name="path"/> ignoring case, or null. A folder may
+    /// exist in several spellings (OLW has both <c>Video/YouTube</c> and <c>Video/Youtube</c>), so every spelling of
+    /// each component is tried, the exact one first, until the whole path resolves.
+    /// </summary>
     private static string? Resolve(string path)
     {
         var root = Path.GetPathRoot(path)!;
-        var current = root;
-        foreach (var part in path[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        var parts = path[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+        return Resolve(root, parts, 0);
+    }
+
+    private static string? Resolve(string current, string[] parts, int index)
+    {
+        if (index == parts.Length)
         {
-            var exact = Path.Combine(current, part);
-            if (Path.Exists(exact))
-            {
-                current = exact;
-                continue;
-            }
-
-            var match = Directory.Exists(current)
-                ? Directory.EnumerateFileSystemEntries(current)
-                    .Where(e => string.Equals(Path.GetFileName(e), part, StringComparison.OrdinalIgnoreCase))
-                    .Order(StringComparer.Ordinal)
-                    .FirstOrDefault()
-                : null;
-            if (match is null)
-            {
-                return null;
-            }
-
-            current = match;
+            return current;
         }
 
-        return current;
+        if (!Directory.Exists(current))
+        {
+            return null;
+        }
+
+        var exact = Path.Combine(current, parts[index]);
+        var candidates = Directory.EnumerateFileSystemEntries(current)
+            .Where(e => string.Equals(Path.GetFileName(e), parts[index], StringComparison.OrdinalIgnoreCase))
+            .OrderBy(e => e == exact ? 0 : 1)
+            .ThenBy(e => e, StringComparer.Ordinal);
+        foreach (var candidate in candidates)
+        {
+            if (Resolve(candidate, parts, index + 1) is { } resolved)
+            {
+                return resolved;
+            }
+        }
+
+        return null;
     }
 }
