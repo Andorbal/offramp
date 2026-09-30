@@ -66,7 +66,9 @@ frameworks:
    `OFR2112`, with the warnings. Then take `SRC`'s Compilation, remove the trees,
    and read diagnostics for the remaining trees: new errors mean the source
    still needs the code → resolved by `SRC → DEST` reference if acyclic, else
-   `OFR2104 source still depends on moved code`.
+   `OFR2104 source still depends on moved code`: every candidate is in
+   `excluded` with the reason and the errors, and one `OFR2104` diagnostic for
+   the project names the file count and the first error.
 4. **Platform analyzers.** When a `DEST` target is non-Windows modern, run
    CA1416 (platform compatibility) over the added trees; warnings become
    `OFR2105` (warning; the file still moves unless `--fail-on warning`).

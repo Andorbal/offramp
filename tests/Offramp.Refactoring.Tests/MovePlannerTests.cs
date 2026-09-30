@@ -1,10 +1,14 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Offramp.Core.Caching;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
+using Offramp.Core.Model;
 using Offramp.Fixtures;
 using Offramp.Refactoring.Moves;
 using Offramp.Workspace.Scanning;
 using Offramp.Workspace.Store;
+using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 
 namespace Offramp.Refactoring.Tests;
 
@@ -255,6 +259,64 @@ public sealed class MovePlannerTests
         Assert.Empty(plan.Excluded);
         Assert.Equal(["src/Legacy/Clean/Money.cs", "src/Legacy/Orders/OrderMapper.cs"], plan.Moves.Select(m => m.File));
         Assert.Contains(plan.ProjectEdits, e => e.Project == "src/Framework/Framework.csproj" && e.Kind == ProjectEditKind.AddProjectReference && e.Value == "src/Contracts/Contracts.csproj");
+    }
+
+    [Fact]
+    public void A_source_that_breaks_without_the_moved_files_is_reported_once()
+    {
+        // As in DotNetNuke 9.13 (--all: 98 x OFR2104) and NHibernate 4.1.2: the source keeps a generated half of a
+        // partial type whose other half moves, so it no longer compiles. Every file stays, each with the reason; the
+        // failure is the project's, so it is one diagnostic, and the partial sibling that stays with its part adds none.
+        using var root = new ScratchDirectory("source-breaks");
+        string Tree(string path) => root.Combine([.. path.Split('/')]);
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText("namespace Lib { public partial class Widget { public int Size => 1; } }", path: Tree("src/Lib/Widget.cs")),
+            CSharpSyntaxTree.ParseText("namespace Lib { public partial class Widget { public int Twice => Size * 2; } }", path: Tree("src/Lib/obj/Widget.g.cs")),
+            CSharpSyntaxTree.ParseText("namespace Lib { public static class Clock { public static int Now() => 0; } }", path: Tree("src/Lib/Clock.cs")),
+            CSharpSyntaxTree.ParseText("namespace Lib { public partial class Order { public int Id => 1; } }", path: Tree("src/Lib/Parts/Order.cs")),
+            CSharpSyntaxTree.ParseText("namespace Lib { public partial class Order { public int Lines => 2; } }", path: Tree("src/Lib/Parts/Order.Lines.cs")),
+            CSharpSyntaxTree.ParseText("namespace Lib { public static class User { public static int Get() => new Widget().Twice + Clock.Now() + new Order().Lines; } }", path: Tree("src/Lib/User.cs")),
+        };
+        MetadataReference[] corlib = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
+        var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var compilations = new Compilations(CSharpCompilation.Create("Lib", trees, corlib, options));
+        var source = new ProjectInfo
+        {
+            Id = "src/Lib/Lib.csproj", Name = "Lib", SdkStyle = true, TargetFrameworks = ["netstandard2.0"],
+            Compile = ["src/Lib/Clock.cs", "src/Lib/Parts/Order.Lines.cs", "src/Lib/Parts/Order.cs", "src/Lib/User.cs", "src/Lib/Widget.cs"],
+            CompilerCalls = new(StringComparer.Ordinal) { ["netstandard2.0"] = new CompilerCallRef(".offramp/build.complog", "src/Lib/Lib.csproj", "netstandard2.0") },
+        };
+        var created = new ProjectInfo { Id = "src/Lib.Core/Lib.Core.csproj", Name = "Lib.Core", SdkStyle = true, TargetFrameworks = ["netstandard2.0"] };
+        var model = new WorkspaceModel
+        {
+            CreatedAt = "2026-09-30T00:00:00Z", RepositoryRoot = root.Path, Projects = [source, created],
+            Source = new WorkspaceSource(WorkspaceSourceKind.Build, ".offramp/msbuild.binlog", new string('0', 64)), Sdk = new SdkInfo("10.0.100", "linux-x64"),
+        };
+        var diagnostics = new DiagnosticBag();
+
+        var plan = MovePlanner.Plan(new MovePlanRequest
+        {
+            RepositoryRoot = root.Path, Model = model, Config = new OfframpConfig(), WorkspaceHash = "", From = source.Id, To = created.Id,
+            Files = ["src/Lib/Clock.cs", "src/Lib/Parts/Order.cs", "src/Lib/Widget.cs"], CoMove = "closure", NamespaceMismatch = "allow", Diagnostics = diagnostics,
+            Create = new NewProject(created, "<Project Sdk=\"Microsoft.NET.Sdk\" />"u8.ToArray(), [("netstandard2.0", CSharpCompilation.Create("Lib.Core", [], corlib, options))]),
+            Compilations = compilations,
+        })!.Plan;
+
+        Assert.Empty(plan.Moves);
+        Assert.Equal(["src/Lib/Clock.cs", "src/Lib/Parts/Order.Lines.cs", "src/Lib/Parts/Order.cs", "src/Lib/Widget.cs"], plan.Excluded.Select(e => e.File));
+        Assert.All(plan.Excluded, e => Assert.Equal("OFR2104", e.Code));
+        var failure = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR2104");
+        Assert.Equal((source.Id, null), (failure.Project, failure.File));
+        Assert.StartsWith("Lib does not compile without the 4 files the move would take (CS0103: ", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The recorded compilation of the one source project, and no analyzers.</summary>
+    private sealed class Compilations(Compilation source) : Offramp.Analysis.Compilations.ICompilationSource
+    {
+        public Compilation? LoadForProject(ProjectInfo project, string targetFramework) => project.Id == "src/Lib/Lib.csproj" ? source : null;
+
+        public (System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.Diagnostics.DiagnosticAnalyzer> Analyzers, Microsoft.CodeAnalysis.Diagnostics.AnalyzerOptions Options)? LoadAnalyzers(ProjectInfo project, string targetFramework) => null;
     }
 
     /// <summary>

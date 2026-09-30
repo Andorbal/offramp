@@ -682,11 +682,20 @@ public static class MovePlanner
                 return false;
             }
 
+            // Every file stays, each with the reason; the failure is the project's, so it is reported once, at the project.
+            var files = candidates.Count;
             foreach (var file in candidates.ToList())
             {
-                Exclude(candidates, file, DiagnosticCatalog.OFR2104, $"{source.Id} does not compile without the moved files, so nothing moves.", errors);
+                Exclude(candidates, file, DiagnosticCatalog.OFR2104, $"{source.Id} does not compile without the moved files, so nothing moves.", errors, report: false);
             }
 
+            Bag.Report(DiagnosticCatalog.OFR2104,
+                $"{source.Name} does not compile without the {files} file{(files == 1 ? "" : "s")} the move would take ({errors[0]}), so nothing moves.",
+                new DiagnosticLocation(source.Id),
+                [
+                    KeyValuePair.Create<string, JsonNode?>("details", new JsonArray([.. errors.Select(e => (JsonNode?)e)])),
+                    KeyValuePair.Create<string, JsonNode?>("files", files),
+                ]);
             return true;
         }
 
@@ -1147,7 +1156,12 @@ public static class MovePlanner
             return (DiagnosticCatalog.OFR2103, $"Does not compile in {destination.Id}: {details[0]}", details);
         }
 
-        private bool Exclude(SortedSet<string> candidates, string file, DiagnosticDescriptor code, string message, List<string> details)
+        /// <summary>
+        /// Keeps a file where it is: an <c>excluded</c> entry with the reason, and (unless <paramref name="report"/> is
+        /// false, when the caller reports once for the project) a diagnostic at the file. Its pair and partial siblings
+        /// stay with it, reported the same way.
+        /// </summary>
+        private bool Exclude(SortedSet<string> candidates, string file, DiagnosticDescriptor code, string message, List<string> details, bool report = true)
         {
             if (!candidates.Remove(file))
             {
@@ -1155,13 +1169,16 @@ public static class MovePlanner
             }
 
             _excluded[file] = new ExcludedMove { File = file, Code = code.Code, Message = message, Details = details };
-            Bag.Report(code, message, new DiagnosticLocation(source.Id, file),
-                details.Count == 0 ? null : [KeyValuePair.Create<string, JsonNode?>("details", new JsonArray([.. details.Select(d => (JsonNode?)d)]))]);
+            if (report)
+            {
+                Bag.Report(code, message, new DiagnosticLocation(source.Id, file),
+                    details.Count == 0 ? null : [KeyValuePair.Create<string, JsonNode?>("details", new JsonArray([.. details.Select(d => (JsonNode?)d)]))]);
+            }
 
-            // Its pair and partial siblings stay with it; co-moves nothing else needs stay too (DropUnneeded).
+            // Co-moves nothing else needs stay too (DropUnneeded).
             foreach (var partner in Pairs(file).Concat(_trees.TryGetValue(file, out var tree) ? PartialSiblings(tree) : []).Where(candidates.Contains).ToList())
             {
-                Exclude(candidates, partner, code, $"Moves only with {file}, which stays.", [file]);
+                Exclude(candidates, partner, code, $"Moves only with {file}, which stays.", [file], report);
             }
 
             return true;

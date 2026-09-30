@@ -146,6 +146,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `move plan` and `move extract` report a source that does not compile without the moved files
+  once, at the project, with the file count and the first error, instead of one `OFR2104` per file
+  (and one more for each resource pair or partial sibling kept with it): DotNetNuke 9.13's
+  `move plan --all` from `DotNetNuke.Library` gave 98 identical errors. Each file is still in
+  `excluded`, with the reason and the errors.
 - `seams` on NHibernate 4.1.2 tainted 1,445 of 2,355 types and proposed moving them all to
   `NHibernate.Windows`, with 13 seams unrelated to the unportable APIs, in 14.6 MB of JSON. The
   cycles that move together were the components of every reference, calls included, which put 7
