@@ -67,4 +67,12 @@ public static partial class DiagnosticCatalog
         "An empty `_CopyFilesMarkedCopyLocal` target that turned copy-local off, an `AfterCompile` step, a shared settings file that every legacy project imports.",
         "Hook a target of another name to the one it replaced (BeforeTargets or AfterTargets); condition the imported properties on '$(UsingMicrosoftNETSdk)' != 'true', or remove them.",
         CsprojArea);
+
+    public static readonly DiagnosticDescriptor OFR4309 = new(
+        "OFR4309", Severity.Info,
+        "verification used files HEAD does not have",
+        "Verification builds in a scratch copy of HEAD with the working tree's changes over it, and the files the scan's build read that HEAD does not have (untracked or ignored by git) are among them: a link or copy that fixes a path's letter case, a file a build step generates, an untracked Directory.Build.props. The conversion is verified for this working tree; a clean checkout lacks the files. The message and `data.files` name them; files of restored packages are only counted (`data.packageFiles`).",
+        "Fixes a diagnostic prescribed (OFR0117's link for a path in the wrong letter case, OFR0115's pre-generated output) that are not committed yet, files a build step writes and git ignores.",
+        "Nothing, if the files are meant to stay local. Otherwise commit them, or have the build create them, so a clean checkout builds and verifies the same way.",
+        CsprojArea);
 }

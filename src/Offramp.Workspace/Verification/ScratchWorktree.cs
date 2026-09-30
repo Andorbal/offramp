@@ -17,6 +17,7 @@ public sealed class ScratchWorktree : IAsyncDisposable
     private readonly IGitService _git;
     private readonly string _repositoryRoot;
     private readonly bool _isWorktree;
+    private readonly SortedSet<string> _uncommitted = new(StringComparer.Ordinal);
 
     private ScratchWorktree(IGitService git, string repositoryRoot, string path, bool isWorktree)
     {
@@ -28,6 +29,12 @@ public sealed class ScratchWorktree : IAsyncDisposable
 
     /// <summary>The scratch copy's root; repository-relative paths resolve against it.</summary>
     public string Path { get; }
+
+    /// <summary>
+    /// The files copied in from the working tree that the checked-out revision does not have (untracked or
+    /// ignored by git), repository-relative and sorted; empty outside git, where there is no revision.
+    /// </summary>
+    public IReadOnlyList<string> Uncommitted => [.. _uncommitted];
 
     /// <param name="repositoryRoot">The repository to copy.</param>
     /// <param name="files">Repository-relative files copied from the working tree over the checkout (or into the empty directory outside git).</param>
@@ -96,13 +103,54 @@ public sealed class ScratchWorktree : IAsyncDisposable
         return System.IO.Path.Combine(RepoPaths.Canonical(parent), ContentHash.Sha256(root)[..8] + "-" + Guid.NewGuid().ToString("N")[..8]);
     }
 
-    /// <summary>Copies a repository-relative file from the working tree into the scratch copy.</summary>
+    /// <summary>
+    /// Copies a repository-relative file from the working tree into the scratch copy, unless the scratch copy
+    /// has it with the same content already. A symbolic link is copied as the file it points to.
+    /// </summary>
     public void CopyIn(string relativePath)
     {
         var source = RepoPaths.ToAbsolute(_repositoryRoot, relativePath);
         var target = Resolve(relativePath);
+        var checkedOut = File.Exists(target);
+        if (checkedOut && SameContent(source, target))
+        {
+            return;
+        }
+
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(target)!);
+        if (new FileInfo(target).LinkTarget is not null)
+        {
+            File.Delete(target); // Copying over a link would write into the file it points to.
+        }
+
         File.Copy(source, target, overwrite: true);
+        if (!checkedOut && _isWorktree)
+        {
+            _uncommitted.Add(relativePath);
+        }
+    }
+
+    private static bool SameContent(string first, string second)
+    {
+        using var a = File.OpenRead(first);
+        using var b = File.OpenRead(second);
+        if (a.Length != b.Length)
+        {
+            return false;
+        }
+
+        var left = new byte[81920];
+        var right = new byte[81920];
+        int read;
+        while ((read = a.ReadAtLeast(left, left.Length, throwOnEndOfStream: false)) > 0)
+        {
+            if (b.ReadAtLeast(right, read, throwOnEndOfStream: false) != read || !left.AsSpan(0, read).SequenceEqual(right.AsSpan(0, read)))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>The absolute path of a repository-relative path inside the scratch copy.</summary>

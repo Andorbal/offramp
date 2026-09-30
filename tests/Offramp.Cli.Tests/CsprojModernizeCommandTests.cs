@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Offramp.Cli.Commands;
 using Offramp.Cli.Rendering;
 using Offramp.Fixtures;
@@ -293,6 +295,102 @@ public sealed class CsprojModernizeCommandTests
         Assert.Contains("<IntermediateOutputPath>", JsonNode.Parse(run.Out)!["result"]!["preview"]!.GetValue<string>(), StringComparison.Ordinal);
         Assert.True(project["verification"]!["passed"]!.GetValue<bool>(), run.Out);
         Assert.Empty(project["verification"]!["targets"]![0]!["sourcesAdded"]!.AsArray());
+    }
+
+    /// <summary>
+    /// Open Live Writer 0.6.3 and SmartStoreNET 4.2.0 (corpus): legacy projects that a converted project references
+    /// read files that only the working tree has. OLW's CoreServices copies <c>intl/markets/Master.xml</c>, an untracked
+    /// link that fixes its letter case (OFR0117), and embeds <c>Markets.xml</c>, generated and git-ignored (OFR0115);
+    /// SmartStoreNET's site imports the build files of packages that <c>scan</c> restored into the git-ignored
+    /// <c>packages/</c>, stops without them (<c>EnsureNuGetPackageBuildImports</c>), and runs a task from one
+    /// package's <c>tasks/</c> folder (Microsoft.CodeDom.Providers.DotNetCompilerPlatform's <c>KillProcess</c>). The
+    /// scratch copy verification builds in had none of them: 20 of 28 OLW conversions failed with MSB3030, and 1 of 11
+    /// SmartStoreNET ones.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR4309")]
+    public async Task Verification_builds_with_the_files_the_scans_build_read_that_head_does_not_have()
+    {
+        const string Targets = "packages/Contoso.Build.1.0.0/build/Contoso.Build.targets";
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared", (root, request) =>
+        {
+            void Write(string file, string content)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(root, file))!);
+                File.WriteAllText(Path.Combine(root, file), content);
+            }
+
+            Write("data/master.xml", "<markets />\n");
+            Write("src/Layers.Data/Markets.xml", "<markets generated=\"true\" />\n");
+            Write(Targets, """
+                <Project>
+                  <UsingTask TaskName="Contoso.Build.Stamp" AssemblyFile="$(MSBuildThisFileDirectory)..\tasks\Contoso.Build.Tasks.dll" />
+                  <Target Name="ContosoStamp" BeforeTargets="CoreCompile">
+                    <Stamp />
+                  </Target>
+                </Project>
+                """);
+            WriteTaskAssembly(Path.Combine(root, "packages/Contoso.Build.1.0.0/tasks/Contoso.Build.Tasks.dll"));
+            var config = Path.Combine(root, "src/Layers.Data/packages.config");
+            File.WriteAllText(config, File.ReadAllText(config).Replace("</packages>",
+                "  <package id=\"Contoso.Build\" version=\"1.0.0\" targetFramework=\"net48\" developmentDependency=\"true\" />\n</packages>", StringComparison.Ordinal));
+            var data = Path.Combine(root, "src/Layers.Data/Layers.Data.csproj");
+            var project = File.ReadAllText(data);
+            File.WriteAllText(data, project[..project.LastIndexOf("</Project>", StringComparison.Ordinal)] + """
+                  <ItemGroup>
+                    <EmbeddedResource Include="Markets.xml" />
+                  </ItemGroup>
+                  <Import Project="..\..\packages\Contoso.Build.1.0.0\build\Contoso.Build.targets" Condition="Exists('..\..\packages\Contoso.Build.1.0.0\build\Contoso.Build.targets')" />
+                  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+                    <Error Condition="!Exists('..\..\packages\Contoso.Build.1.0.0\build\Contoso.Build.targets')" Text="This project references NuGet package(s) that are missing on this computer." />
+                  </Target>
+                  <Target Name="CopyMaster" BeforeTargets="CoreCompile">
+                    <Copy SourceFiles="..\..\data\master.xml" DestinationFolder="$(IntermediateOutputPath)" />
+                  </Target>
+                </Project>
+                """);
+            return request;
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Layers.Tests", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        Assert.True(JsonNode.Parse(run.Out)!["result"]!["projects"]![0]!["verification"]!["passed"]!.GetValue<bool>(), run.Out);
+        var used = Assert.Single(Diagnostics(run.Out, "OFR4309"));
+        var files = used["data"]!["files"]!.AsArray().Select(f => f!.GetValue<string>()).ToList();
+        Assert.Contains("data/master.xml", files);
+        Assert.Contains("src/Layers.Data/Markets.xml", files);
+        Assert.DoesNotContain(files, f => f.StartsWith("packages/", StringComparison.Ordinal));
+        Assert.True(used["data"]!["packageFiles"]!.GetValue<int>() >= 4, used.ToJsonString());
+        Assert.Contains("data/master.xml", used["message"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    /// <summary>An assembly with an MSBuild task, <c>Contoso.Build.Stamp</c>, which does nothing.</summary>
+    private static void WriteTaskAssembly(string path)
+    {
+        const string Source = """
+            namespace Contoso.Build;
+
+            public sealed class Stamp : Microsoft.Build.Framework.ITask
+            {
+                public Microsoft.Build.Framework.IBuildEngine BuildEngine { get; set; } = null!;
+
+                public Microsoft.Build.Framework.ITaskHost HostObject { get; set; } = null!;
+
+                public bool Execute() => true;
+            }
+            """;
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+            .Append(typeof(Microsoft.Build.Framework.ITask).Assembly.Location)
+            .DistinctBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+            .Select(f => MetadataReference.CreateFromFile(f));
+        var compilation = CSharpCompilation.Create("Contoso.Build.Tasks", [CSharpSyntaxTree.ParseText(Source)], references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var emitted = compilation.Emit(path);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
     }
 
     private static List<JsonNode> Diagnostics(string envelope, string code) =>

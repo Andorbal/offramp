@@ -8,6 +8,7 @@ using Offramp.Core.Paths;
 using Offramp.Core.Processes;
 using Offramp.Core.Progress;
 using Offramp.Refactoring.ChangeSets;
+using Offramp.Workspace.Store;
 using Offramp.Workspace.Verification;
 
 namespace Offramp.Scaffolding.Csproj;
@@ -66,6 +67,7 @@ public static class ModernizeVerifier
         }
 
         await using var scratch = await ScratchWorktree.CreateAsync(root, Files(request), request.Git, cancellationToken);
+        ReportUncommitted(request, scratch);
         Apply(request.ChangeSet, scratch);
         var index = 0;
         foreach (var project in request.Projects.Order(StringComparer.Ordinal))
@@ -155,12 +157,21 @@ public static class ModernizeVerifier
         };
     }
 
-    /// <summary>What the scratch copy needs beyond the committed tree: the model's inputs, every compile item, HintPath assemblies (a packages folder is rarely committed), and the converted projects' folders.</summary>
+    /// <summary>
+    /// What the scratch copy needs beyond the committed tree: the model's inputs, every compile item, HintPath
+    /// assemblies (a packages folder is rarely committed), the converted projects' folders, and every other file
+    /// the scan's build read from the working tree (ADR 0062: imports, packages' build files, resources, copy sources).
+    /// </summary>
     private static List<string> Files(ModernizeVerifyRequest request)
     {
         var root = request.RepositoryRoot;
         var files = new HashSet<string>(StringComparer.Ordinal);
         files.UnionWith(request.Model.Inputs.Select(i => i.Path));
+        if (request.Model.Source.Kind != WorkspaceSourceKind.Complog)
+        {
+            files.UnionWith(BuildReads.Read(RepoPaths.ToAbsolute(root, request.Model.Source.Path), root, WorkspaceStore.StateDirectory(root, request.Config)));
+        }
+
         foreach (var project in request.Model.Projects)
         {
             files.UnionWith(project.Compile);
@@ -176,6 +187,33 @@ public static class ModernizeVerifier
         }
 
         return [.. files.Where(f => File.Exists(RepoPaths.ToAbsolute(root, f))).Order(StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    /// <c>OFR4309</c> when the scratch copy took files from the working tree that <c>HEAD</c> does not have: the
+    /// verification holds for this working tree, not for a clean checkout. Files of restored packages
+    /// (<c>packages/&lt;Id&gt;.&lt;Version&gt;/</c> of a package a packages.config lists) are counted, not named.
+    /// </summary>
+    private static void ReportUncommitted(ModernizeVerifyRequest request, ScratchWorktree scratch)
+    {
+        var uncommitted = scratch.Uncommitted;
+        var packages = uncommitted.Where(f => request.Model.Projects.Any(p => p.PackagesConfigPackageFor(f) is not null)).ToHashSet(StringComparer.Ordinal);
+        var files = uncommitted.Where(f => !packages.Contains(f)).ToList();
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        var shown = string.Join(", ", files.Take(5));
+        var more = files.Count > 5 ? string.Create(CultureInfo.InvariantCulture, $", and {files.Count - 5} more") : "";
+        var restored = packages.Count > 0 ? string.Create(CultureInfo.InvariantCulture, $"; also {packages.Count} file{(packages.Count == 1 ? "" : "s")} of restored packages") : "";
+        request.Diagnostics.Report(DiagnosticCatalog.OFR4309,
+            string.Create(CultureInfo.InvariantCulture, $"Verification used {files.Count} file{(files.Count == 1 ? "" : "s")} from the working tree that HEAD does not have (untracked or ignored by git): {shown}{more}{restored}."),
+            data:
+            [
+                KeyValuePair.Create<string, JsonNode?>("files", new JsonArray([.. files.Select(f => (JsonNode?)f)])),
+                KeyValuePair.Create<string, JsonNode?>("packageFiles", packages.Count),
+            ]);
     }
 
     private static void Apply(ChangeSet changeSet, ScratchWorktree scratch)

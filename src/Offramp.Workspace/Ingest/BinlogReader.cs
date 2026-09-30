@@ -39,6 +39,13 @@ public sealed record AssemblyCopy(string ProjectFile, string Destination);
 /// <summary>A project and target framework (null when none is known) whose compiler task logged an error.</summary>
 public sealed record FailedCompilation(string ProjectFile, string? TargetFramework);
 
+/// <summary>
+/// The files a build read, as far as its log says, as captured (absolute, forward slashes, sorted): see
+/// <see cref="BinlogReader.ReadInputs"/>. <see cref="ProjectFiles"/> are the evaluated projects, for mapping the paths;
+/// <see cref="TaskAssemblies"/> the assemblies its tasks were loaded from, whose dependencies load from beside them.
+/// </summary>
+public sealed record BuildInputs(IReadOnlyList<string> ProjectFiles, IReadOnlyList<string> Files, IReadOnlyList<string> TaskAssemblies);
+
 /// <summary>Reads evaluations, items, targets, and errors from a binary log with MSBuild.StructuredLogger.</summary>
 public static class BinlogReader
 {
@@ -134,6 +141,116 @@ public static class BinlogReader
             FailedCompilations = FailedCompilations(errors, tfmByEvaluation),
             AssemblyCopies = AssemblyCopies(build, chosen.Values),
         };
+    }
+
+    /// <summary>Item types whose items are files a build hands to its tasks (the compiler, resource generation, XAML, copies to the output).</summary>
+    public static readonly IReadOnlySet<string> FileItemTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Compile", "EmbeddedResource", "Content", "None", "Resource", "Page", "ApplicationDefinition", "AdditionalFiles",
+        "Analyzer", "EntityDeploy", "COMFileReference",
+    };
+
+    /// <summary>
+    /// What a build read from disk, as far as its log records it: the files every evaluation imported, the files its
+    /// items name (<see cref="FileItemTypes"/>, and a <c>Reference</c>'s <c>HintPath</c>), the sources of every
+    /// <c>Copy</c> task that ran, and the assemblies the tasks that ran were loaded from. A target skipped as up to
+    /// date logs no inputs, so what it would read is not here. Paths are as captured, relative ones resolved against
+    /// their project's folder.
+    /// </summary>
+    public static BuildInputs ReadInputs(string binlogPath)
+    {
+        var build = ReadBuild(binlogPath);
+        var projects = new HashSet<string>(StringComparer.Ordinal);
+        var files = new HashSet<string>(StringComparer.Ordinal);
+        build.VisitAllChildren<ProjectEvaluation>(evaluation =>
+        {
+            if (evaluation.ProjectFile is not { Length: > 0 } project || project.EndsWith(".metaproj", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            projects.Add(project);
+            var directory = Path.GetDirectoryName(project.Replace('\\', '/')) ?? "";
+            files.UnionWith(SelectImports(evaluation).Select(i => CapturePathMapper.Absolute(directory, i)));
+            files.UnionWith(ItemFiles(evaluation).Select(f => CapturePathMapper.Absolute(directory, f)));
+        });
+        build.VisitAllChildren<CopyTask>(copy =>
+        {
+            var directory = copy.GetNearestParent<LoggedProject>()?.ProjectFile is { } project ? Path.GetDirectoryName(project.Replace('\\', '/')) ?? "" : "";
+            files.UnionWith(CopySources(copy).Select(s => CapturePathMapper.Absolute(directory, s)));
+        });
+        var assemblies = new HashSet<string>(StringComparer.Ordinal);
+        build.VisitAllChildren<Microsoft.Build.Logging.StructuredLogger.Task>(task =>
+        {
+            // A path, not an assembly name (the MSBuild tasks load by name).
+            if (task.FromAssembly is { Length: > 0 } assembly && (assembly[0] is '/' or '\\' || CapturePathMapper.IsWindowsStyle(assembly)))
+            {
+                assemblies.Add(CapturePathMapper.Absolute("", assembly));
+            }
+        });
+        return new BuildInputs([.. projects.Order(StringComparer.Ordinal)], [.. files.Order(StringComparer.Ordinal)], [.. assemblies.Order(StringComparer.Ordinal)]);
+    }
+
+    /// <summary>The includes of an evaluation's file items and the hint paths of its references.</summary>
+    private static IEnumerable<string> ItemFiles(ProjectEvaluation evaluation)
+    {
+        var itemsFolder = evaluation.Children.OfType<Folder>().FirstOrDefault(f => f.Name == "Items");
+        foreach (var group in itemsFolder?.Children.OfType<TreeNode>() ?? [])
+        {
+            var name = (group as NamedNode)?.Name ?? "";
+            var reference = string.Equals(name, "Reference", StringComparison.OrdinalIgnoreCase);
+            if (!reference && !FileItemTypes.Contains(name))
+            {
+                continue;
+            }
+
+            foreach (var item in group.Children.OfType<Item>())
+            {
+                var file = reference
+                    ? item.Children.OfType<Metadata>().FirstOrDefault(m => string.Equals(m.Name, "HintPath", StringComparison.OrdinalIgnoreCase))?.Value
+                    : item.Text ?? item.Name;
+                if (!string.IsNullOrWhiteSpace(file) && !file.Contains('*', StringComparison.Ordinal))
+                {
+                    yield return file.Trim();
+                }
+            }
+        }
+    }
+
+    /// <summary>A <c>Copy</c> task's sources: its <c>SourceFiles</c> parameter, and each copy it logged.</summary>
+    private static IEnumerable<string> CopySources(CopyTask copy)
+    {
+        foreach (var parameter in copy.FindChild<Folder>("Parameters")?.Children ?? [])
+        {
+            switch (parameter)
+            {
+                case Parameter { Name: "SourceFiles" } items:
+                    foreach (var item in items.Children.OfType<Item>())
+                    {
+                        if ((item.Text ?? item.Name) is { Length: > 0 } text)
+                        {
+                            yield return text;
+                        }
+                    }
+
+                    break;
+                case Property { Name: "SourceFiles", Value: { Length: > 0 } value }:
+                    foreach (var file in value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    {
+                        yield return file;
+                    }
+
+                    break;
+            }
+        }
+
+        foreach (var operation in copy.FileCopyOperations)
+        {
+            if (operation.Source is { Length: > 0 } source)
+            {
+                yield return source;
+            }
+        }
     }
 
     /// <summary>Copies, by a project's own targets, of a file named after its assembly (<c>Name.dll</c>, <c>Name.exe</c>).</summary>

@@ -211,6 +211,24 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `csproj modernize` verifies in a scratch copy that has what the scan's build read from the working
+  tree (ADR 0062). The copy was `HEAD` plus the model's inputs, compile items, hint paths, and the
+  converted projects' folders, and it lacked what the legacy projects a conversion references read
+  without its being committed. On Open Live Writer 0.6.3, 20 of 28 conversions failed with MSB3030:
+  `OpenLiveWriter.CoreServices` copies `intl/markets/Master.xml`, an untracked link (`OFR0117`'s
+  letter-case fix), and embeds the generated, git-ignored `Marketization/Markets.xml`. On
+  SmartStoreNET 4.2.0, `SmartStore.Web.MVC.Tests` failed because the site's
+  `EnsureNuGetPackageBuildImports` found none of the `packages/<Id>.<Version>/build/` files `scan` had
+  restored, and then because a package's `KillProcess` task assembly was missing (MSB4062). The copy
+  now also takes every file inside the repository that the scan's build read, as its binary log
+  records it: imports (restored packages' build files included), the files its items name, reference
+  hint paths, copy sources, and task assemblies with the files beside them; never a file in `bin` or
+  `obj`, from `packages/` only what was read, and only where `HEAD` lacks the file or has other
+  content. `OFR4309` (info) names the files `HEAD` does not have (384 on Open Live Writer: the link,
+  the generated files, an untracked `Directory.Build.props`, case-fixed bitmaps) and counts those of
+  restored packages. All 20 Open Live Writer conversions now build (11 of them pass; the other 9 embed
+  `.resx` files their projects do not list, fixed separately), and `SmartStore.Web.MVC.Tests` verifies
+  when converted on its own.
 - `csproj modernize` no longer takes the files a build generates in an intermediate folder outside the
   project for sources the conversion added. Open Live Writer 0.6.3's `writer.build.settings` puts every
   project's intermediate files in `src/managed/obj/<Configuration>/<Project>/`, and 8 of its 28

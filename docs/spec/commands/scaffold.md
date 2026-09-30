@@ -331,9 +331,16 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   `Microsoft.NET.Build.Extensions` (`facadesRemoved`). Any other added or removed reference is
   a difference. Sources the build generates are not compared: those under `obj/` and in the
   folder the compiler writes the assembly to (the intermediate output path, wherever the project
-  puts it). The scratch copy holds the committed tree plus the model's inputs from the
-  working tree, imported files in dot-directories and untracked ones included. A
-  difference or a failed build is `OFR4303`; `--apply` then refuses unless `--accept-diff`. A build that fails only on NuGet audit (NU1901–NU1904,
+  puts it). The scratch copy holds the committed tree plus, from the working tree, the model's
+  inputs (imported files in dot-directories and untracked ones included) and every file inside the
+  repository that the scan's build read, as its binary log records it: imports (restored packages'
+  build files included), the files its items name, reference hint paths, the sources of copies it
+  made, and the assemblies its tasks were loaded from with the files beside them; never a file in
+  `bin` or `obj`, and from `packages/` only the files read (ADR 0062). A file is copied when the
+  commit lacks it or has other content. When the scratch copy took files the commit does not have
+  (untracked or ignored by git), `OFR4309` (info) names them, and counts those of restored
+  packages. A difference or a failed build is `OFR4303`; `--apply` then refuses unless
+  `--accept-diff`. A build that fails only on NuGet audit (NU1901–NU1904,
   known vulnerabilities, which `PackageReference` restore reports and
   `TreatWarningsAsErrors` makes errors) is not the conversion's fault: it is reported as
   `OFR4305` and the verification build runs again with `NuGetAudit=false`. A failed build is

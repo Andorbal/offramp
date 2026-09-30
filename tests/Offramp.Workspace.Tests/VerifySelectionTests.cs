@@ -1,6 +1,7 @@
 using Offramp.Core.Configuration;
 using Offramp.Core.Git;
 using Offramp.Core.Model;
+using Offramp.Core.Paths;
 using Offramp.Core.Processes;
 using Offramp.Fixtures;
 using Offramp.Workspace.Model;
@@ -88,6 +89,45 @@ public sealed class VerifySelectionTests
 
         Assert.True(File.Exists(scratch.Resolve("src/Legacy.Core/Legacy.Core.csproj")));
         Assert.False(File.Exists(scratch.Resolve("src/Legacy.App/Legacy.App.csproj")));
+    }
+
+    /// <summary>
+    /// ADR 0062: the scratch copy takes what the working tree has and HEAD does not, copies only what differs,
+    /// and names what HEAD lacks, so <c>csproj modernize</c> can say that verification relied on it (OFR4309).
+    /// </summary>
+    [Fact]
+    public async Task Scratch_worktree_names_the_files_it_took_that_head_does_not_have()
+    {
+        using var repository = await FixtureRepository.CreateAsync("netfx-only");
+        var git = new GitService(ProcessRunner.Instance);
+        repository.Directory.Write("src/Legacy.Core/Legacy.Core.csproj", "<Project><!-- edited --></Project>\n");
+        repository.Directory.Write("data/markets.xml", "<markets />\n");
+        repository.Directory.Write("src/Legacy.Core/Generated/Master.xml", "<master />\n");
+
+        await using var scratch = await ScratchWorktree.CreateAsync(repository.Path,
+            ["data/markets.xml", "src/Legacy.App/Legacy.App.csproj", "src/Legacy.Core/Generated/Master.xml", "src/Legacy.Core/Legacy.Core.csproj"], git, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["data/markets.xml", "src/Legacy.Core/Generated/Master.xml"], scratch.Uncommitted);
+        Assert.Equal("<master />\n", File.ReadAllText(scratch.Resolve("src/Legacy.Core/Generated/Master.xml")));
+        Assert.Equal("<Project><!-- edited --></Project>\n", File.ReadAllText(scratch.Resolve("src/Legacy.Core/Legacy.Core.csproj")));
+        Assert.Equal(File.ReadAllText(repository.Directory.Combine("src", "Legacy.App", "Legacy.App.csproj")), File.ReadAllText(scratch.Resolve("src/Legacy.App/Legacy.App.csproj")));
+    }
+
+    /// <summary>ADR 0062: the files a scan's build read, from its binary log: in the repository, never the build's output.</summary>
+    [Fact]
+    public async Task Build_reads_are_the_repositorys_files_the_build_read_outside_bin_and_obj()
+    {
+        var fixture = await ScannedFixtures.GetAsync("dual-target");
+        var model = fixture.Outcome.Model!;
+
+        var reads = BuildReads.Read(RepoPaths.ToAbsolute(fixture.Root, model.Source.Path), fixture.Root, Path.Combine(fixture.Root, ".offramp"));
+
+        Assert.Contains("Directory.Build.props", reads);
+        Assert.Contains("Directory.Build.targets", reads);
+        Assert.Contains("src/Shared/Clock.cs", reads);
+        Assert.DoesNotContain(reads, r => r.Split('/').Any(s => s is "bin" or "obj" or ".offramp" or ".git") || r.StartsWith("../", StringComparison.Ordinal));
+        Assert.Equal(reads.Order(StringComparer.Ordinal), reads);
+        Assert.Empty(BuildReads.Read(Path.Combine(fixture.Root, "missing.binlog"), fixture.Root, Path.Combine(fixture.Root, ".offramp")));
     }
 
     private static async Task<int> WorktreesAsync(FixtureRepository repository) =>
