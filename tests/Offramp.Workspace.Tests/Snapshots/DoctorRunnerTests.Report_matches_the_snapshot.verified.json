@@ -28,7 +28,7 @@
       "id": "reference-assemblies",
       "title": ".NET Framework reference assemblies",
       "status": "pass",
-      "message": "Microsoft.NETFramework.ReferenceAssemblies.net48 1.0.3 is in the NuGet global packages folder.",
+      "message": "The reference assemblies for net48 are in the NuGet global packages folder (1.0.3).",
       "remedy": null,
       "codes": []
     },

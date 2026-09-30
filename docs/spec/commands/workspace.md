@@ -113,15 +113,20 @@ Checks, each with pass/warn/fail and a remedy:
   `--target`. When no installed SDK satisfies `global.json`, the remedy names
   the least permissive `rollForward` that selects one (`latestFeature`,
   `latestMinor`, `latestMajor`), or says none is new enough.
-- `Microsoft.NETFramework.ReferenceAssemblies` resolvable (offline cache or feed).
-  Outside Windows, when the model has legacy (non-SDK) projects, the check
-  warns (`OFR0018`) unless the compile-only block has its legacy section, the
-  only way those projects get the package.
+- `Microsoft.NETFramework.ReferenceAssemblies.<tfm>` resolvable (offline cache,
+  targeting pack, or feed) for every .NET Framework target the projects compile
+  for (`net40`, `net461`, ...; `net48` when none is known): the model's targets,
+  or before the first scan the solution's project files'. Outside Windows, when
+  there are legacy (non-SDK) projects (from the model, or before the first scan
+  from the project files), the check warns (`OFR0018`) unless the compile-only
+  block has its legacy section, the only way those projects get the package.
 - git present; repo detected; `git mv` will be used.
 - `offramp.yml` valid; unknown keys; pins without reasons.
 - Workspace model present and fresh (`OFR0002` names what changed).
 - Windows-only build steps per project (from the model), with the exact
-  conditional to add: `--fix` shows the diff of the compile-only block against
+  conditional to add. `verify.properties` overriding `PreBuildEvent` or
+  `PostBuildEvent` empties them in the evaluations the model records, so the
+  check names the projects whose files still set them: `--fix` shows the diff of the compile-only block against
   the root `Directory.Build.props`; `--fix --apply` writes it (asking first on a
   terminal unless `--yes`), keeping every other byte of the file
   (`docs/decisions/0012-doctor-fix-and-slice.md`).

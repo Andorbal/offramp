@@ -209,6 +209,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   instead of 1,439, 6,989 of them `System.Web.Mvc` and 714 `System.Web.Http`, and `OFR3011`
   names the packages without target support in 23 projects (the audit takes 201 s instead of
   142 s). This was the `audit api` part of DotNetNuke's P1 #7.
+- `doctor` before the first scan reads the solution's project files: legacy projects without the
+  compile-only block's legacy section are `OFR0018`, so the README's order (doctor, init, scan)
+  no longer leads to a failed first scan (SmartStoreNET, Open Live Writer, NHibernate). Its
+  reference-assemblies check probes the .NET Framework targets the projects compile for
+  (`net40`, `net461`, `net472`), not `net48` only. When `verify.properties` overrides
+  `PostBuildEvent` or `PreBuildEvent`, it names the projects that still set them instead of
+  saying "No project needs Windows to build" (SmartStoreNET).
 - `report`'s trend uses only the ledger snapshots of the model's solution, and names the others
   (new `OFR0203`, info). On NHibernate, a scan of a solution filter followed by one of the solution
   read as "down 232 since".

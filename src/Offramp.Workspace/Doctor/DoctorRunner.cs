@@ -42,7 +42,9 @@ public static class DoctorRunner
         var model = TryReadModel(context);
         using (context.Progress.BeginPhase("Checking .NET Framework reference assemblies", 2, PhaseCount))
         {
-            checks.Add(LegacyReferenceAssemblies(context, model) ?? await CheckReferenceAssembliesAsync(context, cancellationToken));
+            var files = model is null ? await SolutionProjectFilesAsync(context, cancellationToken) : null;
+            checks.Add(LegacyReferenceAssemblies(context, model, files)
+                ?? await CheckReferenceAssembliesAsync(context, NetFrameworkTargets(model, files), cancellationToken));
         }
 
         string? gitVersion;
@@ -185,12 +187,48 @@ public static class DoctorRunner
     }
 
     /// <summary>
+    /// The project files of the configured (or chosen) solution, read before the first scan; empty when there is
+    /// no solution to read.
+    /// </summary>
+    private static async Task<IReadOnlyList<ProjectFileFacts>> SolutionProjectFilesAsync(DoctorContext context, CancellationToken cancellationToken)
+    {
+        var root = context.Repository.Path;
+        var solution = context.Config.Config.Solution
+            ?? (await SolutionChooser.ChooseAsync(root, InitPlanner.FindSolutions(root), cancellationToken)).Solution;
+        var solutionPath = solution is null ? null : RepoPaths.ToAbsolute(root, solution);
+        if (solutionPath is null || !File.Exists(solutionPath))
+        {
+            return [];
+        }
+
+        try
+        {
+            var listed = await SolutionReader.ReadAsync(solutionPath, cancellationToken);
+            return [.. listed.ProjectPaths.Select(p => ProjectFileFacts.Read(root, RepoPaths.ToRepositoryRelative(root, p))).OfType<ProjectFileFacts>()];
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or System.Text.Json.JsonException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>The .NET Framework targets the projects compile for, from the model or, before a scan, the project files.</summary>
+    private static IReadOnlyList<string> NetFrameworkTargets(WorkspaceModel? model, IReadOnlyList<ProjectFileFacts>? files) =>
+        [.. (model is not null
+                ? model.Projects.SelectMany(p => p.TargetFrameworks).Select(ProjectFileFacts.ReferenceAssembliesName).OfType<string>()
+                : (files ?? []).SelectMany(f => f.NetFrameworkTargets))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)];
+
+    /// <summary>
     /// Outside Windows, legacy projects get the reference assemblies only through the compile-only block's
     /// legacy section (docs/decisions/0037-legacy-projects-outside-windows.md); a cached package does not reach them.
+    /// Before the first scan the solution's project files tell which projects are legacy.
     /// </summary>
-    private static DoctorCheck? LegacyReferenceAssemblies(DoctorContext context, WorkspaceModel? model)
+    private static DoctorCheck? LegacyReferenceAssemblies(DoctorContext context, WorkspaceModel? model, IReadOnlyList<ProjectFileFacts>? files)
     {
-        var legacy = model?.Projects.Count(p => !p.SdkStyle && p.FrameworkClass != FrameworkClass.Modern && p.FrameworkClass != FrameworkClass.Standard) ?? 0;
+        var legacy = model?.Projects.Count(p => !p.SdkStyle && p.FrameworkClass != FrameworkClass.Modern && p.FrameworkClass != FrameworkClass.Standard)
+            ?? (files ?? []).Count(f => f.Legacy);
         var propsPath = Path.Combine(context.Repository.Path, CompileOnlyConditional.FileName);
         if (OperatingSystem.IsWindows() || legacy == 0 || CompileOnlyConditional.HasLegacySection(File.Exists(propsPath) ? File.ReadAllText(propsPath) : null))
         {
@@ -204,22 +242,28 @@ public static class DoctorRunner
             "Run `offramp doctor --fix --apply` to add the compile-only block's legacy section.", DiagnosticCatalog.OFR0018);
     }
 
-    private static async Task<DoctorCheck> CheckReferenceAssembliesAsync(DoctorContext context, CancellationToken cancellationToken)
+    /// <param name="context">The doctor's context.</param>
+    /// <param name="frameworks">The .NET Framework targets the projects compile for; none probes net48.</param>
+    /// <param name="cancellationToken">Cancels feed queries.</param>
+    private static async Task<DoctorCheck> CheckReferenceAssembliesAsync(DoctorContext context, IReadOnlyList<string> frameworks, CancellationToken cancellationToken)
     {
         const string id = "reference-assemblies";
         const string title = ".NET Framework reference assemblies";
-        var result = await context.ReferenceAssemblies.ProbeAsync(context.Repository.Path, cancellationToken);
+        var result = await context.ReferenceAssemblies.ProbeAsync(context.Repository.Path, frameworks, cancellationToken);
+        IReadOnlyList<string> about = result.Frameworks.Count > 0 ? result.Frameworks : frameworks.Count > 0 ? frameworks : [IReferenceAssembliesProbe.DefaultFramework];
+        var packages = string.Join(", ", about.Select(t => ReferenceAssembliesProbe.PackagePrefix + t));
+        var targets = string.Join(", ", about);
         switch (result.State)
         {
             case ReferenceAssembliesState.Cached:
-                return Pass(id, title, $"{ReferenceAssembliesProbe.PackageId} {result.Detail} is in the NuGet global packages folder.");
+                return Pass(id, title, $"The reference assemblies for {targets} are in the NuGet global packages folder ({result.Detail}).");
             case ReferenceAssembliesState.TargetingPack:
-                return Pass(id, title, $"The .NET Framework {result.Detail} targeting pack is installed.");
+                return Pass(id, title, $"The .NET Framework targeting packs for {targets} are installed ({result.Detail}).");
             case ReferenceAssembliesState.AvailableFromFeed:
-                return Pass(id, title, $"Not cached yet; feed '{result.Detail}' provides {ReferenceAssembliesProbe.PackageId}, so the first net4x build downloads it.");
+                return Pass(id, title, $"Not cached yet for {targets}; feed '{result.Detail}' provides {packages}, so the first build downloads them.");
             case ReferenceAssembliesState.FeedUnreachable:
                 {
-                    var message = $"Not cached, and feed(s) {result.Detail} could not be queried, so net4x builds may fail offline.";
+                    var message = $"Not cached for {targets}, and feed(s) {result.Detail} could not be queried, so net4x builds may fail offline.";
                     Report(context, DiagnosticCatalog.OFR1006, message,
                         data: [KeyValuePair.Create<string, JsonNode?>("feeds", result.Detail)]);
                     return Warn(id, title, message,
@@ -229,7 +273,7 @@ public static class DoctorRunner
 
             default:
                 {
-                    var message = $"{ReferenceAssembliesProbe.PackageId} is neither cached nor on any configured feed.";
+                    var message = $"{packages} {(about.Count == 1 ? "is" : "are")} neither cached nor on any configured feed.";
                     Report(context, DiagnosticCatalog.OFR0013, message);
                     return Fail(id, title, message,
                         "Add nuget.org (or a mirror carrying the package) to nuget.config.",
@@ -376,9 +420,12 @@ public static class DoctorRunner
             .OrderBy(g => g.Key, StringComparer.Ordinal)
             .Select(g => $"{g.Key} ({string.Join(", ", g.Select(d => d.Data.TryGetValue("step", out var s) ? s?.ToString() : d.Code).Distinct())})")
             .ToList();
+        var overridden = OverriddenBuildEvents(context, model);
         if (byProject.Count == 0)
         {
-            return Pass(id, title, "No project needs Windows to build.");
+            return Pass(id, title, overridden is null
+                ? "No project needs Windows to build."
+                : $"No project needs Windows to build with offramp.yml's verify.properties; {overridden}.");
         }
 
         foreach (var diagnostic in stepDiagnostics)
@@ -396,10 +443,37 @@ public static class DoctorRunner
             Id = id,
             Title = title,
             Status = CheckStatus.Warn,
-            Message = $"{byProject.Count} project(s) need Windows to build: {string.Join("; ", byProject)}.",
+            Message = $"{byProject.Count} project(s) need Windows to build: {string.Join("; ", byProject)}{(overridden is null ? "" : $"; and {overridden}")}.",
             Remedy = remedy,
             Codes = [.. stepDiagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
         };
+    }
+
+    private static readonly string[] BuildEvents = ["PreBuildEvent", "PostBuildEvent"];
+
+    /// <summary>
+    /// The build events <c>verify.properties</c> overrides, and the projects whose files set them: the override
+    /// empties them in the evaluations the model records, so the steps are not detected there, but they are still in
+    /// the projects (SmartStoreNET). Null when nothing is overridden or no project sets them.
+    /// </summary>
+    private static string? OverriddenBuildEvents(DoctorContext context, WorkspaceModel model)
+    {
+        var names = BuildEvents.Where(e => context.Config.Config.Verify.Properties.Keys.Any(k => string.Equals(k, e, StringComparison.OrdinalIgnoreCase))).ToList();
+        if (names.Count == 0)
+        {
+            return null;
+        }
+
+        var projects = model.Projects
+            .Select(p => ProjectFileFacts.Read(context.Repository.Path, p.Id, names))
+            .OfType<ProjectFileFacts>()
+            .Where(f => f.SetProperties.Count > 0)
+            .Select(f => f.Project)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        return projects.Count == 0
+            ? null
+            : $"verify.properties overrides {string.Join(" and ", names)}, which {projects.Count} project(s) set: {string.Join(", ", projects)}; those build events still run in a normal build";
     }
 
     private static async Task<DoctorCheck> CheckCpmAsync(DoctorContext context, WorkspaceModel? model, CancellationToken cancellationToken)

@@ -355,6 +355,82 @@ public sealed class DoctorRunnerTests : IDisposable
         Assert.Equal(["OFR1303"], with.Checks.Single(c => c.Id == "cpm").Codes);
     }
 
+    /// <summary>
+    /// SmartStoreNET, Open Live Writer, NHibernate P2: before the first scan there was no legacy check, so the README's
+    /// order (doctor, init, scan) led to a failed first scan; the solution's project files tell now.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR0018")]
+    public async Task Before_the_first_scan_the_project_files_tell_that_legacy_projects_need_the_legacy_section()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has the .NET Framework targeting packs.");
+        _repo.Write("src/Legacy/Legacy.csproj", """
+            <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup>
+                <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+              </PropertyGroup>
+            </Project>
+            """);
+        _repo.Write("src/Modern/Modern.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net472</TargetFramework>\n  </PropertyGroup>\n</Project>\n");
+        _repo.Write("src/App.slnx", "<Solution>\n  <Project Path=\"Legacy/Legacy.csproj\" />\n  <Project Path=\"Modern/Modern.csproj\" />\n</Solution>\n");
+
+        var (report, bag) = await RunAsync(Healthy());
+
+        var check = report.Checks.Single(c => c.Id == "reference-assemblies");
+        Assert.Equal(CheckStatus.Warn, check.Status);
+        Assert.StartsWith("1 legacy (non-SDK) project(s) get no reference assemblies from the SDK", check.Message, StringComparison.Ordinal);
+        Assert.True(bag.Contains("OFR0018"));
+    }
+
+    /// <summary>
+    /// NHibernate, Open Live Writer P2: the probe looked for net48's reference assemblies only, while the projects target
+    /// net40, net461, and net472.
+    /// </summary>
+    [Fact]
+    public async Task Reference_assemblies_are_probed_for_the_frameworks_the_projects_target()
+    {
+        _repo.Write("src/A/A.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFrameworks>net461;net472;net10.0</TargetFrameworks>\n  </PropertyGroup>\n</Project>\n");
+        _repo.Write("src/B/B.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net40-client</TargetFramework>\n  </PropertyGroup>\n</Project>\n");
+        _repo.Write("App.slnx", "<Solution>\n  <Project Path=\"src/A/A.csproj\" />\n  <Project Path=\"src/B/B.csproj\" />\n</Solution>\n");
+        var machine = Healthy();
+        machine.ReferenceAssemblies = new ReferenceAssembliesResult(ReferenceAssembliesState.NotFound, null) { Frameworks = ["net40"] };
+
+        var (beforeScan, _) = await RunAsync(machine);
+        WriteFreshModel(Project("src/C/C.csproj") with { TargetFrameworks = ["net45", "netstandard2.0"], SdkStyle = true });
+        await RunAsync(machine);
+
+        Assert.Equal([["net40", "net461", "net472"], ["net45"]], machine.ProbedFrameworks);
+        Assert.Equal("Microsoft.NETFramework.ReferenceAssemblies.net40 is neither cached nor on any configured feed.",
+            beforeScan.Checks.Single(c => c.Id == "reference-assemblies").Message);
+    }
+
+    /// <summary>
+    /// SmartStoreNET P2: once verify.properties emptied PostBuildEvent, doctor said "No project needs Windows to build",
+    /// because the override empties the property in the evaluations it reads; it says the events exist and are overridden.
+    /// </summary>
+    [Fact]
+    public async Task Build_events_that_verify_properties_override_are_named()
+    {
+        _repo.Write("offramp.yml", "verify:\n  properties:\n    PostBuildEvent: \"\"\n");
+        _repo.Write("src/Web/Web.csproj", """
+            <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup>
+                <PostBuildEvent>xcopy "$(ProjectDir)bin" "$(SolutionDir)build" /s /y</PostBuildEvent>
+              </PropertyGroup>
+            </Project>
+            """);
+        _repo.Write("src/Core/Core.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\" />\n");
+        WriteFreshModel(Project("src/Core/Core.csproj"), Project("src/Web/Web.csproj"));
+
+        var (report, _) = await RunAsync(Healthy());
+
+        var check = report.Checks.Single(c => c.Id == "windows-only-build-steps");
+        Assert.Equal(CheckStatus.Pass, check.Status);
+        Assert.Equal(
+            "No project needs Windows to build with offramp.yml's verify.properties; verify.properties overrides PostBuildEvent, which 1 project(s) set: src/Web/Web.csproj; those build events still run in a normal build.",
+            check.Message);
+    }
+
     [Fact]
     public async Task Checks_always_appear_in_the_same_order()
     {
