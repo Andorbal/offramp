@@ -10,8 +10,18 @@ public sealed record TestTarget
 
     public bool Create { get; init; }
 
-    /// <summary>Several projects matched the naming rule (<c>OFR2202</c>).</summary>
+    /// <summary>Several projects matched the naming rule, or several test projects reference the source (<c>OFR2202</c>).</summary>
     public IReadOnlyList<string> Ambiguous { get; init; } = [];
+
+    /// <summary>
+    /// The C# test projects that reference the source, when no project is named after it: the
+    /// destination was chosen from them (<see cref="ByReference"/>, <c>OFR2207</c>), they are the
+    /// ambiguous ones, or, with <c>--create</c>, they could have taken the tests (<c>OFR2208</c>).
+    /// </summary>
+    public IReadOnlyList<string> Referencing { get; init; } = [];
+
+    /// <summary>The destination, or the ambiguity, comes from the test projects that reference the source.</summary>
+    public bool ByReference { get; init; }
 }
 
 /// <summary>
@@ -19,6 +29,9 @@ public sealed record TestTarget
 /// </summary>
 public static class TestTargets
 {
+    /// <summary>The names a test project conventionally has after the project it tests.</summary>
+    private static readonly string[] ConventionalSuffixes = [".Test", ".Tests", ".UnitTest", ".UnitTests"];
+
     /// <param name="model">The workspace model.</param>
     /// <param name="source">The source project.</param>
     /// <param name="to">The project given with <c>--to</c>, resolved, or null.</param>
@@ -33,14 +46,48 @@ public static class TestTargets
 
         var name = source.Name + suffix;
         var matches = model.Projects.Where(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)).Select(p => p.Id).Order(StringComparer.Ordinal).ToList();
-        return matches.Count switch
+        if (matches.Count > 0)
         {
-            1 => new TestTarget { Project = matches[0] },
-            > 1 => new TestTarget { Ambiguous = matches },
-            _ when create => new TestTarget { Project = CreatedPath(source.Id, name), Create = true },
-            _ => new TestTarget(),
-        };
+            return matches.Count == 1 ? new TestTarget { Project = matches[0] } : new TestTarget { Ambiguous = matches };
+        }
+
+        var referencing = Referencing(model, source);
+        if (create)
+        {
+            return new TestTarget { Project = CreatedPath(source.Id, name), Create = true, Referencing = [.. referencing.Select(p => p.Id)] };
+        }
+
+        return ChooseReferencing(source, referencing);
     }
+
+    /// <summary>
+    /// The only C# test project that references the source, or the only one of several named
+    /// after it (<c>NHibernate.Test</c> among <c>NHibernate.Test</c> and
+    /// <c>NHibernate.TestDatabaseSetup</c>); several otherwise, which is ambiguous.
+    /// </summary>
+    private static TestTarget ChooseReferencing(ProjectInfo source, List<ProjectInfo> referencing)
+    {
+        var ids = referencing.Select(p => p.Id).ToList();
+        if (referencing.Count == 0)
+        {
+            return new TestTarget();
+        }
+
+        var named = referencing.Count == 1 ? referencing
+            : referencing.Where(p => ConventionalSuffixes.Any(s => string.Equals(p.Name, source.Name + s, StringComparison.OrdinalIgnoreCase))).ToList();
+        return named.Count == 1
+            ? new TestTarget { Project = named[0].Id, Referencing = ids, ByReference = true }
+            : new TestTarget { Ambiguous = ids, Referencing = ids, ByReference = true };
+    }
+
+    /// <summary>The C# test projects that reference the source directly, by id.</summary>
+    private static List<ProjectInfo> Referencing(WorkspaceModel model, ProjectInfo source) =>
+    [
+        .. model.Projects
+            .Where(p => p.Id != source.Id && p.Language == "csharp" && (p.IsTestProject || p.Kind == ProjectKind.Test)
+                && p.ProjectReferences.Contains(source.Id, StringComparer.Ordinal))
+            .OrderBy(p => p.Id, StringComparer.Ordinal),
+    ];
 
     /// <summary>A new project next to the source: <c>src/Bar/Bar.csproj</c> gets <c>src/Bar.Tests/Bar.Tests.csproj</c>.</summary>
     public static string CreatedPath(string sourceProject, string name)

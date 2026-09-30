@@ -262,10 +262,15 @@ Detection (semantic, C# only; another language is `OFR2205`):
 - `--include-helpers` (default `move.tests.helperMinConfidence`, `high`) moves
   helpers at or above that confidence; `none` moves tests only.
 
-Target selection: `--to`, else a project whose name equals `SRC` name +
+Target selection (ADR 0045): `--to`, else a project whose name equals `SRC` name +
 `move.tests.targetSuffix` anywhere in the solution (`OFR2202` if several),
 else with `--create` a new project next to `SRC` (`src/Bar` gets
-`src/Bar.Tests/Bar.Tests.csproj`) named `<Name>.Tests`, else `OFR2203`. The
+`src/Bar.Tests/Bar.Tests.csproj`) named `<Name>.Tests`, which names the C# test
+projects that already reference `SRC` (`OFR2208`, info), else the C# test
+project (`IsTestProject` or kind `test`) that references `SRC` directly, or of
+several the one named `SRC` + `.Test`, `.Tests`, `.UnitTest`, or `.UnitTests`
+(`OFR2207`, info, naming the choice; `OFR2202` when several remain), else
+`OFR2203`. The
 destination may not be the source (`OFR2002`). A created project is SDK-style,
 targets `SRC`'s target frameworks, copies its `LangVersion`, `Nullable`,
 `ImplicitUsings`, and .NET Framework `Reference` items, references `SRC`, and
@@ -290,8 +295,9 @@ Then the `move plan` machinery:
   .NET Framework references are never added to an existing destination, so a
   file needing one stays.
 - **Source check**: `SRC` minus the moved files must compile with no new
-  errors; otherwise nothing moves (`OFR2104`), since `SRC` cannot reference its
-  test project.
+  errors; otherwise nothing moves, since `SRC` cannot reference its test
+  project: every file is in `skipped` with `OFR2104`, and one `OFR2104`
+  diagnostic for the project names the file count and the first errors.
 - **Project edits**: the destination gets `ProjectReference` to `SRC` if
   missing, `PackageReference`s for needed packages (the direct package of
   `SRC` that supplies each assembly, at `SRC`'s version; versionless under

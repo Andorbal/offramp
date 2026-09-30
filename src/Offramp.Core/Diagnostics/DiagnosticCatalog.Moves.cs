@@ -47,15 +47,15 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR2202 = new(
         "OFR2202", Severity.Error,
         "multiple candidate test projects",
-        "More than one project is named after the source project plus `move.tests.targetSuffix`, so the destination is ambiguous.",
-        "Test projects with the same name in different folders.",
+        "More than one project is named after the source project plus `move.tests.targetSuffix`, or, with none so named, more than one test project references the source and none of them is named after it, so the destination is ambiguous.",
+        "Test projects with the same name in different folders, or unit and integration test projects that both reference the source.",
         "Name the destination with `--to`.",
         MovesArea);
 
     public static readonly DiagnosticDescriptor OFR2203 = new(
         "OFR2203", Severity.Error,
         "no test project found",
-        "No project is named after the source project plus `move.tests.targetSuffix`, and `--create` was not given.",
+        "No project is named after the source project plus `move.tests.targetSuffix`, no test project references the source, and `--create` was not given.",
         "A production project whose tests never had a project of their own.",
         "Name an existing destination with `--to`, or pass `--create` to create `<Name>.Tests` next to the source.",
         MovesArea);
@@ -82,6 +82,22 @@ public static partial class DiagnosticCatalog
         "The file is compiled into the project through a link but lives outside the project's folder, so it has no place under the destination and stays.",
         "`<Compile Include=\"..\\Common\\X.cs\" />` sharing a file between projects.",
         "Move the shared file by hand, or stop sharing it.",
+        MovesArea);
+
+    public static readonly DiagnosticDescriptor OFR2207 = new(
+        "OFR2207", Severity.Info,
+        "destination is a test project that references the source",
+        "No project is named after the source project plus `move.tests.targetSuffix`, so the tests go to the C# test project that references the source (or, of several, the one named `<Name>.Test`, `.Tests`, `.UnitTest`, or `.UnitTests`).",
+        "A test project named by another convention, such as NHibernate's `NHibernate.Test`.",
+        "Nothing, if it is the right project; otherwise name the destination with `--to`, or set `move.tests.targetSuffix`.",
+        MovesArea);
+
+    public static readonly DiagnosticDescriptor OFR2208 = new(
+        "OFR2208", Severity.Info,
+        "new test project created although one references the source",
+        "`--create` creates `<Name>` plus `move.tests.targetSuffix` next to the source, while existing test projects already reference the source and could take the tests.",
+        "A test project named by another convention, or `--create` from a guide that did not know it.",
+        "Run again with `--to` and the existing project to keep the tests together, or keep the new project.",
         MovesArea);
 
     public static readonly DiagnosticDescriptor OFR2210 = new(

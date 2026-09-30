@@ -42,6 +42,9 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `ImportDirectoryBuildProps=false`, or a nearer `Directory.Build.props` that does not import the
   root one. On Open Live Writer, `writer.build.settings` kept the block from all 25 projects that
   import it; they failed with MSB3644 and nothing said why.
+- `OFR2207` (info): `move tests` sends the tests to the test project that references the source,
+  when no project is named after it. `OFR2208` (info): `move tests --create` creates a project
+  although test projects already reference the source, and names them.
 - The workspace model records the packages each `packages.config` lists
   (`packagesConfigPackages`: id, version, target framework, development dependency), and the
   `packages` index includes them (ADR 0035). `deps audit` audits them: on DotNetNuke 9.13 it
@@ -317,6 +320,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
     `PackageReference` to `System.Resources.Extensions` is restored but never referenced under the
     .NET SDK: a target that references the DLL, with the version per target framework (6.0.0 for
     .NET Framework 4.6.1, which 8.0.0 does not support).
+- `move tests` without `--to` looked only for `<Name>.Tests` and failed with `OFR2203` on
+  NHibernate, whose tests are in `NHibernate.Test`, and on DotNetNuke (`DotNetNuke.Tests.Core`).
+  Without a project so named, it now uses the C# test project that references the source, or of
+  several the one named `<Name>.Test`, `.Tests`, `.UnitTest`, or `.UnitTests` (ADR 0045); on
+  NHibernate it chooses `NHibernate.Test` over `NHibernate.TestDatabaseSetup`. A source that does not
+  compile without the moved files is one `OFR2104` for the project, with the file count, instead of
+  one per file (1,272 identical errors on NHibernate.Test); each file is still in `skipped`.
 - `move tests` never moves a public type of a shipped library (ADR 0045; shipped as in ADR 0041):
   it is listed in `candidates` at `low`, with the reason, and `--include-helpers` does not move it.
   On NHibernate 4.1, `move tests --project src/NHibernate/NHibernate.csproj --to

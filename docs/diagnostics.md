@@ -142,6 +142,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR2204](#ofr2204) | warning | move | destination path collision |
 | [OFR2205](#ofr2205) | error | move | project language not supported |
 | [OFR2206](#ofr2206) | warning | move | file outside the project folder |
+| [OFR2207](#ofr2207) | info | move | destination is a test project that references the source |
+| [OFR2208](#ofr2208) | info | move | new test project created although one references the source |
 | [OFR2210](#ofr2210) | info | move | test-framework packages removable from source |
 | [OFR2301](#ofr2301) | warning | move | string reference to a moved type |
 | [OFR2302](#ofr2302) | error | move | revision not found |
@@ -1251,16 +1253,16 @@ A test or helper file is used by production code (in the project, or in a projec
 
 **multiple candidate test projects** · error · move
 
-More than one project is named after the source project plus `move.tests.targetSuffix`, so the destination is ambiguous.
+More than one project is named after the source project plus `move.tests.targetSuffix`, or, with none so named, more than one test project references the source and none of them is named after it, so the destination is ambiguous.
 
-- **Typical cause:** Test projects with the same name in different folders.
+- **Typical cause:** Test projects with the same name in different folders, or unit and integration test projects that both reference the source.
 - **Fix:** Name the destination with `--to`.
 
 ### OFR2203
 
 **no test project found** · error · move
 
-No project is named after the source project plus `move.tests.targetSuffix`, and `--create` was not given.
+No project is named after the source project plus `move.tests.targetSuffix`, no test project references the source, and `--create` was not given.
 
 - **Typical cause:** A production project whose tests never had a project of their own.
 - **Fix:** Name an existing destination with `--to`, or pass `--create` to create `<Name>.Tests` next to the source.
@@ -1291,6 +1293,24 @@ The file is compiled into the project through a link but lives outside the proje
 
 - **Typical cause:** `<Compile Include="..\Common\X.cs" />` sharing a file between projects.
 - **Fix:** Move the shared file by hand, or stop sharing it.
+
+### OFR2207
+
+**destination is a test project that references the source** · info · move
+
+No project is named after the source project plus `move.tests.targetSuffix`, so the tests go to the C# test project that references the source (or, of several, the one named `<Name>.Test`, `.Tests`, `.UnitTest`, or `.UnitTests`).
+
+- **Typical cause:** A test project named by another convention, such as NHibernate's `NHibernate.Test`.
+- **Fix:** Nothing, if it is the right project; otherwise name the destination with `--to`, or set `move.tests.targetSuffix`.
+
+### OFR2208
+
+**new test project created although one references the source** · info · move
+
+`--create` creates `<Name>` plus `move.tests.targetSuffix` next to the source, while existing test projects already reference the source and could take the tests.
+
+- **Typical cause:** A test project named by another convention, or `--create` from a guide that did not know it.
+- **Fix:** Run again with `--to` and the existing project to keep the tests together, or keep the new project.
 
 ### OFR2210
 

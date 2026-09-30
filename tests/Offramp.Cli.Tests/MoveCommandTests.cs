@@ -172,6 +172,48 @@ public sealed class MoveCommandTests
     }
 
     [Fact]
+    [ProducesDiagnostic("OFR2207")]
+    public async Task A_test_project_that_references_the_source_takes_its_tests()
+    {
+        var model = FixtureModels.Load("tests-in-prod");
+        var bar = model.Projects.Single(p => p.Name == "Bar");
+        var specs = model.Projects.Single(p => p.Name == "Foo.Tests") with
+        {
+            Id = "src/Bar.Specs/Bar.Specs.csproj", Name = "Bar.Specs", ProjectReferences = [bar.Id],
+        };
+        using var cli = ModelOnly(model with { Projects = [.. model.Projects, specs] });
+
+        var run = await cli.RunAsync("move", "tests", "--project", "Bar", "--json");
+
+        // The model has no compiler log, so planning stops after choosing the destination.
+        var chosen = Assert.Single(JsonNode.Parse(run.Out)!["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR2207")!;
+        Assert.Equal(
+            "No project is named Bar.Tests; the tests go to src/Bar.Specs/Bar.Specs.csproj, the test project that references Bar. Name another with --to.",
+            chosen["message"]!.GetValue<string>());
+        Assert.DoesNotContain(JsonNode.Parse(run.Out)!["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR2203");
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR2208")]
+    public async Task Creating_a_test_project_names_the_ones_that_already_reference_the_source()
+    {
+        var model = FixtureModels.Load("tests-in-prod");
+        var bar = model.Projects.Single(p => p.Name == "Bar");
+        var specs = model.Projects.Single(p => p.Name == "Foo.Tests") with
+        {
+            Id = "src/Bar.Specs/Bar.Specs.csproj", Name = "Bar.Specs", ProjectReferences = [bar.Id],
+        };
+        using var cli = ModelOnly(model with { Projects = [.. model.Projects, specs] });
+
+        var run = await cli.RunAsync("move", "tests", "--project", "Bar", "--create", "--json");
+
+        var created = Assert.Single(JsonNode.Parse(run.Out)!["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR2208")!;
+        Assert.Equal(
+            "Creating src/Bar.Tests/Bar.Tests.csproj, although src/Bar.Specs/Bar.Specs.csproj already references Bar and could take the tests with --to.",
+            created["message"]!.GetValue<string>());
+    }
+
+    [Fact]
     [ProducesDiagnostic("OFR2205")]
     public async Task Only_csharp_projects_are_analyzed()
     {
