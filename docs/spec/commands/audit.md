@@ -451,9 +451,16 @@ Decisions behind the two commands (ADR 0022).
     one), the working tree is built for each.
   - With `--baseline REF`, the revision is checked out in a scratch work tree and built
     for the project's newest target, and the working tree is built for the same target.
-- Builds are `dotnet build -c Release -f TFM -p:OutDir=...` into
-  `.offramp/cache/api-compat/`, removed afterwards. Building the working tree updates the
-  project's `obj/` folder, as any build does.
+- Builds are `dotnet build -c <verify.configuration> -f TFM <verify.properties> -p:OutDir=...`
+  (with `RestorePackages=false` outside Windows, as every Offramp build) into
+  `.offramp/cache/api-compat/`, removed afterwards: a Release-only step such as ILRepack is not
+  part of the public API (ADR 0058). Building the working tree updates the project's `obj/`
+  folder, as any build does.
+- **The baseline's work tree** gets what the working tree's build has and no revision holds:
+  the compile-only sections of the root `Directory.Build.props` that it lacks, when the working
+  tree's has Offramp's compile-only block, and the git-ignored files that the working tree
+  compiles for the project and the projects it references (a generated shared AssemblyInfo),
+  named by OFR3505 (info).
 - **ApiCompat** (`Microsoft.DotNet.ApiCompat.Tool`) is installed under
   `.offramp/tools/apicompat/` at the SDK's version (`dotnet --version`), else the newest.
   It runs in strict mode, which reports what either side lacks.

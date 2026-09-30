@@ -215,6 +215,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3502](#ofr3502) | warning | audit | public API differs from the baseline |
 | [OFR3503](#ofr3503) | error | audit | nothing to compare |
 | [OFR3504](#ofr3504) | error | audit | API comparison could not run |
+| [OFR3505](#ofr3505) | info | audit | git-ignored files copied into the baseline |
 | [OFR3601](#ofr3601) | warning | audit | member cannot be wrapped in `#if` |
 | [OFR3602](#ofr3602) | warning | audit | finding does not match the source |
 | [OFR3603](#ofr3603) | warning | audit | conditional region depends on other symbols |
@@ -1968,6 +1969,15 @@ A side of the comparison did not build, the baseline could not be checked out, o
 
 - **Typical cause:** A build error, a revision that does not exist, or no access to the NuGet feed that hosts Microsoft.DotNet.ApiCompat.Tool.
 - **Fix:** Fix the build or the revision the message names, or make the tool's feed reachable, and run again.
+
+### OFR3505
+
+**git-ignored files copied into the baseline** · info · audit
+
+The working tree's compilation of the project (or of a project it references) uses files git ignores, which no revision has, so the baseline was built with the working tree's copies (ADR 0058).
+
+- **Typical cause:** A file the repository's own build or a setup step generates, such as NHibernate's `src/SharedAssemblyInfo.cs`.
+- **Fix:** Nothing to do when the file is generated the same way for every revision. Otherwise compare with a baseline built by your own build.
 
 ### OFR3601
 

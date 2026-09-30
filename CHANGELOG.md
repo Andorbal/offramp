@@ -29,6 +29,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   them when the workspace has no application: NHibernate's report said "applications 0" and
   nothing about the library; it now says 0 of 2 libraries are done, NHibernate ready and
   NHibernate.DomainModel waiting on it.
+- `OFR3505` (info): `audit api-compat --baseline` copied git-ignored files the working tree
+  compiles, which no revision has, into the baseline's work tree.
 - `OFR4031` (warning): `seams` proposes no extraction when it would take more than a quarter of
   the project's types (and more than 10), and lists the types that use unportable APIs themselves,
   to fence instead (ADR 0053). `OFR4032` (info): an API `audit api` reports missing (`OFR3001`)
@@ -167,6 +169,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   netstandard2.0`: NHibernate (packed by its `.nuspec.template`) was offered `net40;net10.0` and is
   now offered `net40;netstandard2.0`. Under a .NET Standard target libraries get the standard and
   applications and tests `net10.0`.
+- `audit api-compat` builds both sides with `verify.configuration` and `verify.properties`
+  (`RestorePackages=false` outside Windows) instead of `-c Release` (ADR 0058).
 - `audit api` reports an API of a removed technology once, under that technology's rule (ADR
   0044): `OFR3001` is no longer repeated where Web Forms, ASMX, WCF hosting, Remoting, WF, COM+ or
   `CallContext` (`OFR3004`–`OFR3009`, `OFR3013`) matched. `OFR3001` counts drop on such code;
@@ -189,6 +193,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   (and one more for each resource pair or partial sibling kept with it): DotNetNuke 9.13's
   `move plan --all` from `DotNetNuke.Library` gave 98 identical errors. Each file is still in
   `excluded`, with the reason and the errors.
+- `audit api-compat --baseline` on a legacy project outside Windows: on NHibernate 4.1.2 both sides
+  failed (`OFR3504`, exit 3). The working tree built with `-c Release`, which runs NHibernate's
+  Release-only ILRepack step (MSB3073), without `RestorePackages=false`; the baseline's scratch work
+  tree had neither the compile-only block `doctor --fix` wrote (uncommitted) nor the git-ignored
+  `src/SharedAssemblyInfo.cs` that NAnt generates (MSB3644). Both sides now build as verification
+  does, and the baseline gets Offramp's compile-only sections and the git-ignored files the working
+  tree compiles, named by `OFR3505` (ADR 0058). On NHibernate `--baseline 4.1.1.GA` now exits 0 in
+  46 s (no public API difference), with `OFR3505` naming `src/SharedAssemblyInfo.cs`.
 - `seams` on NHibernate 4.1.2 tainted 1,445 of 2,355 types and proposed moving them all to
   `NHibernate.Windows`, with 13 seams unrelated to the unportable APIs, in 14.6 MB of JSON. The
   cycles that move together were the components of every reference, calls included, which put 7

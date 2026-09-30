@@ -475,4 +475,12 @@ public static partial class DiagnosticCatalog
         "A build error, a revision that does not exist, or no access to the NuGet feed that hosts Microsoft.DotNet.ApiCompat.Tool.",
         "Fix the build or the revision the message names, or make the tool's feed reachable, and run again.",
         AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3505 = new(
+        "OFR3505", Severity.Info,
+        "git-ignored files copied into the baseline",
+        "The working tree's compilation of the project (or of a project it references) uses files git ignores, which no revision has, so the baseline was built with the working tree's copies (ADR 0058).",
+        "A file the repository's own build or a setup step generates, such as NHibernate's `src/SharedAssemblyInfo.cs`.",
+        "Nothing to do when the file is generated the same way for every revision. Otherwise compare with a baseline built by your own build.",
+        AuditArea);
 }
