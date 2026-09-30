@@ -77,7 +77,8 @@ public sealed class WebInventoryCommand(string format) : ICommandHandler<WebInve
             return Task.FromResult(CommandOutcome<WebInventoryResult>.Environment());
         }
 
-        return Task.FromResult(CommandOutcome<WebInventoryResult>.Completed(WebInventory.Analyze(root, project, compilation)));
+        var libraries = WebInventory.Libraries(model, project, loader);
+        return Task.FromResult(CommandOutcome<WebInventoryResult>.Completed(WebInventory.Analyze(root, project, compilation, libraries)));
     }
 
     public string? RawOutput(WebInventoryResult result, CommandContext context) => format switch
@@ -111,7 +112,15 @@ public sealed class WebInventoryCommand(string format) : ICommandHandler<WebInve
         output.Write(table);
         foreach (var route in result.Routes)
         {
-            output.MarkupLine($"  [dim]route[/] {Markup.Escape(route.Name)} {Markup.Escape(route.Template)} [dim]({Markup.Escape(route.Kind)})[/]");
+            var template = route.Computed is null ? route.Template : $"{route.Template}: {route.Computed}";
+            var via = route.Helper is null ? "" : $", {route.Helper}";
+            output.MarkupLine($"  [dim]route[/] {Markup.Escape(route.Name)} {Markup.Escape(template)} [dim]({Markup.Escape(route.Kind)}{(route.Area is null ? "" : " " + Markup.Escape(route.Area))}{Markup.Escape(via)})[/]");
+        }
+
+        foreach (var filter in result.ContainerFilters)
+        {
+            var scope = (filter.Controller ?? "every controller") + (filter.Action is null ? "" : "." + filter.Action);
+            output.MarkupLine($"  [dim]{Markup.Escape(filter.Kind)} filter[/] {Markup.Escape(filter.Filter)} [dim]for {Markup.Escape(scope)}[/]");
         }
 
         foreach (var component in result.Modules.Concat(result.Handlers))
@@ -189,6 +198,7 @@ public sealed class WebScaffoldCommand : ICommandHandler<WebScaffoldOptions, Web
             Proxy = options.Proxy,
             Adapters = options.Adapters,
             LegacyUrl = options.LegacyUrl,
+            Libraries = WebInventory.Libraries(model, project, loader),
             References = new TargetReferenceResolver(root, context.Host.Processes, CommandRunner.Cache(context)),
             Diagnostics = context.Diagnostics,
         }, compilation, cancellationToken);

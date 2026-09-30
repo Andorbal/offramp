@@ -119,11 +119,30 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   project's files: controllers are classes deriving from `System.Web.Mvc.Controller` or
   `System.Web.Http.ApiController`; actions are their public instance methods without
   `[NonAction]`. Verbs come from attributes, and for Web API also from the name's prefix.
-  Attribute routes are combined with the controller's `[RoutePrefix]`; areas come from
-  `AreaRegistration` classes and the `Areas/NAME/` folders.
-- Convention routes are the literal arguments of `MapRoute`, `MapHttpRoute`, an area
-  registration's `context.MapRoute`, and `IgnoreRoute`; defaults are listed as
-  `name = value`, `UrlParameter.Optional` and `RouteParameter.Optional` as `?`.
+  Attribute routes are combined with the controller's `[RoutePrefix]`; a controller's area
+  comes from its `Areas/NAME/` folder. `areas` lists the `AreaRegistration` classes and the
+  areas the routes name.
+- Registrations (routes, filters, bundles) are read from the application's sources and
+  those of the C# libraries it references, directly or through other libraries (not
+  referenced web applications or test projects; ADR 0059). Convention routes
+  are the calls of `MapRoute`, `MapHttpRoute`, an area registration's `context.MapRoute`,
+  `IgnoreRoute`, `RouteCollection.Add` with a `Route`, and `MapODataServiceRoute` (kind
+  `odata`), also through the codebase's own helpers: when a route's name, template,
+  defaults, or area come from the parameters of the method (or local function) that
+  registers it, each call of that method is a route, with the call's arguments in place of
+  the parameters, up to five calls away; `helper` names the method called. Values are
+  literals, constants, concatenations, locals assigned once, and static properties and
+  fields that return a literal; a template computed at run time is `(computed)`, with the C#
+  that computes it in `computed` (a computed name is `(computed)`). A route's area is its
+  `AreaRegistration`'s, a `DataTokens["area"]` set on it, or its `area` default. Defaults
+  are listed as `name = value`, `UrlParameter.Optional` and `RouteParameter.Optional` as
+  `?`. Routes are in file and line order.
+- `globalFilters` are the filters `GlobalFilters.Filters.Add` (and Web API's
+  `Filters.Add`) create; `containerFilters` are Autofac's `As*FilterFor<TController>`
+  registrations (MVC and Web API): the filter class, its kind (`action`, `result`,
+  `exception`, `authorization`, `authentication`, with ` override`), and the controller
+  (often a base class) and action it applies to. `bundles` are the virtual paths
+  `BundleCollection.Add` adds, also of a bundle built in a local.
 - Modules and handlers are the classes implementing `IHttpModule` and `IHttpHandler`
   (not pages, not the `HttpApplication`), joined with their `system.web` and
   `system.webServer` registrations; a registration whose class is not in the project is
@@ -184,7 +203,10 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   written).
 - **Routes.** MVC convention routes become `MapControllerRoute` (defaults inline as
   `{name=value}` and `{name?}`), an area's only when one of its controllers is ported;
-  attribute routes come with the controllers (`MapControllers`).
+  attribute routes come with the controllers (`MapControllers`). A route whose template is
+  computed at run time cannot be written as a pattern: it is left out, and the proxy keeps
+  sending its requests to the legacy application (`OFR4205`, with the code that computes
+  it).
 - **Proxy.** `yarp` (default): `AddReverseProxy` from `appsettings.json`, with a
   catch-all route of the lowest priority (`Order` = `int.MaxValue`) to `--legacy-url`
   (default: the project's IIS URL), so anything the new application does not map goes to

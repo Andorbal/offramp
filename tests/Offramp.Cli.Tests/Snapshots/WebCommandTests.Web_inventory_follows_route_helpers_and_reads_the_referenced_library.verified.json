@@ -1,0 +1,522 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "web inventory",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "WebRegistrations.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "ide": {
+        "implicitCounterparts": true,
+        "newCode": {
+          "base": "auto",
+          "scope": "lines"
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projectMap": [],
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "scan": {
+        "builder": "dotnet",
+        "msbuildPath": null
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "project": "src/Store.Web/Store.Web.csproj",
+    "kind": "mvc",
+    "url": "http://localhost:51235/",
+    "hostedBy": null,
+    "controllers": [
+      {
+        "name": "DashboardController",
+        "type": "Store.Web.Areas.Admin.Controllers.DashboardController",
+        "kind": "mvc",
+        "area": "Admin",
+        "routePrefix": null,
+        "filters": [],
+        "file": "src/Store.Web/Areas/Admin/Controllers/DashboardController.cs",
+        "actions": [
+          {
+            "name": "Index",
+            "httpMethods": [],
+            "routes": [],
+            "filters": [],
+            "file": "src/Store.Web/Areas/Admin/Controllers/DashboardController.cs",
+            "line": 7
+          }
+        ]
+      },
+      {
+        "name": "HomeController",
+        "type": "Store.Web.Controllers.HomeController",
+        "kind": "mvc",
+        "area": null,
+        "routePrefix": null,
+        "filters": [],
+        "file": "src/Store.Web/Controllers/HomeController.cs",
+        "actions": [
+          {
+            "name": "Index",
+            "httpMethods": [],
+            "routes": [],
+            "filters": [],
+            "file": "src/Store.Web/Controllers/HomeController.cs",
+            "line": 9
+          }
+        ]
+      }
+    ],
+    "routes": [
+      {
+        "name": "WebApi.Default",
+        "template": "api/{version}/{controller}/{id}",
+        "computed": null,
+        "kind": "webapi",
+        "area": null,
+        "defaults": [
+          "version = v1",
+          "id = ?"
+        ],
+        "helper": null,
+        "file": "src/Store.Framework/WebApi/WebApiStartup.cs",
+        "line": 14
+      },
+      {
+        "name": "WebApi.OData",
+        "template": "odata/v1",
+        "computed": null,
+        "kind": "odata",
+        "area": null,
+        "defaults": [],
+        "helper": null,
+        "file": "src/Store.Framework/WebApi/WebApiStartup.cs",
+        "line": 19
+      },
+      {
+        "name": "Admin_default",
+        "template": "Admin/{controller}/{action}/{id}",
+        "computed": null,
+        "kind": "mvc",
+        "area": "Admin",
+        "defaults": [
+          "controller = Dashboard",
+          "action = Index",
+          "area = Admin",
+          "id = "
+        ],
+        "helper": null,
+        "file": "src/Store.Web/Infrastructure/AreaRoutes.cs",
+        "line": 13
+      },
+      {
+        "name": "Store.Tax.Configure",
+        "template": "Plugins/Store.Tax/{action}",
+        "computed": null,
+        "kind": "mvc",
+        "area": "Store.Tax",
+        "defaults": [
+          "controller = TaxSettings",
+          "action = Configure"
+        ],
+        "helper": null,
+        "file": "src/Store.Web/Infrastructure/AreaRoutes.cs",
+        "line": 19
+      },
+      {
+        "name": "Reports_default",
+        "template": "reports/{action}",
+        "computed": null,
+        "kind": "mvc",
+        "area": "Reports",
+        "defaults": [
+          "controller = Report",
+          "action = Index"
+        ],
+        "helper": "AreaRouteExtensions.MapAreaRoute",
+        "file": "src/Store.Web/Infrastructure/AreaRoutes.cs",
+        "line": 26
+      },
+      {
+        "name": "",
+        "template": "(computed)",
+        "computed": "UrlTemplateFor(\"Product\")",
+        "kind": "mvc",
+        "area": null,
+        "defaults": [
+          "controller = Product",
+          "action = Details"
+        ],
+        "helper": "LocalizedRouteExtensions.CreateLocalizedRoute",
+        "file": "src/Store.Web/Infrastructure/SeoRoutes.cs",
+        "line": 10
+      },
+      {
+        "name": "",
+        "template": "(computed)",
+        "computed": "UrlTemplateFor(\"Category\")",
+        "kind": "mvc",
+        "area": null,
+        "defaults": [
+          "controller = Catalog",
+          "action = Category"
+        ],
+        "helper": "LocalizedRouteExtensions.CreateLocalizedRoute",
+        "file": "src/Store.Web/Infrastructure/SeoRoutes.cs",
+        "line": 11
+      },
+      {
+        "name": "(computed)",
+        "template": "(computed)",
+        "computed": "path.Route",
+        "kind": "mvc",
+        "area": null,
+        "defaults": [],
+        "helper": null,
+        "file": "src/Store.Web/Infrastructure/SeoRoutes.cs",
+        "line": 16
+      },
+      {
+        "name": "(ignored)",
+        "template": "{resource}.axd/{*pathInfo}",
+        "computed": null,
+        "kind": "ignore",
+        "area": null,
+        "defaults": [],
+        "helper": null,
+        "file": "src/Store.Web/Infrastructure/StoreRoutes.cs",
+        "line": 11
+      },
+      {
+        "name": "MediaImage",
+        "template": "(computed)",
+        "computed": "MediaSettings.PublicPath() + \"image/{*path}\"",
+        "kind": "mvc",
+        "area": null,
+        "defaults": [
+          "controller = Media",
+          "action = Image"
+        ],
+        "helper": "RegisterMediaRoute",
+        "file": "src/Store.Web/Infrastructure/StoreRoutes.cs",
+        "line": 24
+      },
+      {
+        "name": "MediaUploaded",
+        "template": "(computed)",
+        "computed": "MediaSettings.PublicPath() + MediaSettings.Tenant() + \"/uploaded/{*path}\"",
+        "kind": "mvc",
+        "area": null,
+        "defaults": [
+          "controller = Media",
+          "action = Uploaded"
+        ],
+        "helper": "RegisterMediaRoute",
+        "file": "src/Store.Web/Infrastructure/StoreRoutes.cs",
+        "line": 26
+      },
+      {
+        "name": "HomePage",
+        "template": "",
+        "computed": null,
+        "kind": "mvc",
+        "area": null,
+        "defaults": [
+          "controller = Home",
+          "action = Index"
+        ],
+        "helper": "LocalizedRouteExtensions.MapLocalizedRoute",
+        "file": "src/Store.Web/Infrastructure/StoreRoutes.cs",
+        "line": 28
+      },
+      {
+        "name": "Login",
+        "template": "login/",
+        "computed": null,
+        "kind": "mvc",
+        "area": null,
+        "defaults": [
+          "controller = Home",
+          "action = Login"
+        ],
+        "helper": "LocalizedRouteExtensions.MapLocalizedRoute",
+        "file": "src/Store.Web/Infrastructure/StoreRoutes.cs",
+        "line": 33
+      },
+      {
+        "name": "Wishlist",
+        "template": "wishlist/{customerGuid}",
+        "computed": null,
+        "kind": "mvc",
+        "area": null,
+        "defaults": [
+          "controller = Home",
+          "action = Wishlist",
+          "customerGuid = ?"
+        ],
+        "helper": "LocalizedRouteExtensions.MapLocalizedRoute",
+        "file": "src/Store.Web/Infrastructure/StoreRoutes.cs",
+        "line": 37
+      },
+      {
+        "name": "Default",
+        "template": "{controller}/{action}/{id}",
+        "computed": null,
+        "kind": "mvc",
+        "area": null,
+        "defaults": [
+          "controller = Home",
+          "action = Index",
+          "id = ?"
+        ],
+        "helper": null,
+        "file": "src/Store.Web/Infrastructure/StoreRoutes.cs",
+        "line": 43
+      }
+    ],
+    "attributeRouting": [],
+    "globalFilters": [
+      "HandleError"
+    ],
+    "containerFilters": [
+      {
+        "filter": "Store.Framework.Filters.HandleExceptionFilter",
+        "kind": "exception",
+        "controller": "Store.Framework.Controllers.StoreController",
+        "action": null,
+        "file": "src/Store.Framework/DependencyRegistrar.cs",
+        "line": 14
+      },
+      {
+        "filter": "Store.Framework.Filters.HandleExceptionFilter",
+        "kind": "action",
+        "controller": "Store.Framework.Controllers.StoreController",
+        "action": null,
+        "file": "src/Store.Framework/DependencyRegistrar.cs",
+        "line": 15
+      },
+      {
+        "filter": "Store.Framework.Filters.CookieConsentFilter",
+        "kind": "action",
+        "controller": "Store.Framework.Controllers.PublicControllerBase",
+        "action": null,
+        "file": "src/Store.Framework/DependencyRegistrar.cs",
+        "line": 19
+      },
+      {
+        "filter": "Store.Framework.Filters.MenuResultFilter",
+        "kind": "result",
+        "controller": "Store.Framework.Controllers.StoreController",
+        "action": null,
+        "file": "src/Store.Framework/DependencyRegistrar.cs",
+        "line": 22
+      },
+      {
+        "filter": "Store.Web.Infrastructure.PreviewFilter",
+        "kind": "result",
+        "controller": "Store.Web.Controllers.HomeController",
+        "action": "Index",
+        "file": "src/Store.Web/Infrastructure/DependencyRegistrar.cs",
+        "line": 12
+      }
+    ],
+    "areas": [
+      "Admin",
+      "Reports",
+      "Store.Tax"
+    ],
+    "modules": [],
+    "handlers": [],
+    "globalAsax": [
+      "Application_Start"
+    ],
+    "bundles": [
+      "~/bundles/app",
+      "~/bundles/vendor"
+    ],
+    "webForms": [],
+    "session": [],
+    "outputCache": [],
+    "settings": {
+      "authentication": null,
+      "loginUrl": null,
+      "sessionState": null,
+      "machineKey": false,
+      "customErrors": null,
+      "sections": [
+        "appSettings",
+        "system.web"
+      ]
+    },
+    "systemWeb": [
+      {
+        "file": "src/Store.Web/Areas/Admin/Controllers/DashboardController.cs",
+        "types": [
+          "System.Web.Mvc.ActionResult",
+          "System.Web.Mvc.Controller"
+        ]
+      },
+      {
+        "file": "src/Store.Web/Controllers/HomeController.cs",
+        "types": [
+          "System.Web.Mvc.ActionResult",
+          "System.Web.Mvc.Controller"
+        ]
+      },
+      {
+        "file": "src/Store.Web/Global.asax.cs",
+        "types": [
+          "System.Web.Http.GlobalConfiguration",
+          "System.Web.HttpApplication",
+          "System.Web.Mvc.GlobalFilterCollection",
+          "System.Web.Mvc.GlobalFilters",
+          "System.Web.Mvc.HandleErrorAttribute",
+          "System.Web.Optimization.BundleTable",
+          "System.Web.Routing.RouteTable"
+        ]
+      },
+      {
+        "file": "src/Store.Web/Infrastructure/AreaRoutes.cs",
+        "types": [
+          "System.Web.Mvc.RouteCollectionExtensions",
+          "System.Web.Routing.Route",
+          "System.Web.Routing.RouteCollection"
+        ]
+      },
+      {
+        "file": "src/Store.Web/Infrastructure/BundleConfig.cs",
+        "types": [
+          "System.Web.Optimization.Bundle",
+          "System.Web.Optimization.BundleCollection",
+          "System.Web.Optimization.ScriptBundle"
+        ]
+      },
+      {
+        "file": "src/Store.Web/Infrastructure/PreviewFilter.cs",
+        "types": [
+          "System.Web.Mvc.IResultFilter",
+          "System.Web.Mvc.ResultExecutedContext",
+          "System.Web.Mvc.ResultExecutingContext"
+        ]
+      },
+      {
+        "file": "src/Store.Web/Infrastructure/SeoRoutes.cs",
+        "types": [
+          "System.Web.Routing.RouteCollection"
+        ]
+      },
+      {
+        "file": "src/Store.Web/Infrastructure/StoreRoutes.cs",
+        "types": [
+          "System.Web.Mvc.RouteCollectionExtensions",
+          "System.Web.Mvc.UrlParameter",
+          "System.Web.Routing.Route",
+          "System.Web.Routing.RouteCollection"
+        ]
+      }
+    ]
+  },
+  "diagnostics": [],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 0
+  }
+}

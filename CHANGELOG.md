@@ -36,6 +36,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   NHibernate.DomainModel waiting on it.
 - `OFR3505` (info): `audit api-compat --baseline` copied git-ignored files the working tree
   compiles, which no revision has, into the baseline's work tree.
+- `web inventory` lists the filters registered with Autofac (`containerFilters`:
+  `As{Action,Result,Exception,Authorization,Authentication}Filter[Override]For<TController>`, MVC
+  and Web API), with the filter class, its kind, and the controller (or base class) and action it
+  applies to (ADR 0059).
+- `OFR4205` (info): `web scaffold` does not map a convention route whose template is computed at
+  run time, and says so with the code that computes it; the proxy keeps sending its requests to the
+  legacy application. Such a route was mapped with an empty pattern, which took the site's root.
 - `OFR4407` (warning): `config convert` knows the sections .NET Framework's `machine.config`
   declares, which a configuration file uses without declaring them, and names the code that
   replaces each on .NET (ADR 0060): `system.net` (the HttpClient handler's connection limit and
@@ -182,6 +189,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   applications and tests `net10.0`.
 - `audit api-compat` builds both sides with `verify.configuration` and `verify.properties`
   (`RestorePackages=false` outside Windows) instead of `-c Release` (ADR 0058).
+- `web inventory` reads the libraries the application references (ADR 0059): routes have
+  `computed` (the C# that computes a template shown as `(computed)`) and `helper` (the codebase's
+  method the registration goes through), a route kind `odata`, and the result has
+  `containerFilters`; routes are in file and line order across the projects. It reads the
+  libraries' compilations too: 55 s instead of 28 s on SmartStoreNET's site.
 - `audit api` reports an API of a removed technology once, under that technology's rule (ADR
   0044): `OFR3001` is no longer repeated where Web Forms, ASMX, WCF hosting, Remoting, WF, COM+ or
   `CallContext` (`OFR3004`–`OFR3009`, `OFR3013`) matched. `OFR3001` counts drop on such code;
@@ -212,6 +224,19 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   does, and the baseline gets Offramp's compile-only sections and the git-ignored files the working
   tree compiles, named by `OFR3505` (ADR 0058). On NHibernate `--baseline 4.1.1.GA` now exits 0 in
   46 s (no public API difference), with `OFR3505` naming `src/SharedAssemblyInfo.cs`.
+- `web inventory` found 8 of the 68 routes SmartStoreNET 4.2's site declares in code, no areas in
+  any project, none of the Web API and OData routes of its framework library, none of the 15
+  filters its projects register with Autofac, and 7 of 8 bundles. It now follows the codebase's
+  own route helpers with the semantic model, up to five calls deep (`MapLocalizedRoute`'s
+  overloads, `CreateLocalizedRoute`, `MapGenericPathRoute`, a local function around `MapRoute`),
+  with the helper's parameters replaced by each call's arguments; reads `DataTokens["area"]` and
+  `area` defaults; reads the route, filter, and bundle registrations of the libraries the
+  application references (not referenced web applications); and follows a bundle through its
+  local. On SmartStoreNET the site has 71 routes (its 68 and the framework's two `MapHttpRoute`
+  and `MapODataServiceRoute`), the framework's 5 Autofac filters, and 8 bundles; SmartStore.Admin
+  has the area `Admin` and 6 filters, and each plugin its own area (`SmartStore.Tax`). The four
+  media routes, whose templates start with a path from the settings, were one route with an empty
+  name and template; they are four, with their names and their templates shown as computed.
 - `config convert` said "bundleTransformer is left out: it is not declared in configSections"
   (`OFR4401`) on SmartStoreNET 4.2's `Web.config`, where `bundleTransformer` is a `<sectionGroup>`:
   the declared sections were keyed by their own names and looked up by the group's. A group's

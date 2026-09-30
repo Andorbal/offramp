@@ -1,0 +1,242 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "web scaffold",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "WebRegistrations.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "ide": {
+        "implicitCounterparts": true,
+        "newCode": {
+          "base": "auto",
+          "scope": "lines"
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projectMap": [],
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "scan": {
+        "builder": "dotnet",
+        "msbuildPath": null
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "project": "src/Store.Web/Store.Web.csproj",
+    "newProject": "src/Store.Web.Core/Store.Web.Core.csproj",
+    "targetFramework": "net10.0",
+    "proxy": "yarp",
+    "adapters": false,
+    "legacyUrl": "http://localhost:51235/",
+    "hostedBy": null,
+    "controllers": [
+      {
+        "type": "Store.Web.Areas.Admin.Controllers.DashboardController",
+        "file": "src/Store.Web.Core/Controllers/DashboardController.cs",
+        "ported": [
+          "Index"
+        ],
+        "unported": [],
+        "notes": []
+      },
+      {
+        "type": "Store.Web.Controllers.HomeController",
+        "file": null,
+        "ported": [],
+        "unported": [
+          {
+            "action": "Index",
+            "reason": "renders a Razor view; views are not ported, so the legacy application serves it."
+          }
+        ],
+        "notes": []
+      }
+    ],
+    "routes": [
+      "app.MapAreaControllerRoute(name: \"Admin_default\", areaName: \"Admin\", pattern: \"Admin/{controller=Dashboard}/{action=Index}/{id=}\", defaults: new { area = \"Admin\" });",
+      "app.MapControllerRoute(name: \"HomePage\", pattern: \"\", defaults: new { controller = \"Home\", action = \"Index\" });",
+      "app.MapControllerRoute(name: \"Login\", pattern: \"login/\", defaults: new { controller = \"Home\", action = \"Login\" });",
+      "app.MapControllerRoute(name: \"Wishlist\", pattern: \"wishlist/{customerGuid?}\", defaults: new { controller = \"Home\", action = \"Wishlist\" });",
+      "app.MapControllerRoute(name: \"Default\", pattern: \"{controller=Home}/{action=Index}/{id?}\");"
+    ],
+    "middleware": [],
+    "endpoints": [],
+    "webForms": [],
+    "ingressPaths": [],
+    "linkedSources": [],
+    "files": [
+      "src/Store.Web.Core/Controllers/DashboardController.cs",
+      "src/Store.Web.Core/Program.cs",
+      "src/Store.Web.Core/Store.Web.Core.csproj",
+      "src/Store.Web.Core/appsettings.json"
+    ],
+    "nextSteps": [
+      "dotnet sln add src/Store.Web.Core/Store.Web.Core.csproj",
+      "dotnet run --project src/Store.Web.Core/Store.Web.Core.csproj",
+      "Port the actions listed as not ported (views need Razor views in the new project), then remove them from the legacy application."
+    ],
+    "applied": false,
+    "journal": null,
+    "preview": "--- /dev/null\n+++ b/src/Store.Web.Core/Controllers/DashboardController.cs\n@@ -0,0 +1,14 @@\n+// Ported by offramp web scaffold from src/Store.Web/Areas/Admin/Controllers/DashboardController.cs.\n+\n+using Microsoft.AspNetCore.Mvc;\n+\n+namespace Store.Web.Areas.Admin.Controllers\n+{\n+    public class DashboardController : Controller\n+    {\n+        public ActionResult Index()\n+        {\n+            return Content(\"dashboard\");\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/src/Store.Web.Core/Program.cs\n@@ -0,0 +1,23 @@\n+// Generated by offramp web scaffold: the ASP.NET Core front of src/Store.Web/Store.Web.csproj. What it does not serve goes to the legacy application.\n+using Microsoft.AspNetCore.Builder;\n+using Microsoft.Extensions.DependencyInjection;\n+\n+var builder = WebApplication.CreateBuilder(args);\n+\n+builder.Services.AddControllersWithViews();\n+builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection(\"ReverseProxy\"));\n+\n+var app = builder.Build();\n+\n+app.UseRouting();\n+app.UseAuthorization();\n+\n+app.MapAreaControllerRoute(name: \"Admin_default\", areaName: \"Admin\", pattern: \"Admin/{controller=Dashboard}/{action=Index}/{id=}\", defaults: new { area = \"Admin\" });\n+app.MapControllerRoute(name: \"HomePage\", pattern: \"\", defaults: new { controller = \"Home\", action = \"Index\" });\n+app.MapControllerRoute(name: \"Login\", pattern: \"login/\", defaults: new { controller = \"Home\", action = \"Login\" });\n+app.MapControllerRoute(name: \"Wishlist\", pattern: \"wishlist/{customerGuid?}\", defaults: new { controller = \"Home\", action = \"Wishlist\" });\n+app.MapControllerRoute(name: \"Default\", pattern: \"{controller=Home}/{action=Index}/{id?}\");\n+app.MapControllers();\n+app.MapReverseProxy();\n+\n+app.Run();\n--- /dev/null\n+++ b/src/Store.Web.Core/Store.Web.Core.csproj\n@@ -0,0 +1,14 @@\n+<Project Sdk=\"Microsoft.NET.Sdk.Web\">\n+\n+  <PropertyGroup>\n+    <TargetFramework>net10.0</TargetFramework>\n+    <RootNamespace>Store.Web</RootNamespace>\n+    <Nullable>disable</Nullable>\n+    <ImplicitUsings>disable</ImplicitUsings>\n+  </PropertyGroup>\n+\n+  <ItemGroup>\n+    <PackageReference Include=\"Yarp.ReverseProxy\" Version=\"2.3.0\" />\n+  </ItemGroup>\n+\n+</Project>\n--- /dev/null\n+++ b/src/Store.Web.Core/appsettings.json\n@@ -0,0 +1,29 @@\n+{\n+  \"Logging\": {\n+    \"LogLevel\": {\n+      \"Default\": \"Information\",\n+      \"Microsoft.AspNetCore\": \"Warning\"\n+    }\n+  },\n+  \"AllowedHosts\": \"*\",\n+  \"ReverseProxy\": {\n+    \"Routes\": {\n+      \"legacy\": {\n+        \"ClusterId\": \"legacy\",\n+        \"Order\": 2147483647,\n+        \"Match\": {\n+          \"Path\": \"{**catch-all}\"\n+        }\n+      }\n+    },\n+    \"Clusters\": {\n+      \"legacy\": {\n+        \"Destinations\": {\n+          \"app\": {\n+            \"Address\": \"http://localhost:51235/\"\n+          }\n+        }\n+      }\n+    }\n+  }\n+}\n"
+  },
+  "diagnostics": [
+    {
+      "code": "OFR4205",
+      "severity": "info",
+      "message": "Route (unnamed) has a template computed at run time (UrlTemplateFor(\"Product\")); it is not mapped, so the proxy keeps sending its requests to the legacy application.",
+      "project": "src/Store.Web/Store.Web.csproj",
+      "file": "src/Store.Web/Infrastructure/SeoRoutes.cs",
+      "line": 10,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4205"
+    },
+    {
+      "code": "OFR4205",
+      "severity": "info",
+      "message": "Route (unnamed) has a template computed at run time (UrlTemplateFor(\"Category\")); it is not mapped, so the proxy keeps sending its requests to the legacy application.",
+      "project": "src/Store.Web/Store.Web.csproj",
+      "file": "src/Store.Web/Infrastructure/SeoRoutes.cs",
+      "line": 11,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4205"
+    },
+    {
+      "code": "OFR4205",
+      "severity": "info",
+      "message": "Route (computed) has a template computed at run time (path.Route); it is not mapped, so the proxy keeps sending its requests to the legacy application.",
+      "project": "src/Store.Web/Store.Web.csproj",
+      "file": "src/Store.Web/Infrastructure/SeoRoutes.cs",
+      "line": 16,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4205"
+    },
+    {
+      "code": "OFR4205",
+      "severity": "info",
+      "message": "Route MediaImage has a template computed at run time (MediaSettings.PublicPath() + \"image/{*path}\"); it is not mapped, so the proxy keeps sending its requests to the legacy application.",
+      "project": "src/Store.Web/Store.Web.csproj",
+      "file": "src/Store.Web/Infrastructure/StoreRoutes.cs",
+      "line": 24,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4205"
+    },
+    {
+      "code": "OFR4205",
+      "severity": "info",
+      "message": "Route MediaUploaded has a template computed at run time (MediaSettings.PublicPath() + MediaSettings.Tenant() + \"/uploaded/{*path}\"); it is not mapped, so the proxy keeps sending its requests to the legacy application.",
+      "project": "src/Store.Web/Store.Web.csproj",
+      "file": "src/Store.Web/Infrastructure/StoreRoutes.cs",
+      "line": 26,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR4205"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 5
+  }
+}

@@ -73,6 +73,93 @@ public sealed class WebCommandTests
         Assert.Equal("legacy /thumbnail.axd", await GetAsync(client, "thumbnail.axd"));
     }
 
+    /// <summary>
+    /// SmartStoreNET's registrations (field test P1 #11, ADR 0059): routes through the codebase's
+    /// helpers and a local function, Web API and OData routes and Autofac filters in the library
+    /// the site references, areas declared by routes, a bundle in a local.
+    /// </summary>
+    [Fact]
+    public async Task Web_inventory_follows_route_helpers_and_reads_the_referenced_library()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("web-registrations");
+        using var repository = fixture.Repository;
+        repository.Directory.Write("offramp.yml", "version: 1\n");
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("web", "inventory", "--project", "Store.Web", "--json");
+        var markdown = await cli.RunAsync("web", "inventory", "--project", "Store.Web", "--format", "markdown");
+
+        Assert.Equal(0, run.ExitCode);
+        SchemaAssert.ValidEnvelope(run.Out, "web-inventory");
+        await Verify(Scrub.Envelope(run.Out, repository.Path), extension: "json");
+        var result = JsonNode.Parse(run.Out)!["result"]!;
+        var routes = result["routes"]!.AsArray().Select(r => r!).ToList();
+        JsonNode Route(string name) => routes.Single(r => r["name"]!.GetValue<string>() == name);
+        string? Text(JsonNode node, string property) => node[property]?.GetValue<string>();
+
+        // Through MapLocalizedRoute's overloads, four calls from the routes.Add, with the call's arguments.
+        Assert.Equal(("login/", "LocalizedRouteExtensions.MapLocalizedRoute", "src/Store.Web/Infrastructure/StoreRoutes.cs"),
+            (Text(Route("Login"), "template"), Text(Route("Login"), "helper"), Text(Route("Login"), "file")));
+        Assert.Equal(["controller = Home", "action = Wishlist", "customerGuid = ?"], Route("Wishlist")["defaults"]!.AsArray().Select(d => d!.GetValue<string>()));
+        Assert.Equal("", Text(Route("HomePage"), "template"));
+
+        // A local function around MapRoute, with a template computed from the settings: shown as computed.
+        Assert.Equal(("(computed)", "MediaSettings.PublicPath() + MediaSettings.Tenant() + \"/uploaded/{*path}\"", "RegisterMediaRoute"),
+            (Text(Route("MediaUploaded"), "template"), Text(Route("MediaUploaded"), "computed"), Text(Route("MediaUploaded"), "helper")));
+        Assert.Contains("action = Uploaded", Route("MediaUploaded")["defaults"]!.AsArray().Select(d => d!.GetValue<string>()));
+        Assert.Equal(["UrlTemplateFor(\"Category\")", "UrlTemplateFor(\"Product\")"],
+            routes.Where(r => Text(r, "helper") == "LocalizedRouteExtensions.CreateLocalizedRoute").Select(r => Text(r, "computed")!).Order(StringComparer.Ordinal));
+        Assert.Equal("path.Route", Text(Route("(computed)"), "computed"));
+
+        // The library's Web API and OData routes, named by static properties.
+        Assert.Equal(("webapi", "api/{version}/{controller}/{id}", "src/Store.Framework/WebApi/WebApiStartup.cs"),
+            (Text(Route("WebApi.Default"), "kind"), Text(Route("WebApi.Default"), "template"), Text(Route("WebApi.Default"), "file")));
+        Assert.Equal(("odata", "odata/v1"), (Text(Route("WebApi.OData"), "kind"), Text(Route("WebApi.OData"), "template")));
+
+        // Areas declared by routes: an area default, a chained DataTokens["area"], the helper's parameter.
+        Assert.Equal(("Admin", "Store.Tax", "Reports"), (Text(Route("Admin_default"), "area"), Text(Route("Store.Tax.Configure"), "area"), Text(Route("Reports_default"), "area")));
+        Assert.Equal(["Admin", "Reports", "Store.Tax"], result["areas"]!.AsArray().Select(a => a!.GetValue<string>()));
+
+        // A copy of the route table the library filters is not a registration.
+        Assert.DoesNotContain(routes, r => Text(r, "file")!.EndsWith("AreaRouteFilter.cs", StringComparison.Ordinal));
+
+        // Filters registered with Autofac, in the library and the site.
+        var filters = result["containerFilters"]!.AsArray().Select(f => $"{Text(f!, "filter")} {Text(f!, "kind")} {Text(f!, "controller")} {Text(f!, "action")}").ToList();
+        Assert.Contains("Store.Framework.Filters.HandleExceptionFilter exception Store.Framework.Controllers.StoreController ", filters);
+        Assert.Contains("Store.Framework.Filters.HandleExceptionFilter action Store.Framework.Controllers.StoreController ", filters);
+        Assert.Contains("Store.Framework.Filters.CookieConsentFilter action Store.Framework.Controllers.PublicControllerBase ", filters);
+        Assert.Contains("Store.Web.Infrastructure.PreviewFilter result Store.Web.Controllers.HomeController Index", filters);
+        Assert.Equal(["HandleError"], result["globalFilters"]!.AsArray().Select(f => f!.GetValue<string>()));
+        Assert.Equal(["~/bundles/app", "~/bundles/vendor"], result["bundles"]!.AsArray().Select(b => b!.GetValue<string>()));
+
+        Assert.Equal(0, markdown.ExitCode);
+        Assert.Contains("| MediaImage | (computed): `MediaSettings.PublicPath() + \"image/{*path}\"` | mvc | controller = Media, action = Image | RegisterMediaRoute |", markdown.Out, StringComparison.Ordinal);
+        Assert.Contains("| Store.Web.Infrastructure.PreviewFilter | result | Store.Web.Controllers.HomeController | Index |", markdown.Out, StringComparison.Ordinal);
+    }
+
+    /// <summary>The routes the helpers declare are mapped; a computed template is left to the proxy (OFR4205).</summary>
+    [Fact]
+    [ProducesDiagnostic("OFR4205")]
+    public async Task Web_scaffold_maps_the_helpers_routes_and_leaves_computed_templates_to_the_legacy_application()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("web-registrations");
+        using var repository = fixture.Repository;
+        repository.Directory.Write("offramp.yml", "version: 1\n");
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("web", "scaffold", "--project", "Store.Web", "--new", "src/Store.Web.Core", "--json");
+
+        Assert.Equal(0, run.ExitCode);
+        SchemaAssert.ValidEnvelope(run.Out, "web-scaffold");
+        await Verify(Scrub.Envelope(run.Out, repository.Path), extension: "json");
+        var node = JsonNode.Parse(run.Out)!;
+        var routes = node["result"]!["routes"]!.AsArray().Select(r => r!.GetValue<string>()).ToList();
+        Assert.Contains("app.MapControllerRoute(name: \"Login\", pattern: \"login/\", defaults: new { controller = \"Home\", action = \"Login\" });", routes);
+        Assert.DoesNotContain(routes, r => r.Contains("Media", StringComparison.Ordinal) || r.Contains("(computed)", StringComparison.Ordinal));
+        var computed = node["diagnostics"]!.AsArray().Where(d => d!["code"]!.GetValue<string>() == "OFR4205").Select(d => d!["message"]!.GetValue<string>()).ToList();
+        Assert.Contains(computed, m => m.StartsWith("Route MediaImage has a template computed at run time (MediaSettings.PublicPath() + \"image/{*path}\")", StringComparison.Ordinal));
+    }
+
     [Fact]
     [ProducesDiagnostic("OFR4203")]
     public async Task Code_outside_the_actions_that_does_not_compile_is_reported()

@@ -40,20 +40,53 @@ public sealed record WebController
     public IReadOnlyList<WebAction> Actions { get; init; } = [];
 }
 
-/// <summary>A convention route (MapRoute, MapHttpRoute, an area's MapRoute, IgnoreRoute).</summary>
+/// <summary>
+/// A convention route (MapRoute, MapHttpRoute, an area's MapRoute, IgnoreRoute,
+/// RouteCollection.Add, MapODataServiceRoute), also when registered through a helper of the
+/// codebase's own.
+/// </summary>
 public sealed record WebRoute
 {
+    /// <summary>The route's name; empty when it has none, <c>(computed)</c> when code computes it at run time.</summary>
     public required string Name { get; init; }
 
+    /// <summary>The URL template; <c>(computed)</c> when code computes it at run time (see <see cref="Computed"/>).</summary>
     public required string Template { get; init; }
 
-    /// <summary><c>mvc</c>, <c>webapi</c>, or <c>ignore</c>.</summary>
+    /// <summary>For a computed template, the C# that computes it, with the helper's parameters replaced by the call's arguments; else null.</summary>
+    public string? Computed { get; init; }
+
+    /// <summary><c>mvc</c>, <c>webapi</c>, <c>odata</c>, or <c>ignore</c>.</summary>
     public required string Kind { get; init; }
 
+    /// <summary>The area: the AreaRegistration's, <c>DataTokens["area"]</c>, or the <c>area</c> default.</summary>
     public string? Area { get; init; }
 
     /// <summary>Defaults as <c>name = value</c>, in source order; <c>?</c> marks an optional parameter.</summary>
     public IReadOnlyList<string> Defaults { get; init; } = [];
+
+    /// <summary>The codebase's helper the registration goes through (<c>LocalizedRouteExtensions.MapLocalizedRoute</c>), else null.</summary>
+    public string? Helper { get; init; }
+
+    public required string File { get; init; }
+
+    public required int Line { get; init; }
+}
+
+/// <summary>A filter registered with a dependency injection container (Autofac's <c>AsActionFilterFor&lt;TController&gt;</c>).</summary>
+public sealed record WebFilterRegistration
+{
+    /// <summary>The filter class, fully qualified.</summary>
+    public required string Filter { get; init; }
+
+    /// <summary><c>action</c>, <c>result</c>, <c>exception</c>, <c>authorization</c>, or <c>authentication</c>, followed by <c> override</c> for an override filter.</summary>
+    public required string Kind { get; init; }
+
+    /// <summary>The controller class (or base class) it applies to, fully qualified; null for every controller.</summary>
+    public string? Controller { get; init; }
+
+    /// <summary>The action it applies to, else null (every action).</summary>
+    public string? Action { get; init; }
 
     public required string File { get; init; }
 
@@ -134,6 +167,10 @@ public sealed record WebInventoryResult
 
     public IReadOnlyList<string> GlobalFilters { get; init; } = [];
 
+    /// <summary>Filters registered with a dependency injection container, by file and line.</summary>
+    public IReadOnlyList<WebFilterRegistration> ContainerFilters { get; init; } = [];
+
+    /// <summary>Areas: AreaRegistration classes and the areas routes name, sorted.</summary>
     public IReadOnlyList<string> Areas { get; init; } = [];
 
     public IReadOnlyList<WebComponent> Modules { get; init; } = [];

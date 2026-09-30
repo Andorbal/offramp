@@ -5,7 +5,7 @@
   "description": "The result of `offramp web inventory`. See docs/spec/commands/scaffold.md#web-inventory.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["project", "kind", "url", "controllers", "routes", "attributeRouting", "globalFilters", "areas", "modules", "handlers", "globalAsax", "bundles", "webForms", "session", "outputCache", "settings", "systemWeb"],
+  "required": ["project", "kind", "url", "controllers", "routes", "attributeRouting", "globalFilters", "containerFilters", "areas", "modules", "handlers", "globalAsax", "bundles", "webForms", "session", "outputCache", "settings", "systemWeb"],
   "properties": {
     "project": { "$ref": "workspace.json#/$defs/relativePath" },
     "kind": { "type": "string", "pattern": "^(none|(mvc|webapi|webforms)(\\+(mvc|webapi|webforms))*)$", "description": "mvc, webapi, webforms, a combination joined with +, or none." },
@@ -46,17 +46,19 @@
     },
     "routes": {
       "type": "array",
-      "description": "Convention routes: MapRoute, MapHttpRoute, an area's MapRoute, IgnoreRoute.",
+      "description": "Convention routes of the application and the projects it references: MapRoute, MapHttpRoute, an area's MapRoute, IgnoreRoute, RouteCollection.Add, MapODataServiceRoute, also through the codebase's own helpers (ADR 0059). In file and line order.",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "template", "kind", "area", "defaults", "file", "line"],
+        "required": ["name", "template", "computed", "kind", "area", "defaults", "helper", "file", "line"],
         "properties": {
-          "name": { "type": "string" },
-          "template": { "type": "string" },
-          "kind": { "enum": ["mvc", "webapi", "ignore"] },
-          "area": { "type": ["string", "null"] },
+          "name": { "type": "string", "description": "Empty when the route has none; (computed) when code computes it at run time." },
+          "template": { "type": "string", "description": "(computed) when code computes it at run time." },
+          "computed": { "type": ["string", "null"], "description": "For a computed template, the C# that computes it, with a helper's parameters replaced by the call's arguments." },
+          "kind": { "enum": ["mvc", "webapi", "odata", "ignore"] },
+          "area": { "type": ["string", "null"], "description": "The AreaRegistration's area, DataTokens[\"area\"], or the area default." },
           "defaults": { "type": "array", "items": { "type": "string" }, "description": "name = value in source order; ? marks an optional parameter." },
+          "helper": { "type": ["string", "null"], "description": "The codebase's method the registration goes through (Type.Method, or a local function's name)." },
           "file": { "$ref": "workspace.json#/$defs/relativePath" },
           "line": { "type": "integer", "minimum": 1 }
         }
@@ -64,7 +66,24 @@
     },
     "attributeRouting": { "type": "array", "items": { "enum": ["mvc", "webapi"] } },
     "globalFilters": { "type": "array", "items": { "type": "string" } },
-    "areas": { "type": "array", "items": { "type": "string" } },
+    "containerFilters": {
+      "type": "array",
+      "description": "Filters registered with a dependency injection container (Autofac's As*FilterFor<TController>), in file and line order.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["filter", "kind", "controller", "action", "file", "line"],
+        "properties": {
+          "filter": { "type": "string", "description": "The filter class, fully qualified." },
+          "kind": { "type": "string", "pattern": "^(action|result|exception|authorization|authentication)( override)?$" },
+          "controller": { "type": ["string", "null"], "description": "The controller class or base class it applies to; null for every controller." },
+          "action": { "type": ["string", "null"], "description": "The action it applies to; null for every action." },
+          "file": { "$ref": "workspace.json#/$defs/relativePath" },
+          "line": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "areas": { "type": "array", "items": { "type": "string" }, "description": "AreaRegistration classes and the areas routes name, sorted." },
     "modules": { "type": "array", "items": { "$ref": "#/$defs/component" } },
     "handlers": { "type": "array", "items": { "$ref": "#/$defs/component" } },
     "globalAsax": { "type": "array", "items": { "type": "string" }, "description": "The Global.asax class's Application_* and Session_* handlers." },

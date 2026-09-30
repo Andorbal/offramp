@@ -245,6 +245,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4202](#ofr4202) | info | web | handler became an unmapped endpoint stub |
 | [OFR4203](#ofr4203) | error | web | scaffolded project does not compile |
 | [OFR4204](#ofr4204) | error | web | output folder not empty |
+| [OFR4205](#ofr4205) | info | web | route with a computed template not mapped |
 | [OFR4301](#ofr4301) | warning | csproj | compile items kept explicit |
 | [OFR4302](#ofr4302) | info | csproj | build step converted for review |
 | [OFR4303](#ofr4303) | error | csproj | converted project compiles different inputs |
@@ -2240,6 +2241,15 @@ The folder `--new` names already has files, so nothing was generated.
 
 - **Typical cause:** A second run.
 - **Fix:** Pass another --new, or delete the folder.
+
+### OFR4205
+
+**route with a computed template not mapped** · info · web
+
+The convention route's URL template is computed at run time (a setting, a path from configuration, a helper's argument that is not a literal), so `web scaffold` cannot write its `MapControllerRoute`. The route is left out of the new application, and the proxy keeps sending its requests to the legacy application. The message shows the code that computes the template.
+
+- **Typical cause:** Media, CDN, or tenant paths read from settings, templates built from a prefix and a literal.
+- **Fix:** Map the route in the new application's Program.cs with the template the code computes (or the same code, read from configuration) once its actions are ported.
 
 ### OFR4301
 
