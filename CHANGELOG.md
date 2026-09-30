@@ -16,6 +16,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   the project's types (and more than 10), and lists the types that use unportable APIs themselves,
   to fence instead (ADR 0053). `OFR4032` (info): an API `audit api` reports missing (`OFR3001`)
   that a package supplies on the target, which `seams` no longer counts as unportable.
+- `seams` counts COM interop and P/Invoke into Windows system libraries as unportable when the
+  target is not `-windows` (ADR 0054): a `[ComImport]` type, a `[DllImport]` of `user32`,
+  `kernel32`, ..., and a type using such a COM type or P/Invoke from another assembly. It took
+  taint from `audit api` only, so Open Live Writer's MSHTML interop never counted; on
+  `OpenLiveWriter.Interop.Mshtml` (`net10.0`) its 121 `[ComImport]` interfaces are now what is
+  tainted. On a `-windows` target interop works and taints nothing.
 - `OFR3013` (error): `CallContext` (and `LogicalCallContext`), which modern .NET does not have,
   with `AsyncLocal<T>` as the replacement. It was reported as .NET Remoting (`OFR3007`, "use gRPC,
   HTTP, or named pipes") and as missing (`OFR3001`) at the same place.

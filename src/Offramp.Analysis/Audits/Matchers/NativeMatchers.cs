@@ -34,6 +34,9 @@ public sealed class NativeImportsMatcher : IAuditMatcher
 
     public string Name => "native-imports";
 
+    /// <summary>True for a Windows system library (<c>user32</c>, <c>kernel32.dll</c>, ...), which exists on no other platform.</summary>
+    internal static bool IsWindowsLibrary(string module) => WindowsLibraries.Contains(Library(module));
+
     public IEnumerable<RawFinding> Run(AuditMatchContext context)
     {
         var inventory = context.Rule("OFR3301");

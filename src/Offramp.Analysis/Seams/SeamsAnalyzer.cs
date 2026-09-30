@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Offramp.Analysis.Audits;
+using Offramp.Analysis.Audits.Matchers;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
@@ -17,7 +18,7 @@ public sealed record SeamsRequest
 
     public required ProjectInfo Project { get; init; }
 
-    /// <summary><c>audit</c> (what <c>audit api</c> found, in <see cref="Findings"/>) or <c>list</c> (<see cref="Symbols"/> only).</summary>
+    /// <summary><c>audit</c> (what <c>audit api</c> found, in <see cref="Findings"/>, and Windows-only interop) or <c>list</c> (<see cref="Symbols"/> only).</summary>
     public required string UnportableFrom { get; init; }
 
     /// <summary>Namespaces or types (prefixes of fully qualified names) that cannot port.</summary>
@@ -33,12 +34,13 @@ public sealed record SeamsRequest
 }
 
 /// <summary>
-/// <c>seams</c>: the smallest boundary around the code that cannot port (ADRs 0023, 0053).
+/// <c>seams</c>: the smallest boundary around the code that cannot port (ADRs 0023, 0053, 0054).
 /// <list type="number">
 /// <item>The type reference graph of the project: an edge A → B when members of A reference
 /// B (weight: how many members of A do).</item>
 /// <item>Taint starts at types that use an unportable API (not one a package supplies on the
-/// target). It spreads to types that inherit from a tainted type or expose one in a
+/// target), and, from <c>audit</c> on a cross-platform target, at COM interop and P/Invoke into
+/// Windows libraries. It spreads to types that inherit from a tainted type or expose one in a
 /// public or protected signature (constructor parameters aside: that is where <c>extract
 /// interface</c> puts the interface). Calls never taint.</item>
 /// <item>Strongly connected components of the structural graph (base types, and the types in
@@ -225,7 +227,8 @@ public static class SeamsAnalyzer
     /// <summary>
     /// The types that use something unportable themselves, with what they use: the unportable
     /// <c>audit api</c> findings (not the APIs a package supplies on the target, OFR4032), the
-    /// listed symbols.
+    /// listed symbols, and (from <c>audit</c>, on a cross-platform target) COM interop and
+    /// P/Invoke into Windows libraries.
     /// </summary>
     private static SortedDictionary<string, List<string>> Sources(SeamsRequest request, TypeGraph graph, Compilation compilation, bool windows)
     {
@@ -259,6 +262,14 @@ public static class SeamsAnalyzer
                 {
                     Add(type, TypeName(symbol));
                 }
+            }
+        }
+
+        if (request.UnportableFrom == "audit" && !windows)
+        {
+            foreach (var (type, reason) in WindowsInterop(graph, compilation))
+            {
+                Add(type, reason);
             }
         }
 
@@ -307,6 +318,56 @@ public static class SeamsAnalyzer
 
         return finding.Details.GetValueOrDefault("package") ?? "Microsoft.Windows.Compatibility";
     }
+
+    /// <summary>
+    /// COM interop and P/Invoke into Windows libraries (ADR 0054): a type declared <c>[ComImport]</c>
+    /// or declaring a <c>[DllImport]</c> of a Windows library, and a type that uses a COM type or
+    /// such a P/Invoke from outside the project. Uses of the project's own interop declarations are
+    /// references between the project's types: calls there do not taint, they are where a seam goes.
+    /// </summary>
+    private static IEnumerable<(string Type, string Reason)> WindowsInterop(TypeGraph graph, Compilation compilation)
+    {
+        foreach (var (name, type) in graph.Types)
+        {
+            if (type.IsComImport)
+            {
+                yield return (name, "COM interop ([ComImport])");
+            }
+
+            foreach (var method in type.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (WindowsImport(method) is { } library)
+                {
+                    yield return (name, $"P/Invoke into {library} ({method.GetDllImportData()!.EntryPointName ?? method.Name})");
+                }
+            }
+        }
+
+        foreach (var (name, uses) in graph.Uses)
+        {
+            foreach (var (symbol, _) in uses)
+            {
+                var owner = symbol as INamedTypeSymbol ?? symbol.ContainingType;
+                if (owner is null || SymbolEqualityComparer.Default.Equals(owner.ContainingAssembly, compilation.Assembly))
+                {
+                    continue;
+                }
+
+                if (owner.OriginalDefinition.IsComImport)
+                {
+                    yield return (name, $"COM interop: {Name(owner)}");
+                }
+                else if (symbol is IMethodSymbol method && WindowsImport(method.OriginalDefinition) is { } library)
+                {
+                    yield return (name, $"P/Invoke into {library} ({FullName(method)})");
+                }
+            }
+        }
+    }
+
+    /// <summary>The library of a <c>[DllImport]</c> when it is a Windows system library.</summary>
+    private static string? WindowsImport(IMethodSymbol method) =>
+        method.GetDllImportData() is { ModuleName: { } module } && NativeImportsMatcher.IsWindowsLibrary(module) ? module : null;
 
     /// <summary>
     /// Spreads the taint to a fixed point: types that inherit from a tainted type or expose one in

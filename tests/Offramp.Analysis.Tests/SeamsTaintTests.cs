@@ -9,7 +9,7 @@ using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 
 namespace Offramp.Analysis.Tests;
 
-/// <summary>What taints a type in <c>seams</c>, on small in-memory projects (ADR 0053).</summary>
+/// <summary>What taints a type in <c>seams</c>, on small in-memory projects (ADRs 0053, 0054).</summary>
 public sealed class SeamsTaintTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "offramp-seams-taint");
@@ -154,6 +154,46 @@ public sealed class SeamsTaintTests
         var oversized = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR4031");
         Assert.Equal(["Lib.Node"], oversized.Data!["directlyTainted"]!.AsArray().Select(n => n!.GetValue<string>()));
         Assert.Contains("13 of its 26 types (50%)", oversized.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Open Live Writer 0.6.3: COM interop and P/Invoke into Windows libraries are unportable off Windows.</summary>
+    [Fact]
+    public void Com_interop_and_windows_pinvoke_taint_a_cross_platform_target_only()
+    {
+        var interop = Assembly("Interop", """
+            using System.Runtime.InteropServices;
+            namespace Interop
+            {
+                [ComImport, Guid("332C4425-26CB-11D0-B483-00C04FD90119")]
+                public interface IHTMLDocument2 { string title { get; } }
+                public static class User32 { [DllImport("user32.dll")] public static extern int GetDoubleClickTime(); }
+                public static class Sqlite { [DllImport("sqlite3")] public static extern int sqlite3_libversion_number(); }
+            }
+            """);
+        (string, string)[] files =
+        [
+            ("Editor.cs", "namespace Lib { public class Editor { internal string Title(Interop.IHTMLDocument2 document) { return document.title; } } }"),
+            ("Mouse.cs", "namespace Lib { public class Mouse { public int DoubleClick() { return Interop.User32.GetDoubleClickTime(); } } }"),
+            ("Store.cs", "namespace Lib { public class Store { public int Version() { return Interop.Sqlite.sqlite3_libversion_number(); } } }"),
+            ("IOleThing.cs", "namespace Lib { [System.Runtime.InteropServices.ComImport, System.Runtime.InteropServices.Guid(\"00000112-0000-0000-C000-000000000046\")] internal interface IOleThing { } }"),
+            ("Native.cs", "namespace Lib { internal static class Native { [System.Runtime.InteropServices.DllImport(\"kernel32\")] internal static extern uint GetTickCount(); } }"),
+            ("Clock.cs", "namespace Lib { public class Clock { public uint Now() { return Native.GetTickCount(); } } }"),
+        ];
+
+        var (portable, _) = Analyze("audit", Library, [interop], [], files);
+        var (desktop, _) = Analyze("audit", Library with { Kind = ProjectKind.Winforms }, [interop], [], files);
+        var (listed, _) = Analyze("list", Library, [interop], [], files);
+
+        Assert.Equal(
+            [
+                ("Lib.Editor", "COM interop: Interop.IHTMLDocument2"),
+                ("Lib.IOleThing", "COM interop ([ComImport])"),
+                ("Lib.Mouse", "P/Invoke into user32.dll (Interop.User32.GetDoubleClickTime)"),
+                ("Lib.Native", "P/Invoke into kernel32 (GetTickCount)"),
+            ],
+            portable.Tainted.Select(t => (t.Type, Assert.Single(t.Reason))));
+        Assert.Empty(desktop.Tainted);
+        Assert.Empty(listed.Tainted);
     }
 
     private static readonly ProjectInfo Library = new() { Id = "src/Lib/Lib.csproj", Name = "Lib", Kind = ProjectKind.Library };

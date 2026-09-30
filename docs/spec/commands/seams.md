@@ -13,7 +13,8 @@ offramp seams --project P [--unportable-from audit|list] [--symbols NS.Type,...]
 Inputs: the set of **unportable symbols** in `P`, from `audit api`
 (error-level `OFR3001`/`OFR3004`–`3009`/`OFR3013` findings, plus `OFR3002` when the
 target is not `-windows`) or an explicit list. An `OFR3001` API that a package supplies on
-the target does not count (`OFR4032`).
+the target does not count (`OFR4032`). From `audit`, COM interop and P/Invoke into Windows
+system libraries count too when the target is not `-windows` (ADR 0054).
 
 Method:
 1. Build the **type reference graph** of `P` from the semantic model: nodes are
@@ -166,6 +167,14 @@ Decisions in `docs/decisions/0023-seams-extract-and-remote.md`.
   does not taint. A Windows-only one (`details.windowsOnly`) still taints unless the
   target is `-windows` (the project uses Windows Forms or WPF, as `audit api` decides).
   Each such package is one OFR4032 (info) with the types that use it.
+- Windows interop (ADR 0054), from `audit` when the target is not `-windows`: a type
+  declared `[ComImport]` (`COM interop ([ComImport])`), a type that declares a
+  `[DllImport]` of a Windows system library (`P/Invoke into LIB (ENTRY)`), and a type
+  that uses a COM type (`COM interop: T`) or such a P/Invoke (`P/Invoke into LIB (M)`)
+  declared outside the project. The Windows system libraries are `audit native`'s
+  (`user32`, `kernel32`, `ole32`, ...). Calls to the project's own interop declarations
+  do not taint: they are where a seam goes. On a `-windows` target interop works and
+  taints nothing.
 - Taint: types that use an unportable symbol, then types that inherit from a tainted
   type or expose one in a public or protected field, property, method parameter, or
   return (constructor parameters excepted), and every type in a structural cycle with a
