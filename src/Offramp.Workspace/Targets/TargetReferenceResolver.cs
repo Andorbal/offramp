@@ -44,6 +44,13 @@ public sealed record TargetReferences
     /// <summary>Requested packages that do not support the target (NU1202, directly or through a dependency).</summary>
     public IReadOnlyList<string> DroppedPackages { get; init; } = [];
 
+    /// <summary>
+    /// Requested packages NuGet could not find at their version on the feeds or in the global
+    /// packages folder (NU1101, NU1102, NU1103, directly or through a dependency): whether they
+    /// support the target is not known, and they are not in <see cref="Paths"/>.
+    /// </summary>
+    public IReadOnlyList<string> UnavailablePackages { get; init; } = [];
+
     /// <summary>Set when NuGet or MSBuild failed for another reason: the reference set is unusable.</summary>
     public string? Error { get; init; }
 }
@@ -77,7 +84,7 @@ public sealed class TargetReferenceResolver(string repositoryRoot, IProcessRunne
         var result = await ResolveUncachedAsync(request, key, cancellationToken).ConfigureAwait(false);
         if (result.Error is null)
         {
-            cache.Set(CacheNamespace, key, JsonSerializer.Serialize(new CachedReferences(result.Paths, result.DroppedPackages)));
+            cache.Set(CacheNamespace, key, JsonSerializer.Serialize(new CachedReferences(result.Paths, result.DroppedPackages, result.UnavailablePackages)));
         }
 
         return _resolved[key] = result;
@@ -97,6 +104,7 @@ public sealed class TargetReferenceResolver(string repositoryRoot, IProcessRunne
 
         var packages = request.Packages.ToList();
         var dropped = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        var unavailable = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var attempt = 0; ; attempt++)
         {
             var project = Path.Combine(directory, "references.csproj");
@@ -115,19 +123,24 @@ public sealed class TargetReferenceResolver(string repositoryRoot, IProcessRunne
 
             if (result.Succeeded && ParsePaths(result.StandardOutput) is { Count: > 0 } paths)
             {
-                return new TargetReferences { Paths = paths, DroppedPackages = [.. dropped] };
+                return new TargetReferences { Paths = paths, DroppedPackages = [.. dropped], UnavailablePackages = [.. unavailable] };
             }
 
             var output = result.StandardError + "\n" + result.StandardOutput;
             var incompatible = Incompatible(output);
-            var drop = incompatible.Count == 0 || attempt > 1 ? [] : DirectPackagesReaching(directory, packages, incompatible);
-            if (drop.Count == 0)
+            var missing = NotFound(output);
+            var drop = attempt > 1 ? [] : DirectPackagesReaching(directory, packages, incompatible);
+            var absent = attempt > 1 ? [] : DirectPackagesReaching(directory, packages, missing);
+            if (drop.Count + absent.Count == 0)
             {
                 return new TargetReferences { Error = FirstErrors(output) };
             }
 
+            // A package that cannot be found says nothing about the target; one that is both is unavailable.
+            drop.ExceptWith(absent);
             dropped.UnionWith(drop);
-            packages = [.. packages.Where(p => !drop.Contains(p.Id, StringComparer.OrdinalIgnoreCase))];
+            unavailable.UnionWith(absent);
+            packages = [.. packages.Where(p => !drop.Contains(p.Id, StringComparer.OrdinalIgnoreCase) && !absent.Contains(p.Id, StringComparer.OrdinalIgnoreCase))];
         }
     }
 
@@ -215,11 +228,47 @@ public sealed class TargetReferenceResolver(string repositoryRoot, IProcessRunne
     }
 
     /// <summary>
+    /// Package ids NuGet could not find: no package with the id (NU1101), not at the version
+    /// (NU1102), or only as a prerelease (NU1103).
+    /// </summary>
+    internal static SortedSet<string> NotFound(string output)
+    {
+        var ids = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in output.Split('\n'))
+        {
+            foreach (var marker in new[] { "error NU1101: Unable to find package ", "error NU1102: Unable to find package ", "error NU1103: Unable to find a stable package " })
+            {
+                var at = line.IndexOf(marker, StringComparison.Ordinal);
+                if (at < 0)
+                {
+                    continue;
+                }
+
+                // "Foo.Bar. No packages exist ..." or "Foo.Bar with version (= 1.0.0)": an id never ends with a dot.
+                var rest = line[(at + marker.Length)..].TrimEnd('\r');
+                var space = rest.IndexOf(' ', StringComparison.Ordinal);
+                var id = (space < 0 ? rest : rest[..space]).TrimEnd('.');
+                if (id.Length > 0)
+                {
+                    ids.Add(id);
+                }
+            }
+        }
+
+        return ids;
+    }
+
+    /// <summary>
     /// The direct packages whose dependency closure (from the assets file NuGet writes even
-    /// when restore fails) contains an incompatible package.
+    /// when restore fails) contains one of <paramref name="incompatible"/>.
     /// </summary>
     private static HashSet<string> DirectPackagesReaching(string directory, IReadOnlyList<(string Id, string Version)> packages, SortedSet<string> incompatible)
     {
+        if (incompatible.Count == 0)
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
         var dependencies = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         var assets = Path.Combine(directory, "obj", "project.assets.json");
         if (File.Exists(assets))
@@ -286,7 +335,7 @@ public sealed class TargetReferenceResolver(string repositoryRoot, IProcessRunne
         try
         {
             var cached = JsonSerializer.Deserialize<CachedReferences>(json);
-            return cached is null ? null : new TargetReferences { Paths = cached.Paths, DroppedPackages = cached.DroppedPackages };
+            return cached is null ? null : new TargetReferences { Paths = cached.Paths, DroppedPackages = cached.DroppedPackages, UnavailablePackages = cached.UnavailablePackages ?? [] };
         }
         catch (JsonException)
         {
@@ -294,5 +343,5 @@ public sealed class TargetReferenceResolver(string repositoryRoot, IProcessRunne
         }
     }
 
-    private sealed record CachedReferences(IReadOnlyList<string> Paths, IReadOnlyList<string> DroppedPackages);
+    private sealed record CachedReferences(IReadOnlyList<string> Paths, IReadOnlyList<string> DroppedPackages, IReadOnlyList<string>? UnavailablePackages);
 }

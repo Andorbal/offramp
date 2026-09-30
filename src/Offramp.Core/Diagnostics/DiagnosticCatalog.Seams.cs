@@ -28,6 +28,22 @@ public static partial class DiagnosticCatalog
         "Add an instance member that calls the static one and use it through the interface.",
         SeamsArea);
 
+    public static readonly DiagnosticDescriptor OFR4031 = new(
+        "OFR4031", Severity.Warning,
+        "extraction too large for a seam",
+        "The unportable code and what must move with it (types that inherit from it, expose it in their signatures, or share a structural cycle with it) are more than a quarter of the project's types, so `seams` proposes no extraction; the message and `data.directlyTainted` list the types that use unportable APIs themselves.",
+        "A central class (configuration, a service locator, a session) that uses one unportable API and that most of the project's types depend on in their signatures.",
+        "Fence the listed types instead of moving them: replace or wrap the unportable call inside each (a package, an `#if`, an interface over just that API), then run `seams` again.",
+        SeamsArea);
+
+    public static readonly DiagnosticDescriptor OFR4032 = new(
+        "OFR4032", Severity.Info,
+        "unportable API supplied by a package",
+        "`audit api` reports an API missing on the target (OFR3001) that a package supplies there (`System.Configuration.ConfigurationManager` for `ConfigurationManager`), so `seams` does not count the types that use it as unportable. A Windows-only package counts only on a `-windows` target.",
+        "Configuration, caching, and other framework assemblies that moved to NuGet packages.",
+        "Nothing for `seams`; reference the named package when the project moves to the target.",
+        SeamsArea);
+
     public static readonly DiagnosticDescriptor OFR4010 = new(
         "OFR4010", Severity.Warning,
         "caller instantiates concrete type directly",

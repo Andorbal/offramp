@@ -12,8 +12,9 @@ merged result is echoed in every JSON envelope as `effectiveConfig`.
 # offramp.yml
 version: 1
 
-target: 10                     # integer; --target overrides
-solution: src/Monolith.sln     # optional when the repo has exactly one
+target: 10                     # .NET major version (10 = net10.0), or a target framework: net8.0,
+                               # net10.0-windows, netstandard2.0 (libraries; ADR 0057); --target overrides
+solution: src/Monolith.sln     # optional: see `init` for how one is chosen
 
 paths:
   exclude:                     # globs, repo-relative; excluded projects stay in the model but are never modified
@@ -69,6 +70,9 @@ deps:
       replacement: "Contoso.Reporting (the rewrite)"
     - prefix: "Contoso.Wcf."
       replacement: "Contoso.Grpc.* clients"
+  assemblyPackages:           # packages that ship an assembly under another name, searched by
+    - assembly: Contoso.Charts.Core   # deps resolve-dlls before rules/assembly-packages.yml
+      package: Contoso.Charts
   cpm:
     file: eng/Packages.props  # where consolidate --cpm writes: a path with a folder is repository-relative, a bare name goes where scope says;
                               # a file the SDK does not find by itself (another name, or not above every project) is opted into
@@ -86,6 +90,12 @@ move:
     helperMinConfidence: high # high | medium | low
     stripTestsSegment: true   # Foo/Service/Tests/X.cs -> Foo.Tests/Service/X.cs
     targetSuffix: ".Tests"
+
+deadCode:
+  externalConsumers: [ ]      # projects other repositories use (a project name, assembly name, or repository-relative path);
+                              # audit dead-code rates their public symbols medium, never high, and move tests never moves
+                              # their public types. Packable projects, projects a .nuspec packs, and libraries no application
+                              # in the solution uses count without being listed (commands/audit.md, ADR 0041)
 
 rules:                        # audit/behavior/serialization rule overrides
   OFR3105: { severity: none, reason: "We never run on Linux" }        # disable
@@ -162,6 +172,15 @@ written with `scope: repo`, so it stays at the root). Pins ask for a NuGet
 package id, a NuGet version, an optional existing project, and a reason, and
 refuse answers that are not one. `init --defaults` writes without asking. It also:
 
+- detects the solution: the only `.sln`/`.slnx`, else the only one at the
+  root, else, among the solutions that can be read and setting aside those with
+  a Web Site project when others have none, the one that contains every other
+  one's projects, else the one with the most projects (`OFR0023`, info, says
+  which and why); a tie leaves `solution: null` with `OFR0020` (warning) and
+  each solution's project count. Filters are never chosen
+  (`docs/decisions/0050-choose-among-several-solutions.md`). `scan` without
+  `solution:` chooses the same way;
+
 - adds `.offramp/cache/`, `.offramp/*.binlog`, `.offramp/*.complog`, and
   `.offramp/journal/` to `.gitignore`;
 - offers to add the macOS/Linux compile-only conditional block to
@@ -172,7 +191,7 @@ refuse answers that are not one. `init --defaults` writes without asking. It als
 
 | Variable | Purpose |
 |---|---|
-| `OFFRAMP_TARGET` | default target |
+| `OFFRAMP_TARGET` | default target (`10`, `net8.0`, `netstandard2.0`) |
 | `OFFRAMP_CONFIG` | config path |
 | `OFFRAMP_STATE` | state directory |
 | `OFFRAMP_LLM_PROVIDER`, `OFFRAMP_LLM_URL`, `OFFRAMP_LLM_MODEL`, `OFFRAMP_LLM_API_KEY` | LLM |
@@ -183,5 +202,6 @@ refuse answers that are not one. `init --defaults` writes without asking. It als
 In general `OFFRAMP_A__B_C` sets `a.bC`: `__` separates levels and each
 `UPPER_SNAKE` segment becomes camelCase (`OFFRAMP_MOVE__TESTS__TARGET_SUFFIX` sets
 `move.tests.targetSuffix`). Values are typed by the setting: integers, booleans
-(`true`/`false`/`1`/`0`/`yes`/`no`), and lists separated by `;` or `,`. Names
-that match no setting are ignored.
+(`true`/`false`/`1`/`0`/`yes`/`no`), and lists separated by `;` or `,`; `target`
+takes an integer or a target framework, as in the file. Names that match no
+setting are ignored.

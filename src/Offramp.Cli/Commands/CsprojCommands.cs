@@ -38,11 +38,11 @@ public sealed class CsprojModernizeCommand : ICommandHandler<CsprojModernizeOpti
     public static Command Create(CliHost host, GlobalOptions globals)
     {
         var projects = new Option<string[]>("--project") { Description = "Projects to modernize (path or name, repeatable).", HelpName = "PROJECT", AllowMultipleArgumentsPerToken = true };
-        var all = new Option<bool>("--all") { Description = "Every C# project in the workspace model." };
+        var all = new Option<bool>("--all") { Description = "Every project in the workspace model (legacy projects that are not C# are reported, not converted)." };
         var tfm = new Option<string?>("--tfm") { Description = "Target frameworks for every modernized project, semicolon-separated (net48;net10.0).", HelpName = "TFMS" };
         var nullable = new Option<string?>("--nullable") { Description = "Set Nullable (enable, disable, warnings, annotations); left alone unless given.", HelpName = "VALUE" };
         nullable.AcceptOnlyFromAmong("enable", "disable", "warnings", "annotations");
-        var acceptDiff = new Option<bool>("--accept-diff") { Description = "Apply even when the converted build compiles different inputs (OFR4303)." };
+        var acceptDiff = new Option<bool>("--accept-diff") { Description = "Apply even when the converted build compiles different inputs or does not build (OFR4303)." };
         var command = new Command("modernize", "Convert legacy projects to SDK style (packages.config, globs, AssemblyInfo, build events), proved by building both and comparing what the compiler gets.")
         {
             projects, all, tfm, nullable, acceptDiff,
@@ -82,7 +82,8 @@ public sealed class CsprojModernizeCommand : ICommandHandler<CsprojModernizeOpti
         var projects = new List<ProjectInfo>();
         if (options.All)
         {
-            projects.AddRange(model.Projects.Where(p => p.Language == "csharp"));
+            // Every project: the planner reports the ones it does not convert (OFR4304), a Visual Basic one included.
+            projects.AddRange(model.Projects);
         }
 
         foreach (var name in options.Projects)
@@ -108,6 +109,7 @@ public sealed class CsprojModernizeCommand : ICommandHandler<CsprojModernizeOpti
             Loader = loader,
             Diagnostics = context.Diagnostics,
             Progress = context.Progress,
+            Git = context.Host.GitService,
         }, cancellationToken);
 
         var changed = plan.Result.Projects.Where(p => p.Changed).Select(p => p.Project).ToList();
@@ -146,17 +148,53 @@ public sealed class CsprojModernizeCommand : ICommandHandler<CsprojModernizeOpti
     public void Render(ModernizeResult result, CommandContext context, HumanOutput output)
     {
         var converted = result.Projects.Count(p => p.Style == "legacy" && p.Changed);
-        var failed = result.Projects.Count(p => p.Verification is { Passed: false });
+        var broken = result.Projects.Count(p => p.Verification is { Passed: false, Built: false });
+        var different = result.Projects.Count(p => p.Verification is { Passed: false, Built: true });
+        var unverified = result.Projects.Count(p => p.Verification is { Passed: false, Built: null });
+        var failures = new List<string>();
+        if (broken > 0)
+        {
+            failures.Add(string.Create(CultureInfo.InvariantCulture, $"{broken} do{(broken == 1 ? "es" : "")} not build"));
+        }
+
+        if (different > 0)
+        {
+            failures.Add(string.Create(CultureInfo.InvariantCulture, $"{different} compile{(different == 1 ? "s" : "")} different inputs"));
+        }
+
+        if (unverified > 0)
+        {
+            failures.Add(string.Create(CultureInfo.InvariantCulture, $"{unverified} not verified"));
+        }
+
         output.Headline(string.Create(CultureInfo.InvariantCulture,
-            $"{(result.Applied ? "Modernized" : "Would modernize")} {result.Projects.Count(p => p.Changed)} project{(result.Projects.Count(p => p.Changed) == 1 ? "" : "s")} ({converted} converted to SDK style){(failed > 0 ? $"; {failed} compile{(failed == 1 ? "s" : "")} different inputs" : "")}."),
-            failed > 0 ? Theme.BlockingStyle : Theme.ReadyStyle);
+            $"{(result.Applied ? "Modernized" : "Would modernize")} {result.Projects.Count(p => p.Changed)} project{(result.Projects.Count(p => p.Changed) == 1 ? "" : "s")} ({converted} converted to SDK style){(failures.Count > 0 ? "; " + string.Join("; ", failures) : "")}."),
+            failures.Count > 0 ? Theme.BlockingStyle : Theme.ReadyStyle);
         foreach (var project in result.Projects)
         {
-            var verdict = project.Verification is null ? "" : project.Verification.Passed ? " [green]same compile set[/]" : " [red]different compile set[/]";
+            var verdict = project.Verification switch
+            {
+                null => "",
+                { Passed: true } => " [green]same compile set[/]",
+                { Built: false } => " [red]does not build[/]",
+                { Built: null } => " [red]not verified[/]",
+                _ => " [red]different compile set[/]",
+            };
             output.MarkupLine($"  [bold]{Markup.Escape(project.Project)}[/] [dim]{Markup.Escape(project.Style)} → {Markup.Escape(string.Join(";", project.TargetFrameworks))}{(project.CompileItems is { } items ? $", {items} compile items" : "")}[/]{verdict}");
             if (project.Skipped is { } skipped)
             {
                 output.MarkupLine($"    [yellow]not converted:[/] {Markup.Escape(skipped)}");
+            }
+
+            if (project.Verification is { Built: false } failed)
+            {
+                var codes = string.Join(", ", failed.BuildErrorCodes.Select(c => string.Create(CultureInfo.InvariantCulture, $"{c.Count} {c.Code}")));
+                output.MarkupLine(string.Create(CultureInfo.InvariantCulture,
+                    $"    [red]build errors:[/] {failed.BuildErrorCount}{(codes.Length > 0 ? $" ({Markup.Escape(codes)})" : "")}"));
+                foreach (var error in failed.BuildErrors.Take(3))
+                {
+                    output.MarkupLine($"    [dim]{Markup.Escape(error)}[/]");
+                }
             }
 
             foreach (var package in project.Packages)
@@ -178,7 +216,18 @@ public sealed class CsprojModernizeCommand : ICommandHandler<CsprojModernizeOpti
 
                 if (target.TransitiveReferencesAdded.Count > 0)
                 {
-                    output.MarkupLine($"    [dim]{Markup.Escape(target.TargetFramework)}: packages of referenced projects now flow here: {Markup.Escape(string.Join(", ", target.TransitiveReferencesAdded))}[/]");
+                    output.MarkupLine($"    [dim]{Markup.Escape(target.TargetFramework)}: assemblies of restored packages (their own, or flowing from referenced projects): {Markup.Escape(string.Join(", ", target.TransitiveReferencesAdded))}[/]");
+                }
+
+                if (target.FrameworkReferencesAdded.Count > 0)
+                {
+                    output.MarkupLine($"    [dim]{Markup.Escape(target.TargetFramework)}: framework assemblies that packages declare: {Markup.Escape(string.Join(", ", target.FrameworkReferencesAdded))}[/]");
+                }
+
+                if (target.FacadesRemoved.Count > 0)
+                {
+                    output.MarkupLine(string.Create(CultureInfo.InvariantCulture,
+                        $"    [dim]{Markup.Escape(target.TargetFramework)}: {target.FacadesRemoved.Count} .NET Standard facades the legacy build added are not needed[/]"));
                 }
             }
         }

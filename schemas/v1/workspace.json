@@ -54,7 +54,10 @@
       "properties": {
         "kind": { "enum": ["binlog", "complog", "build"] },
         "path": { "type": "string" },
-        "sha256": { "$ref": "#/$defs/sha256" },
+        "sha256": {
+          "description": "The supplied log's SHA-256 (kind binlog or complog); null for a log Offramp built (kind build), which differs with every build of the same inputs.",
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }]
+        },
         "complog": {
           "oneOf": [
             { "type": "null" },
@@ -87,17 +90,28 @@
         "language": { "enum": ["csharp", "vb", "fsharp", "other"] },
         "kind": { "$ref": "#/$defs/kind" },
         "kindEvidence": { "type": ["string", "null"] },
+        "hostedBy": {
+          "description": "The web project whose application loads this one at run time: its output folder lies inside that project's folder, outside its own (docs/decisions/0055-hosted-projects-belong-to-their-host.md). Absent when none.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["project", "evidence"],
+          "properties": {
+            "project": { "$ref": "#/$defs/relativePath" },
+            "evidence": { "type": "array", "items": { "type": "string" } }
+          }
+        },
         "sdkStyle": { "type": "boolean" },
         "sdk": { "type": ["string", "null"] },
         "targetFrameworks": { "type": "array", "items": { "type": "string" } },
         "frameworkClass": { "$ref": "#/$defs/frameworkClass" },
         "outputType": { "type": ["string", "null"] },
+        "outputPath": { "$ref": "#/$defs/relativePath", "description": "The folder the build writes the assembly to (OutDir), repository-relative without a trailing slash, for the .NET Framework target when there is one; absent when outside the repository or unknown." },
         "isTestProject": { "type": "boolean" },
         "properties": { "type": "object", "additionalProperties": { "type": "string" } },
         "defineConstants": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
         "windowsOnlyBuildSteps": {
           "type": "array",
-          "items": { "enum": ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event", "web-targets", "aspnet-compiler", "path-case", "inline-task", "resources"] }
+          "items": { "enum": ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event", "web-targets", "aspnet-compiler", "path-case", "inline-task", "resources", "bcl-build", "mstest-v1", "web-site"] }
         },
         "packagesConfig": { "type": "boolean" },
         "packagesConfigPackages": {
@@ -216,12 +230,17 @@
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["complog", "index"],
-            "properties": { "complog": { "$ref": "#/$defs/relativePath" }, "index": { "type": "integer", "minimum": 0 } }
+            "required": ["complog", "project", "targetFramework"],
+            "description": "Named by project and the target framework the compiler log records (null for a legacy project's call); readers find the call's position in the log.",
+            "properties": {
+              "complog": { "$ref": "#/$defs/relativePath" },
+              "project": { "$ref": "#/$defs/relativePath" },
+              "targetFramework": { "type": ["string", "null"] }
+            }
           }
         },
         "loc": { "type": "integer", "minimum": 0 },
-        "partial": { "const": true, "description": "Present only when some target frameworks have no compiler call." },
+        "partial": { "const": true, "description": "Present only when some target frameworks have no compiler call, or their compiler call logged errors." },
         "config": {
           "type": "object",
           "additionalProperties": false,

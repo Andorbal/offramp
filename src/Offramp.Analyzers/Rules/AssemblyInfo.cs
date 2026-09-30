@@ -32,35 +32,58 @@ public sealed class AssemblyInfoAnalyzer : CodemodAnalyzer
 
     public const string Value = "OfframpValue";
 
+    /// <summary>
+    /// Diagnostic property: the MSBuild property that turns the SDK's attribute off
+    /// (<c>GenerateAssemblyVersionAttribute</c>), for an attribute that has to stay where it is.
+    /// </summary>
+    public const string Switch = "OfframpSwitch";
+
     public override Codemod Codemod => Codemods.AssemblyInfo;
 
     protected override void Register(AnalysisContext context) =>
         context.RegisterCompilationStartAction(start =>
         {
-            var options = start.Options.AnalyzerConfigOptionsProvider.GlobalOptions;
-            var sdk = options.TryGetValue("build_property.UsingMicrosoftNETSdk", out var usingSdk) && string.Equals(usingSdk, "true", StringComparison.OrdinalIgnoreCase);
-            var generates = !options.TryGetValue("build_property.GenerateAssemblyInfo", out var generate) || !string.Equals(generate, "false", StringComparison.OrdinalIgnoreCase);
-            if (sdk && generates)
+            if (Applies(start.Options.AnalyzerConfigOptionsProvider.GlobalOptions))
             {
                 start.RegisterSyntaxNodeAction(Analyze, SyntaxKind.Attribute);
             }
         });
 
-    private void Analyze(SyntaxNodeAnalysisContext context)
+    /// <summary>True in an SDK-style project that generates assembly info (the build properties the package makes visible).</summary>
+    public static bool Applies(AnalyzerConfigOptions options)
     {
-        var attribute = (AttributeSyntax)context.Node;
+        var sdk = options.TryGetValue("build_property.UsingMicrosoftNETSdk", out var usingSdk) && string.Equals(usingSdk, "true", StringComparison.OrdinalIgnoreCase);
+        var generates = !options.TryGetValue("build_property.GenerateAssemblyInfo", out var generate) || !string.Equals(generate, "false", StringComparison.OrdinalIgnoreCase);
+        return sdk && generates;
+    }
+
+    /// <summary>
+    /// The site an assembly attribute is when the SDK generates it, else null. The codemod driver
+    /// also asks this of generated code, which analyzers do not look at.
+    /// </summary>
+    public static Diagnostic? Site(AttributeSyntax attribute, SemanticModel model, CancellationToken cancellationToken)
+    {
         if (attribute.Parent is not AttributeListSyntax { Target.Identifier.ValueText: "assembly" }
-            || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
+            || model.GetSymbolInfo(attribute, cancellationToken).Symbol is not IMethodSymbol constructor
             || !Generated.TryGetValue(Symbols.Name(constructor.ContainingType), out var property))
         {
-            return;
+            return null;
         }
 
         var value = attribute.ArgumentList?.Arguments.FirstOrDefault() is { } argument
-            ? context.SemanticModel.GetConstantValue(argument.Expression, context.CancellationToken).Value as string
+            ? model.GetConstantValue(argument.Expression, cancellationToken).Value as string
             : null;
-        var properties = ImmutableDictionary<string, string?>.Empty.Add(Property, property).Add(Value, value);
-        context.ReportDiagnostic(Diagnostic.Create(Codemod.Descriptor, attribute.GetLocation(), properties,
-            $"The SDK generates {constructor.ContainingType.Name}{(property.Length > 0 ? $" from <{property}>" : "")}; this one is a duplicate (CS0579)."));
+        var properties = ImmutableDictionary<string, string?>.Empty.Add(Property, property).Add(Value, value)
+            .Add(Switch, "Generate" + constructor.ContainingType.Name);
+        return Diagnostic.Create(Codemods.AssemblyInfo.Descriptor, attribute.GetLocation(), properties,
+            $"The SDK generates {constructor.ContainingType.Name}{(property.Length > 0 ? $" from <{property}>" : "")}; this one is a duplicate (CS0579).");
+    }
+
+    private void Analyze(SyntaxNodeAnalysisContext context)
+    {
+        if (Site((AttributeSyntax)context.Node, context.SemanticModel, context.CancellationToken) is { } site)
+        {
+            context.ReportDiagnostic(site);
+        }
     }
 }

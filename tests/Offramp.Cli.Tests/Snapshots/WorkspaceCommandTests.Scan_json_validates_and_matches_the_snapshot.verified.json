@@ -351,7 +351,11 @@
         "errors": [
           "Microsoft.Common.CurrentVersion.targets(3084): MSB4803: The task \"ResolveComReference\" is not supported on the .NET Core version of MSBuild. Please use the .NET Framework version of MSBuild. See https://aka.ms/msbuild/MSB4803 for further details.",
           "Microsoft.Common.CurrentVersion.targets(3983): MSB3474: The task \"SGen\" is not supported on the .NET Core version of MSBuild. Use the Microsoft XML Serializer Generator package instead. See https://go.microsoft.com/fwlink/?linkid=858594 for more information."
-        ]
+        ],
+        "projectsByCode": {
+          "MSB3474": 1,
+          "MSB4803": 1
+        }
       },
       "help": "https://offramp.dev/diagnostics/OFR0130"
     },

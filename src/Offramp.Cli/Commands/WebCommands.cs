@@ -68,6 +68,8 @@ public sealed class WebInventoryCommand(string format) : ICommandHandler<WebInve
         }
 
         var project = model.Projects.Single(p => p.Id == id);
+        ProjectLookup.ReportHosted(project, context,
+            $"its controllers, routes, and filters run inside that application, at its URL; `web inventory --project {project.HostedBy?.Project}` shows the application.");
         using var loader = new CompilationLoader(root);
         if (loader.LoadForProject(project) is not { } compilation)
         {
@@ -75,7 +77,8 @@ public sealed class WebInventoryCommand(string format) : ICommandHandler<WebInve
             return Task.FromResult(CommandOutcome<WebInventoryResult>.Environment());
         }
 
-        return Task.FromResult(CommandOutcome<WebInventoryResult>.Completed(WebInventory.Analyze(root, project, compilation)));
+        var libraries = WebInventory.Libraries(model, project, loader);
+        return Task.FromResult(CommandOutcome<WebInventoryResult>.Completed(WebInventory.Analyze(root, project, compilation, libraries)));
     }
 
     public string? RawOutput(WebInventoryResult result, CommandContext context) => format switch
@@ -89,7 +92,7 @@ public sealed class WebInventoryCommand(string format) : ICommandHandler<WebInve
     {
         var actions = result.Controllers.Sum(c => c.Actions.Count);
         output.Headline(string.Create(CultureInfo.InvariantCulture,
-            $"{result.Project} ({result.Kind}): {result.Controllers.Count} controllers, {actions} actions, {result.Routes.Count} convention routes, {result.Modules.Count} modules, {result.Handlers.Count} handlers, {result.WebForms.Count} Web Forms files."),
+            $"{result.Project} ({result.Kind}{(result.HostedBy is { } host ? ", hosted by " + host : "")}): {result.Controllers.Count} controllers, {actions} actions, {result.Routes.Count} convention routes, {result.Modules.Count} modules, {result.Handlers.Count} handlers, {result.WebForms.Count} Web Forms files."),
             Theme.ReadyStyle);
         var table = new Table().Border(TableBorder.Simple);
         table.AddColumn("Controller");
@@ -109,7 +112,15 @@ public sealed class WebInventoryCommand(string format) : ICommandHandler<WebInve
         output.Write(table);
         foreach (var route in result.Routes)
         {
-            output.MarkupLine($"  [dim]route[/] {Markup.Escape(route.Name)} {Markup.Escape(route.Template)} [dim]({Markup.Escape(route.Kind)})[/]");
+            var template = route.Computed is null ? route.Template : $"{route.Template}: {route.Computed}";
+            var via = route.Helper is null ? "" : $", {route.Helper}";
+            output.MarkupLine($"  [dim]route[/] {Markup.Escape(route.Name)} {Markup.Escape(template)} [dim]({Markup.Escape(route.Kind)}{(route.Area is null ? "" : " " + Markup.Escape(route.Area))}{Markup.Escape(via)})[/]");
+        }
+
+        foreach (var filter in result.ContainerFilters)
+        {
+            var scope = (filter.Controller ?? "every controller") + (filter.Action is null ? "" : "." + filter.Action);
+            output.MarkupLine($"  [dim]{Markup.Escape(filter.Kind)} filter[/] {Markup.Escape(filter.Filter)} [dim]for {Markup.Escape(scope)}[/]");
         }
 
         foreach (var component in result.Modules.Concat(result.Handlers))
@@ -183,10 +194,11 @@ public sealed class WebScaffoldCommand : ICommandHandler<WebScaffoldOptions, Web
             RepositoryRoot = root,
             Project = project,
             NewDirectory = options.New,
-            TargetMajor = config.Target,
+            TargetMajor = config.Target.RuntimeMajor,
             Proxy = options.Proxy,
             Adapters = options.Adapters,
             LegacyUrl = options.LegacyUrl,
+            Libraries = WebInventory.Libraries(model, project, loader),
             References = new TargetReferenceResolver(root, context.Host.Processes, CommandRunner.Cache(context)),
             Diagnostics = context.Diagnostics,
         }, compilation, cancellationToken);

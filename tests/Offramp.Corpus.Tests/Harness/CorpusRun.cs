@@ -29,7 +29,7 @@ public sealed record CorpusSweep
 
     public required OfframpRun Scan { get; init; }
 
-    /// <summary><c>scan --no-build</c> right after <see cref="Scan"/>; its model matched, apart from <c>createdAt</c>.</summary>
+    /// <summary><c>scan --no-build</c> right after <see cref="Scan"/>; its model, and a second full scan's, matched, apart from <c>createdAt</c>.</summary>
     public required OfframpRun Rescan { get; init; }
 
     public required OfframpRun Graph { get; init; }
@@ -160,10 +160,10 @@ public sealed class CorpusRun : IAsyncDisposable
     }
 
     /// <summary>
-    /// The standard sweep: <c>doctor --fix --apply</c>, <c>scan</c> (and <c>scan --no-build</c>, whose model must match),
+    /// The standard sweep: <c>doctor --fix --apply</c>, <c>scan</c> (and <c>scan --no-build</c> and a second <c>scan</c>, whose models must match),
     /// <c>graph</c>, <c>plan</c>, <c>report</c>, <c>deps audit</c>, <c>deps resolve-dlls</c>, <c>redirects sync</c>
     /// (dry run), and the <see cref="OptionalSteps"/> not in <paramref name="skip"/>. Nothing in it writes to the
-    /// codebase except the compile-only block, scan's restore, and the build.
+    /// codebase except <c>doctor --fix</c> (the compile-only block and the Windows conditions), scan's restore, and the build.
     /// </summary>
     public async Task<CorpusSweep> SweepAsync(params string[] skip)
     {
@@ -174,7 +174,17 @@ public sealed class CorpusRun : IAsyncDisposable
         var scan = await RunAsync("scan", "scan");
         var model = Scrubbed(Repository.Read(".offramp/workspace.json"));
         var rescan = await RunAsync("scan", "scan", "--no-build");
-        AssertSameModel(model, Scrubbed(Repository.Read(".offramp/workspace.json")));
+        AssertSameModel(model, Scrubbed(Repository.Read(".offramp/workspace.json")), "scan --no-build");
+
+        // A second build: the parallel build finishes its compilations in another order (SmartStoreNET P1 #8). Only a
+        // build that succeeds is the same input twice: when one fails, how far the parallel build gets before the
+        // failure stops the projects that depend on it varies from run to run (DotNetNuke on Linux, where letter
+        // case stops part of it), so its log, and the model, may too. scan --no-build above checks that case.
+        var again = await RunAsync("scan", "scan");
+        if (scan.Result["buildSucceeded"]?.GetValue<bool>() == true && again.Result["buildSucceeded"]?.GetValue<bool>() == true)
+        {
+            AssertSameModel(model, Scrubbed(Repository.Read(".offramp/workspace.json")), "a second scan");
+        }
 
         return new CorpusSweep
         {
@@ -222,7 +232,7 @@ public sealed class CorpusRun : IAsyncDisposable
         return text.ToString();
     }
 
-    private void AssertSameModel(string first, string second)
+    private void AssertSameModel(string first, string second, string other)
     {
         if (first == second)
         {
@@ -231,7 +241,7 @@ public sealed class CorpusRun : IAsyncDisposable
 
         File.WriteAllText(Path.Combine(_output, "model-scan.json"), first);
         File.WriteAllText(Path.Combine(_output, "model-rescan.json"), second);
-        Assert.Fail($"scan is not deterministic: the model from scan and from scan --no-build differ (both saved in {_output}).");
+        Assert.Fail($"scan is not deterministic: the model from scan and from {other} differ (both saved in {_output}).");
     }
 
     /// <summary>The model without <c>createdAt</c>, the one field allowed to change between two scans.</summary>

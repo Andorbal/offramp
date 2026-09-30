@@ -159,6 +159,34 @@ public sealed class RedirectTests
         Assert.Contains("deploys Newtonsoft.Json 13.0.0.0, older than the 14.0.0.0", older.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// SmartStoreNET P1 #5: the runtime reads the site's web.config, not a plugin's, and the site deploys the plugin's
+    /// packages. The site's Newtonsoft.Json redirect serves the Tax plugin and must not be pruned; the plugin's own
+    /// web.config is left alone.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR1507")]
+    public async Task A_host_keeps_the_redirects_of_the_projects_it_hosts_and_theirs_are_left_alone()
+    {
+        var fixture = await ScannedFixtures.GetAsync("plugin-host");
+        var diagnostics = new DiagnosticBag();
+
+        var plan = RedirectPlanner.Plan(Request(fixture.Root, fixture.Outcome.Model!, diagnostics, prune: true));
+
+        Assert.Equal(
+            [
+                ("src/Modules/Html/Html.csproj", (string?)null, true),
+                ("src/Plugins/Tax/Tax.csproj", null, true),
+                ("src/Site/Admin/Admin.csproj", null, true),
+                ("src/Site/Site.csproj", "src/Site/Web.config", false),
+            ],
+            plan.Result.Apps.Select(a => (a.Project, a.ConfigFile, a.Skipped is not null)));
+        var site = plan.Result.Apps.Single(a => a.Project == "src/Site/Site.csproj");
+        Assert.Equal([("Newtonsoft.Json", RedirectAction.Unchanged)], site.Redirects.Select(r => (r.Assembly, r.Action)));
+        Assert.Null(plan.ChangeSet);
+        Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR1507" && d.Project == "src/Plugins/Tax/Tax.csproj");
+    }
+
     private static RedirectsRequest Request(string root, WorkspaceModel model, DiagnosticBag diagnostics, bool prune) => new()
     {
         RepositoryRoot = root,

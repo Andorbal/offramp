@@ -50,11 +50,17 @@ public sealed class FakeMachine
         return runner;
     }
 
-    public FakeReferenceAssembliesProbe CreateReferenceAssembliesProbe() => new(ReferenceAssemblies);
+    /// <summary>The frameworks each reference-assemblies probe was asked about, in order.</summary>
+    public List<IReadOnlyList<string>> ProbedFrameworks { get; } = [];
+
+    public FakeReferenceAssembliesProbe CreateReferenceAssembliesProbe() => new(ReferenceAssemblies, ProbedFrameworks);
 }
 
-public sealed class FakeReferenceAssembliesProbe(ReferenceAssembliesResult result) : IReferenceAssembliesProbe
+public sealed class FakeReferenceAssembliesProbe(ReferenceAssembliesResult result, List<IReadOnlyList<string>>? asked = null) : IReferenceAssembliesProbe
 {
-    public Task<ReferenceAssembliesResult> ProbeAsync(string repositoryRoot, CancellationToken cancellationToken) =>
-        Task.FromResult(result);
+    public Task<ReferenceAssembliesResult> ProbeAsync(string repositoryRoot, IReadOnlyList<string> frameworks, CancellationToken cancellationToken)
+    {
+        asked?.Add(frameworks);
+        return Task.FromResult(result);
+    }
 }

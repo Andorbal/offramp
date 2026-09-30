@@ -142,7 +142,7 @@ public sealed class AuditCommand(AuditKind kind, string format) : ICommandHandle
             RepositoryRoot = root,
             Model = model,
             Audit = options.Kind,
-            TargetMajor = config.Target,
+            Target = config.Target,
             Projects = projects,
             Packs = options.Packs,
             DisabledPacks = config.Rules.Packs.Disable,

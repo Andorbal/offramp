@@ -35,4 +35,12 @@ public static partial class DiagnosticCatalog
         "A second run.",
         "Pass another --new, or delete the folder.",
         WebArea);
+
+    public static readonly DiagnosticDescriptor OFR4205 = new(
+        "OFR4205", Severity.Info,
+        "route with a computed template not mapped",
+        "The convention route's URL template is computed at run time (a setting, a path from configuration, a helper's argument that is not a literal), so `web scaffold` cannot write its `MapControllerRoute`. The route is left out of the new application, and the proxy keeps sending its requests to the legacy application. The message shows the code that computes the template.",
+        "Media, CDN, or tenant paths read from settings, templates built from a prefix and a literal.",
+        "Map the route in the new application's Program.cs with the template the code computes (or the same code, read from configuration) once its actions are ported.",
+        WebArea);
 }

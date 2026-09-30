@@ -1,3 +1,4 @@
+using Offramp.Core.Configuration;
 using Offramp.Core.Model;
 using Offramp.Workspace.Doctor;
 using Offramp.Workspace.Model;
@@ -14,8 +15,8 @@ public sealed record GuideFacts
 {
     private static readonly string[] ConfigFileNames = ["app.config", "web.config"];
 
-    /// <summary>The target major version (10 = net10.0).</summary>
-    public required int Target { get; init; }
+    /// <summary>The target (<c>net10.0</c>, <c>netstandard2.0</c>; ADR 0057).</summary>
+    public required ModernTarget Target { get; init; }
 
     public required bool ConfigExists { get; init; }
 
@@ -33,14 +34,20 @@ public sealed record GuideFacts
     /// <summary>Projects with an App.config or Web.config beside the project file.</summary>
     public IReadOnlySet<string> ProjectsWithConfigFile { get; init; } = new HashSet<string>();
 
+    /// <summary>
+    /// Libraries whose public API other code uses (ADR 0041's shipped rule, which the caller applies), by project
+    /// id, with the evidence: the port step gives them <c>netstandard2.0</c> (ADR 0057).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> ShippedLibraries { get; init; } = new Dictionary<string, string>();
+
     public bool ModelFresh => Model is not null && Staleness is { IsStale: false };
 
-    public string TargetFramework => $"net{Target}.0";
+    public string TargetFramework => Target.Moniker;
 
     public bool IsReady(ProjectInfo project) =>
         Standings.TryGetValue(project.Id, out var standing) && standing.Readiness == ProjectReadiness.Ready;
 
-    public static GuideFacts Gather(string repositoryRoot, int target, bool configExists, string workspacePath, string stateDirectory)
+    public static GuideFacts Gather(string repositoryRoot, ModernTarget target, bool configExists, string workspacePath, string stateDirectory)
     {
         var model = TryReadModel(workspacePath);
         return new GuideFacts

@@ -47,10 +47,43 @@ public sealed record ReportApplication
     /// <summary>done: nothing framework-only in its closure; ready: only the application itself remains; blocked: otherwise.</summary>
     public required ProjectReadiness Status { get; init; }
 
-    /// <summary>The application and every project it depends on.</summary>
+    /// <summary>The application, the projects it hosts, and every project they depend on.</summary>
     public required int Closure { get; init; }
 
     /// <summary>Framework-only projects in the closure, the application included.</summary>
+    public required int Remaining { get; init; }
+
+    public required int RemainingLoc { get; init; }
+
+    /// <summary>Framework-only projects in the closure that can be ported today, sorted.</summary>
+    public required IReadOnlyList<string> Next { get; init; }
+
+    /// <summary>The projects the application hosts (its plugins, areas, and modules), sorted (ADR 0055).</summary>
+    public IReadOnlyList<string> Hosted { get; init; } = [];
+}
+
+/// <summary>
+/// A library other code uses (ADR 0041's shipped rule) and what must be ported before it serves modern .NET: for a
+/// repository of libraries, what applications are for one of applications (ADR 0057).
+/// </summary>
+public sealed record ReportLibrary
+{
+    public required string Project { get; init; }
+
+    public required string Name { get; init; }
+
+    public required FrameworkClass FrameworkClass { get; init; }
+
+    /// <summary>The evidence that other code uses it (<c>packable (IsPackable)</c>, <c>no application in the solution uses it</c>).</summary>
+    public required string Shipped { get; init; }
+
+    /// <summary>done: nothing framework-only in its closure; ready: only the library itself remains; blocked: otherwise.</summary>
+    public required ProjectReadiness Status { get; init; }
+
+    /// <summary>The library and every project it depends on.</summary>
+    public required int Closure { get; init; }
+
+    /// <summary>Framework-only projects in the closure, the library included.</summary>
     public required int Remaining { get; init; }
 
     public required int RemainingLoc { get; init; }
@@ -82,6 +115,11 @@ public sealed record ReportHeadline
 
     public required int ApplicationsDone { get; init; }
 
+    /// <summary>Libraries other code uses (<see cref="ReportData.Libraries"/>).</summary>
+    public required int Libraries { get; init; }
+
+    public required int LibrariesDone { get; init; }
+
     /// <summary>Framework-only projects that can be ported today (the frontier).</summary>
     public required int Ready { get; init; }
 }
@@ -105,6 +143,9 @@ public sealed record ReportData
     public required IReadOnlyList<ReportArea> Areas { get; init; }
 
     public required IReadOnlyList<ReportApplication> Applications { get; init; }
+
+    /// <summary>Libraries other code uses, sorted by project; the renderings talk about them when there is no application.</summary>
+    public required IReadOnlyList<ReportLibrary> Libraries { get; init; }
 
     public required IReadOnlyList<ReportFrontierProject> Frontier { get; init; }
 }

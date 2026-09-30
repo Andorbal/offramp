@@ -3,7 +3,8 @@
 # Precedence: built-in defaults < this file < OFFRAMP_* environment variables < command-line flags.
 version: 1
 
-# Integer major version of the modern target (10 = net10.0). --target overrides.
+# The modern target: a .NET major version (10 = net10.0), a target framework (net8.0, net10.0-windows),
+# or netstandard2.0 for libraries that also serve .NET Framework. --target overrides.
 target: 10
 
 # The solution (.sln, .slnx, or .slnf) Offramp works on.

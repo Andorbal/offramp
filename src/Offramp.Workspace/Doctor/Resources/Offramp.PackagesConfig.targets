@@ -1,0 +1,367 @@
+<Project>
+  <!--
+    packages.config for dotnet restore (added by offramp doctor; docs/compiling-on-macos.md).
+    dotnet restore does not read packages.config, and NuGet.exe needs Mono outside Windows. After a restore, of a
+    solution or of a project and the projects it references, this downloads what each packages.config lists and the
+    packages folder lacks, through NuGet's restore of a generated project (so the solution's nuget.config, feeds, and
+    credentials apply), and lays it out in the packages folder as nuget restore does: <Id>.<Version>/, in
+    repositoryPath from nuget.config, else packages/ beside the solution. A package already there is left alone. The
+    root Directory.Build.props imports this file for dotnet build (projects), and Directory.Solution.targets for
+    solutions; Visual Studio's build does not. Offramp rewrites it; edit a copy under another name instead.
+  -->
+  <UsingTask TaskName="OfframpPackagesConfig" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Projects ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <SolutionDir ParameterType="System.String" />
+      <GlobalPackagesFolder ParameterType="System.String" />
+      <LayOut ParameterType="System.Boolean" />
+      <DownloadProject ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Class" Language="cs"><![CDATA[
+        using System;
+        using System.Collections.Generic;
+        using System.Globalization;
+        using System.IO;
+        using System.Linq;
+        using System.Xml.Linq;
+        using Microsoft.Build.Framework;
+        using Microsoft.Build.Utilities;
+
+        public class OfframpPackagesConfig : Task
+        {
+            private static readonly string[] ConfigNames = { "NuGet.Config", "nuget.config", "NuGet.config" };
+
+            [Required]
+            public ITaskItem[] Projects { get; set; }
+
+            public string SolutionDir { get; set; }
+
+            public string GlobalPackagesFolder { get; set; }
+
+            public bool LayOut { get; set; }
+
+            /// <summary>A project whose restore downloads what the global packages folder lacks; empty when nothing is missing.</summary>
+            [Output]
+            public string DownloadProject { get; set; }
+
+            public override bool Execute()
+            {
+                var missing = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var global = GlobalFolder();
+                var laidOut = new SortedSet<string>(StringComparer.Ordinal);
+                var projects = Projects.Select(p => p.GetMetadata("FullPath")).Distinct(StringComparer.Ordinal).OrderBy(p => p, StringComparer.Ordinal);
+                foreach (var project in projects)
+                {
+                    var config = Path.Combine(Path.GetDirectoryName(project), "packages.config");
+                    if (!File.Exists(config))
+                    {
+                        continue;
+                    }
+
+                    var packages = Read(config);
+                    var folder = PackagesFolder(project, packages);
+                    if (folder == null)
+                    {
+                        Log.LogWarning("Offramp: cannot tell where the packages of {0} go: no solution, and neither its HintPaths nor a nuget.config repositoryPath name a packages folder. Build the solution.", project);
+                        continue;
+                    }
+
+                    foreach (var package in packages)
+                    {
+                        if (Present(folder, package.Item1 + "." + package.Item2) || Present(folder, package.Item1 + "." + Normalize(package.Item2)))
+                        {
+                            continue;
+                        }
+
+                        var source = Path.Combine(global, package.Item1.ToLowerInvariant(), Normalize(package.Item2).ToLowerInvariant());
+                        if (!LayOut)
+                        {
+                            if (!File.Exists(Path.Combine(source, ".nupkg.metadata")))
+                            {
+                                missing[package.Item1 + "/" + package.Item2] = package.Item2;
+                            }
+
+                            continue;
+                        }
+
+                        if (!Directory.Exists(source))
+                        {
+                            Log.LogWarning("Offramp: {0} {1}, which {2} lists, is not in the NuGet global packages folder ({3}); the restore did not download it.", package.Item1, package.Item2, config, global);
+                            continue;
+                        }
+
+                        var name = Copy(source, folder, package.Item1);
+                        if (name != null)
+                        {
+                            laidOut.Add(name);
+                        }
+                    }
+                }
+
+                DownloadProject = missing.Count == 0 ? "" : WriteDownloadProject(missing.Keys);
+                if (laidOut.Count > 0)
+                {
+                    Log.LogMessage(MessageImportance.High, "Offramp: laid out {0} packages.config package(s) in the packages folder: {1}", laidOut.Count, string.Join(", ", laidOut));
+                }
+
+                return !Log.HasLoggedErrors;
+            }
+
+            /// <summary>
+            /// An SDK-style project, under the solution so that NuGet reads the solution's nuget.config (feeds, credentials),
+            /// with a PackageDownload for each missing package; the repository's Directory.Build and Directory.Packages files
+            /// are kept out of it. It lives in obj/, which builds own and git ignores.
+            /// </summary>
+            private string WriteDownloadProject(IEnumerable<string> packages)
+            {
+                var root = !string.IsNullOrEmpty(SolutionDir) && SolutionDir != "*Undefined*" ? SolutionDir : Path.GetDirectoryName(Projects[0].GetMetadata("FullPath"));
+                var directory = Path.Combine(root, "obj", "offramp-packages-config");
+                Directory.CreateDirectory(directory);
+                // One PackageDownload per package, with every version the projects list: NuGet keeps one item per id.
+                var items = string.Join("", packages
+                    .GroupBy(p => p.Substring(0, p.LastIndexOf('/')), StringComparer.OrdinalIgnoreCase)
+                    .Select(g => "\n    <PackageDownload Include=\"" + System.Security.SecurityElement.Escape(g.Key) + "\" Version=\""
+                        + System.Security.SecurityElement.Escape(string.Join(";", g.Select(p => "[" + p.Substring(p.LastIndexOf('/') + 1) + "]"))) + "\" />"));
+                var project = Path.Combine(directory, "download.csproj");
+                File.WriteAllText(project,
+                    "<!-- Written by Offramp.PackagesConfig.targets: downloads what packages.config lists, for dotnet restore. -->\n" +
+                    "<Project>\n" +
+                    "  <PropertyGroup>\n" +
+                    "    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>\n" +
+                    "    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>\n" +
+                    "    <ImportDirectoryPackagesProps>false</ImportDirectoryPackagesProps>\n" +
+                    "  </PropertyGroup>\n" +
+                    "  <Import Project=\"Sdk.props\" Sdk=\"Microsoft.NET.Sdk\" />\n" +
+                    "  <PropertyGroup>\n" +
+                    "    <TargetFramework>netstandard2.0</TargetFramework>\n" +
+                    "    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>\n" +
+                    "    <NuGetAudit>false</NuGetAudit>\n" +
+                    "  </PropertyGroup>\n" +
+                    "  <ItemGroup>" + items + "\n  </ItemGroup>\n" +
+                    "  <Import Project=\"Sdk.targets\" Sdk=\"Microsoft.NET.Sdk\" />\n" +
+                    "</Project>\n");
+                return project;
+            }
+
+            /// <summary>The id and version of each package a packages.config lists.</summary>
+            private static List<Tuple<string, string>> Read(string config)
+            {
+                return XDocument.Load(config).Descendants("package")
+                    .Select(p => Tuple.Create((string)p.Attribute("id"), (string)p.Attribute("version")))
+                    .Where(p => !string.IsNullOrWhiteSpace(p.Item1) && !string.IsNullOrWhiteSpace(p.Item2))
+                    .Select(p => Tuple.Create(p.Item1.Trim(), p.Item2.Trim()))
+                    .ToList();
+            }
+
+            /// <summary>
+            /// The folder nuget restore uses: for a solution, repositoryPath from nuget.config, else packages beside it; for a
+            /// project restored alone, the folder its HintPaths and imports name, else repositoryPath.
+            /// </summary>
+            private string PackagesFolder(string project, List<Tuple<string, string>> packages)
+            {
+                if (!string.IsNullOrEmpty(SolutionDir) && SolutionDir != "*Undefined*")
+                {
+                    return RepositoryPath(SolutionDir) ?? Path.Combine(SolutionDir, "packages");
+                }
+
+                return FromProject(project, packages) ?? RepositoryPath(Path.GetDirectoryName(project));
+            }
+
+            /// <summary>
+            /// An MSBuild property reference as a project file writes it, built so that this code never spells one: MSBuild
+            /// expands them in an inline task's code too.
+            /// </summary>
+            private static string Property(string name)
+            {
+                return "$" + "(" + name + (name.Length > 0 ? ")" : "");
+            }
+
+            private static string FromProject(string project, List<Tuple<string, string>> packages)
+            {
+                var directory = Path.GetDirectoryName(project);
+                var paths = XDocument.Load(project).Descendants()
+                    .Select(e => e.Name.LocalName == "HintPath" ? e.Value : e.Name.LocalName == "Import" ? (string)e.Attribute("Project") : null)
+                    .Where(p => p != null)
+                    .Select(p => p.Trim().Replace('\\', '/').Replace(Property("MSBuildThisFileDirectory"), directory + "/").Replace(Property("MSBuildProjectDirectory"), directory));
+                foreach (var path in paths)
+                {
+                    foreach (var package in packages)
+                    {
+                        foreach (var name in new[] { package.Item1 + "." + package.Item2, package.Item1 + "." + Normalize(package.Item2) })
+                        {
+                            var at = path.IndexOf("/" + name + "/", StringComparison.OrdinalIgnoreCase);
+                            var prefix = at < 0 ? null : path.Substring(0, at);
+                            if (prefix != null && !prefix.Contains(Property("")))
+                            {
+                                return Path.GetFullPath(Path.Combine(directory, prefix));
+                            }
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            /// <summary>A nuget.config setting, from the nearest file that has it, from <paramref name="directory"/> up.</summary>
+            private static string Setting(string directory, string key)
+            {
+                for (var current = directory; !string.IsNullOrEmpty(current); current = Path.GetDirectoryName(current))
+                {
+                    foreach (var name in ConfigNames)
+                    {
+                        var config = Path.Combine(current, name);
+                        if (!File.Exists(config))
+                        {
+                            continue;
+                        }
+
+                        var value = XDocument.Load(config).Descendants("config").Elements("add")
+                            .Where(a => string.Equals((string)a.Attribute("key"), key, StringComparison.OrdinalIgnoreCase))
+                            .Select(a => (string)a.Attribute("value"))
+                            .LastOrDefault();
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            return Path.GetFullPath(Path.Combine(current, value.Replace('\\', '/')));
+                        }
+
+                        break;
+                    }
+                }
+
+                return null;
+            }
+
+            private static string RepositoryPath(string directory)
+            {
+                return Setting(directory, "repositoryPath");
+            }
+
+            private string GlobalFolder()
+            {
+                if (!string.IsNullOrEmpty(GlobalPackagesFolder))
+                {
+                    return GlobalPackagesFolder;
+                }
+
+                var variable = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+                if (!string.IsNullOrEmpty(variable))
+                {
+                    return variable;
+                }
+
+                var start = !string.IsNullOrEmpty(SolutionDir) && SolutionDir != "*Undefined*" ? SolutionDir : Path.GetDirectoryName(Projects[0].GetMetadata("FullPath"));
+                return Setting(start, "globalPackagesFolder")
+                    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
+            }
+
+            private readonly Dictionary<string, HashSet<string>> _folders = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+
+            /// <summary>True when the packages folder has a folder of that name, in any letter case, as nuget restore checks.</summary>
+            private bool Present(string folder, string name)
+            {
+                HashSet<string> names;
+                if (!_folders.TryGetValue(folder, out names))
+                {
+                    names = Directory.Exists(folder)
+                        ? new HashSet<string>(Directory.EnumerateDirectories(folder).Select(Path.GetFileName), StringComparer.OrdinalIgnoreCase)
+                        : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    _folders[folder] = names;
+                }
+
+                return names.Contains(name);
+            }
+
+            /// <summary>NuGet's normalized version: no leading zeros, at least three parts, no fourth part of 0, no metadata.</summary>
+            private static string Normalize(string version)
+            {
+                var text = version.Trim();
+                var plus = text.IndexOf('+');
+                if (plus >= 0)
+                {
+                    text = text.Substring(0, plus);
+                }
+
+                var dash = text.IndexOf('-');
+                var release = dash >= 0 ? text.Substring(dash) : "";
+                var parts = (dash >= 0 ? text.Substring(0, dash) : text).Split('.')
+                    .Select(n => { int i; return int.TryParse(n, NumberStyles.None, CultureInfo.InvariantCulture, out i) ? i.ToString(CultureInfo.InvariantCulture) : n; })
+                    .ToList();
+                while (parts.Count < 3)
+                {
+                    parts.Add("0");
+                }
+
+                if (parts.Count == 4 && parts[3] == "0")
+                {
+                    parts.RemoveAt(3);
+                }
+
+                return string.Join(".", parts) + release;
+            }
+
+            /// <summary>
+            /// Copies a package from the global packages folder into <c>&lt;Id&gt;.&lt;Version&gt;</c> of the packages folder,
+            /// named from its nuspec as nuget restore names it, with its .nupkg and files and without the global folder's
+            /// bookkeeping (.nupkg.metadata, .sha512, the nuspec). A temporary folder is moved into place, so a failed copy
+            /// never looks like a restored package. Returns the folder name, or null when it was already there.
+            /// </summary>
+            private string Copy(string source, string folder, string id)
+            {
+                var lower = id.ToLowerInvariant();
+                var metadata = XDocument.Load(Path.Combine(source, lower + ".nuspec")).Descendants().First(e => e.Name.LocalName == "metadata");
+                var version = metadata.Elements().First(e => e.Name.LocalName == "version").Value.Trim();
+                var plus = version.IndexOf('+');
+                var name = metadata.Elements().First(e => e.Name.LocalName == "id").Value.Trim() + "." + (plus >= 0 ? version.Substring(0, plus) : version);
+                if (Present(folder, name))
+                {
+                    return null;
+                }
+
+                Directory.CreateDirectory(folder);
+                var temporary = Path.Combine(folder, ".offramp-" + Guid.NewGuid().ToString("N"));
+                foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+                {
+                    var relative = file.Substring(source.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (relative == ".nupkg.metadata" || relative.EndsWith(".sha512", StringComparison.Ordinal) || relative == lower + ".nuspec")
+                    {
+                        continue;
+                    }
+
+                    var target = relative.EndsWith(".nupkg", StringComparison.Ordinal) && relative.IndexOfAny(new[] { '/', '\\' }) < 0 ? name + ".nupkg" : relative;
+                    var destination = Path.Combine(temporary, target);
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                    File.Copy(file, destination);
+                }
+
+                try
+                {
+                    Directory.Move(temporary, Path.Combine(folder, name));
+                }
+                catch (IOException)
+                {
+                    // Another restore laid it out first.
+                    Directory.Delete(temporary, recursive: true);
+                }
+
+                _folders[folder].Add(name);
+                return name;
+            }
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="OfframpPackagesConfig" AfterTargets="Restore">
+    <ItemGroup>
+      <_OfframpRestoredProject Include="%(_RestoreGraphEntry.ProjectPath)" Condition="'%(_RestoreGraphEntry.Type)' == 'ProjectSpec'" />
+      <_OfframpRestoredProject Include="$(MSBuildProjectFullPath)" Condition="'@(_OfframpRestoredProject)' == '' And !$(MSBuildProjectFullPath.EndsWith('.metaproj'))" />
+      <_OfframpPackagesConfigProject Include="@(_OfframpRestoredProject)" Condition="Exists('%(RootDir)%(Directory)packages.config')" />
+    </ItemGroup>
+    <OfframpPackagesConfig Projects="@(_OfframpPackagesConfigProject)" SolutionDir="$(SolutionDir)" GlobalPackagesFolder="$(RestorePackagesPath)" Condition="'@(_OfframpPackagesConfigProject)' != ''">
+      <Output TaskParameter="DownloadProject" PropertyName="_OfframpDownloadProject" />
+    </OfframpPackagesConfig>
+    <MSBuild Projects="$(_OfframpDownloadProject)" Targets="Restore" Properties="MSBuildRestoreSessionId=$([System.Guid]::NewGuid())" Condition="'$(_OfframpDownloadProject)' != ''" />
+    <OfframpPackagesConfig Projects="@(_OfframpPackagesConfigProject)" SolutionDir="$(SolutionDir)" GlobalPackagesFolder="$(RestorePackagesPath)" LayOut="true" Condition="'@(_OfframpPackagesConfigProject)' != ''" />
+  </Target>
+</Project>

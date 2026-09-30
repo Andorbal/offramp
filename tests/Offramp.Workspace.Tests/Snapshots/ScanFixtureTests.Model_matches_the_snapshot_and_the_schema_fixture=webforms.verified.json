@@ -7,7 +7,7 @@
   "source": {
     "kind": "build",
     "path": ".offramp/msbuild.binlog",
-    "sha256": "{Sha256}",
+    "sha256": null,
     "complog": null
   },
   "sdk": {
@@ -30,6 +30,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Portal.Controls/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -64,6 +65,7 @@
       "packagesConfig": false,
       "compile": [
         "src/Portal.Controls/ModuleBase.cs",
+        "src/Portal.Controls/RequestExtensions.cs",
         "src/Portal.Controls/RouteRegistry.cs"
       ],
       "compileExplicit": false,
@@ -87,10 +89,11 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Portal.Controls/Portal.Controls.csproj",
+          "targetFramework": "net48"
         }
       },
-      "loc": 42,
+      "loc": 55,
       "config": {
         "kindOverride": null,
         "excluded": false
@@ -111,6 +114,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Portal.Modules/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -147,7 +151,9 @@
         "src/Portal.Modules/Default.aspx.cs",
         "src/Portal.Modules/EditSettings.ascx.cs",
         "src/Portal.Modules/Leftover.cs",
+        "src/Portal.Modules/LinkBuilder.cs",
         "src/Portal.Modules/ModuleRoutes.cs",
+        "src/Portal.Modules/PortalException.cs",
         "src/Portal.Modules/UpgradeController.cs"
       ],
       "compileExplicit": false,
@@ -174,10 +180,11 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Portal.Modules/Portal.Modules.csproj",
+          "targetFramework": "net48"
         }
       },
-      "loc": 65,
+      "loc": 101,
       "config": {
         "kindOverride": null,
         "excluded": false
@@ -198,12 +205,21 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Portal.Utilities/bin/Debug",
       "isTestProject": false,
       "properties": {
         "ManagePackageVersionsCentrally": "false"
       },
       "defineConstants": {
-        "net48": []
+        "net48": [
+          "TRACE",
+          "_MyType",
+          "CONFIG",
+          "PLATFORM",
+          "DEBUG",
+          "VBC_VER",
+          "TARGET"
+        ]
       },
       "windowsOnlyBuildSteps": [],
       "packagesConfig": false,
@@ -259,7 +275,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Portal.Utilities/Portal.Utilities.vbproj",
+          "targetFramework": null
         }
       },
       "loc": 9,

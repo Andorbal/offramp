@@ -7,7 +7,12 @@
   "additionalProperties": false,
   "properties": {
     "version": { "const": 1, "description": "Configuration format version." },
-    "target": { "type": "integer", "minimum": 5, "description": "Integer major version of the modern target (10 = net10.0)." },
+    "target": {
+      "type": ["integer", "string"],
+      "minimum": 5,
+      "pattern": "^(net([5-9]|[1-9][0-9]{1,2})\\.0(-windows)?|netstandard2\\.[01])$",
+      "description": "The modern target: a .NET major version (10 = net10.0), a .NET target framework (net8.0, net10.0-windows), or .NET Standard for libraries (netstandard2.0, netstandard2.1). See docs/decisions/0057-a-target-is-a-framework.md."
+    },
     "solution": { "type": ["string", "null"], "description": "Repository-relative .sln, .slnx, or .slnf." },
     "paths": {
       "type": "object",
@@ -109,6 +114,19 @@
               "package": { "type": "string", "minLength": 1 },
               "prefix": { "type": "string", "minLength": 1 },
               "replacement": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "assemblyPackages": {
+          "type": "array",
+          "description": "Packages that ship an assembly under another name, searched by deps resolve-dlls before rules/assembly-packages.yml.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["assembly", "package"],
+            "properties": {
+              "assembly": { "type": "string", "minLength": 1 },
+              "package": { "type": "string", "minLength": 1 }
             }
           }
         },

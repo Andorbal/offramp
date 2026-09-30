@@ -4,7 +4,8 @@ A Web Forms site in the shape DotNetNuke modules have, in three plain `net48` SD
 projects so it builds on every OS:
 
 - `Portal.Controls`: `ModuleBase`, a `System.Web.UI.UserControl` that module controls
-  derive from (DotNetNuke's `PortalModuleBase`), with a helper that takes a `Control`.
+  derive from (DotNetNuke's `PortalModuleBase`), with a helper that takes a `Control`, and
+  `RequestExtensions.IsSecure`, an extension method over `HttpRequestBase`.
 - `Portal.Utilities`: a legacy (non-SDK) Visual Basic library the modules call, as DotNetNuke's
   WebUtility is. Legacy `vbc` takes `mscorlib` from `/sdkpath` without naming it, so the compiler
   log's reconstruction of it has no core library until Offramp adds one. `Directory.Build.props`
@@ -25,3 +26,9 @@ projects so it builds on every OS:
   - `UpgradeController.cs`: named only by `Portal.Modules.dnn`, a DotNetNuke manifest (XML
     under its own extension, without an XML declaration): `audit dead-code` rates it low.
   - `Leftover.cs`: named by nothing, in code or markup, so it is dead code.
+  - `LinkBuilder.cs`: calls `IsSecure()` on an `HttpRequestBase`. The extension is missing on
+    the target because `HttpRequestBase` is, so `audit api` attributes it to System.Web, not
+    to Portal.Controls (SmartStoreNET had 133 such findings "in" its own assemblies).
+  - `PortalException.cs`: derives from `HttpException`, missing on the target, and reads
+    `ErrorCode`, which it inherits from `ExternalException`. The target has `ErrorCode`, so it is
+    not a finding, although Roslyn cannot look it up through the missing base type.

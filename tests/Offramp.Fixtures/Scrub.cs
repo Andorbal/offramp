@@ -34,8 +34,8 @@ public static class Scrub
 
     /// <summary>
     /// Scrubs a workspace model (or anything embedding one): timestamps, the
-    /// repository root, SDK version and OS, content hashes, and compiler-call
-    /// indexes (their order follows the parallel build).
+    /// repository root, SDK version and OS, and content hashes. Compiler calls are
+    /// named by project and target framework, so nothing about them is scrubbed.
     /// </summary>
     public static string Model(string json, string? repositoryRoot = null)
     {
@@ -68,13 +68,6 @@ public static class Scrub
                         case "sdk" when value is JsonObject sdk:
                             sdk["version"] = "{SdkVersion}";
                             sdk["os"] = "{Os}";
-                            break;
-                        case "compilerCalls" when value is JsonObject calls:
-                            foreach (var call in calls.Select(c => c.Value).OfType<JsonObject>())
-                            {
-                                call["index"] = 0;
-                            }
-
                             break;
                         default:
                             ScrubNode(value);

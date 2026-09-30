@@ -5,7 +5,7 @@
   "description": "The result of `offramp deps resolve-dlls`. See docs/spec/commands/deps.md#deps-resolve-dlls.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["projects", "summary", "applied", "journal", "preview"],
+  "required": ["projects", "summary", "applied", "journal", "preview", "verify", "rolledBack"],
   "properties": {
     "projects": {
       "type": "array",
@@ -20,23 +20,28 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "hintPath", "assemblyVersion", "targetFramework", "publicKeyToken", "resolution", "blocker"],
+              "required": ["name", "hintPath", "assemblyVersion", "fileVersion", "targetFramework", "publicKeyToken", "resolution", "blocker"],
               "properties": {
                 "name": { "type": "string" },
                 "hintPath": { "type": "string" },
                 "assemblyVersion": { "type": ["string", "null"] },
+                "fileVersion": { "type": ["string", "null"], "description": "The DLL's AssemblyFileVersionAttribute." },
                 "targetFramework": { "type": ["string", "null"] },
                 "publicKeyToken": { "type": ["string", "null"] },
                 "blocker": { "type": "boolean" },
                 "resolution": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["kind", "project", "package", "version", "reason"],
+                  "required": ["kind", "project", "package", "version", "match", "reason"],
                   "properties": {
                     "kind": { "enum": ["project", "package", "packagesConfig", "none"] },
                     "project": { "type": ["string", "null"] },
                     "package": { "type": ["string", "null"] },
                     "version": { "type": ["string", "null"] },
+                    "match": {
+                      "enum": ["path", "identical", "fileVersion", "informationalVersion", "assemblyVersion", "newer", null],
+                      "description": "For a package, what matched, strongest first: the HintPath goes through the package folder in the NuGet global packages folder, the same file (SHA-256), the file version, the informational version, the assembly version (the closest build), or only a higher assembly version (an upgrade). ADR 0042."
+                    },
                     "reason": { "type": "string" }
                   }
                 }
@@ -60,6 +65,8 @@
     },
     "applied": { "type": "boolean" },
     "journal": { "type": ["string", "null"] },
-    "preview": { "type": ["string", "null"] }
+    "preview": { "type": ["string", "null"] },
+    "verify": { "oneOf": [{ "type": "null" }, { "$ref": "verify.json" }], "description": "The verification after --apply (restore and build of the edited projects and their direct dependents); null in a dry run or with --verify none." },
+    "rolledBack": { "type": "boolean", "description": "Verification failed and every project file was restored from the journal (OFR1408)." }
   }
 }

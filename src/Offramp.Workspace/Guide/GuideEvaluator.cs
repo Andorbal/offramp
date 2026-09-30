@@ -1,3 +1,4 @@
+using Offramp.Core.Configuration;
 using Offramp.Core.Model;
 
 namespace Offramp.Workspace.Guide;
@@ -147,14 +148,15 @@ public static class GuideEvaluator
 
     private static GuideProjectReport ProjectReport(GuideStep step, ProjectInfo project, GuideFacts facts, GuideRecord? record)
     {
-        var command = GuideCatalog.Display(GuideCatalog.Arguments(step, project, facts.Target));
+        var command = GuideCatalog.Display(GuideCatalog.Arguments(step, project, facts));
         var status = record?.Status switch
         {
             GuideRecordStatus.Done => GuideStepStatus.Done,
             GuideRecordStatus.Skipped => GuideStepStatus.Skipped,
             _ => GuideStepStatus.Open,
         };
-        return new GuideProjectReport { Project = project.Id, Status = status, Command = command, Note = RecordNote(record, command) };
+        var notes = new[] { RecordNote(record, command), step.ProjectNote?.Invoke(facts, project) }.OfType<string>().ToList();
+        return new GuideProjectReport { Project = project.Id, Status = status, Command = command, Note = notes.Count == 0 ? null : string.Join(" ", notes) };
     }
 
     /// <summary>Why a step waits for the steps it requires, or null when it does not.</summary>
@@ -187,7 +189,7 @@ public static class GuideEvaluator
         Note = note,
     };
 
-    private static GuideStepReport Localize(GuideStepReport report, GuideStep step, int target) => report with
+    private static GuideStepReport Localize(GuideStepReport report, GuideStep step, ModernTarget target) => report with
     {
         Title = GuideCatalog.ForTarget(step.Title, target),
         Why = GuideCatalog.ForTarget(step.Why, target),

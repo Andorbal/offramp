@@ -11,7 +11,7 @@ public static class WebInventoryMarkdown
         var culture = CultureInfo.InvariantCulture;
         var builder = new StringBuilder();
         builder.Append(culture, $"# Web inventory: {result.Project}\n\n");
-        builder.Append(culture, $"Kind: {result.Kind}. URL: {result.Url ?? "unknown"}.\n\n");
+        builder.Append(culture, $"Kind: {result.Kind}. URL: {result.Url ?? "unknown"}.{(result.HostedBy is { } host ? $" Hosted by {host}: it runs inside that application." : "")}\n\n");
 
         builder.Append("## Controllers\n\n| Controller | Kind | Action | Methods | Routes | Filters |\n|---|---|---|---|---|---|\n");
         foreach (var controller in result.Controllers)
@@ -22,13 +22,23 @@ public static class WebInventoryMarkdown
             }
         }
 
-        builder.Append("\n## Convention routes\n\n| Name | Template | Kind | Defaults |\n|---|---|---|---|\n");
+        builder.Append("\n## Convention routes\n\n| Name | Template | Kind | Defaults | Registered through |\n|---|---|---|---|---|\n");
         foreach (var route in result.Routes)
         {
-            builder.Append(culture, $"| {route.Name} | `{route.Template}` | {route.Kind}{(route.Area is null ? "" : $" ({route.Area})")} | {Join(route.Defaults, "")} |\n");
+            var template = route.Computed is null ? $"`{route.Template}`" : $"{route.Template}: `{route.Computed.Replace("|", "\\|", StringComparison.Ordinal)}`";
+            builder.Append(culture, $"| {route.Name} | {template} | {route.Kind}{(route.Area is null ? "" : $" ({route.Area})")} | {Join(route.Defaults, "")} | {route.Helper ?? ""} |\n");
         }
 
         builder.Append(culture, $"\nAttribute routing: {Join(result.AttributeRouting, "off")}. Global filters: {Join(result.GlobalFilters, "none")}. Areas: {Join(result.Areas, "none")}.\n");
+        if (result.ContainerFilters.Count > 0)
+        {
+            builder.Append("\n## Filters registered with the container\n\n| Filter | Kind | Controller | Action | Where |\n|---|---|---|---|---|\n");
+            foreach (var filter in result.ContainerFilters)
+            {
+                builder.Append(culture, $"| {filter.Filter} | {filter.Kind} | {filter.Controller ?? "every controller"} | {filter.Action ?? "every action"} | {filter.File}:{filter.Line} |\n");
+            }
+        }
+
         builder.Append("\n## Modules and handlers\n\n");
         foreach (var module in result.Modules)
         {

@@ -26,8 +26,9 @@ machine-readable output so the next tool, a CI job, or an AI agent can use it.
 | Automate | `verify`, `slice`, `mcp serve` | Configurable build verification, fast sub-solution builds, and an MCP server for agents |
 | Stop adding debt | `ide check`, `ide serve`, the VS Code extension | New code in .NET Framework projects checked as it is written: APIs modern .NET lacks, and classes that could live in a portable project, moved there in one click |
 
-Every command takes `--target N` (8, 9, 10, ...), `--json`, and `--dry-run`
-where it makes sense. The default target is .NET 10.
+Every command takes `--target N` (8, 9, 10, ...) or a target framework (`net8.0`,
+`netstandard2.0` for a library that keeps serving .NET Framework), `--json`, and
+`--dry-run` where it makes sense. The default target is .NET 10.
 
 ## Install
 

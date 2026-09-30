@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Offramp.Analysis.Compilations;
+using Offramp.Analysis.DeadCode;
 using Offramp.Analysis.TestCode;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
@@ -79,17 +80,23 @@ public static class TestMovePlanner
 
         if (target.Ambiguous.Count > 0)
         {
-            bag.Report(DiagnosticCatalog.OFR2202, $"Several projects could take the tests of {source.Name}: {string.Join(", ", target.Ambiguous)}. Choose one with --to.",
-                new DiagnosticLocation(source.Id), [KeyValuePair.Create<string, JsonNode?>("candidates", new JsonArray([.. target.Ambiguous.Select(a => (JsonNode?)a)]))]);
+            bag.Report(DiagnosticCatalog.OFR2202,
+                target.ByReference
+                    ? $"No project is named {source.Name}{tests.TargetSuffix}, and several test projects reference {source.Name}: {string.Join(", ", target.Ambiguous)}. Choose one with --to."
+                    : $"Several projects could take the tests of {source.Name}: {string.Join(", ", target.Ambiguous)}. Choose one with --to.",
+                new DiagnosticLocation(source.Id), [Candidates(target.Ambiguous)]);
             return new MoveTestsPlan(Empty(source.Id), null);
         }
 
         if (target.Project is null)
         {
             bag.Report(DiagnosticCatalog.OFR2203,
-                $"No project is named {source.Name}{tests.TargetSuffix}. Name one with --to, or pass --create to create it next to {source.Id}.", new DiagnosticLocation(source.Id));
+                $"No project is named {source.Name}{tests.TargetSuffix}, and no test project references {source.Name}. Name one with --to, or pass --create to create it next to {source.Id}.",
+                new DiagnosticLocation(source.Id));
             return new MoveTestsPlan(Empty(source.Id), null);
         }
+
+        ReportReferencing(bag, source, target, tests.TargetSuffix);
 
         using var loader = new CompilationLoader(request.RepositoryRoot);
         var tfm = CompilationLoader.PreferredTarget(source);
@@ -111,10 +118,33 @@ public static class TestMovePlanner
             .ToList();
 
         var files = source.Compile.ToDictionary(f => f, f => RepoPaths.ToAbsolute(request.RepositoryRoot, f), StringComparer.Ordinal);
-        var classified = TestCodeClassifier.Classify(sourceCompilation, files, consumers, target.Project);
+        var shipped = ShippedProjects.Read(request.RepositoryRoot, model, request.Config.DeadCode.ExternalConsumers).Of(source)?.Reason;
+        var classified = TestCodeClassifier.Classify(sourceCompilation, files, consumers, target.Project, shipped);
         var context = new Context(request, source, target.Project, target.Create, sourceCompilation, destination, destinationCompilation, classified);
         return await BuildAsync(context, cancellationToken);
     }
+
+    /// <summary>Says which test project that references the source was chosen (<c>OFR2207</c>), or could have been instead of creating one (<c>OFR2208</c>).</summary>
+    private static void ReportReferencing(DiagnosticBag bag, ProjectInfo source, TestTarget target, string suffix)
+    {
+        if (target.ByReference)
+        {
+            var which = target.Referencing.Count == 1
+                ? $"the test project that references {source.Name}"
+                : $"named after {source.Name}, of the {target.Referencing.Count} test projects that reference it ({string.Join(", ", target.Referencing)})";
+            bag.Report(DiagnosticCatalog.OFR2207, $"No project is named {source.Name}{suffix}; the tests go to {target.Project}, {which}. Name another with --to.",
+                new DiagnosticLocation(source.Id), [Candidates(target.Referencing)]);
+        }
+        else if (target.Create && target.Referencing.Count > 0)
+        {
+            bag.Report(DiagnosticCatalog.OFR2208,
+                $"Creating {target.Project}, although {string.Join(", ", target.Referencing)} already reference{(target.Referencing.Count == 1 ? "s" : "")} {source.Name} and could take the tests with --to.",
+                new DiagnosticLocation(source.Id), [Candidates(target.Referencing)]);
+        }
+    }
+
+    private static KeyValuePair<string, JsonNode?> Candidates(IReadOnlyList<string> projects) =>
+        KeyValuePair.Create<string, JsonNode?>("candidates", new JsonArray([.. projects.Select(p => (JsonNode?)p)]));
 
     private sealed record Context(
         MoveTestsRequest Request, ProjectInfo Source, string Destination, bool Create, CSharpCompilation SourceCompilation,
@@ -181,14 +211,19 @@ public static class TestMovePlanner
             changeSet);
     }
 
-    /// <summary>Tests and helpers at or above the confidence asked for, less those production code uses.</summary>
+    /// <summary>Tests and helpers at or above the confidence asked for, less those production code uses and a shipped library's public API.</summary>
     private static List<ClassifiedFile> Choose(Context context, List<SkippedFile> skipped, List<CandidateFile> candidates)
     {
         var chosen = new List<ClassifiedFile>();
         var threshold = context.Request.IncludeHelpers;
         foreach (var file in context.Classified.Where(c => c.Kind != TestFileKind.Production))
         {
-            if (file.ProductionReferrers.Count > 0)
+            if (file.ShippedApi)
+            {
+                // Public API of a shipped library: listed for review whatever --include-helpers says, never moved.
+                candidates.Add(new CandidateFile(file.File, file.Confidence!.Value, file.Reasons));
+            }
+            else if (file.ProductionReferrers.Count > 0)
             {
                 Skip(context, skipped, file.File, DiagnosticCatalog.OFR2201,
                     $"{(file.Kind == TestFileKind.Test ? "A test" : "A helper")} that {string.Join(", ", file.ProductionReferrers)} use{(file.ProductionReferrers.Count == 1 ? "s" : "")}; it stays.",
@@ -315,7 +350,8 @@ public static class TestMovePlanner
 
     /// <summary>
     /// When the source no longer compiles without the moved files (and cannot reference the
-    /// destination, which references it), keeps every file where it is (<c>OFR2104</c>).
+    /// destination, which references it), keeps every file where it is: each is listed in
+    /// <c>skipped</c>, and the project-level failure is reported once (<c>OFR2104</c>).
     /// </summary>
     internal static void KeepIfSourceBreaks(CSharpCompilation source, Dictionary<string, SyntaxTree> trees, string project, DiagnosticBag bag, List<SkippedFile> skipped)
     {
@@ -324,11 +360,19 @@ public static class TestMovePlanner
             return;
         }
 
+        var name = Path.GetFileNameWithoutExtension(project);
         foreach (var file in trees.Keys.Order(StringComparer.Ordinal))
         {
-            Skip(bag, project, skipped, file, DiagnosticCatalog.OFR2104, $"{Path.GetFileNameWithoutExtension(project)} does not compile without the moved files, so nothing moves.", errors);
+            skipped.Add(new SkippedFile { File = file, Code = DiagnosticCatalog.OFR2104.Code, Message = $"{name} does not compile without the moved files, so nothing moves.", Details = errors });
         }
 
+        bag.Report(DiagnosticCatalog.OFR2104,
+            $"{name} does not compile without the {trees.Count} file{(trees.Count == 1 ? "" : "s")} move tests would take ({errors[0]}), so nothing moves.",
+            new DiagnosticLocation(project),
+            [
+                KeyValuePair.Create<string, JsonNode?>("details", new JsonArray([.. errors.Select(e => (JsonNode?)e)])),
+                KeyValuePair.Create<string, JsonNode?>("files", trees.Count),
+            ]);
         trees.Clear();
     }
 

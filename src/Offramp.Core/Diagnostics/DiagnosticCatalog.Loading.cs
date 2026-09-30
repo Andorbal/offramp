@@ -49,8 +49,8 @@ public static partial class DiagnosticCatalog
         "OFR0101", Severity.Warning,
         "project could not be loaded",
         "A project listed in the solution has no usable evaluation in the build log, so it is missing from the model. The message carries the reason.",
-        "An unsupported project type (for example `.vcxproj` or `.wixproj`), an evaluation error such as a missing SDK or import, or a project filtered out of the build.",
-        "Fix the evaluation error the message names, or exclude the project from the solution filter you scan.",
+        "An unsupported project type (for example `.vcxproj` or `.wixproj`), an evaluation error such as a missing SDK or import, a failed restore, a project reference or a solution-level dependency (`ProjectDependencies`) that failed, or a project filtered out of the build.",
+        "Fix the error the message names (the restore's, or the failed project's), or exclude the project from the solution filter you scan.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0102 = new(
@@ -98,7 +98,7 @@ public static partial class DiagnosticCatalog
         "build step needs Windows: sgen",
         "`GenerateSerializationAssemblies` runs sgen, which loads the built assembly under the .NET Framework runtime; the build fails outside Windows (MSB3474).",
         "`<GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>` in the project or an imported props file.",
-        "Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`), which turns sgen off outside Windows; on modern .NET use `Microsoft.XmlSerializer.Generator` or drop it.",
+        "Run `offramp doctor --fix --apply`: the compile-only block turns sgen off outside Windows, and where the project file sets it itself, which wins over the block, `doctor` conditions that setting on `'$(MSBuildRuntimeType)' != 'Core'` (`OFR0019`), so only Visual Studio's MSBuild runs sgen. On modern .NET use `Microsoft.XmlSerializer.Generator` or drop it.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0111 = new(
@@ -136,9 +136,9 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR0115 = new(
         "OFR0115", Severity.Warning,
         "build step needs Windows: build event calling a Windows executable",
-        "A pre- or post-build event runs a Windows command (`.exe`, `.bat`, `xcopy`, `%VAR%`, ...), which fails elsewhere.",
-        "A `PreBuildEvent`/`PostBuildEvent` written for cmd.exe.",
-        "Guard the event with `Condition=\"'$(OS)' == 'Windows_NT'\"` or `'$(OfframpCompileOnly)' != 'true'`, or replace it with MSBuild tasks.",
+        "A pre- or post-build event, or an `Exec` in a target, runs a Windows command (`.exe`, `.bat`, `xcopy`, `%VAR%`, ...), which fails elsewhere. When the program is one the solution itself builds, it is a build-time generator: the message names its target and the files it writes.",
+        "A `PreBuildEvent`/`PostBuildEvent` written for cmd.exe, or a target that runs a generator the solution builds, such as `$(OutDir)Tool.exe`.",
+        "Run `offramp doctor --fix --apply`, which guards each build event, and each `Exec` in the project's targets that reads as a cmd.exe command, with `Condition=\"'$(OS)' == 'Windows_NT'\"` (`OFR0019`); guard one it does not recognize the same way, or replace it with MSBuild tasks. A guarded generator writes nothing, so its outputs must exist before the build: generate them once (a generator often runs on .NET unchanged), or check them in.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0116 = new(
@@ -146,7 +146,7 @@ public static partial class DiagnosticCatalog
         "build step needs Windows: ASP.NET web application targets",
         "An ASP.NET (System.Web) project imports `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets`, which only Visual Studio installs, so evaluation fails elsewhere (MSB4019); or `MvcBuildViews=true` precompiles views with `AspNetCompiler`, which .NET's MSBuild does not have (MSB4803).",
         "A project on the `MSBuild.SDK.SystemWeb` SDK, which imports the web targets unconditionally, or a legacy web application project; a Release build of either, which turns `MvcBuildViews` on.",
-        "Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`). Outside Windows it takes the web targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package and turns `MvcBuildViews` off. Build with the .NET SDK (`dotnet build`), not Mono's `msbuild`.",
+        "Run `offramp doctor --fix --apply`. The compile-only block takes the web targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package outside Windows and turns `MvcBuildViews` off; where the project file sets `MvcBuildViews` itself, which wins over the block, `doctor` conditions it on `'$(MSBuildRuntimeType)' != 'Core'` (`OFR0019`). Build with the .NET SDK (`dotnet build`), not Mono's `msbuild`.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0117 = new(
@@ -187,6 +187,46 @@ public static partial class DiagnosticCatalog
         "A standard, modern, or dual project's portable targets reference a project that targets only .NET Framework, through a `ProjectReference` or a `HintPath` to its output. The build accepts it only because the referenced project skips NuGet's compatibility check (a legacy project does), and the code fails at run time on the portable target. `plan` counts the project as blocked by the framework-only one, not done.",
         "A `netstandard2.0` project added beside a legacy solution and wired to the projects it needed.",
         "Port the referenced project first (`offramp plan --for` lists the order), move what the portable project needs out of it (`offramp move`), or condition the reference on the .NET Framework targets of a dual project.",
+        LoadingArea);
+
+    public static readonly DiagnosticDescriptor OFR0122 = new(
+        "OFR0122", Severity.Warning,
+        "compile-only block does not reach the project",
+        "The repository's root `Directory.Build.props` has the compile-only block, but this legacy project's evaluation did not import it (`OfframpCompileOnly` is not set), so outside Windows it gets neither the .NET Framework reference assemblies (MSB3644) nor the rest of the block. The message names the cause and the file to change.",
+        "A shared `.props` or `.settings` file that sets `MSBuildExtensionsPath`, so `Microsoft.Common.props`, which imports `Directory.Build.props`, is never imported; `ImportDirectoryBuildProps` set to `false`; or a nearer `Directory.Build.props` that does not import the root one.",
+        "Condition the `MSBuildExtensionsPath` override on `'$(OS)' == 'Windows_NT'` (`offramp doctor --fix --apply` does, for the file this diagnostic names), remove `ImportDirectoryBuildProps=false`, or import the root file from the nearer one with `<Import Project=\"$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))\" />`; then `offramp scan` again.",
+        ScanArea);
+
+    public static readonly DiagnosticDescriptor OFR0123 = new(
+        "OFR0123", Severity.Warning,
+        "source file missing",
+        "A project compiles a file (a `Compile` item) that does not exist in any letter case, so its compilation fails (CS2001). When git ignores the path, the repository's own build script most likely writes it: a shared assembly-info or version file generated by NAnt, psake, Cake, FAKE, or GitVersion. The message names the files and which of them are git-ignored.",
+        "A `SharedAssemblyInfo.cs` or `GlobalAssemblyInfo.cs` that the build script generates before Visual Studio builds the solution, or a file deleted without its `Compile` item.",
+        "Run the repository's build step that generates the file (see its README or build script), then `offramp scan` again; or restore the file, or remove the `Compile` item.",
+        LoadingArea);
+
+    public static readonly DiagnosticDescriptor OFR0124 = new(
+        "OFR0124", Severity.Warning,
+        "build step needs Windows: Microsoft.Bcl.Build binding redirects",
+        "The project imports the build targets of `Microsoft.Bcl.Build`, whose `EnsureBindingRedirects` task is built against .NET Framework's MSBuild (`Microsoft.Build.Utilities.v4.0`). .NET's MSBuild cannot load it (MSB4062), so the build fails when the task runs.",
+        "`Microsoft.Bcl.Build` 1.0.x, which came with `Microsoft.Net.Http`, `Microsoft.Bcl`, and `Microsoft.Bcl.Async` in .NET Framework 4.0 and 4.5 codebases.",
+        "Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`): outside Windows it sets `SkipEnsureBindingRedirects=true`, the package's own switch; compile-only builds need no binding redirects. On modern .NET the package is not needed.",
+        LoadingArea);
+
+    public static readonly DiagnosticDescriptor OFR0125 = new(
+        "OFR0125", Severity.Warning,
+        "build step needs Visual Studio: MSTest v1",
+        "The project references `Microsoft.VisualStudio.QualityTools.UnitTestFramework` (MSTest v1) without a `HintPath`. Only a Visual Studio installation has that assembly, so elsewhere the reference does not resolve and every test class fails to compile (CS0246, CS0234).",
+        "A test project created by Visual Studio 2010 to 2015.",
+        "Move to MSTest v2: the `MSTest.TestFramework` package has the same namespace (`Microsoft.VisualStudio.TestTools.UnitTesting`). For compile-only builds of a legacy project, reference the DLLs of `MSTest.TestFramework` 1.4.0 (`docs/compiling-on-macos.md`).",
+        LoadingArea);
+
+    public static readonly DiagnosticDescriptor OFR0126 = new(
+        "OFR0126", Severity.Warning,
+        "build step needs Windows: ASP.NET Web Site project",
+        "The solution has an ASP.NET Web Site project: a folder without a project file, which the solution build precompiles with `AspNetCompiler`. Only .NET Framework's MSBuild has it; `dotnet build` stops the whole solution before building any project (MSB4249). `scan` builds a solution filter without the web site instead, and Offramp does not model the web site.",
+        "A Web Site project (`File > New > Web Site` in Visual Studio), often a sample or an old front end.",
+        "Nothing to do for the scan. To migrate the site, convert it to a web application project first; to build it, use Visual Studio's MSBuild (`offramp scan --msbuild` on Windows).",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0130 = new(

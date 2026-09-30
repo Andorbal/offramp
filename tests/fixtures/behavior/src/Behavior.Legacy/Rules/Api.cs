@@ -144,5 +144,68 @@ namespace Behavior.Rules
         {
             return new System.Security.SecurityException("denied");
         }
+
+        [System.Security.Permissions.SecurityPermission(System.Security.Permissions.SecurityAction.Demand, UnmanagedCode = true)]
+        public static void PositivePermission()
+        {
+        }
+
+        // Security transparency is OFR3014: the attribute exists on the target and does nothing.
+        [System.Security.SecurityCritical]
+        public static void NegativeTransparency()
+        {
+        }
+    }
+
+    internal static class OFR3013
+    {
+        public static void Positive()
+        {
+            System.Runtime.Remoting.Messaging.CallContext.SetData("session", null);
+        }
+
+        public static object Negative()
+        {
+            return new AsyncLocal<object>().Value;
+        }
+    }
+
+    internal static class OFR3014
+    {
+        [System.Security.SecurityCritical]
+        public static void Positive()
+        {
+        }
+
+        [System.Security.SecuritySafeCritical]
+        public static void PositiveSafeCritical()
+        {
+        }
+
+        [Obsolete("not a security attribute")]
+        public static void Negative()
+        {
+        }
+    }
+
+    /// <summary>OFR3001 names the replacement when the target has one.</summary>
+    internal static class Replacements
+    {
+        public static object DynamicAssembly()
+        {
+            return AppDomain.CurrentDomain.DefineDynamicAssembly(new System.Reflection.AssemblyName("Dynamic"), System.Reflection.Emit.AssemblyBuilderAccess.Run);
+        }
+    }
+
+    /// <summary>
+    /// Reflection.Emit: .NET Framework and .NET have it, .NET Standard 2.0 does not, so only
+    /// `audit api --target netstandard2.0` reports it (NHibernate's proxies; ADR 0057).
+    /// </summary>
+    internal static class StandardGaps
+    {
+        public static void EmitReturn(System.Reflection.Emit.ILGenerator generator)
+        {
+            generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+        }
     }
 }

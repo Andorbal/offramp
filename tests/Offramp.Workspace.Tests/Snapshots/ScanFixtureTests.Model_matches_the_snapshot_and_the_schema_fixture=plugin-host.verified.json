@@ -1,0 +1,654 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "PluginHost.sln",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": null,
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Core/Core.csproj",
+      "name": "Core",
+      "assemblyName": "Core",
+      "rootNamespace": "Core",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": true,
+      "sdk": "Microsoft.NET.Sdk",
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "outputPath": "src/Core/bin/Debug/net48",
+      "isTestProject": false,
+      "properties": {
+        "IsPackable": "true",
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "NoWarn": "1701;1702",
+        "TreatWarningsAsErrors": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "TRACE",
+          "DEBUG",
+          "NETFRAMEWORK",
+          "NET48",
+          "NET20_OR_GREATER",
+          "NET30_OR_GREATER",
+          "NET35_OR_GREATER",
+          "NET40_OR_GREATER",
+          "NET45_OR_GREATER",
+          "NET451_OR_GREATER",
+          "NET452_OR_GREATER",
+          "NET46_OR_GREATER",
+          "NET461_OR_GREATER",
+          "NET462_OR_GREATER",
+          "NET47_OR_GREATER",
+          "NET471_OR_GREATER",
+          "NET472_OR_GREATER",
+          "NET48_OR_GREATER"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Core/Greeting.cs"
+      ],
+      "compileExplicit": false,
+      "projectReferences": [],
+      "packageReferences": [],
+      "assemblyReferences": [],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": []
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "project": "src/Core/Core.csproj",
+          "targetFramework": "net48"
+        }
+      },
+      "loc": 7,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Modules/Html/Html.csproj",
+      "name": "Html",
+      "assemblyName": "Modules.Html",
+      "rootNamespace": "Modules.Html",
+      "language": "csharp",
+      "kind": "web",
+      "kindEvidence": "ProjectTypeGuids {349C5851-65DF-11DA-9384-00065B846F21}",
+      "hostedBy": {
+        "project": "src/Site/Site.csproj",
+        "evidence": [
+          "its build copies its assembly into src/Site/bin, inside src/Site",
+          "has no Global.asax",
+          "no project references it"
+        ]
+      },
+      "sdkStyle": false,
+      "sdk": null,
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "outputPath": "src/Modules/Html/bin",
+      "isTestProject": false,
+      "properties": {
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "ProjectTypeGuids": "{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}"
+      },
+      "defineConstants": {
+        "net48": [
+          "DEBUG",
+          "TRACE"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Modules/Html/HtmlModule.cs"
+      ],
+      "compileExplicit": true,
+      "projectReferences": [
+        "src/Core/Core.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NETFramework.ReferenceAssemblies",
+          "version": "1.0.3",
+          "versionOverride": null,
+          "privateAssets": "all",
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "System",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Web.Abstractions",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies",
+              "version": "1.0.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+                  "range": "[1.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+              "version": "1.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "project": "src/Modules/Html/Html.csproj",
+          "targetFramework": null
+        }
+      },
+      "loc": 9,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Plugins/Tax/Tax.csproj",
+      "name": "Tax",
+      "assemblyName": "Plugins.Tax",
+      "rootNamespace": "Plugins.Tax",
+      "language": "csharp",
+      "kind": "web",
+      "kindEvidence": "ProjectTypeGuids {349C5851-65DF-11DA-9384-00065B846F21}",
+      "hostedBy": {
+        "project": "src/Site/Site.csproj",
+        "evidence": [
+          "builds into src/Site/Plugins/Tax, inside src/Site",
+          "has no Global.asax",
+          "no project references it"
+        ]
+      },
+      "sdkStyle": false,
+      "sdk": null,
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "outputPath": "src/Site/Plugins/Tax",
+      "isTestProject": false,
+      "properties": {
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "ProjectTypeGuids": "{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}"
+      },
+      "defineConstants": {
+        "net48": [
+          "DEBUG",
+          "TRACE"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": true,
+      "packagesConfigPackages": [
+        {
+          "id": "Newtonsoft.Json",
+          "version": "13.0.3",
+          "targetFramework": "net48",
+          "developmentDependency": false
+        }
+      ],
+      "compile": [
+        "src/Plugins/Tax/TaxProvider.cs"
+      ],
+      "compileExplicit": true,
+      "projectReferences": [
+        "src/Core/Core.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NETFramework.ReferenceAssemblies",
+          "version": "1.0.3",
+          "versionOverride": null,
+          "privateAssets": "all",
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "Newtonsoft.Json",
+          "hintPath": "packages/Newtonsoft.Json.13.0.3/lib/net45/Newtonsoft.Json.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "13.0.0.0",
+            "targetFramework": ".NETFramework,Version=v4.5",
+            "publicKeyToken": "30ad4fe6b2a6aeed"
+          }
+        },
+        {
+          "name": "System",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Web.Abstractions",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies",
+              "version": "1.0.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+                  "range": "[1.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+              "version": "1.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "project": "src/Plugins/Tax/Tax.csproj",
+          "targetFramework": null
+        }
+      },
+      "loc": 11,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Site/Admin/Admin.csproj",
+      "name": "Admin",
+      "assemblyName": "Site.Admin",
+      "rootNamespace": "Site.Admin",
+      "language": "csharp",
+      "kind": "web",
+      "kindEvidence": "ProjectTypeGuids {349C5851-65DF-11DA-9384-00065B846F21}",
+      "hostedBy": {
+        "project": "src/Site/Site.csproj",
+        "evidence": [
+          "builds into src/Site/bin, inside src/Site",
+          "has no Global.asax",
+          "no project references it"
+        ]
+      },
+      "sdkStyle": false,
+      "sdk": null,
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "outputPath": "src/Site/bin",
+      "isTestProject": false,
+      "properties": {
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "ProjectTypeGuids": "{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}"
+      },
+      "defineConstants": {
+        "net48": [
+          "DEBUG",
+          "TRACE"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Site/Admin/AdminArea.cs"
+      ],
+      "compileExplicit": true,
+      "projectReferences": [
+        "src/Core/Core.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NETFramework.ReferenceAssemblies",
+          "version": "1.0.3",
+          "versionOverride": null,
+          "privateAssets": "all",
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "System",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Web.Abstractions",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies",
+              "version": "1.0.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+                  "range": "[1.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+              "version": "1.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "project": "src/Site/Admin/Admin.csproj",
+          "targetFramework": null
+        }
+      },
+      "loc": 9,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Site/Site.csproj",
+      "name": "Site",
+      "assemblyName": "Site",
+      "rootNamespace": "Site",
+      "language": "csharp",
+      "kind": "web",
+      "kindEvidence": "ProjectTypeGuids {349C5851-65DF-11DA-9384-00065B846F21}",
+      "sdkStyle": false,
+      "sdk": null,
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "outputPath": "src/Site/bin",
+      "isTestProject": false,
+      "properties": {
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false",
+        "ProjectTypeGuids": "{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}"
+      },
+      "defineConstants": {
+        "net48": [
+          "DEBUG",
+          "TRACE"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": false,
+      "compile": [
+        "src/Site/Global.asax.cs"
+      ],
+      "compileExplicit": true,
+      "projectReferences": [
+        "src/Core/Core.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NETFramework.ReferenceAssemblies",
+          "version": "1.0.3",
+          "versionOverride": null,
+          "privateAssets": "all",
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "System",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Web",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Web.Abstractions",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies",
+              "version": "1.0.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+                  "range": "[1.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+              "version": "1.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "project": "src/Site/Site.csproj",
+          "targetFramework": null
+        }
+      },
+      "loc": 13,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/Modules/Html/Html.csproj",
+        "to": "src/Core/Core.csproj",
+        "kind": "project"
+      },
+      {
+        "from": "src/Plugins/Tax/Tax.csproj",
+        "to": "src/Core/Core.csproj",
+        "kind": "project"
+      },
+      {
+        "from": "src/Site/Admin/Admin.csproj",
+        "to": "src/Core/Core.csproj",
+        "kind": "project"
+      },
+      {
+        "from": "src/Site/Site.csproj",
+        "to": "src/Core/Core.csproj",
+        "kind": "project"
+      }
+    ],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Core/Core.csproj",
+      "src/Modules/Html/Html.csproj",
+      "src/Plugins/Tax/Tax.csproj",
+      "src/Site/Admin/Admin.csproj",
+      "src/Site/Site.csproj"
+    ]
+  },
+  "packages": {
+    "Microsoft.NETFramework.ReferenceAssemblies": {
+      "versions": {
+        "1.0.3": [
+          "src/Modules/Html/Html.csproj",
+          "src/Plugins/Tax/Tax.csproj",
+          "src/Site/Admin/Admin.csproj",
+          "src/Site/Site.csproj"
+        ]
+      }
+    },
+    "Newtonsoft.Json": {
+      "versions": {
+        "13.0.3": [
+          "src/Plugins/Tax/Tax.csproj"
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "PluginHost.sln",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Core/Core.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Modules/Html/Html.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Plugins/Tax/Tax.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Plugins/Tax/packages.config",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Site/Admin/Admin.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Site/Site.csproj",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}

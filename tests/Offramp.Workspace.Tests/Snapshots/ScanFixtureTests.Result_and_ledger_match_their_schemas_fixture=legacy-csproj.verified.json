@@ -4,7 +4,7 @@
   "source": {
     "kind": "build",
     "path": ".offramp/msbuild.binlog",
-    "sha256": "{Sha256}",
+    "sha256": null,
     "complog": null
   },
   "solution": "LegacyCsproj.sln",

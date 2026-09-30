@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Evidence.Specs</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- NUnit comes through TestKit, so nothing here says this is a test project. -->
+    <ProjectReference Include="..\TestKit\TestKit.csproj" />
+  </ItemGroup>
+</Project>

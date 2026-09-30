@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Map</title>
+  <script src="scripts/map.js"></script>
+</head>
+<body onload="poll()">
+  <div id="map"></div>
+  <script>
+    function poll() {
+      window.external.NextEvent();
+      setTimeout(poll, 500);
+    }
+  </script>
+</body>
+</html>

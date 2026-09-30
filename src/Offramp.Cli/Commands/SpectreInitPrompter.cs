@@ -28,10 +28,10 @@ public sealed class SpectreInitPrompter(IAnsiConsole console) : IInitPrompter
         var root = detection.RepositoryRoot;
         Explain("Offramp writes your answers to offramp.yml, which you can edit later. Press Enter to keep a suggested answer.");
 
-        Explain("The modern .NET your projects are moving to, as a major version: 10 means .NET 10 (net10.0).");
-        var target = console.Prompt(new TextPrompt<int>("Target .NET major version?")
-            .DefaultValue(detected.Target)
-            .Validate(v => v >= 5 ? ValidationResult.Success() : ValidationResult.Error("Use 5 or higher.")));
+        Explain("The modern .NET your projects are moving to, as a major version: 10 means .NET 10 (net10.0). A library that must keep serving .NET Framework can aim at netstandard2.0 instead.");
+        var target = ModernTarget.Parse(console.Prompt(new TextPrompt<string>("Target .NET major version or framework?")
+            .DefaultValue(detected.Target.Written)
+            .Validate(v => ModernTarget.TryParse(v.Trim(), out _) ? ValidationResult.Success() : ValidationResult.Error($"Use {ModernTarget.Expected}."))).Trim());
 
         var solution = detected.Solution;
         if (detection.SolutionCandidates.Count > 0)

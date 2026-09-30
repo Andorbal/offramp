@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    The release version, written before every compilation and added to it, as a NAnt, Cake,
+    or version.txt build step does. The file is git-ignored.
+  -->
+  <PropertyGroup>
+    <GlobalVersionInfoPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\src\GlobalVersionInfo.cs'))</GlobalVersionInfoPath>
+  </PropertyGroup>
+  <Target Name="WriteGlobalVersionInfo" BeforeTargets="CoreCompile">
+    <WriteLinesToFile File="$(GlobalVersionInfoPath)" Lines="[assembly: System.Reflection.AssemblyFileVersion(&quot;4.1.2.0&quot;)]" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Compile Include="$(GlobalVersionInfoPath)" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -133,6 +133,127 @@ public sealed class DeadCodeTests
     }
 
     [Fact]
+    public async Task Public_symbols_of_shipped_libraries_are_medium_and_say_which_rule_shipped_them()
+    {
+        var (result, _) = await AnalyzeAsync(fixture: "dead-code-evidence");
+
+        var all = result.Projects.SelectMany(p => p.Candidates).ToDictionary(c => c.Symbol);
+
+        // A .nuspec.template beside the project, as NHibernate's NAnt build packs it.
+        var reset = all["Evidence.Client.ShopClient.Reset()"];
+        Assert.Equal(DeadCodeConfidence.Medium, reset.Confidence);
+        Assert.Equal(["public in an assembly packed by src/Client/Client.nuspec.template: other repositories may use it"], reset.Evidence);
+
+        // A .nuspec elsewhere that packs the project's DLL, as Open Live Writer's SDK package does.
+        var ofBytes = all["Evidence.Tools.Checksum.OfBytes(byte[])"];
+        Assert.Equal(DeadCodeConfidence.Medium, ofBytes.Confidence);
+        Assert.Equal(["public in an assembly packed as Evidence.Tools.dll by build/Evidence.Sdk.nuspec: other repositories may use it"], ofBytes.Evidence);
+
+        // A library only a test project uses, and one nothing uses: no application in the solution needs them.
+        const string NoApplication = "public in a library no application in the solution uses (only tests and other libraries reference it): other repositories may use it";
+        Assert.Equal((DeadCodeConfidence.Medium, NoApplication), (all["Evidence.Formats.CsvFormat.Quote(string)"].Confidence, all["Evidence.Formats.CsvFormat.Quote(string)"].Evidence[0]));
+        Assert.Equal((DeadCodeConfidence.Medium, NoApplication), (all["Evidence.Specs.SpecNotes"].Confidence, all["Evidence.Specs.SpecNotes"].Evidence[0]));
+
+        // Internal code, and public code of a library the application uses, stay high.
+        Assert.Equal(DeadCodeConfidence.High, all["Evidence.Formats.CsvFormat.Unused()"].Confidence);
+        Assert.Equal(["public, and the assembly is not packed"], all["Evidence.Engine.Orphan"].Evidence);
+        Assert.Equal(DeadCodeConfidence.High, all["Evidence.Engine.Orphan"].Confidence);
+    }
+
+    [Fact]
+    public async Task Types_a_type_finder_or_a_generic_type_definition_finds_are_low()
+    {
+        var (result, _) = await AnalyzeAsync(fixture: "dead-code-evidence");
+
+        var all = result.Projects.SelectMany(p => p.Candidates).ToDictionary(c => c.Symbol);
+
+        // SmartStoreNET's type finder: FindClassesOfType<T>() passes typeof(T) to the interface method whose
+        // implementation calls assignTypeFrom.IsAssignableFrom(t).
+        var warmup = all["Evidence.Engine.CacheWarmupTask"];
+        Assert.Equal(DeadCodeConfidence.Low, warmup.Confidence);
+        Assert.Contains(
+            "implements Evidence.Engine.IStartupTask, which the solution finds types by with reflection (FindClassesOfType<IStartupTask> at src/Engine/Bootstrapper.cs:10)",
+            warmup.Evidence);
+        var mapper = all["Evidence.Engine.OrderMapper"];
+        Assert.Equal(DeadCodeConfidence.Low, mapper.Confidence);
+        Assert.Contains(mapper.Evidence, e => e.EndsWith("which the solution finds types by with reflection (FindClassesOfType(typeof(IMapper<,>)) at src/Engine/Bootstrapper.cs:15)", StringComparison.Ordinal));
+
+        // EF6 model builders: t.BaseType.GetGenericTypeDefinition() == typeof(EntityTypeConfiguration<>), through a query's let.
+        var map = all["Evidence.Engine.ProductMap"];
+        Assert.Equal(DeadCodeConfidence.Low, map.Confidence);
+        Assert.Contains(map.Evidence, e => e.EndsWith("which the solution finds types by with reflection (GetGenericTypeDefinition() == typeof(EntityMap<>) at src/Engine/Mapping.cs:33)", StringComparison.Ordinal));
+
+        // Comparing with a base class library definition inspects a type; an interface nothing looks for finds nothing.
+        Assert.Equal(DeadCodeConfidence.High, all["Evidence.Engine.OrderList"].Confidence);
+        Assert.Equal(DeadCodeConfidence.High, all["Evidence.Engine.UnusedTask"].Confidence);
+    }
+
+    [Fact]
+    public async Task Controller_actions_are_never_high_and_are_named_without_regard_to_case()
+    {
+        var (result, _) = await AnalyzeAsync(fixture: "dead-code-evidence");
+
+        var all = result.Projects.SelectMany(p => p.Candidates).ToDictionary(c => c.Symbol);
+
+        var unlinked = all["Evidence.Shop.Controllers.BoardsController.SetSellerNote(string)"];
+        Assert.Equal(DeadCodeConfidence.Medium, unlinked.Confidence);
+        Assert.Equal(["a public action of a controller (derives from Controller): MVC routes requests to it by name"], unlinked.Evidence);
+
+        // Linked as "ActiveDiscussionsRSS": MVC matches action names without regard to case.
+        var linked = all["Evidence.Shop.Controllers.BoardsController.ActiveDiscussionsRss()"];
+        Assert.Equal(DeadCodeConfidence.Low, linked.Confidence);
+        Assert.Contains("the name appears in a string or resource at src/Shop/Program.cs:20", linked.Evidence);
+    }
+
+    [Fact]
+    public async Task Test_classes_com_visible_members_and_names_in_pages_and_scripts_are_low()
+    {
+        var (result, _) = await AnalyzeAsync(fixture: "dead-code-evidence");
+
+        var all = result.Projects.SelectMany(p => p.Candidates).ToDictionary(c => c.Symbol);
+
+        // NUnit finds a class by its [Test] methods; an attribute that is not a test framework's finds nothing.
+        var specs = all["Evidence.Specs.FormatSpecs"];
+        Assert.Equal(DeadCodeConfidence.Low, specs.Confidence);
+        Assert.Contains("[Test] on its methods: the test runner finds the class by them", specs.Evidence);
+        Assert.Equal(DeadCodeConfidence.Medium, all["Evidence.Specs.SpecNotes"].Confidence);
+
+        // window.external calls from a page and a script, and a COM-visible method nothing in the repository calls.
+        const string Com = "COM-visible ([ComVisible(true)]): COM and script clients (ObjectForScripting, window.external) call it by name";
+        var next = all["Evidence.Engine.MapBridge.NextEvent()"];
+        Assert.Equal(DeadCodeConfidence.Low, next.Confidence);
+        Assert.Equal(["public, and the assembly is not packed", "the name appears in a string or resource at src/Engine/map.html", Com], next.Evidence);
+        Assert.Contains("the name appears in a string or resource at src/Engine/scripts/map.js", all["Evidence.Engine.MapBridge.JsUpdateBirdsEye()"].Evidence);
+        var center = all["Evidence.Engine.MapBridge.SetCenter(double, double)"];
+        Assert.Equal((DeadCodeConfidence.Low, Com), (center.Confidence, center.Evidence[^1]));
+
+        // A minified library's names are the library's.
+        Assert.Equal(DeadCodeConfidence.High, all["Evidence.Engine.PlainBridge.Ping()"].Confidence);
+    }
+
+    [Fact]
+    public void Entity_framework_assembly_scans_find_their_configuration_types()
+    {
+        var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+            "Stubs",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("""
+                namespace System.Data.Entity.ModelConfiguration.Configuration { public class ConfigurationRegistrar { public ConfigurationRegistrar AddFromAssembly(System.Reflection.Assembly a) => this; } }
+                namespace Microsoft.EntityFrameworkCore { public class ModelBuilder { public ModelBuilder ApplyConfigurationsFromAssembly(System.Reflection.Assembly a) => this; } }
+                namespace Other { public class ModelBuilder { public ModelBuilder ApplyConfigurationsFromAssembly(System.Reflection.Assembly a) => this; } }
+                """)],
+            [Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(typeof(object).Assembly.Location)]);
+        Microsoft.CodeAnalysis.IMethodSymbol Method(string type, string name) => (Microsoft.CodeAnalysis.IMethodSymbol)compilation.GetTypeByMetadataName(type)!.GetMembers(name).Single();
+
+        Assert.Equal(
+            ["T:System.Data.Entity.ModelConfiguration.EntityTypeConfiguration`1", "T:System.Data.Entity.ModelConfiguration.ComplexTypeConfiguration`1"],
+            DeadCodeAnalyzer.ConfigurationsFromAssembly(Method("System.Data.Entity.ModelConfiguration.Configuration.ConfigurationRegistrar", "AddFromAssembly")));
+        Assert.Equal(
+            ["T:Microsoft.EntityFrameworkCore.IEntityTypeConfiguration`1"],
+            DeadCodeAnalyzer.ConfigurationsFromAssembly(Method("Microsoft.EntityFrameworkCore.ModelBuilder", "ApplyConfigurationsFromAssembly")));
+        Assert.Empty(DeadCodeAnalyzer.ConfigurationsFromAssembly(Method("Other.ModelBuilder", "ApplyConfigurationsFromAssembly")));
+    }
+
+    [Fact]
     public async Task A_file_that_cannot_be_read_is_skipped_instead_of_ending_the_analysis()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Creating a symbolic link needs a privilege on Windows.");

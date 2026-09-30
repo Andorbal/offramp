@@ -29,6 +29,34 @@ public sealed class LegacyOutsideWindowsTests
         Assert.All(scanned.Outcome.Model!.Projects, p => Assert.False(p.Partial, p.Id));
         var restored = Assert.Single(diagnostics, d => d.Code == "OFR0106");
         Assert.Equal("[\"Newtonsoft.Json.13.0.3\"]", restored.Data["packages"]!.ToJsonString());
+        Assert.DoesNotContain(diagnostics, d => d.Code == "OFR0122");
+    }
+
+    [Fact]
+    public async Task A_shared_settings_file_that_moves_the_msbuild_extensions_path_keeps_the_block_out_and_is_named()
+    {
+        // Open Live Writer: writer.build.settings sets MSBuildExtensionsPath, so no project imported
+        // Directory.Build.props, 25 projects failed with MSB3644, and nothing said why.
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "The compile-only block applies outside Windows only.");
+
+        var scanned = await ScannedFixtures.ScanAsync("legacy-csproj", (root, request) =>
+        {
+            OnlyTheBlock(root);
+            File.WriteAllText(Path.Combine(root, "src", "build.settings"),
+                "<Project>\n  <PropertyGroup>\n    <MSBuildExtensionsPath>$(MSBuildToolsPath)\\MsBuildExtensions</MSBuildExtensionsPath>\n  </PropertyGroup>\n</Project>\n");
+            var project = Path.Combine(root, "src", "Billing", "Billing.csproj");
+            var original = File.ReadAllText(project);
+            File.WriteAllText(project, original.Replace("  <Import Project=\"$(MSBuildExtensionsPath)", "  <Import Project=\"..\\build.settings\" />\n  <Import Project=\"$(MSBuildExtensionsPath)", StringComparison.Ordinal));
+            Assert.NotEqual(original, File.ReadAllText(project));
+            return request;
+        });
+        using var _ = scanned.Repository;
+
+        var gap = Assert.Single(scanned.Diagnostics.ToSortedList(), d => d.Code == "OFR0122");
+        Assert.Equal("src/Billing/Billing.csproj", gap.Project);
+        Assert.Equal("src/build.settings", gap.File);
+        Assert.Equal("\"msbuild-extensions-path\"", gap.Data["cause"]!.ToJsonString());
+        Assert.False(scanned.Outcome.Result!.BuildSucceeded);
     }
 
     [Fact]

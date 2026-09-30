@@ -51,7 +51,7 @@ namespace Behavior.Rules
         }
     }
 
-    internal static class OFR3103
+    internal static partial class OFR3103
     {
         public static string Positive()
         {
@@ -274,6 +274,16 @@ namespace Behavior.Rules
         public static object Negative()
         {
             return Environment.ProcessorCount;
+        }
+    }
+
+    internal static partial class OFR3103
+    {
+        // Text, not a path: the backslash is a JavaScript escape.
+        public static void NegativeText(TextWriter writer)
+        {
+            writer.Write(@"\t");
+            File.WriteAllText("data/script.js", "var tab = '\\t';");
         }
     }
 }

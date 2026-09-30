@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Offramp.Analysis.DeadCode;
 using Offramp.Core.Model;
 using Offramp.Fixtures;
 using Offramp.Reporting.Graph;
@@ -51,6 +52,24 @@ public sealed partial class ReportTests
         Assert.Equal(0, none.Headline.FrameworkLocChange);
     }
 
+    /// <summary>
+    /// NHibernate P2: after scans of a solution filter and then of the solution, the trend compared the two ("down 232
+    /// since"); only snapshots of the model's solution make the series.
+    /// </summary>
+    [Fact]
+    public void Snapshots_of_another_solution_are_left_out_of_the_series()
+    {
+        var filter = Ledger.Snapshot(Model with { CreatedAt = "2026-09-01T09:00:00Z", Solution = "Everything.slnf", Projects = [.. Model.Projects.Take(2)] });
+        var unnamed = Ledger.Snapshot(Model with { CreatedAt = "2026-09-02T09:00:00Z", Solution = null });
+
+        var report = ReportBuilder.Build(Model, [.. History, filter, unnamed], "Monolith", since: null);
+
+        Assert.Equal(["2026-06-02T09:00:00Z", "2026-07-15T09:00:00Z", "2026-08-30T09:00:00Z", Model.CreatedAt], report.Series.Select(p => p.CreatedAt));
+        var (kept, others) = ReportBuilder.OfModelSolution(Model, [.. History, filter, unnamed]);
+        Assert.Equal(3, kept.Count);
+        Assert.Equal([null, "Everything.slnf"], others);
+    }
+
     [Fact]
     public void Snapshots_newer_than_the_model_or_repeating_it_are_left_out()
     {
@@ -94,6 +113,70 @@ public sealed partial class ReportTests
         var web = byName["Web"];
         Assert.Equal((ProjectReadiness.Done, 0, 0), (web.Status, web.Remaining, web.RemainingLoc));
         Assert.Empty(web.Next);
+    }
+
+    /// <summary>
+    /// SmartStoreNET P1 #5: plugins that build into the site are part of the site's application, not 12 more
+    /// applications, and what they need is left for the site.
+    /// </summary>
+    [Fact]
+    public void Hosted_web_projects_are_in_their_host_closure_and_not_applications()
+    {
+        var host = new ProjectHost { Project = "src/Web/Web.csproj", Evidence = ["builds into src/Web/Plugins/Tax, inside src/Web"] };
+        var model = ModelOf(
+            [.. Model.Projects,
+            Project("src/Plugins/Tax/Tax.csproj", ProjectKind.Web, FrameworkClass.Framework, "src/Core/Core.csproj") with { Loc = 700, HostedBy = host },
+            Project("src/Plugins/Geo/Geo.csproj", ProjectKind.Web, FrameworkClass.Framework) with { Loc = 300, HostedBy = host }]);
+
+        var report = ReportBuilder.Build(model, [], "Monolith", null);
+
+        Assert.Equal(3, report.Headline.Applications);
+        var web = report.Applications.Single(a => a.Name == "Web");
+        Assert.Equal((ProjectReadiness.Blocked, 5, 3, 6400), (web.Status, web.Closure, web.Remaining, web.RemainingLoc));
+        Assert.Equal(["src/Plugins/Geo/Geo.csproj", "src/Plugins/Tax/Tax.csproj"], web.Hosted);
+        Assert.Equal(["src/Core/Core.csproj", "src/Plugins/Geo/Geo.csproj"], web.Next);
+        Assert.Contains("`src/Web/Web.csproj` (hosts 2)", ReportRenderer.Render(report, ReportFormat.Markdown, null, null), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// NHibernate P1 #7: a repository of libraries said "applications 0" and nothing about the libraries. The
+    /// libraries other code uses (ADR 0041) are counted, listed with what is left in their closure, and every
+    /// rendering talks about them when there is no application.
+    /// </summary>
+    [Fact]
+    public void A_repository_without_applications_reports_the_libraries_other_code_uses()
+    {
+        var model = ModelOf(
+            Project("src/NHibernate/NHibernate.csproj", ProjectKind.Library, FrameworkClass.Framework) with { Loc = 264_000 },
+            Project("src/NHibernate.DomainModel/NHibernate.DomainModel.csproj", ProjectKind.Library, FrameworkClass.Framework, "src/NHibernate/NHibernate.csproj") with { Loc = 9_000 },
+            Project("src/NHibernate.Test/NHibernate.Test.csproj", ProjectKind.Test, FrameworkClass.Framework, "src/NHibernate/NHibernate.csproj", "src/NHibernate.DomainModel/NHibernate.DomainModel.csproj") with { Loc = 201_000 });
+        using var root = new ScratchDirectory("report");
+        root.Write("src/NHibernate/NHibernate.nuspec", "<package><files><file src=\"bin/NHibernate.dll\" target=\"lib/net40\" /></files></package>\n");
+
+        var report = ReportBuilder.Build(model, [], "NHibernate", null, ShippedProjects.Read(root.Path, model, []));
+
+        Assert.Equal((0, 0, 2, 0), (report.Headline.Applications, report.Headline.ApplicationsDone, report.Headline.Libraries, report.Headline.LibrariesDone));
+        Assert.Equal(["src/NHibernate.DomainModel/NHibernate.DomainModel.csproj", "src/NHibernate/NHibernate.csproj"], report.Libraries.Select(l => l.Project));
+        var nhibernate = report.Libraries[1];
+        Assert.Equal((ProjectReadiness.Ready, 1, 1, 264_000, "packed by src/NHibernate/NHibernate.nuspec"), (nhibernate.Status, nhibernate.Closure, nhibernate.Remaining, nhibernate.RemainingLoc, nhibernate.Shipped));
+        var domain = report.Libraries[0];
+        Assert.Equal((ProjectReadiness.Blocked, "no application in the solution uses it"), (domain.Status, domain.Shipped));
+        Assert.Equal(["src/NHibernate/NHibernate.csproj"], domain.Next);
+        Assert.EndsWith("and 0 of 2 libraries are done.", ReportText.Summary(report), StringComparison.Ordinal);
+        var markdown = ReportRenderer.Render(report, ReportFormat.Markdown);
+        Assert.Contains("- **Libraries done:** 0 of 2 of the libraries other code uses.", markdown, StringComparison.Ordinal);
+        Assert.Contains("## Libraries", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Applications", markdown, StringComparison.Ordinal);
+        var html = ReportRenderer.Render(report, ReportFormat.Html);
+        Assert.Contains("libraries with nothing left to port", html, StringComparison.Ordinal);
+        Assert.Contains("<h2>Libraries</h2>", html, StringComparison.Ordinal);
+        SchemaAssert.Valid("report-data", ReportRenderer.Render(report, ReportFormat.Json));
+
+        // With applications, the renderings stay about them: the Monolith's unused libraries are data only.
+        var monolith = ReportBuilder.Build(Model, History, "Monolith", null, ShippedProjects.Read(root.Path, Model, []));
+        Assert.Equal(["legacy/Legacy/Legacy.csproj", "legacy/Old/Old.csproj"], monolith.Libraries.Select(l => l.Project));
+        Assert.EndsWith("and 1 of 3 applications are done.", ReportText.Summary(monolith), StringComparison.Ordinal);
+        Assert.DoesNotContain("## Libraries", ReportRenderer.Render(monolith, ReportFormat.Markdown), StringComparison.Ordinal);
     }
 
     [Fact]

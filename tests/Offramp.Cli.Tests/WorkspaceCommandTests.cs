@@ -223,22 +223,48 @@ public sealed class WorkspaceCommandTests : IDisposable
     {
         await ScanAsync();
         var before = _cli.Repo.Read("Directory.Build.props");
+        var soap = _cli.Repo.Read("src/Soap/Soap.csproj");
 
         var preview = await _cli.RunAsync("doctor", "--fix", "--json");
 
         Assert.Equal(before, _cli.Repo.Read("Directory.Build.props"));
+        Assert.Equal(soap, _cli.Repo.Read("src/Soap/Soap.csproj"));
         var fix = JsonNode.Parse(preview.Out)!["result"]!["fix"]!;
         Assert.False(fix["applied"]!.GetValue<bool>());
         Assert.Contains("+  <PropertyGroup Condition=", fix["diff"]!.GetValue<string>(), StringComparison.Ordinal);
+        var planned = Assert.Single(fix["projectFiles"]!.AsArray())!;
+        Assert.Equal("src/Soap/Soap.csproj", planned["file"]!.GetValue<string>());
+        Assert.Equal(["sgen", "build-event"], planned["guards"]!.AsArray().Select(g => g!["step"]!.GetValue<string>()));
+        Assert.False(planned["applied"]!.GetValue<bool>());
         SchemaAssert.ValidEnvelope(preview.Out, "doctor");
 
         var applied = await _cli.RunAsync("doctor", "--fix", "--apply", "--json");
 
-        Assert.True(JsonNode.Parse(applied.Out)!["result"]!["fix"]!["applied"]!.GetValue<bool>());
+        var written = JsonNode.Parse(applied.Out)!["result"]!["fix"]!;
+        Assert.True(written["applied"]!.GetValue<bool>());
+        Assert.True(written["projectFiles"]![0]!["applied"]!.GetValue<bool>());
         Assert.Contains("<OfframpCompileOnly>true</OfframpCompileOnly>", _cli.Repo.Read("Directory.Build.props"), StringComparison.Ordinal);
+        Assert.Contains("<GenerateSerializationAssemblies Condition=\"'$(MSBuildRuntimeType)' != 'Core'\">On</GenerateSerializationAssemblies>", _cli.Repo.Read("src/Soap/Soap.csproj"), StringComparison.Ordinal);
+        Assert.Contains("<PostBuildEvent Condition=\"'$(OS)' == 'Windows_NT'\">signtool.exe", _cli.Repo.Read("src/Soap/Soap.csproj"), StringComparison.Ordinal);
+        SchemaAssert.ValidEnvelope(applied.Out, "doctor");
 
         var again = await _cli.RunAsync("doctor", "--fix", "--apply", "--json");
-        Assert.True(JsonNode.Parse(again.Out)!["result"]!["fix"]!["alreadyPresent"]!.GetValue<bool>());
+        var nothing = JsonNode.Parse(again.Out)!["result"]!["fix"]!;
+        Assert.True(nothing["alreadyPresent"]!.GetValue<bool>());
+        Assert.Empty(nothing["projectFiles"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task Doctor_fix_shows_each_project_file_diff_and_says_what_it_wrote()
+    {
+        await ScanAsync();
+
+        var preview = await _cli.RunAsync("doctor", "--fix");
+        var applied = await _cli.RunAsync("doctor", "--fix", "--apply", "--yes");
+
+        Assert.Contains("Dry run: this would add the compile-only block to Directory.Build.props and 2 Windows conditions to 1 project file", preview.Out, StringComparison.Ordinal);
+        Assert.Contains("+++ b/src/Soap/Soap.csproj", preview.Out, StringComparison.Ordinal);
+        Assert.Contains("Added the compile-only block to Directory.Build.props and 2 Windows conditions to src/Soap/Soap.csproj.", applied.Out, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,5 +1,10 @@
 using System.Text.Json.Nodes;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Offramp.Cli.Commands;
+using Offramp.Cli.Rendering;
 using Offramp.Fixtures;
+using Offramp.Scaffolding.Csproj;
 
 namespace Offramp.Cli.Tests;
 
@@ -68,7 +73,17 @@ public sealed class CsprojModernizeCommandTests
         Assert.False(node["result"]!["applied"]!.GetValue<bool>());
         var failure = Assert.Single(node["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR4303");
         Assert.Contains("does not build", failure!["message"]!.GetValue<string>(), StringComparison.Ordinal);
-        Assert.NotEmpty(node["result"]!["projects"]![0]!["verification"]!["buildErrors"]!.AsArray());
+        var verification = node["result"]!["projects"]![0]!["verification"]!;
+        Assert.NotEmpty(verification["buildErrors"]!.AsArray());
+        Assert.Contains(verification["buildErrors"]!.AsArray(), e => e!.GetValue<string>().StartsWith("src/Billing/BillingSection.cs(", StringComparison.Ordinal));
+
+        // NHibernate 4.1.2 (P1 #7): the error count by code, not only the first errors.
+        Assert.False(verification["built"]!.GetValue<bool>());
+        var count = verification["buildErrorCount"]!.GetValue<int>();
+        var codes = verification["buildErrorCodes"]!.AsArray();
+        Assert.Contains(codes, c => c!["code"]!.GetValue<string>().StartsWith("CS", StringComparison.Ordinal));
+        Assert.Equal(count, codes.Sum(c => c!["count"]!.GetValue<int>()));
+        Assert.Contains($"{count} error", failure["message"]!.GetValue<string>(), StringComparison.Ordinal);
         Assert.Equal(before, MoveCommandTests.Tree(fixture.Root));
     }
 
@@ -101,6 +116,366 @@ public sealed class CsprojModernizeCommandTests
         var audit = Assert.Single(node["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR4305");
         Assert.Contains("NU1903", audit!["message"]!.GetValue<string>(), StringComparison.Ordinal);
         Assert.DoesNotContain(node["diagnostics"]!.AsArray(), d => d!["code"]!.GetValue<string>() == "OFR4303");
+    }
+
+    /// <summary>
+    /// NHibernate 4.1.2 (P0 #5), SmartStoreNET 4.2.0 (P0 #1), Open Live Writer 0.6.3 (P0 #3, P1 #9): the
+    /// assemblyinfo codemod stripped a linked SharedAssemblyInfo.cs that other projects compile, and
+    /// left the attributes of generated version files for the SDK to duplicate (CS0579).
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR4306")]
+    public async Task Shared_and_generated_assembly_info_files_stay_and_the_sdk_does_not_generate_their_attributes()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared");
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+        var shared = repository.Directory.Read("src/SharedAssemblyInfo.cs");
+        var buildInfo = repository.Directory.Read("src/Layers.Domain/Properties/BuildInfo.cs");
+
+        // One project, as the guide's port step converts them.
+        var single = await cli.RunAsync("csproj", "modernize", "--project", "Layers.Data", "--json");
+
+        Assert.True(single.ExitCode == 0, single.Out);
+        SchemaAssert.ValidEnvelope(single.Out, "csproj-modernize");
+        var node = JsonNode.Parse(single.Out)!;
+        var data = Assert.Single(node["result"]!["projects"]!.AsArray())!;
+        Assert.True(data["verification"]!["passed"]!.GetValue<bool>(), single.Out);
+        Assert.Equal(["src/Layers.Data/Properties/AssemblyInfo.cs", "src/Layers.Data/packages.config"], data["files"]!.AsArray().Select(f => f!.GetValue<string>()));
+        Assert.DoesNotContain("a/src/SharedAssemblyInfo.cs", node["result"]!["preview"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Equal(
+            ["AssemblyTitle=Layers data access", "GenerateAssemblyCompanyAttribute=false", "GenerateAssemblyFileVersionAttribute=false", "GenerateAssemblyProductAttribute=false", "GenerateAssemblyVersionAttribute=false"],
+            data["properties"]!.AsArray().Select(p => $"{p!["name"]}={p["value"]}").Order(StringComparer.Ordinal));
+        var kept = Diagnostics(single.Out, "OFR4306");
+        var linked = Assert.Single(kept, d => d["file"]?.GetValue<string>() == "src/SharedAssemblyInfo.cs");
+        Assert.Equal(["src/Layers.Domain/Layers.Domain.csproj"], linked["data"]!["sharedWith"]!.AsArray().Select(p => p!.GetValue<string>()));
+        Assert.True(linked["data"]!["outsideProject"]!.GetValue<bool>());
+        var version = Assert.Single(kept, d => d["file"]?.GetValue<string>() == "src/GlobalVersionInfo.cs");
+        Assert.True(version["data"]!["addedByBuild"]!.GetValue<bool>());
+        Assert.True(version["data"]!["ignoredByGit"]!.GetValue<bool>());
+
+        // Every project, applied: the shared and generated files are as they were, and the conversions build.
+        var applied = await cli.RunAsync("csproj", "modernize", "--all", "--apply", "--json");
+
+        Assert.True(applied.ExitCode == 0, applied.Out);
+        Assert.True(JsonNode.Parse(applied.Out)!["result"]!["applied"]!.GetValue<bool>(), applied.Out);
+        Assert.Equal(shared, repository.Directory.Read("src/SharedAssemblyInfo.cs"));
+        Assert.Equal(buildInfo, repository.Directory.Read("src/Layers.Domain/Properties/BuildInfo.cs"));
+        Assert.DoesNotContain("AssemblyTitle", repository.Directory.Read("src/Layers.Domain/Properties/AssemblyInfo.cs"), StringComparison.Ordinal);
+        var generated = Assert.Single(Diagnostics(applied.Out, "OFR4306"), d => d["file"]?.GetValue<string>() == "src/Layers.Domain/Properties/BuildInfo.cs");
+        Assert.True(generated["data"]!["generatedCode"]!.GetValue<bool>());
+        var domain = repository.Directory.Read("src/Layers.Domain/Layers.Domain.csproj");
+        Assert.Contains("<GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>", domain, StringComparison.Ordinal);
+        Assert.Contains("<AssemblyTitle>Layers domain model</AssemblyTitle>", domain, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// NHibernate 4.1.2 (P1 #11), SmartStoreNET 4.2.0 (P1 #6), Open Live Writer 0.6.3 (P1 #9): conversions
+    /// that failed verification because of what the SDK passes on or dropped (transitive project
+    /// references, the NuGet 2 restore import, a package downgrade), and a build event that lost its condition.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR4307")]
+    [ProducesDiagnostic("OFR4308")]
+    public async Task Conversions_compile_what_the_legacy_projects_did()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared");
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--all", "--apply", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        SchemaAssert.ValidEnvelope(run.Out, "csproj-modernize");
+        var result = JsonNode.Parse(run.Out)!["result"]!;
+        Assert.Equal(3, result["projects"]!.AsArray().Count);
+        Assert.All(result["projects"]!.AsArray(), p => Assert.True(p!["verification"]!["passed"]!.GetValue<bool>(), p.ToJsonString()));
+        Assert.True(result["applied"]!.GetValue<bool>());
+        List<string> Lines(string project) => [.. repository.Directory.Read(project).Split('\n').Select(l => l.Trim())];
+        var tests = Lines("src/Layers.Tests/Layers.Tests.csproj");
+        var data = Lines("src/Layers.Data/Layers.Data.csproj");
+        var domain = Lines("src/Layers.Domain/Layers.Domain.csproj");
+
+        // Layers.Tests → Layers.Data → Layers.Domain: Tests still compiles against Data alone.
+        Assert.Contains("<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>", tests);
+        Assert.DoesNotContain("<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>", data);
+        // NuGet 2's restore import goes; SolutionDir stays in Tests only, whose build event uses it.
+        Assert.DoesNotContain(data, l => l.Contains("NuGet.targets", StringComparison.OrdinalIgnoreCase) || l.Contains("SolutionDir", StringComparison.Ordinal));
+        Assert.Contains(tests, l => l.StartsWith("<SolutionDir Condition=", StringComparison.Ordinal));
+        Assert.Contains("<PostBuildEvent Condition=\"'$(PostBuildEvent)' != '' and ('$(Configuration)' == 'Debug')\">echo Checks built for $(SolutionDir)</PostBuildEvent>", tests);
+        // Data's Newtonsoft.Json 12.0.1 would be downgraded from Domain's 13.0.3.
+        Assert.Contains("<PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.3\" />", data);
+        Assert.Contains("<PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.3\" />", domain);
+        var raised = Assert.Single(Diagnostics(run.Out, "OFR4307"));
+        Assert.Equal("src/Layers.Data/Layers.Data.csproj", raised["project"]!.GetValue<string>());
+        Assert.Equal(("12.0.1", "13.0.3", "src/Layers.Domain/Layers.Domain.csproj"),
+            (raised["data"]!["from"]!.GetValue<string>(), raised["data"]!["to"]!.GetValue<string>(), raised["data"]!["source"]!.GetValue<string>()));
+        Assert.Equal(["src/Layers.Domain/Layers.Domain.csproj", "src/Layers.Tests/Layers.Tests.csproj"],
+            Diagnostics(run.Out, "OFR4308").Select(d => d["project"]!.GetValue<string>()).Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// SmartStoreNET 4.2.0 (corpus): SmartStore.Data.Tests' post-build step (cmd's <c>md</c> and <c>xcopy</c>)
+    /// became a target with the command inline, so <c>verify.properties: PostBuildEvent: ""</c> (OFR0115's
+    /// remedy) no longer turned it off and verification failed with MSB3073.
+    /// </summary>
+    [Fact]
+    public async Task A_converted_build_event_is_turned_off_as_the_legacy_one_was()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared", (root, request) =>
+        {
+            var tests = Path.Combine(root, "src/Layers.Tests/Layers.Tests.csproj");
+            File.WriteAllText(tests, File.ReadAllText(tests).Replace("echo Checks built for $(SolutionDir)", "exit 3", StringComparison.Ordinal));
+            File.WriteAllText(Path.Combine(root, "offramp.yml"), "version: 1\nverify:\n  properties:\n    PostBuildEvent: \"\"\n");
+            return request with { Config = request.Config with { Verify = request.Config.Verify with { Properties = new(StringComparer.Ordinal) { ["PostBuildEvent"] = "" } } } };
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Layers.Tests", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        var project = Assert.Single(JsonNode.Parse(run.Out)!["result"]!["projects"]!.AsArray())!;
+        Assert.True(project["verification"]!["passed"]!.GetValue<bool>(), run.Out);
+        Assert.Contains("<PostBuildEvent Condition=\"'$(PostBuildEvent)' != '' and ('$(Configuration)' == 'Debug')\">exit 3</PostBuildEvent>", JsonNode.Parse(run.Out)!["result"]!["preview"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// SmartStoreNET 4.2.0 (corpus): the legacy projects import <c>$(SolutionDir)\.nuget\nuget.targets</c>, which on
+    /// Linux exists only as an untracked link to <c>NuGet.targets</c> in the working tree (OFR0117's fix). The
+    /// scratch copy verification builds in lacked it, so a converted project's legacy reference failed with MSB4019.
+    /// </summary>
+    [Fact]
+    public async Task Verification_builds_with_the_working_trees_untracked_imports()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared", (root, request) =>
+        {
+            var data = Path.Combine(root, "src/Layers.Data/Layers.Data.csproj");
+            File.WriteAllText(data, File.ReadAllText(data).Replace(@"\.nuget\NuGet.targets", @"\.nuget\nuget.targets", StringComparison.Ordinal));
+            var link = Path.Combine(root, ".nuget", "nuget.targets");
+            if (!File.Exists(link))
+            {
+                File.CreateSymbolicLink(link, "NuGet.targets");
+            }
+
+            return request;
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Layers.Tests", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        Assert.True(JsonNode.Parse(run.Out)!["result"]!["projects"]![0]!["verification"]!["passed"]!.GetValue<bool>(), run.Out);
+    }
+
+    /// <summary>
+    /// Open Live Writer 0.6.3 (corpus): <c>writer.build.settings</c> puts each project's intermediate files in
+    /// <c>src/managed/obj/&lt;Configuration&gt;/&lt;Project&gt;/</c>, outside the project's folder, and verification took
+    /// the AssemblyInfo.cs the SDK generates there for an added source (8 of 28 conversions).
+    /// </summary>
+    [Fact]
+    public async Task Files_the_build_generates_in_an_intermediate_folder_outside_the_project_are_not_sources()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared", (root, request) =>
+        {
+            var data = Path.Combine(root, "src/Layers.Data/Layers.Data.csproj");
+            File.WriteAllText(data, File.ReadAllText(data).Replace("<OutputType>Library</OutputType>",
+                "<OutputType>Library</OutputType>\n    <IntermediateOutputPath>..\\..\\obj\\$(Configuration)\\$(MSBuildProjectName)\\</IntermediateOutputPath>", StringComparison.Ordinal));
+            return request;
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+        Assert.True(Directory.Exists(repository.Directory.Combine("obj", "Debug", "Layers.Data")), "The legacy build writes its intermediate files outside the project's folder.");
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Layers.Data", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        var project = Assert.Single(JsonNode.Parse(run.Out)!["result"]!["projects"]!.AsArray())!;
+        Assert.Contains("<IntermediateOutputPath>", JsonNode.Parse(run.Out)!["result"]!["preview"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.True(project["verification"]!["passed"]!.GetValue<bool>(), run.Out);
+        Assert.Empty(project["verification"]!["targets"]![0]!["sourcesAdded"]!.AsArray());
+    }
+
+    /// <summary>
+    /// Open Live Writer 0.6.3 and SmartStoreNET 4.2.0 (corpus): legacy projects that a converted project references
+    /// read files that only the working tree has. OLW's CoreServices copies <c>intl/markets/Master.xml</c>, an untracked
+    /// link that fixes its letter case (OFR0117), and embeds <c>Markets.xml</c>, generated and git-ignored (OFR0115);
+    /// SmartStoreNET's site imports the build files of packages that <c>scan</c> restored into the git-ignored
+    /// <c>packages/</c>, stops without them (<c>EnsureNuGetPackageBuildImports</c>), and runs a task from one
+    /// package's <c>tasks/</c> folder (Microsoft.CodeDom.Providers.DotNetCompilerPlatform's <c>KillProcess</c>). The
+    /// scratch copy verification builds in had none of them: 20 of 28 OLW conversions failed with MSB3030, and 1 of 11
+    /// SmartStoreNET ones.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR4309")]
+    public async Task Verification_builds_with_the_files_the_scans_build_read_that_head_does_not_have()
+    {
+        const string Targets = "packages/Contoso.Build.1.0.0/build/Contoso.Build.targets";
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared", (root, request) =>
+        {
+            void Write(string file, string content)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(root, file))!);
+                File.WriteAllText(Path.Combine(root, file), content);
+            }
+
+            Write("data/master.xml", "<markets />\n");
+            Write("src/Layers.Data/Markets.xml", "<markets generated=\"true\" />\n");
+            Write(Targets, """
+                <Project>
+                  <UsingTask TaskName="Contoso.Build.Stamp" AssemblyFile="$(MSBuildThisFileDirectory)..\tasks\Contoso.Build.Tasks.dll" />
+                  <Target Name="ContosoStamp" BeforeTargets="CoreCompile">
+                    <Stamp />
+                  </Target>
+                </Project>
+                """);
+            WriteTaskAssembly(Path.Combine(root, "packages/Contoso.Build.1.0.0/tasks/Contoso.Build.Tasks.dll"));
+            var config = Path.Combine(root, "src/Layers.Data/packages.config");
+            File.WriteAllText(config, File.ReadAllText(config).Replace("</packages>",
+                "  <package id=\"Contoso.Build\" version=\"1.0.0\" targetFramework=\"net48\" developmentDependency=\"true\" />\n</packages>", StringComparison.Ordinal));
+            var data = Path.Combine(root, "src/Layers.Data/Layers.Data.csproj");
+            var project = File.ReadAllText(data);
+            File.WriteAllText(data, project[..project.LastIndexOf("</Project>", StringComparison.Ordinal)] + """
+                  <ItemGroup>
+                    <EmbeddedResource Include="Markets.xml" />
+                  </ItemGroup>
+                  <Import Project="..\..\packages\Contoso.Build.1.0.0\build\Contoso.Build.targets" Condition="Exists('..\..\packages\Contoso.Build.1.0.0\build\Contoso.Build.targets')" />
+                  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+                    <Error Condition="!Exists('..\..\packages\Contoso.Build.1.0.0\build\Contoso.Build.targets')" Text="This project references NuGet package(s) that are missing on this computer." />
+                  </Target>
+                  <Target Name="CopyMaster" BeforeTargets="CoreCompile">
+                    <Copy SourceFiles="..\..\data\master.xml" DestinationFolder="$(IntermediateOutputPath)" />
+                  </Target>
+                </Project>
+                """);
+            return request;
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Layers.Tests", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        Assert.True(JsonNode.Parse(run.Out)!["result"]!["projects"]![0]!["verification"]!["passed"]!.GetValue<bool>(), run.Out);
+        var used = Assert.Single(Diagnostics(run.Out, "OFR4309"));
+        var files = used["data"]!["files"]!.AsArray().Select(f => f!.GetValue<string>()).ToList();
+        Assert.Contains("data/master.xml", files);
+        Assert.Contains("src/Layers.Data/Markets.xml", files);
+        Assert.DoesNotContain(files, f => f.StartsWith("packages/", StringComparison.Ordinal));
+        Assert.True(used["data"]!["packageFiles"]!.GetValue<int>() >= 4, used.ToJsonString());
+        Assert.Contains("data/master.xml", used["message"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    /// <summary>An assembly with an MSBuild task, <c>Contoso.Build.Stamp</c>, which does nothing.</summary>
+    private static void WriteTaskAssembly(string path)
+    {
+        const string Source = """
+            namespace Contoso.Build;
+
+            public sealed class Stamp : Microsoft.Build.Framework.ITask
+            {
+                public Microsoft.Build.Framework.IBuildEngine BuildEngine { get; set; } = null!;
+
+                public Microsoft.Build.Framework.ITaskHost HostObject { get; set; } = null!;
+
+                public bool Execute() => true;
+            }
+            """;
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+            .Append(typeof(Microsoft.Build.Framework.ITask).Assembly.Location)
+            .DistinctBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+            .Select(f => MetadataReference.CreateFromFile(f));
+        var compilation = CSharpCompilation.Create("Contoso.Build.Tasks", [CSharpSyntaxTree.ParseText(Source)], references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var emitted = compilation.Emit(path);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+    }
+
+    /// <summary>
+    /// Open Live Writer 0.6.3 (corpus): projects with .resx files on disk that they do not embed kept their list,
+    /// but the SDK's glob embedded the others as well, and 9 of 28 conversions failed with "resources added".
+    /// </summary>
+    [Fact]
+    public async Task Resx_files_the_legacy_project_does_not_embed_stay_out_of_the_conversion()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-csproj", (root, request) =>
+        {
+            File.Copy(Path.Combine(root, "src/Billing/Strings.resx"), Path.Combine(root, "src/Billing/Unused.resx"));
+            return request;
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Billing", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        var project = Assert.Single(JsonNode.Parse(run.Out)!["result"]!["projects"]!.AsArray())!;
+        Assert.True(project["verification"]!["passed"]!.GetValue<bool>(), run.Out);
+        Assert.Contains("<EmbeddedResource Remove=\"**\\*.resx\" />", JsonNode.Parse(run.Out)!["result"]!["preview"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    private static List<JsonNode> Diagnostics(string envelope, string code) =>
+        [.. JsonNode.Parse(envelope)!["diagnostics"]!.AsArray().OfType<JsonNode>().Where(d => d["code"]!.GetValue<string>() == code)];
+
+    /// <summary>NHibernate 4.1.2 (P2): <c>--all</c> left the Visual Basic project out without a word.</summary>
+    [Fact]
+    public async Task All_names_the_legacy_projects_it_does_not_convert()
+    {
+        var fixture = await ScannedFixtures.GetAsync("webforms");
+        using var cli = new CliHarness(fixture.Repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--all", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        SchemaAssert.ValidEnvelope(run.Out, "csproj-modernize");
+        var vb = Assert.Single(JsonNode.Parse(run.Out)!["result"]!["projects"]!.AsArray(), p => p!["project"]!.GetValue<string>() == "src/Portal.Utilities/Portal.Utilities.vbproj")!;
+        Assert.Contains("vb project", vb["skipped"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Contains(Diagnostics(run.Out, "OFR4304"), d => d["project"]!.GetValue<string>() == "src/Portal.Utilities/Portal.Utilities.vbproj");
+    }
+
+    /// <summary>SmartStoreNET 4.2.0 (P2): the terminal said "compiles different inputs" for a conversion that did not build.</summary>
+    [Fact]
+    public void The_terminal_view_tells_a_failed_build_from_a_different_compile_set()
+    {
+        using var cli = new CliHarness();
+        var writer = new StringWriter { NewLine = "\n" };
+        var output = new HumanOutput(ConsoleFactory.Create(cli.Host(writer, TextWriter.Null), writer, isTerminal: false));
+        var result = new ModernizeResult
+        {
+            Projects =
+            [
+                new ModernizedProject
+                {
+                    Project = "src/Broken/Broken.csproj", Style = "legacy", Changed = true, TargetFrameworks = ["net48"],
+                    Verification = new ModernizeVerification
+                    {
+                        Passed = false, Built = false, BuildErrorCount = 71,
+                        BuildErrorCodes = [new BuildErrorCode("CS0246", 50), new BuildErrorCode("CS0234", 21)],
+                        BuildErrors = ["src/Broken/Emit.cs(12,5): error CS0246: The type or namespace name 'ILGenerator' could not be found"],
+                    },
+                },
+                new ModernizedProject
+                {
+                    Project = "src/Different/Different.csproj", Style = "legacy", Changed = true, TargetFrameworks = ["net48"],
+                    Verification = new ModernizeVerification
+                    {
+                        Passed = false, Built = true,
+                        Targets = [new CompileSetDifference { TargetFramework = "net48", ReferencesAdded = ["NHibernate.DomainModel"] }],
+                    },
+                },
+            ],
+        };
+
+        new CsprojModernizeCommand().Render(result, null!, output);
+
+        var lines = writer.ToString().Split('\n');
+        Assert.Contains("1 does not build; 1 compiles different inputs", lines[0], StringComparison.Ordinal);
+        Assert.Contains(lines, l => l.Contains("src/Broken/Broken.csproj", StringComparison.Ordinal) && l.Contains("does not build", StringComparison.Ordinal));
+        Assert.DoesNotContain(lines, l => l.Contains("src/Broken/Broken.csproj", StringComparison.Ordinal) && l.Contains("different compile set", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains("build errors: 71 (50 CS0246, 21 CS0234)", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains("src/Different/Different.csproj", StringComparison.Ordinal) && l.Contains("different compile set", StringComparison.Ordinal));
     }
 
     [Fact]

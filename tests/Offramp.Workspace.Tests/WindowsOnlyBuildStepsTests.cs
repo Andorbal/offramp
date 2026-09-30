@@ -136,6 +136,129 @@ public sealed class WindowsOnlyBuildStepsTests
         Assert.Equal("OFR0119", steps[2].Descriptor.Code);
     }
 
+    [Fact]
+    [ProducesDiagnostic("OFR0117")]
+    public void The_project_files_mismatches_come_first_and_join_those_only_the_errors_show()
+    {
+        using var repo = new ScratchDirectory("path-case");
+        repo.Write("intl/markets/master.xml", "<markets />");
+        Assert.SkipWhen(File.Exists(repo.Combine("intl", "markets", "Master.xml")), "This file system ignores letter case.");
+        var copied = Path.Combine(repo.Path, "src", "Core", "..", "..", "intl", "markets", "Master.xml");
+        var files = new ProjectFileFindings
+        {
+            CaseMismatches =
+            [
+                new CaseMismatch("/repo/src/.nuget/nuget.targets", "/repo/src/.nuget/NuGet.targets", "/repo/src/.nuget/nuget.targets: 'nuget.targets' is 'NuGet.targets' on disk"),
+                new CaseMismatch("/repo/src/A/Multimap.cs", "/repo/src/A/MultiMap.cs", "/repo/src/A/Multimap.cs: 'Multimap.cs' is 'MultiMap.cs' on disk"),
+            ],
+        };
+        BuildError[] errors =
+        [
+            new("MSB3030", $"Could not copy the file \"{copied}\" because it was not found.", "/repo/src/Core/Core.csproj", null, null, null),
+        ];
+
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect("src/Core/Core.csproj", [], errors, new BuildStepContext { Files = files }));
+
+        Assert.Equal("/repo/src/.nuget/nuget.targets: 'nuget.targets' is 'NuGet.targets' on disk (and 2 more)", step.Evidence);
+        Assert.Equal(["/repo/src/.nuget/nuget.targets", "/repo/src/A/Multimap.cs", repo.Path + "/intl/markets/Master.xml"], step.Paths);
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0119")]
+    public void Non_string_resources_are_named_by_file_before_any_build_unless_every_target_embeds_them_preserialized()
+    {
+        var files = new ProjectFileFindings
+        {
+            NonStringResources = [new NonStringResourceFile("/repo/src/A/Images.resx", 58), new NonStringResourceFile("/repo/src/A/Main.resx", 2)],
+        };
+        var context = new BuildStepContext { Files = files };
+        var preserialized = Evaluation(properties: new() { ["GenerateResourceUsePreserializedResources"] = "true" });
+
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [Evaluation()], [], context));
+
+        Assert.Equal("resources", step.Id);
+        Assert.Equal("58 non-string resource(s) in /repo/src/A/Images.resx (and 1 more .resx file(s))", step.Evidence);
+        Assert.Equal(["/repo/src/A/Images.resx", "/repo/src/A/Main.resx"], step.Paths);
+        Assert.Empty(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [preserialized], [], context));
+        Assert.Single(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [preserialized, Evaluation() with { TargetFramework = "net461" }], [], context));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0124")]
+    public void Microsoft_bcl_build_is_a_step_until_its_redirects_are_skipped()
+    {
+        // SmartStoreNET's FacebookAuth and Open Live Writer's PostEditor: MSB4062 from EnsureBindingRedirects.
+        string[] imports = ["/repo/src/packages/Microsoft.Bcl.Build.1.0.21/build/Microsoft.Bcl.Build.targets"];
+        const string message = "The \"EnsureBindingRedirects\" task could not be loaded from the assembly /repo/src/packages/Microsoft.Bcl.Build.1.0.21/build/Microsoft.Bcl.Build.Tasks.dll. Could not load file or assembly 'Microsoft.Build.Utilities.v4.0'.";
+
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [Evaluation(imports: imports, properties: new() { ["SkipEnsureBindingRedirects"] = "false" })]));
+        var fromError = Assert.Single(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [], [new BuildError("MSB4062", message, "/repo/src/A/A.csproj", null, null, null)]));
+
+        Assert.Equal("bcl-build", step.Id);
+        Assert.Equal("OFR0124", step.Descriptor.Code);
+        Assert.Equal("imports Microsoft.Bcl.Build.targets, whose EnsureBindingRedirects task needs .NET Framework's MSBuild", step.Evidence);
+        Assert.Equal("bcl-build", fromError.Id);
+        Assert.Empty(WindowsOnlyBuildSteps.Detect("src/A/A.csproj", [Evaluation(imports: imports, properties: new() { ["SkipEnsureBindingRedirects"] = "true" })]));
+        Assert.True(WindowsOnlyBuildSteps.IsStepCode("OFR0124"));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0125")]
+    public void An_mstest_v1_reference_without_a_hint_path_needs_visual_studio()
+    {
+        // Open Live Writer: 363 CS0246/CS0234 errors in two test projects.
+        var visualStudio = new EvaluatedItem("Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL", new Dictionary<string, string>());
+        var checkedIn = new EvaluatedItem("Microsoft.VisualStudio.QualityTools.UnitTestFramework", new Dictionary<string, string> { ["HintPath"] = @"..\lib\Microsoft.VisualStudio.QualityTools.UnitTestFramework.dll" });
+
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect("src/Tests/Tests.csproj", [Evaluation(items: new() { ["Reference"] = [visualStudio] })]));
+
+        Assert.Equal("mstest-v1", step.Id);
+        Assert.Equal("OFR0125", step.Descriptor.Code);
+        Assert.Equal("Reference Microsoft.VisualStudio.QualityTools.UnitTestFramework (MSTest v1), which only Visual Studio installs", step.Evidence);
+        Assert.Empty(WindowsOnlyBuildSteps.Detect("src/Tests/Tests.csproj", [Evaluation(items: new() { ["Reference"] = [checkedIn] })]));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0115")]
+    public void An_exec_of_a_program_the_solution_builds_is_named_as_a_generator_with_its_outputs()
+    {
+        // Open Live Writer: CoreServices runs $(OutDir)MarketXmlGenerator.exe to write an embedded resource;
+        // guarding the target, the usual remedy, turned MSB3073 into CS1566.
+        using var repo = new ScratchDirectory("generator");
+        var project = repo.Write("src/Core/Core.csproj", """
+            <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup>
+                <MarketsXmlPath>$(MSBuildProjectDirectory)\Marketization\Markets.xml</MarketsXmlPath>
+              </PropertyGroup>
+              <Target Name="GenerateMarketXmlImpl" Inputs="@(MarketsSourceFiles)" Outputs="$(MarketsXmlPath)">
+                <Exec Command="&quot;$(OutDir)MarketXmlGenerator.exe&quot; &quot;$(MarketsXmlPath)&quot;" />
+              </Target>
+            </Project>
+            """);
+        var output = $"{repo.Path}/src/managed/bin/Debug/i386/Writer/MarketXmlGenerator.exe";
+        BuildError[] errors = [new("MSB3073", $"The command \"\"{output}\" \"{repo.Path}/src/Core/Marketization/Markets.xml\"\" exited with code 126.", project, project, 6, 5)];
+        var context = new BuildStepContext
+        {
+            Executables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["MarketXmlGenerator.exe"] = "src/Gen/MarketXmlGenerator.csproj" },
+            ToLocal = path => path,
+            Display = text => text.Replace(repo.Path + "/", "", StringComparison.Ordinal).Replace(repo.Path.Replace('\\', '/') + "/", "", StringComparison.Ordinal),
+        };
+
+        var generator = Assert.Single(WindowsOnlyBuildSteps.Detect("src/Core/Core.csproj", [], errors, context));
+        var plain = Assert.Single(WindowsOnlyBuildSteps.Detect("src/Core/Core.csproj", [], errors, context with { Executables = new Dictionary<string, string>() }));
+
+        Assert.Equal("build-event", generator.Id);
+        Assert.Equal(
+            "Exec in target GenerateMarketXmlImpl runs MarketXmlGenerator.exe, which src/Gen/MarketXmlGenerator.csproj builds: a build-time generator; "
+            + "it writes src/Core/Marketization/Markets.xml. Guarding the target with OfframpCompileOnly leaves those files missing, "
+            + "so generate them once (the generator may run on .NET) or check them in (MSB3073)",
+            generator.Evidence);
+        Assert.Equal([repo.Path.Replace('\\', '/') + "/src/Core/Marketization/Markets.xml"], generator.Paths.Select(p => p.Replace('\\', '/')));
+
+        // Paths are made repository-relative before the evidence is shortened (it read "src/managed//bin/De…").
+        Assert.StartsWith("Exec: \"src/managed/bin/Debug/i386/Writer/MarketXmlGenerator.exe\" \"src/Core/Marketization/Markets.xml\"", plain.Evidence, StringComparison.Ordinal);
+    }
+
     private static EvaluatedProject Evaluation(
         Dictionary<string, string>? properties = null,
         Dictionary<string, IReadOnlyList<EvaluatedItem>>? items = null,

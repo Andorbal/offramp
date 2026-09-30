@@ -54,14 +54,68 @@ public static class GacAnalyzer
         };
     }
 
+    private static readonly HashSet<string> SoapClientTypes = new(StringComparer.Ordinal)
+    {
+        "System.Web.Services.Protocols.SoapHttpClientProtocol", "System.Web.Services.Protocols.HttpWebClientProtocol",
+        "System.Web.Services.Protocols.WebClientProtocol", "System.Web.Services.Protocols.SoapDocumentMethodAttribute",
+        "System.Web.Services.Protocols.SoapRpcMethodAttribute", "System.Web.Services.Protocols.SoapHeader",
+        "System.Web.Services.Protocols.SoapHeaderAttribute", "System.Web.Services.Protocols.SoapHeaderDirection",
+        "System.Web.Services.Protocols.SoapException", "System.Web.Services.Protocols.InvokeCompletedEventArgs",
+        "System.Web.Services.Description.SoapBindingUse", "System.Web.Services.Protocols.SoapParameterStyle",
+        "System.Web.Services.WebServiceBindingAttribute", "System.Web.Services.WsiProfiles",
+    };
+
+    /// <summary>
+    /// The table's mapping, made specific by what the project uses from the assembly (Open Live
+    /// Writer): System.Web used only for <c>HttpUtility</c>, which modern .NET has, is not a move
+    /// to ASP.NET Core, and System.Web.Services used only as a SOAP client moves to a WCF client.
+    /// </summary>
+    internal static FrameworkAssemblyMapping Refine(string assembly, FrameworkAssemblyMapping mapping, IReadOnlySet<string>? used)
+    {
+        if (used is not { Count: > 0 })
+        {
+            return mapping;
+        }
+
+        if (string.Equals(assembly, "System.Web", StringComparison.OrdinalIgnoreCase))
+        {
+            if (used.All(t => t == "System.Web.HttpUtility"))
+            {
+                return new FrameworkAssemblyMapping(FrameworkAssemblyKind.Builtin, null, false,
+                    "Only HttpUtility is used, and modern .NET has it (System.Web.HttpUtility): remove the reference.");
+            }
+
+            if (used.All(t => t is "System.Web.HttpUtility" or "System.Web.MimeMapping"))
+            {
+                return mapping with
+                {
+                    Note = "Only HttpUtility and MimeMapping are used: modern .NET has HttpUtility (System.Web.HttpUtility); MimeMapping has no counterpart outside ASP.NET Core (FileExtensionContentTypeProvider), so keep a table of MIME types.",
+                };
+            }
+        }
+
+        if (string.Equals(assembly, "System.Web.Services", StringComparison.OrdinalIgnoreCase) && used.All(SoapClientTypes.Contains)
+            && used.Any(t => t.EndsWith("ClientProtocol", StringComparison.Ordinal)))
+        {
+            return new FrameworkAssemblyMapping(FrameworkAssemblyKind.Package, "System.ServiceModel.Http", false,
+                "Used as a SOAP client only: generate a WCF client with dotnet-svcutil (System.ServiceModel.Http and System.ServiceModel.Primitives) instead of the web reference.");
+        }
+
+        return mapping;
+    }
+
     private static GacProject Analyze(ProjectInfo project, CompilationLoader loader, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
         var names = project.AssemblyReferences.Where(r => r.Kind == AssemblyReferenceKind.Framework).Select(r => r.Name).ToList();
         IReadOnlyDictionary<string, int>? usages = null;
+        IReadOnlyDictionary<string, IReadOnlySet<string>>? types = null;
         try
         {
             var compilation = loader.LoadForProject(project);
-            usages = compilation is null ? null : AssemblyUsage.Count(compilation, names, cancellationToken);
+            if (compilation is not null && AssemblyUsage.Measure(compilation, names, cancellationToken) is { } measured)
+            {
+                (usages, types) = measured;
+            }
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or InvalidDataException)
         {
@@ -79,7 +133,7 @@ public static class GacAnalyzer
                 .Select(n => new GacReference
                 {
                     Name = n,
-                    Mapping = FrameworkAssemblyMap.Find(n),
+                    Mapping = Refine(n, FrameworkAssemblyMap.Find(n), types?.GetValueOrDefault(n)),
                     Usages = usages is not null && usages.TryGetValue(n, out var count) ? count : null,
                 })],
         };

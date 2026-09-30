@@ -24,7 +24,8 @@ public sealed class GacTests
         Assert.Equal("System.Drawing.Common", billing["System.Drawing"].Mapping.Package);
         Assert.True(billing["System.Drawing"].Mapping.WindowsOnly);
         var web = result.Projects.Single(p => p.Project == "src/Customer.Api/Customer.Api.csproj").References.Single();
-        Assert.Equal(FrameworkAssemblyKind.None, web.Mapping.Kind);
+        // Only HttpUtility.HtmlEncode: modern .NET has HttpUtility, so this is not a move to ASP.NET Core.
+        Assert.Equal(FrameworkAssemblyKind.Builtin, web.Mapping.Kind);
         Assert.Equal(2, web.Usages); // HttpUtility and HtmlEncode
         Assert.Equal(1, result.Summary.Unused);
         SchemaAssert.Valid("deps-gac", OfframpJson.Serialize(result, NuGetJsonContext.Default.GacResult));
@@ -39,6 +40,30 @@ public sealed class GacTests
         var result = GacAnalyzer.Run(model, new OfframpConfig(), empty.Path, "src/Billing/Billing.csproj", NullProgressSink.Instance, new DiagnosticBag(), TestContext.Current.CancellationToken);
 
         Assert.All(result.Projects.Single().References, r => Assert.Null(r.Usages));
+    }
+
+    /// <summary>
+    /// Open Live Writer field test (P2): System.Web used only for HttpUtility and MimeMapping, and
+    /// System.Web.Services used as a SOAP client, were "move to ASP.NET Core".
+    /// </summary>
+    [Fact]
+    public void What_a_project_uses_from_system_web_decides_its_mapping()
+    {
+        var web = FrameworkAssemblyMap.Find("System.Web");
+        var services = FrameworkAssemblyMap.Find("System.Web.Services");
+
+        Assert.Equal(FrameworkAssemblyKind.Builtin, GacAnalyzer.Refine("System.Web", web, new HashSet<string> { "System.Web.HttpUtility" }).Kind);
+        var mime = GacAnalyzer.Refine("System.Web", web, new HashSet<string> { "System.Web.HttpUtility", "System.Web.MimeMapping" });
+        Assert.Equal(FrameworkAssemblyKind.None, mime.Kind);
+        Assert.Contains("FileExtensionContentTypeProvider", mime.Note, StringComparison.Ordinal);
+        Assert.Same(web, GacAnalyzer.Refine("System.Web", web, new HashSet<string> { "System.Web.HttpContext", "System.Web.HttpUtility" }));
+        var client = GacAnalyzer.Refine("System.Web.Services", services, new HashSet<string>
+        {
+            "System.Web.Services.Protocols.SoapDocumentMethodAttribute", "System.Web.Services.Protocols.SoapHttpClientProtocol", "System.Web.Services.WebServiceBindingAttribute",
+        });
+        Assert.Equal((FrameworkAssemblyKind.Package, "System.ServiceModel.Http"), (client.Kind, client.Package));
+        Assert.Same(services, GacAnalyzer.Refine("System.Web.Services", services, new HashSet<string> { "System.Web.Services.WebService", "System.Web.Services.WebMethodAttribute" }));
+        Assert.Same(web, GacAnalyzer.Refine("System.Web", web, null));
     }
 
     [Theory]

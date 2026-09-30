@@ -2,10 +2,11 @@
 
 - `Foo` (`net48`) ships its xunit tests next to the code:
   - `Service/Tests/OrderServiceTests.cs`: tests, which call the internal `OrderService.Discount`.
-  - `TestData/Builders.cs`: `OrderBuilder`, used only by the tests (a helper).
+  - `TestData/Builders.cs`: `OrderBuilder`, internal and used only by the tests (a helper).
   - `Shared/Clock.cs`: `SystemClock`, used by production code and by the tests (stays).
   - `Testing/FakeClock.cs`: referenced from nowhere; its name and folder look like
-    test support, so it is only a `medium` candidate.
+    test support, but it is public and no application uses `Foo`, so it may be someone's
+    API: a `low` candidate that never moves (ADR 0045).
   - `Health/StartupChecks.cs`: a test class that production code (`Service/Startup.cs`)
     calls, so it stays (`OFR2201`).
   - `Web/Tests/UrlTests.cs`: needs `System.Web`, which `Foo.Tests` does not reference, so

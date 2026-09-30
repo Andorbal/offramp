@@ -8,6 +8,7 @@ using Offramp.Core.Paths;
 using Offramp.Core.Processes;
 using Offramp.Core.Progress;
 using Offramp.Refactoring.ChangeSets;
+using Offramp.Workspace.Store;
 using Offramp.Workspace.Verification;
 
 namespace Offramp.Scaffolding.Csproj;
@@ -66,6 +67,7 @@ public static class ModernizeVerifier
         }
 
         await using var scratch = await ScratchWorktree.CreateAsync(root, Files(request), request.Git, cancellationToken);
+        ReportUncommitted(request, scratch);
         Apply(request.ChangeSet, scratch);
         var index = 0;
         foreach (var project in request.Projects.Order(StringComparer.Ordinal))
@@ -91,7 +93,7 @@ public static class ModernizeVerifier
         // Restoring the PackageReference way turns NuGet audit on. When known vulnerabilities, made
         // errors by TreatWarningsAsErrors, are all that failed, the conversion is not at fault:
         // report them and verify with audit off.
-        if (build.ExitCode != 0 && Errors(build) is { Count: > 0 } auditErrors && auditErrors.All(IsAudit))
+        if (build.ExitCode != 0 && Errors(build, scratch) is { Count: > 0 } auditErrors && auditErrors.All(IsAudit))
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR4305,
                 $"{project}: the converted project restores its packages the PackageReference way, which turns NuGet audit on, and its warnings are errors: {string.Join(" | ", auditErrors.Take(3))}",
@@ -103,14 +105,17 @@ public static class ModernizeVerifier
         var frameworks = request.Model.Projects.FirstOrDefault(p => p.Id == project)?.TargetFrameworks ?? [];
         var before = CompileSets.Read(beforeLog, RepoPaths.ToAbsolute(request.RepositoryRoot, project), request.RepositoryRoot, frameworks.Count == 1 ? frameworks[0] : "");
         var after = File.Exists(binlog) ? CompileSets.Read(binlog, scratch.Resolve(project), scratch.Path) : [];
-        var errors = build.ExitCode == 0 ? [] : Errors(build);
+        var errors = build.ExitCode == 0 ? [] : Errors(build, scratch);
+        var codes = ErrorCodes(errors);
         var targets = new List<CompileSetDifference>();
         var missing = new List<string>();
         foreach (var (framework, set) in before)
         {
             if (after.TryGetValue(framework, out var converted))
             {
-                targets.Add(CompileSets.Compare(set, converted, request.ConvertedPackages));
+                // What the converted project's restore resolved explains the references PackageReference adds.
+                var assets = Path.Combine(Path.GetDirectoryName(scratch.Resolve(project))!, "obj", "project.assets.json");
+                targets.Add(CompileSets.Compare(set, converted, request.ConvertedPackages, RestoredPackages.Read(assets, framework)));
             }
             else
             {
@@ -124,7 +129,7 @@ public static class ModernizeVerifier
             var reasons = new List<string>();
             if (build.ExitCode != 0)
             {
-                reasons.Add("the converted project does not build" + (errors.Count > 0 ? ": " + string.Join(" | ", errors.Take(3)) : ""));
+                reasons.Add("the converted project does not build" + (errors.Count > 0 ? $" ({Count(errors.Count, codes)}): " + string.Join(" | ", errors.Take(3).Select(Shorten)) : ""));
             }
 
             if (missing.Count > 0)
@@ -145,16 +150,28 @@ public static class ModernizeVerifier
             Passed = passed,
             Targets = targets,
             AddedTargets = [.. after.Keys.Except(before.Keys, StringComparer.Ordinal)],
-            BuildErrors = errors,
+            Built = build.ExitCode == 0,
+            BuildErrorCount = errors.Count,
+            BuildErrorCodes = codes,
+            BuildErrors = [.. errors.Take(10).Select(Shorten)],
         };
     }
 
-    /// <summary>What the scratch copy needs beyond the committed tree: the model's inputs, every compile item, HintPath assemblies (a packages folder is rarely committed), and the converted projects' folders.</summary>
+    /// <summary>
+    /// What the scratch copy needs beyond the committed tree: the model's inputs, every compile item, HintPath
+    /// assemblies (a packages folder is rarely committed), the converted projects' folders, and every other file
+    /// the scan's build read from the working tree (ADR 0062: imports, packages' build files, resources, copy sources).
+    /// </summary>
     private static List<string> Files(ModernizeVerifyRequest request)
     {
         var root = request.RepositoryRoot;
         var files = new HashSet<string>(StringComparer.Ordinal);
         files.UnionWith(request.Model.Inputs.Select(i => i.Path));
+        if (request.Model.Source.Kind != WorkspaceSourceKind.Complog)
+        {
+            files.UnionWith(BuildReads.Read(RepoPaths.ToAbsolute(root, request.Model.Source.Path), root, WorkspaceStore.StateDirectory(root, request.Config)));
+        }
+
         foreach (var project in request.Model.Projects)
         {
             files.UnionWith(project.Compile);
@@ -170,6 +187,33 @@ public static class ModernizeVerifier
         }
 
         return [.. files.Where(f => File.Exists(RepoPaths.ToAbsolute(root, f))).Order(StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    /// <c>OFR4309</c> when the scratch copy took files from the working tree that <c>HEAD</c> does not have: the
+    /// verification holds for this working tree, not for a clean checkout. Files of restored packages
+    /// (<c>packages/&lt;Id&gt;.&lt;Version&gt;/</c> of a package a packages.config lists) are counted, not named.
+    /// </summary>
+    private static void ReportUncommitted(ModernizeVerifyRequest request, ScratchWorktree scratch)
+    {
+        var uncommitted = scratch.Uncommitted;
+        var packages = uncommitted.Where(f => request.Model.Projects.Any(p => p.PackagesConfigPackageFor(f) is not null)).ToHashSet(StringComparer.Ordinal);
+        var files = uncommitted.Where(f => !packages.Contains(f)).ToList();
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        var shown = string.Join(", ", files.Take(5));
+        var more = files.Count > 5 ? string.Create(CultureInfo.InvariantCulture, $", and {files.Count - 5} more") : "";
+        var restored = packages.Count > 0 ? string.Create(CultureInfo.InvariantCulture, $"; also {packages.Count} file{(packages.Count == 1 ? "" : "s")} of restored packages") : "";
+        request.Diagnostics.Report(DiagnosticCatalog.OFR4309,
+            string.Create(CultureInfo.InvariantCulture, $"Verification used {files.Count} file{(files.Count == 1 ? "" : "s")} from the working tree that HEAD does not have (untracked or ignored by git): {shown}{more}{restored}."),
+            data:
+            [
+                KeyValuePair.Create<string, JsonNode?>("files", new JsonArray([.. files.Select(f => (JsonNode?)f)])),
+                KeyValuePair.Create<string, JsonNode?>("packageFiles", packages.Count),
+            ]);
     }
 
     private static void Apply(ChangeSet changeSet, ScratchWorktree scratch)
@@ -225,13 +269,55 @@ public static class ModernizeVerifier
     private static bool IsAudit(string error) =>
         AuditCodes.Any(code => error.Contains(": error " + code + ":", StringComparison.Ordinal));
 
-    private static List<string> Errors(ProcessResult build) =>
-        [.. (build.StandardOutput + "\n" + build.StandardError).Split('\n')
+    /// <summary>Every distinct error line of a build, in order, with the scratch copy's paths made repository-relative.</summary>
+    private static List<string> Errors(ProcessResult build, ScratchWorktree scratch)
+    {
+        var prefixes = new[] { scratch.Path.TrimEnd('/', '\\') + "/", scratch.Path.TrimEnd('/', '\\') + "\\" };
+        return [.. (build.StandardOutput + "\n" + build.StandardError).Split('\n')
             .Select(l => l.Trim())
             .Where(l => l.Contains(": error ", StringComparison.Ordinal))
-            .Select(l => l.Length > 300 ? l[..300] : l)
-            .Distinct(StringComparer.Ordinal)
-            .Take(10)];
+            .Select(l => Portable(prefixes.Aggregate(l, (line, prefix) => line.Replace(prefix, "", StringComparison.Ordinal))))
+            .Distinct(StringComparer.Ordinal)];
+    }
+
+    /// <summary>An error line with forward slashes in its file (before <c>: error </c>) and its project (<c>[...]</c> at the end), as on every OS.</summary>
+    private static string Portable(string error)
+    {
+        var at = error.IndexOf(": error ", StringComparison.Ordinal);
+        var tail = error[at..];
+        var bracket = tail.LastIndexOf(" [", StringComparison.Ordinal);
+        if (bracket >= 0 && tail.EndsWith(']'))
+        {
+            tail = tail[..bracket] + tail[bracket..].Replace('\\', '/');
+        }
+
+        return error[..at].Replace('\\', '/') + tail;
+    }
+
+    private static string Shorten(string error) => error.Length > 300 ? error[..300] : error;
+
+    /// <summary>The errors by code (<c>... : error CS0246: ...</c>), the most frequent first.</summary>
+    private static List<BuildErrorCode> ErrorCodes(IReadOnlyList<string> errors) =>
+        [.. errors.GroupBy(Code, StringComparer.Ordinal)
+            .Select(g => new BuildErrorCode(g.Key, g.Count()))
+            .OrderByDescending(c => c.Count).ThenBy(c => c.Code, StringComparer.Ordinal)];
+
+    /// <summary>The code after <c>: error </c>, or <c>other</c> when the message has none.</summary>
+    private static string Code(string error)
+    {
+        var rest = error[(error.IndexOf(": error ", StringComparison.Ordinal) + ": error ".Length)..];
+        var colon = rest.IndexOf(':', StringComparison.Ordinal);
+        var code = colon > 0 ? rest[..colon].Trim() : "";
+        return code.Length > 0 && code.All(char.IsAsciiLetterOrDigit) ? code : "other";
+    }
+
+    /// <summary>"71 errors: 21 CS0246, 8 CS0234, 6 CS0012, and 4 more codes".</summary>
+    private static string Count(int count, List<BuildErrorCode> codes)
+    {
+        var shown = string.Join(", ", codes.Take(5).Select(c => string.Create(CultureInfo.InvariantCulture, $"{c.Count} {c.Code}")));
+        var more = codes.Count > 5 ? string.Create(CultureInfo.InvariantCulture, $", and {codes.Count - 5} more code{(codes.Count - 5 == 1 ? "" : "s")}") : "";
+        return string.Create(CultureInfo.InvariantCulture, $"{count} error{(count == 1 ? "" : "s")}: {shown}{more}");
+    }
 
     private static void Fail(ModernizeVerifyRequest request, string project, string message) =>
         request.Diagnostics.Report(DiagnosticCatalog.OFR4303, $"{project}: {message}", new DiagnosticLocation(project));

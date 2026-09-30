@@ -11,8 +11,10 @@ offramp seams --project P [--unportable-from audit|list] [--symbols NS.Type,...]
 ```
 
 Inputs: the set of **unportable symbols** in `P`, from `audit api`
-(error-level `OFR3001`/`OFR3004`–`3009` findings, plus `OFR3002` when the
-target is not `-windows`) or an explicit list.
+(error-level `OFR3001`/`OFR3004`–`3009`/`OFR3013` findings, plus `OFR3002` when the
+target is not `-windows`) or an explicit list. An `OFR3001` API that a package supplies on
+the target does not count (`OFR4032`). From `audit`, COM interop and P/Invoke into Windows
+system libraries count too when the target is not `-windows` (ADR 0054).
 
 Method:
 1. Build the **type reference graph** of `P` from the semantic model: nodes are
@@ -24,8 +26,12 @@ Method:
    a tainted type in a field/property/base/parameter of a public member
    (structural taint). Mere calls do not taint the caller; that is where a
    seam can go.
-3. Compute **strongly connected components**; every type in an SCC with a
-   tainted type is in the same partition (they move together). Contract SCCs.
+3. Compute **strongly connected components** of the **structural graph**: `A → B`
+   when `B` is a base type or interface of `A`, or appears in the type of a
+   non-private field, property, event, method parameter, or return of `A`
+   (constructors aside). Calls make no edge there: they stay places to cut. Every
+   type in an SCC with a tainted type is in the same partition (they move
+   together). Contract SCCs.
 4. On the contracted DAG, find the **minimum cut** between the clean side and
    the tainted side (max-flow with member counts as capacities, sources = clean
    entry points that reach taint, sink = tainted set). The cut edges are the
@@ -64,7 +70,9 @@ highlighted, useful for the conversation "this is the 3% we can't port".
 Diagnostics: `OFR4001` no seam found (taint reaches an entry point directly),
 `OFR4002` seam member not wire-friendly (`Stream`, delegates, events,
 `ref`/`out`, `IntPtr`, non-serializable types), `OFR4003` static members on
-the boundary (need an instance wrapper).
+the boundary (need an instance wrapper), `OFR4031` extraction too large for a
+seam (more than a quarter of the project), `OFR4032` an unportable API a package
+supplies on the target (not counted).
 
 LLM garnish (`--llm`): propose interface names and DTO names for seams whose
 boundary type has an unhelpful name. Never changes the cut.
@@ -152,13 +160,33 @@ Decisions in `docs/decisions/0023-seams-extract-and-remote.md`.
 
 - Unportable symbols: `--unportable-from audit` (default from
   `seams.unportableSources`) runs `audit api` on the project and takes the error-level
-  OFR3001 and OFR3004–3009 findings, plus OFR3002. `list` uses `--symbols` and
+  OFR3001, OFR3004–3009, and OFR3013 findings, plus OFR3002. `list` uses `--symbols` and
   `seams.unportableSymbols`: namespace or type prefixes of fully qualified names.
+- Supplied by a package (ADR 0053): an OFR3001 finding whose `details.mapping` is
+  `package` or `compat-pack` names a package that supplies the API on the target, and
+  does not taint. A Windows-only one (`details.windowsOnly`) still taints unless the
+  target is `-windows` (the project uses Windows Forms or WPF, as `audit api` decides).
+  Each such package is one OFR4032 (info) with the types that use it.
+- Windows interop (ADR 0054), from `audit` when the target is not `-windows`: a type
+  declared `[ComImport]` (`COM interop ([ComImport])`), a type that declares a
+  `[DllImport]` of a Windows system library (`P/Invoke into LIB (ENTRY)`), and a type
+  that uses a COM type (`COM interop: T`) or such a P/Invoke (`P/Invoke into LIB (M)`)
+  declared outside the project. The Windows system libraries are `audit native`'s
+  (`user32`, `kernel32`, `ole32`, ...). Calls to the project's own interop declarations
+  do not taint: they are where a seam goes. On a `-windows` target interop works and
+  taints nothing.
 - Taint: types that use an unportable symbol, then types that inherit from a tainted
   type or expose one in a public or protected field, property, method parameter, or
-  return (constructor parameters excepted), and every type in a reference cycle with a
-  tainted type. `tainted[].reason` lists the symbols used, `inherits T`,
-  `exposes T in M`, or `in a reference cycle with ...`.
+  return (constructor parameters excepted), and every type in a structural cycle with a
+  tainted type, to a fixed point. `tainted[].reason` lists the symbols used, `inherits T`,
+  `exposes T in M`, or `in a structural cycle with a tainted type (partition N)`, where
+  `N` is the `partitions[].id` that lists the cycle's types.
+- Partitions are the structural components with a tainted type, numbered from 1 in the
+  order of their first type name.
+- Extraction share (ADR 0053): when more than a quarter of the project's types, and
+  more than 10, are tainted, `extraction` is null and OFR4031 (warning) says so, with the
+  directly tainted types (those that use something unportable themselves) in its
+  message and in `data.directlyTainted`: fence those instead of moving the rest.
 - The cut: clean entry points are clean types nothing in the project references; among
   minimum cuts the one closest to the taint is reported. `--max-cut N` turns a larger
   cut into OFR4001.

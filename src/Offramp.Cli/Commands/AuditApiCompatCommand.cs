@@ -83,6 +83,7 @@ public sealed class AuditApiCompatCommand : ICommandHandler<AuditApiCompatOption
             Baseline = options.Baseline,
             Processes = context.Host.Processes,
             Git = context.Host.GitService,
+            Verify = context.Config.Config.Verify,
             Diagnostics = context.Diagnostics,
         }, cancellationToken);
         if (result is null)

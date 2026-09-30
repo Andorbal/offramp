@@ -4,13 +4,13 @@
   "source": {
     "kind": "build",
     "path": ".offramp/msbuild.binlog",
-    "sha256": "{Sha256}",
+    "sha256": null,
     "complog": null
   },
   "solution": "WebForms.sln",
   "buildSucceeded": true,
   "projects": 3,
-  "loc": 116,
+  "loc": 165,
   "byFrameworkClass": {
     "dual": 0,
     "framework": 3,
@@ -32,5 +32,5 @@
   "unrecognized": [],
   "notLoaded": [],
   "partial": [],
-  "ledgerSnapshot": ".offramp/ledger/2026-09-25-c4c36967.json"
+  "ledgerSnapshot": ".offramp/ledger/2026-09-25-8e965dd0.json"
 }

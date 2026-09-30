@@ -11,7 +11,7 @@ namespace Offramp.Workspace.Planning;
 public static class MigrationPlanner
 {
     /// <param name="model">The workspace model; readiness and blast radius always come from all of it.</param>
-    /// <param name="forProject">A resolved project path: list only the framework-only projects it needs, itself included.</param>
+    /// <param name="forProject">A resolved project path: list only the framework-only projects it needs, itself and the projects it hosts included.</param>
     /// <param name="frontierOnly">List only projects that can be ported today.</param>
     /// <param name="excludeKinds">Kinds to leave out of the listing.</param>
     public static PlanResult Plan(WorkspaceModel model, string? forProject, bool frontierOnly, IReadOnlyList<ProjectKind> excludeKinds)
@@ -19,7 +19,7 @@ public static class MigrationPlanner
         var standings = Readiness.Compute(model);
         var waves = Waves(model, standings);
         var cycleOf = CycleMembership(model);
-        var needed = forProject is null ? null : Closure(model, forProject);
+        var needed = forProject is null ? null : Hosting.ApplicationClosure(model, forProject);
 
         var order = model.Projects
             .Where(p => !excludeKinds.Contains(p.Kind))
@@ -110,26 +110,5 @@ public static class MigrationPlanner
         }
 
         return result;
-    }
-
-    /// <summary>The project and everything it depends on.</summary>
-    private static HashSet<string> Closure(WorkspaceModel model, string start)
-    {
-        var dependencies = model.Graph.Edges.ToLookup(e => e.From, e => e.To, StringComparer.Ordinal);
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var pending = new Stack<string>([start]);
-        while (pending.Count > 0)
-        {
-            var id = pending.Pop();
-            if (seen.Add(id))
-            {
-                foreach (var next in dependencies[id])
-                {
-                    pending.Push(next);
-                }
-            }
-        }
-
-        return seen;
     }
 }

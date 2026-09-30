@@ -30,6 +30,33 @@ public sealed class CompilationLoaderTests
         Assert.Same(legacy, CompilationLoader.WithCoreLibrary(legacy, () => ["/nostdlib", "/sdkpath:" + Path.Combine(sdk, "missing")]));
     }
 
+    /// <summary>
+    /// The model names a compiler call by project and target framework (docs/decisions/0049-what-the-workspace-model-records.md);
+    /// the loader finds its position in the log, for every target of a multi-targeting project and for a legacy
+    /// project's call, which records no target framework.
+    /// </summary>
+    [Theory]
+    [InlineData("dual-target")]
+    [InlineData("legacy-csproj")]
+    public async Task Every_named_compiler_call_loads_its_own_compilation(string fixture)
+    {
+        var scanned = await ScannedFixtures.GetAsync(fixture);
+        using var loader = new CompilationLoader(scanned.Root);
+
+        foreach (var project in scanned.Outcome.Model!.Projects)
+        {
+            foreach (var (tfm, call) in project.CompilerCalls)
+            {
+                Assert.Equal(project.Id, call.Project);
+                var compilation = loader.LoadForProject(project, tfm);
+                Assert.NotNull(compilation);
+                Assert.Equal(project.AssemblyName, compilation.AssemblyName);
+                var symbols = compilation.SyntaxTrees.First().Options.PreprocessorSymbolNames;
+                Assert.Equal(project.DefineConstants.GetValueOrDefault(tfm) ?? [], symbols.Distinct(StringComparer.Ordinal));
+            }
+        }
+    }
+
     private static string GlobalPackages() =>
         Environment.GetEnvironmentVariable("NUGET_PACKAGES") is { Length: > 0 } configured
             ? configured

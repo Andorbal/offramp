@@ -256,7 +256,7 @@ public static class ConfigLoader
                 continue;
             }
 
-            var converted = ConvertEnvironmentValue(defaultParent[key], value);
+            var converted = pointer == "/target" ? ConvertTarget(value) : ConvertEnvironmentValue(defaultParent[key], value);
             if (converted.Error is not null)
             {
                 diagnostics.Add(Create(DiagnosticCatalog.OFR0056,
@@ -296,6 +296,15 @@ public static class ConfigLoader
     {
         var parts = upperSnake.ToLowerInvariant().Split('_', StringSplitOptions.RemoveEmptyEntries);
         return parts[0] + string.Concat(parts.Skip(1).Select(p => char.ToUpperInvariant(p[0]) + p[1..]));
+    }
+
+    /// <summary><c>OFFRAMP_TARGET</c>: an integer (<c>10</c>) or a target framework (<c>netstandard2.0</c>), as in the file.</summary>
+    private static (JsonNode? Value, string? Error) ConvertTarget(string raw)
+    {
+        var text = raw.Trim();
+        return int.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var major)
+            ? (JsonValue.Create(major), null)
+            : text.Length == 0 ? (null, $"expected {ModernTarget.Expected}") : (JsonValue.Create(text), null);
     }
 
     private static (JsonNode? Value, string? Error) ConvertEnvironmentValue(JsonNode? template, string raw)

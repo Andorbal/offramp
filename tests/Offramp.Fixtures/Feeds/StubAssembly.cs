@@ -89,6 +89,38 @@ public static class StubAssembly
             metadata.AddCustomAttribute(EntityHandle.AssemblyDefinition, constructor, metadata.GetOrAddBlob(value));
         }
 
+        foreach (var (attribute, text) in new[]
+        {
+            ("System.Reflection.AssemblyFileVersionAttribute", assembly.FileVersion),
+            ("System.Reflection.AssemblyInformationalVersionAttribute", assembly.InformationalVersion),
+            ("System.Runtime.InteropServices.ImportedFromTypeLibAttribute", assembly.ImportedFromTypeLib),
+        })
+        {
+            if (text is null)
+            {
+                continue;
+            }
+
+            if (!references.TryGetValue("System.Runtime", out var scope))
+            {
+                scope = metadata.AddAssemblyReference(
+                    metadata.GetOrAddString("System.Runtime"), new Version(8, 0, 0, 0), default,
+                    metadata.GetOrAddBlob(Convert.FromHexString("b03f5f7f11d50a3a")), default, default);
+                references["System.Runtime"] = scope;
+            }
+
+            var dot = attribute.LastIndexOf('.');
+            var attributeType = metadata.AddTypeReference(scope, metadata.GetOrAddString(attribute[..dot]), metadata.GetOrAddString(attribute[(dot + 1)..]));
+            var signature = new BlobBuilder();
+            new BlobEncoder(signature).MethodSignature(isInstanceMethod: true).Parameters(1, r => r.Void(), p => p.AddParameter().Type().String());
+            var constructor = metadata.AddMemberReference(attributeType, metadata.GetOrAddString(".ctor"), metadata.GetOrAddBlob(signature));
+            var value = new BlobBuilder();
+            new BlobEncoder(value).CustomAttributeSignature(
+                fixedArguments => fixedArguments.AddArgument().Scalar().Constant(text),
+                namedArguments => namedArguments.Count(0));
+            metadata.AddCustomAttribute(EntityHandle.AssemblyDefinition, constructor, metadata.GetOrAddBlob(value));
+        }
+
         var builder = new ManagedPEBuilder(
             PEHeaderBuilder.CreateLibraryHeader(),
             new MetadataRootBuilder(metadata),

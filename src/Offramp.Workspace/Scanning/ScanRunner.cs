@@ -27,7 +27,9 @@ public static class ScanRunner
 {
     public const string BinlogFileName = "msbuild.binlog";
     public const string ComplogFileName = "build.complog";
-    private const int MaxErrorsInMessage = 5;
+
+    /// <summary>The solution filter <c>scan</c> builds when the solution lists ASP.NET Web Site projects.</summary>
+    public const string WebSiteFilterFileName = "scan.slnf";
 
     public static async Task<ScanOutcome> RunAsync(ScanRequest request, CancellationToken cancellationToken)
     {
@@ -84,7 +86,7 @@ public static class ScanRunner
         }
         else
         {
-            solution ??= ResolveSolution(request);
+            solution ??= await ResolveSolutionAsync(request, cancellationToken);
             if (solution is null)
             {
                 return new ScanOutcome(null, null, request.Diagnostics.Contains("OFR0020") ? ScanFailure.Usage : ScanFailure.Environment);
@@ -93,14 +95,18 @@ public static class ScanRunner
             binlog = Path.Combine(state, BinlogFileName);
             kind = WorkspaceSourceKind.Build;
             var builder = UsesMsbuild(request.Config) ? " with MSBuild" : "";
-            using (request.Progress.BeginPhase($"Building {solution}{builder}", ++phase, plan))
+            var listed = await ListProjectsAsync(request, solution, cancellationToken);
+            if (!OperatingSystem.IsWindows() && listed is not null && PackagesConfigRestorer.HasPackagesConfig(listed.ProjectPaths))
             {
-                if (!OperatingSystem.IsWindows())
-                {
-                    await RestorePackagesConfigAsync(request, solution, cancellationToken);
-                }
+                plan++;
+                using var restoring = request.Progress.BeginPhase("Restoring packages.config packages", ++phase, plan);
+                await RestorePackagesConfigAsync(request, listed, restoring, cancellationToken);
+            }
 
-                var built = await BuildAsync(request, solution, binlog, cancellationToken);
+            using (var building = request.Progress.BeginPhase($"Building {solution}{builder}", ++phase, plan))
+            {
+                var progress = new BuildProgress(building, listed?.ProjectPaths.Count ?? 0);
+                var built = await BuildAsync(request, await BuildTargetAsync(request, solution, state, cancellationToken), binlog, progress.OnLine, cancellationToken);
                 if (built is null)
                 {
                     return new ScanOutcome(null, null, ScanFailure.Environment);
@@ -143,11 +149,13 @@ public static class ScanRunner
             // log from another OS (D:\a\repo on Linux reads as /code/a/repo).
             var callMapper = calls.Count == 0 ? mapper : CapturePathMapper.Infer(root, calls.Select(c => c.ProjectFile));
             var callMap = MapCalls(calls, callMapper, RepoPaths.ToRepositoryRelative(root, complog));
+            // Keyed like the calls: "" for a legacy project's call, which records no target framework.
             var defines = calls
-                .Where(c => callMapper.ToRelative(c.ProjectFile) is not null && c.TargetFramework is not null)
-                .GroupBy(c => (callMapper.ToRelative(c.ProjectFile)!, c.TargetFramework!))
+                .Where(c => callMapper.ToRelative(c.ProjectFile) is not null)
+                .GroupBy(c => (callMapper.ToRelative(c.ProjectFile)!, c.TargetFramework ?? ""))
                 .ToDictionary(g => g.Key, g => g.First().Defines);
-            var source = new WorkspaceSource(kind, Display(root, binlog), ContentHash.Sha256File(binlog))
+            // A log Offramp built differs with every build of the same inputs; only a supplied one is an input.
+            var source = new WorkspaceSource(kind, Display(root, binlog), kind == WorkspaceSourceKind.Build ? null : ContentHash.Sha256File(binlog))
             {
                 Complog = request.ComplogPath is null ? null : new LogFile(Display(root, request.ComplogPath), ContentHash.Sha256File(request.ComplogPath)),
             };
@@ -165,48 +173,51 @@ public static class ScanRunner
         return new ScanOutcome(Summarize(model, request, ledgerPath, upToDate: false, buildSucceeded, notLoaded), model, ScanFailure.None);
     }
 
-    private static string? ResolveSolution(ScanRequest request)
+    /// <summary>The solution to build when none is configured (docs/decisions/0050-choose-among-several-solutions.md).</summary>
+    private static async Task<string?> ResolveSolutionAsync(ScanRequest request, CancellationToken cancellationToken)
     {
         var candidates = InitPlanner.FindSolutions(request.RepositoryRoot);
-        var chosen = InitPlanner.ChooseSolution(candidates);
-        if (chosen is not null)
-        {
-            return chosen;
-        }
-
-        if (candidates.Count == 0)
+        var choice = await SolutionChooser.ChooseAsync(request.RepositoryRoot, candidates, cancellationToken);
+        if (choice.Solution is null && candidates.Count == 0)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR0022,
                 "No .sln or .slnx file in the repository. Pass --solution, or scan a log with --binlog.");
         }
-        else
+        else if (choice.Solution is null && !candidates.Any(SolutionChooser.IsSolutionFile))
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR0020,
-                $"Found {candidates.Count} solutions ({string.Join(", ", candidates.Take(5))}); pass --solution or set solution: in offramp.yml.",
+                $"Found {candidates.Count} solution filter(s) ({string.Join(", ", candidates.Take(5))}) and no solution; pass --solution or set solution: in offramp.yml.",
                 data: [KeyValuePair.Create<string, JsonNode?>("candidates", new JsonArray([.. candidates.Select(c => (JsonNode?)c)]))]);
         }
+        else
+        {
+            InitPlanner.ReportSolutionChoice(request.Diagnostics, choice, candidates, tieSeverity: null, "pass --solution or set solution: in offramp.yml.");
+        }
 
-        return null;
+        return choice.Solution;
+    }
+
+    /// <summary>The solution's projects, or null when it cannot be read (the build reports that).</summary>
+    private static async Task<SolutionProjects?> ListProjectsAsync(ScanRequest request, string solution, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await SolutionReader.ReadAsync(RepoPaths.ToAbsolute(request.RepositoryRoot, solution), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
     /// Outside Windows, fills the packages folder from the solution's packages.config files, as
     /// <c>nuget restore</c> does on Windows: nothing else will, and every HintPath into it would dangle
-    /// (<c>docs/decisions/0037-legacy-projects-outside-windows.md</c>).
+    /// (<c>docs/decisions/0037-legacy-projects-outside-windows.md</c>). Reports each package on <paramref name="progress"/>.
     /// </summary>
-    private static async Task RestorePackagesConfigAsync(ScanRequest request, string solution, CancellationToken cancellationToken)
+    private static async Task RestorePackagesConfigAsync(ScanRequest request, SolutionProjects listed, IProgressPhase progress, CancellationToken cancellationToken)
     {
-        SolutionProjects listed;
-        try
-        {
-            listed = await SolutionReader.ReadAsync(RepoPaths.ToAbsolute(request.RepositoryRoot, solution), cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return; // The build reports an unreadable solution.
-        }
-
-        var result = await PackagesConfigRestorer.RestoreAsync(listed.SolutionFile, listed.ProjectPaths, cancellationToken);
+        var result = await PackagesConfigRestorer.RestoreAsync(listed.SolutionFile, listed.ProjectPaths, progress, cancellationToken);
         if (result is null)
         {
             return;
@@ -236,7 +247,31 @@ public static class ScanRunner
 
     private static bool UsesMsbuild(OfframpConfig config) => config.Scan.Builder == ScanConfig.Msbuild;
 
-    private static async Task<ProcessResult?> BuildAsync(ScanRequest request, string solution, string binlog, CancellationToken cancellationToken)
+    /// <summary>
+    /// What <c>dotnet build</c> builds: the solution, or, when it lists ASP.NET Web Site projects, a filter of every
+    /// other project in the state folder. .NET's MSBuild has no <c>AspNetCompiler</c>, and MSB4249 stops the whole
+    /// solution before any project builds (docs/decisions/0048-web-sites-bcl-build-and-mstest-v1-outside-windows.md).
+    /// </summary>
+    private static async Task<string> BuildTargetAsync(ScanRequest request, string solution, string state, CancellationToken cancellationToken)
+    {
+        var root = request.RepositoryRoot;
+        if (UsesMsbuild(request.Config) || await ReadSolutionAsync(root, solution, cancellationToken) is not { WebSites.Count: > 0 } listed)
+        {
+            return solution;
+        }
+
+        var webSites = listed.WebSites.ToHashSet(StringComparer.Ordinal);
+        var filter = RepoPaths.ToRepositoryRelative(root, Path.Combine(state, WebSiteFilterFileName));
+        var projects = listed.ProjectPaths.Where(p => !webSites.Contains(p)).Select(p => RepoPaths.ToRepositoryRelative(root, p)).ToList();
+        Directory.CreateDirectory(state);
+        await File.WriteAllTextAsync(RepoPaths.ToAbsolute(root, filter),
+            Slicing.SliceBuilder.SolutionFilter(RepoPaths.ToRepositoryRelative(root, listed.SolutionFile), projects, filter), cancellationToken);
+        request.Progress.Log(ProgressLevel.Info,
+            string.Create(CultureInfo.InvariantCulture, $"Building {filter}: {solution} without its {webSites.Count} ASP.NET Web Site project(s), which only .NET Framework's MSBuild builds."));
+        return filter;
+    }
+
+    private static async Task<ProcessResult?> BuildAsync(ScanRequest request, string solution, string binlog, Action<string> onOutputLine, CancellationToken cancellationToken)
     {
         string? msbuild = null;
         if (UsesMsbuild(request.Config))
@@ -254,7 +289,7 @@ public static class ScanRunner
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(binlog)!);
-        var result = await request.Processes.RunAsync(BuildCommand(request, msbuild, solution, binlog), cancellationToken);
+        var result = await request.Processes.RunAsync(BuildCommand(request, msbuild, solution, binlog) with { OnOutputLine = onOutputLine }, cancellationToken);
 
         if (result.NotFound && msbuild is not null)
         {
@@ -279,7 +314,7 @@ public static class ScanRunner
         {
             var detail = result.StandardError.Trim().Length > 0 ? result.StandardError.Trim() : result.StandardOutput.Trim();
             request.Diagnostics.Report(DiagnosticCatalog.OFR0130,
-                $"The build of {solution} produced no binary log: {FirstLines(detail, 3)}");
+                $"The build of {solution} produced no binary log: {Scrub(FirstLines(detail, 3), CapturePathMapper.Local(request.RepositoryRoot))}");
             return null;
         }
 
@@ -337,37 +372,15 @@ public static class ScanRunner
         _ => "found by vswhere",
     };
 
-    private static void ReportBuildErrors(ScanRequest request, BinlogData data, CapturePathMapper mapper)
+    internal static void ReportBuildErrors(ScanRequest request, BinlogData data, CapturePathMapper mapper)
     {
         if (data.Succeeded && data.Errors.Count == 0)
         {
             return;
         }
 
-        var errors = data.Errors
-            .Select(e => $"{(e.File is null ? "" : (mapper.ToRelative(e.File) ?? Path.GetFileName(e.File)) + (e.Line is null ? "" : $"({e.Line})") + ": ")}{e.Code}: {e.Message}")
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-        var shown = string.Join("; ", errors.Take(MaxErrorsInMessage));
-
-        // Most first, then by code: one cause (a missing import, a letter case) often makes most of them.
-        var byCode = data.Errors
-            .DistinctBy(e => (e.Code, e.File, e.Line, e.Message))
-            .GroupBy(e => e.Code, StringComparer.Ordinal)
-            .OrderByDescending(g => g.Count())
-            .ThenBy(g => g.Key, StringComparer.Ordinal)
-            .ToList();
-        var counts = string.Join(", ", byCode.Select(g => string.Create(CultureInfo.InvariantCulture, $"{g.Key} ×{g.Count()}")));
-        request.Diagnostics.Report(DiagnosticCatalog.OFR0130,
-            errors.Count == 0
-                ? "The build failed; the model is partial."
-                : $"The build failed with {errors.Count} error(s) ({counts}); the model is partial. First: {shown}",
-            data:
-            [
-                KeyValuePair.Create<string, JsonNode?>("errorCount", errors.Count),
-                KeyValuePair.Create<string, JsonNode?>("byCode", new JsonObject(byCode.Select(g => KeyValuePair.Create<string, JsonNode?>(g.Key, g.Count())))),
-                KeyValuePair.Create<string, JsonNode?>("errors", new JsonArray([.. errors.Take(20).Select(e => (JsonNode?)e)])),
-            ]);
+        var (message, summary) = BuildFailures.Summarize(data.Errors, mapper.ToRelative, text => Scrub(text, mapper));
+        request.Diagnostics.Report(DiagnosticCatalog.OFR0130, message, data: summary);
     }
 
     private static IReadOnlyList<CompilerCallInfo> PrepareCompilerLog(ScanRequest request, string binlog, string complog, CapturePathMapper mapper)
@@ -395,13 +408,7 @@ public static class ScanRunner
         }
         else
         {
-            var report = CompilerLogIngest.Convert(binlog, complog);
-            if (report.Problems.Count > 0)
-            {
-                request.Diagnostics.Report(DiagnosticCatalog.OFR0132,
-                    $"{report.Problems.Count} problem(s) converting the build log; affected projects have no compiler call. First: {report.Problems[0]}",
-                    data: [KeyValuePair.Create<string, JsonNode?>("problems", new JsonArray([.. report.Problems.Take(20).Select(p => (JsonNode?)Scrub(p, mapper))]))]);
-            }
+            ReportConversionProblems(request, CompilerLogIngest.Convert(binlog, complog), mapper);
 
             if (!File.Exists(complog))
             {
@@ -412,11 +419,27 @@ public static class ScanRunner
         return CompilerLogIngest.ReadCalls(complog);
     }
 
+    /// <summary><c>OFR0132</c> for problems converting the binary log, with the build's paths made repository-relative.</summary>
+    internal static void ReportConversionProblems(ScanRequest request, ConversionReport report, CapturePathMapper mapper)
+    {
+        if (report.Problems.Count > 0)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR0132,
+                $"{report.Problems.Count} problem(s) converting the build log; affected projects have no compiler call. First: {Scrub(report.Problems[0], mapper)}",
+                data: [KeyValuePair.Create<string, JsonNode?>("problems", new JsonArray([.. report.Problems.Take(20).Select(p => (JsonNode?)Scrub(p, mapper))]))]);
+        }
+    }
+
     private static bool IsLocalCapture(CapturePathMapper mapper, string repositoryRoot) =>
         string.Equals(mapper.CaptureRoot, repositoryRoot.Replace('\\', '/').TrimEnd('/'),
             OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
 
-    private static Dictionary<(string Project, string Tfm), CompilerCallRef> MapCalls(
+    /// <summary>
+    /// (project, target framework) → the call's reference: named by project and target framework, never by its
+    /// position in the log, which follows the order the build finished its compilations
+    /// (docs/decisions/0049-what-the-workspace-model-records.md).
+    /// </summary>
+    internal static Dictionary<(string Project, string Tfm), CompilerCallRef> MapCalls(
         IReadOnlyList<CompilerCallInfo> calls, CapturePathMapper mapper, string complogRelative)
     {
         var map = new Dictionary<(string, string), CompilerCallRef>();
@@ -429,7 +452,7 @@ public static class ScanRunner
             }
 
             var tfm = call.TargetFramework ?? "";
-            map.TryAdd((project, tfm), new CompilerCallRef(complogRelative, call.Index));
+            map.TryAdd((project, tfm), new CompilerCallRef(complogRelative, project, call.TargetFramework));
         }
 
         return map;
@@ -447,6 +470,8 @@ public static class ScanRunner
         CancellationToken cancellationToken)
     {
         var root = request.RepositoryRoot;
+        var listed = await ReadSolutionAsync(root, solution, cancellationToken);
+        var files = CheckProjectFiles(root, data, mapper, listed);
         var context = new ProjectBuildContext
         {
             Paths = mapper,
@@ -455,9 +480,18 @@ public static class ScanRunner
             CompilerDefines = defines,
             Excluded = new PathGlobs(request.Config.Paths.Exclude),
             Errors = data.Errors,
+            FailedCompilations = data.FailedCompilations
+                .Select(f => (Project: mapper.ToRelative(f.ProjectFile), Tfm: f.TargetFramework ?? ""))
+                .Where(f => f.Project is not null)
+                .Select(f => (f.Project!, f.Tfm))
+                .ToHashSet(),
+            BuildSteps = files.ToDictionary(f => f.Key, f => new BuildStepContext { Files = f.Value }, StringComparer.Ordinal),
         };
+        var steps = new BuildStepContext { Executables = Executables(data, mapper), ToLocal = mapper.ToLocal, Display = text => Scrub(text, mapper) };
+        BuildStepContext StepContext(string project) => files.TryGetValue(project, out var found) ? steps with { Files = found } : steps;
 
         var projects = new List<ProjectInfo>();
+        var others = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var group in data.Evaluations.GroupBy(e => e.ProjectFile, StringComparer.Ordinal))
         {
             var id = mapper.ToRelative(group.Key);
@@ -466,12 +500,29 @@ public static class ScanRunner
                 continue;
             }
 
+            if (!OtherProjects.IsDotNet(id))
+            {
+                others.Add(id);
+                continue;
+            }
+
             projects.Add(ProjectModelBuilder.Build(id, [.. group], context));
         }
 
         projects.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
-        var notLoaded = await FindNotLoadedAsync(request, data, mapper, projects, solution, cancellationToken);
+        projects = Hosting.Detect(projects, root, Hosting.CopiedTo(data.AssemblyCopies, mapper));
+        var notLoaded = FindNotLoaded(request, data, mapper, projects, listed);
+
+        // Projects that are not C#, Visual Basic, or F# are named once, evaluated or not, and never loaded.
+        others.UnionWith(notLoaded.Select(n => n.Project).Where(p => others.Contains(p) || OtherProjects.IsOtherListed(p)));
+        notLoaded = [.. notLoaded.Where(n => !others.Contains(n.Project))];
+        var webSites = WebSites(root, listed);
         var loading = new List<Diagnostic>();
+        foreach (var other in others)
+        {
+            loading.Add(OtherProjects.Report(request.Diagnostics, root, other)!);
+        }
+
         foreach (var missing in notLoaded)
         {
             loading.Add(request.Diagnostics.Report(DiagnosticCatalog.OFR0101, $"Not loaded: {missing.Reason}.",
@@ -483,12 +534,28 @@ public static class ScanRunner
                     "Needs Windows to build: SQL Server Database Project (.sqlproj).",
                     new DiagnosticLocation(Project: missing.Project),
                     [KeyValuePair.Create<string, JsonNode?>("step", "ssdt")])!);
+                continue;
             }
-            else if (EvaluationError(data, mapper, missing.Project) is { } error && WindowsOnlyBuildSteps.Detect(missing.Project, [], [error]).FirstOrDefault() is { } step)
+
+            if (webSites.Contains(missing.Project))
+            {
+                loading.Add(request.Diagnostics.Report(DiagnosticCatalog.OFR0126,
+                    "Needs Windows to build: ASP.NET Web Site project (AspNetCompiler); `dotnet build` stops the whole solution on it (MSB4249), so scan builds the solution without it.",
+                    new DiagnosticLocation(Project: missing.Project),
+                    [KeyValuePair.Create<string, JsonNode?>("step", "web-site")])!);
+                continue;
+            }
+
+            // Without an evaluation, the evaluation error and the project's own files are the evidence.
+            BuildError[] error = EvaluationError(data, mapper, missing.Project) is { } first ? [first] : [];
+            foreach (var step in WindowsOnlyBuildSteps.Detect(missing.Project, [], error, StepContext(missing.Project)))
             {
                 loading.Add(ReportStep(request, step, missing.Project, mapper));
             }
         }
+
+        loading.AddRange(await ReportMissingSourcesAsync(request, files, cancellationToken));
+        loading.AddRange(ReportCompileOnlyGaps(request, data, mapper, projects));
 
         foreach (var project in projects)
         {
@@ -512,7 +579,7 @@ public static class ScanRunner
             }
 
             var errors = data.Errors.Where(e => e.ProjectFile is not null && string.Equals(mapper.ToRelative(e.ProjectFile), project.Id, StringComparison.OrdinalIgnoreCase));
-            foreach (var step in WindowsOnlyBuildSteps.Detect(project.Id, evaluations, errors))
+            foreach (var step in WindowsOnlyBuildSteps.Detect(project.Id, evaluations, errors, StepContext(project.Id)))
             {
                 loading.Add(ReportStep(request, step, project.Id, mapper));
             }
@@ -540,72 +607,279 @@ public static class ScanRunner
             Projects = projects,
             Graph = graph,
             Packages = PackageIndex(projects),
-            Inputs = WorkspaceInputs.Collect(root, state, solution),
+            Inputs = WorkspaceInputs.Collect(root, state, solution, ImportedFiles(data, mapper)),
             Diagnostics = [.. loading.Where(d => d is not null).OrderBy(d => d, DiagnosticOrder.Instance)],
         };
         return (model, notLoaded);
     }
 
-    private static async Task<IReadOnlyList<NotLoadedProject>> FindNotLoadedAsync(
-        ScanRequest request, BinlogData data, CapturePathMapper mapper, List<ProjectInfo> projects, string? solution,
-        CancellationToken cancellationToken)
+    /// <summary>The files the evaluations imported from inside the repository, repository-relative (they shape the model too).</summary>
+    private static IEnumerable<string> ImportedFiles(BinlogData data, CapturePathMapper mapper) =>
+        data.Evaluations.SelectMany(e => e.Imports).Distinct(StringComparer.Ordinal).Select(mapper.ToRelative).OfType<string>();
+
+    /// <summary>The projects the scanned solution lists, or null without a readable one.</summary>
+    private static async Task<SolutionProjects?> ReadSolutionAsync(string root, string? solution, CancellationToken cancellationToken)
     {
-        if (solution is null)
+        var solutionPath = solution is null ? null : RepoPaths.ToAbsolute(root, solution);
+        if (solutionPath is null || !File.Exists(solutionPath))
         {
-            return [];
+            return null;
         }
 
-        var solutionPath = RepoPaths.ToAbsolute(request.RepositoryRoot, solution);
-        if (!File.Exists(solutionPath))
-        {
-            return [];
-        }
-
-        SolutionProjects listed;
         try
         {
-            listed = await SolutionReader.ReadAsync(solutionPath, cancellationToken);
+            return await SolutionReader.ReadAsync(solutionPath, cancellationToken);
         }
-        catch (Exception ex) when (ex is IOException or InvalidDataException or System.Text.Json.JsonException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null; // The build reports an unreadable solution.
+        }
+    }
+
+    /// <summary>
+    /// The static checks of each project's files (docs/decisions/0047-static-checks-of-project-files.md): the
+    /// projects MSBuild evaluated and those the solution lists that it did not. Only for a log built in this
+    /// checkout, where the files are the ones the build saw.
+    /// </summary>
+    private static Dictionary<string, ProjectFileFindings> CheckProjectFiles(string root, BinlogData data, CapturePathMapper mapper, SolutionProjects? listed)
+    {
+        var result = new Dictionary<string, ProjectFileFindings>(StringComparer.Ordinal);
+        if (!IsLocalCapture(mapper, root))
+        {
+            return result;
+        }
+
+        var evaluations = data.Evaluations
+            .Select(e => (Id: mapper.ToRelative(e.ProjectFile), Evaluation: e))
+            .Where(e => e.Id is not null)
+            .GroupBy(e => e.Id!, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Select(e => e.Evaluation).ToList(), StringComparer.Ordinal);
+        var solutionDirectory = listed is null ? null : Path.GetDirectoryName(listed.SolutionFile);
+        var ids = evaluations.Keys
+            .Concat((listed?.ProjectPaths ?? []).Select(p => RepoPaths.ToRepositoryRelative(root, p)))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        // A source that one project's build writes and another compiles is not missing for either.
+        var localRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var writtenByBuild = ProjectFileChecks.WrittenByBuild(
+            ProjectFileChecks.RepositoryImports(data.Evaluations, mapper.ToLocal, localRoot),
+            ids.Select(id => RepoPaths.ToAbsolute(root, id)).Where(File.Exists));
+        foreach (var id in ids)
+        {
+            var projectFile = RepoPaths.ToAbsolute(root, id);
+            if (File.Exists(projectFile)
+                && ProjectFileChecks.Check(root, projectFile, evaluations.GetValueOrDefault(id) ?? [], mapper.ToLocal, solutionDirectory, writtenByBuild) is { IsEmpty: false } findings)
+            {
+                result[id] = findings;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// One <c>OFR0122</c> per legacy project that the compile-only block does not reach, for a build that ran here
+    /// outside Windows, where the block applies.
+    /// </summary>
+    private static IEnumerable<Diagnostic> ReportCompileOnlyGaps(ScanRequest request, BinlogData data, CapturePathMapper mapper, List<ProjectInfo> projects)
+    {
+        if (OperatingSystem.IsWindows() || !IsLocalCapture(mapper, request.RepositoryRoot))
+        {
+            return [];
+        }
+
+        var evaluated = projects.Select(p => (p.Id, (IReadOnlyList<EvaluatedProject>)[.. data.Evaluations.Where(e => mapper.ToRelative(e.ProjectFile) == p.Id)]));
+        return [.. CompileOnlyReach.Find(request.RepositoryRoot, evaluated, mapper).Select(gap => request.Diagnostics.Report(DiagnosticCatalog.OFR0122,
+            $"The compile-only block in {Doctor.CompileOnlyConditional.FileName} does not reach this project: {gap.Reason}.",
+            new DiagnosticLocation(Project: gap.Project, File: gap.File),
+            [KeyValuePair.Create<string, JsonNode?>("cause", gap.Cause), KeyValuePair.Create<string, JsonNode?>("file", gap.File)])!)];
+    }
+
+    /// <summary>The programs the build produces (<c>AssemblyName.exe</c> of each executable project) → the project.</summary>
+    private static Dictionary<string, string> Executables(BinlogData data, CapturePathMapper mapper)
+    {
+        var executables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var evaluation in data.Evaluations)
+        {
+            if (evaluation.Property("OutputType") is { } type && (type.Equals("Exe", StringComparison.OrdinalIgnoreCase) || type.Equals("WinExe", StringComparison.OrdinalIgnoreCase))
+                && evaluation.Property("AssemblyName") is { } name && mapper.ToRelative(evaluation.ProjectFile) is { } project)
+            {
+                executables.TryAdd(name + ".exe", project);
+            }
+        }
+
+        return executables;
+    }
+
+    /// <summary>
+    /// One <c>OFR0123</c> per project that compiles files that do not exist. A git-ignored one is most likely
+    /// written by the repository's own build script, which has to run before any build.
+    /// </summary>
+    private static async Task<List<Diagnostic>> ReportMissingSourcesAsync(
+        ScanRequest request, IReadOnlyDictionary<string, ProjectFileFindings> files, CancellationToken cancellationToken)
+    {
+        var root = request.RepositoryRoot;
+        var reported = new List<Diagnostic>();
+        var missing = files.Values.SelectMany(f => f.MissingSources).Select(p => RepoPaths.ToRepositoryRelative(root, p)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+        if (missing.Count == 0)
+        {
+            return reported;
+        }
+
+        var ignored = await GitIgnoredAsync(request, missing, cancellationToken);
+        foreach (var (project, findings) in files.OrderBy(f => f.Key, StringComparer.Ordinal).Where(f => f.Value.MissingSources.Count > 0))
+        {
+            var paths = findings.MissingSources.Select(p => RepoPaths.ToRepositoryRelative(root, p)).ToList();
+            var generated = paths.Where(ignored.Contains).ToList();
+            var more = paths.Count > 1 ? string.Create(CultureInfo.InvariantCulture, $" (and {paths.Count - 1} more)") : "";
+            var hint = generated.Count > 0
+                ? $" {generated[0]} is git-ignored, so the repository's own build (NAnt, psake, Cake, FAKE, GitVersion, ...) probably generates it: run that step first."
+                : " Restore the file, or remove the item.";
+            reported.Add(request.Diagnostics.Report(DiagnosticCatalog.OFR0123,
+                $"Compiles a file that does not exist in any letter case: {paths[0]}{more}.{hint}",
+                new DiagnosticLocation(Project: project, File: paths[0]),
+                [
+                    KeyValuePair.Create<string, JsonNode?>("file", paths[0]),
+                    KeyValuePair.Create<string, JsonNode?>("files", new JsonArray([.. paths.Select(p => (JsonNode?)p)])),
+                    KeyValuePair.Create<string, JsonNode?>("gitIgnored", new JsonArray([.. generated.Select(p => (JsonNode?)p)])),
+                ])!);
+        }
+
+        return reported;
+    }
+
+    /// <summary>The repository-relative <paramref name="paths"/> git ignores; none without git or a repository.</summary>
+    private static async Task<HashSet<string>> GitIgnoredAsync(ScanRequest request, IReadOnlyList<string> paths, CancellationToken cancellationToken)
+    {
+        var ignored = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var chunk in paths.Chunk(200))
+        {
+            var result = await request.Processes.RunAsync(
+                new ProcessSpec("git", ["check-ignore", "--", .. chunk]) { WorkingDirectory = request.RepositoryRoot, Timeout = TimeSpan.FromMinutes(1) },
+                cancellationToken);
+            if (result.NotFound || result.TimedOut || result.ExitCode > 1)
+            {
+                break;
+            }
+
+            ignored.UnionWith(result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(RepoPaths.Normalize));
+        }
+
+        return ignored;
+    }
+
+    private static IReadOnlyList<NotLoadedProject> FindNotLoaded(
+        ScanRequest request, BinlogData data, CapturePathMapper mapper, List<ProjectInfo> projects, SolutionProjects? listed)
+    {
+        if (listed is null)
         {
             return [];
         }
 
         var loaded = projects.Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var missing = listed.ProjectPaths.Select(p => RepoPaths.ToRepositoryRelative(request.RepositoryRoot, p)).Where(id => !loaded.Contains(id)).ToList();
+        var webSites = WebSites(request.RepositoryRoot, listed);
+        var missing = listed.ProjectPaths.Select(p => RepoPaths.ToRepositoryRelative(request.RepositoryRoot, p).TrimEnd('/')).Where(id => !loaded.Contains(id)).ToList();
+        // A project with errors of its own failed; one that is only missing from the log was not built either.
         var failed = data.Errors.Where(e => e.ProjectFile is not null)
             .Select(e => mapper.ToRelative(e.ProjectFile))
             .OfType<string>()
-            .Concat(missing)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var notBuilt = missing.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Loaded but never compiled, without errors of its own: something it depends on failed first (DotNetNuke's
+        // Library, after Log4Net). A project that references it was not built for that reason.
+        var uncompiled = projects.Where(p => p.Partial && !failed.Contains(p.Id)).Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var restoreFailed = BuildFailures.RestoreFailed(data.Errors, text => Scrub(text, mapper));
+        var nothingBuilt = BuildFailures.NothingBuilt(data.Errors, projects.Count, text => Scrub(text, mapper));
         var result = new List<NotLoadedProject>();
         foreach (var id in missing)
         {
-            var error = EvaluationError(data, mapper, id);
+            result.Add(new NotLoadedProject(id, NotLoadedReason(id)));
+        }
+
+        string NotLoadedReason(string id)
+        {
+            var root = request.RepositoryRoot;
             var extension = Path.GetExtension(id).ToLowerInvariant();
-            var reason = error is not null
-                ? $"{error.Code}: {error.Message}"
-                : extension is not (".csproj" or ".vbproj" or ".fsproj")
-                    ? $"unsupported project type ({extension})"
-                    : FailedReference(request.RepositoryRoot, id, failed) is { } reference
-                        ? $"not built: it references {reference}, which failed"
-                        : "no evaluation for it in the build log; MSBuild did not build it (check the solution configuration)";
-            result.Add(new NotLoadedProject(id, reason));
+            if (webSites.Contains(id))
+            {
+                return WebSiteReason;
+            }
+
+            if (EvaluationError(data, mapper, id) is { } error)
+            {
+                return BuildFailures.IsRestoreError(error)
+                    ? $"the restore failed ({BuildFailures.Label(error)}: {Scrub(BuildFailures.FirstLine(error.Message), mapper)})"
+                    : $"{error.Code}: {error.Message}";
+            }
+
+            if (extension is not (".csproj" or ".vbproj" or ".fsproj"))
+            {
+                return $"unsupported project type ({(extension.Length > 0 ? extension : "no project file")})";
+            }
+
+            if (restoreFailed is not null)
+            {
+                return restoreFailed;
+            }
+
+            if (FailedReference(root, id, failed) is { } reference)
+            {
+                return $"not built: it references {reference}, which failed";
+            }
+
+            if (FailedSolutionDependency(root, id, listed, failed) is { } dependency)
+            {
+                return $"not built: the solution makes it depend on {dependency} (ProjectDependencies), which failed";
+            }
+
+            if (FailedReference(root, id, uncompiled) is { } stopped)
+            {
+                return $"not built: it references {stopped}, which did not compile because a project it depends on failed";
+            }
+
+            if (nothingBuilt is not null)
+            {
+                return nothingBuilt;
+            }
+
+            if (FailedReference(root, id, notBuilt) is { } unbuilt)
+            {
+                return $"not built: it references {unbuilt}, which was not built either";
+            }
+
+            return FailedSolutionDependency(root, id, listed, notBuilt) is { } unbuiltDependency
+                ? $"not built: the solution makes it depend on {unbuiltDependency} (ProjectDependencies), which was not built either"
+                : "no evaluation for it in the build log; MSBuild did not build it (check the solution configuration)";
         }
 
         return [.. result.OrderBy(r => r.Project, StringComparer.Ordinal)];
     }
 
-    /// <summary>A Windows-only build step's diagnostic, with the build's paths made repository-relative.</summary>
-    private static Diagnostic ReportStep(ScanRequest request, WindowsOnlyStep step, string project, CapturePathMapper mapper)
+    /// <summary>Why a Web Site project is not in the model.</summary>
+    internal const string WebSiteReason =
+        "ASP.NET Web Site project (a folder without a project file): only .NET Framework's MSBuild builds it, and Offramp does not model it";
+
+    /// <summary>The repository-relative folders of the solution's Web Site projects.</summary>
+    private static HashSet<string> WebSites(string root, SolutionProjects? listed) =>
+        (listed?.WebSites ?? []).Select(p => RepoPaths.ToRepositoryRelative(root, p).TrimEnd('/')).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>A Windows-only build step's diagnostic, with the build's paths made repository-relative, then shortened.</summary>
+    internal static Diagnostic ReportStep(ScanRequest request, WindowsOnlyStep step, string project, CapturePathMapper mapper)
     {
-        var evidence = Scrub(step.Evidence, mapper);
+        var evidence = WindowsOnlyBuildSteps.Shorten(Scrub(step.Evidence, mapper));
         var message = step.Id == "path-case"
             ? $"Does not build on a case-sensitive file system: {evidence}."
             : $"Needs Windows to build: {evidence}.";
-        return request.Diagnostics.Report(step.Descriptor, message,
-            new DiagnosticLocation(Project: project),
-            [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", evidence)])!;
+        List<KeyValuePair<string, JsonNode?>> data = [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", evidence)];
+        if (step.Paths.Count > 0)
+        {
+            data.Add(KeyValuePair.Create<string, JsonNode?>("paths", new JsonArray([.. step.Paths.Select(p => (JsonNode?)(mapper.ToRelative(p) ?? Scrub(p, mapper)))])));
+        }
+
+        return request.Diagnostics.Report(step.Descriptor, message, new DiagnosticLocation(Project: project), data)!;
     }
 
     /// <summary>
@@ -636,6 +910,15 @@ public static class ScanRunner
             .Order(StringComparer.Ordinal)
             .FirstOrDefault();
     }
+
+    /// <summary>
+    /// A project the solution makes this one depend on (<c>ProjectDependencies</c>) that failed: a mixed solution
+    /// orders its native projects this way, and MSBuild builds nothing that depends on one that failed.
+    /// </summary>
+    internal static string? FailedSolutionDependency(string root, string project, SolutionProjects listed, IReadOnlySet<string> failed) =>
+        listed.Dependencies.TryGetValue(RepoPaths.ToAbsolute(root, project), out var dependencies)
+            ? dependencies.Select(d => RepoPaths.ToRepositoryRelative(root, d)).Where(failed.Contains).Order(StringComparer.Ordinal).FirstOrDefault()
+            : null;
 
     /// <summary>The first error the log records for a project, which explains why it has no evaluation.</summary>
     private static BuildError? EvaluationError(BinlogData data, CapturePathMapper mapper, string project) =>
@@ -816,6 +1099,7 @@ public static class ScanRunner
                 .Select(p => new WindowsOnlyProject(p.Id, p.WindowsOnlyBuildSteps))
                 .Concat(notLoaded.Where(n => n.Project.EndsWith(".sqlproj", StringComparison.OrdinalIgnoreCase))
                     .Select(n => new WindowsOnlyProject(n.Project, ["ssdt"])))
+                .Concat(notLoaded.Where(n => n.Reason == WebSiteReason).Select(n => new WindowsOnlyProject(n.Project, ["web-site"])))
                 .OrderBy(p => p.Project, StringComparer.Ordinal)],
             Unrecognized = [.. model.Projects.Where(p => p.Kind == ProjectKind.Unknown).Select(p => p.Id)],
             NotLoaded = notLoaded,

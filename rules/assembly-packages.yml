@@ -1,0 +1,104 @@
+# Packages whose id differs from the assembly they ship, used by `deps resolve-dlls`
+# (docs/spec/commands/deps.md): a DLL referenced by HintPath is looked up under these
+# package ids as well as the id that equals its assembly name, and the best match wins
+# (ADR 0042). Extend or override from offramp.yml with `deps.assemblyPackages`
+# (`- assembly: Name` / `package: Id`); an assembly may have several packages.
+assemblies:
+  - assembly: nunit.framework
+    package: NUnit
+  - assembly: Rhino.Mocks
+    package: RhinoMocks
+  - assembly: Microsoft.VisualStudio.TestPlatform.TestFramework
+    package: MSTest.TestFramework
+  - assembly: Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions
+    package: MSTest.TestFramework
+  - assembly: xunit.core
+    package: xunit.extensibility.core
+  - assembly: System.Web.Mvc
+    package: Microsoft.AspNet.Mvc
+  - assembly: Microsoft.Web.Mvc
+    package: Microsoft.AspNet.Mvc.Futures
+  - assembly: System.Web.Razor
+    package: Microsoft.AspNet.Razor
+  - assembly: System.Web.WebPages
+    package: Microsoft.AspNet.WebPages
+  - assembly: System.Web.WebPages.Razor
+    package: Microsoft.AspNet.WebPages
+  - assembly: System.Web.WebPages.Deployment
+    package: Microsoft.AspNet.WebPages
+  - assembly: System.Web.Helpers
+    package: Microsoft.AspNet.WebPages
+  - assembly: System.Web.Http
+    package: Microsoft.AspNet.WebApi.Core
+  - assembly: System.Web.Http.WebHost
+    package: Microsoft.AspNet.WebApi.WebHost
+  - assembly: System.Web.Http.Owin
+    package: Microsoft.AspNet.WebApi.Owin
+  - assembly: System.Web.Http.Cors
+    package: Microsoft.AspNet.WebApi.Cors
+  - assembly: System.Web.Http.OData
+    package: Microsoft.AspNet.WebApi.OData
+  - assembly: System.Web.OData
+    package: Microsoft.AspNet.OData
+  - assembly: System.Web.Cors
+    package: Microsoft.AspNet.Cors
+  - assembly: System.Net.Http.Formatting
+    package: Microsoft.AspNet.WebApi.Client
+  - assembly: System.Web.Optimization
+    package: Microsoft.AspNet.Web.Optimization
+  - assembly: System.Web.Providers
+    package: Microsoft.AspNet.Providers.Core
+  - assembly: System.Net.Http
+    package: Microsoft.Net.Http
+  - assembly: System.Net.Http.Extensions
+    package: Microsoft.Net.Http
+  - assembly: System.Net.Http.Primitives
+    package: Microsoft.Net.Http
+  - assembly: Microsoft.Threading.Tasks
+    package: Microsoft.Bcl.Async
+  - assembly: Microsoft.Threading.Tasks.Extensions
+    package: Microsoft.Bcl.Async
+  - assembly: Ionic.Zip
+    package: DotNetZip
+  - assembly: ICSharpCode.SharpZipLib
+    package: SharpZipLib
+  - assembly: BouncyCastle.Crypto
+    package: BouncyCastle
+  - assembly: BouncyCastle.Crypto
+    package: Portable.BouncyCastle
+  - assembly: Antlr3.Runtime
+    package: Antlr
+  - assembly: Microsoft.Practices.Unity
+    package: Unity
+  - assembly: Microsoft.Practices.Unity.Configuration
+    package: Unity
+  - assembly: Microsoft.Practices.Unity.Interception
+    package: Unity.Interception
+  - assembly: Microsoft.Practices.ServiceLocation
+    package: CommonServiceLocator
+  - assembly: Microsoft.Practices.EnterpriseLibrary.Common
+    package: EnterpriseLibrary.Common
+  - assembly: Microsoft.Practices.EnterpriseLibrary.Data
+    package: EnterpriseLibrary.Data
+  - assembly: Microsoft.Practices.EnterpriseLibrary.Logging
+    package: EnterpriseLibrary.Logging
+  - assembly: Microsoft.Practices.EnterpriseLibrary.ExceptionHandling
+    package: EnterpriseLibrary.ExceptionHandling
+  - assembly: GalaSoft.MvvmLight
+    package: MvvmLightLibs
+  - assembly: System.Data.SqlServerCe
+    package: Microsoft.SqlServer.Compact
+  - assembly: System.Data.SQLite
+    package: System.Data.SQLite.Core
+  - assembly: EntityFramework.SqlServer
+    package: EntityFramework
+  - assembly: Microsoft.WindowsAzure.Storage
+    package: WindowsAzure.Storage
+  - assembly: Elmah
+    package: elmah.corelibrary
+  - assembly: AntiXssLibrary
+    package: AntiXSS
+  - assembly: HtmlSanitizationLibrary
+    package: AntiXSS
+  - assembly: ClientDependency.Core
+    package: ClientDependency

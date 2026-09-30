@@ -6,7 +6,29 @@ using Offramp.Workspace.Ingest;
 namespace Offramp.Workspace.Model;
 
 /// <summary>A build step that only runs on Windows, and the evidence for it.</summary>
-public sealed record WindowsOnlyStep(string Id, DiagnosticDescriptor Descriptor, string Evidence);
+public sealed record WindowsOnlyStep(string Id, DiagnosticDescriptor Descriptor, string Evidence)
+{
+    /// <summary>Every path the step concerns (the misspelled paths, the <c>.resx</c> files), with the log's or this checkout's absolute paths.</summary>
+    public IReadOnlyList<string> Paths { get; init; } = [];
+}
+
+/// <summary>What detection knows about a project besides its evaluations and errors.</summary>
+public sealed record BuildStepContext
+{
+    public static readonly BuildStepContext None = new();
+
+    /// <summary>What the project's own files show (<see cref="ProjectFileChecks"/>).</summary>
+    public ProjectFileFindings Files { get; init; } = ProjectFileFindings.None;
+
+    /// <summary>The programs the build produces (file name, such as <c>Tool.exe</c>) → the project that builds each.</summary>
+    public IReadOnlyDictionary<string, string> Executables { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Maps a path from the log to this checkout, or null outside it: to read the target around a failed <c>Exec</c>.</summary>
+    public Func<string, string?> ToLocal { get; init; } = _ => null;
+
+    /// <summary>Makes the log's absolute paths in a text repository-relative, before it is shortened for evidence.</summary>
+    public Func<string, string> Display { get; init; } = text => text;
+}
 
 /// <summary>
 /// Detects build steps that need Windows (docs/compiling-on-macos.md) from
@@ -17,12 +39,21 @@ public static class WindowsOnlyBuildSteps
 {
     /// <summary>Step ids in the order they are reported.</summary>
     public static readonly IReadOnlyList<string> Order =
-        ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event", "web-targets", "aspnet-compiler", "path-case", "inline-task", "resources"];
+        ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event", "web-targets", "aspnet-compiler", "path-case", "inline-task", "resources", "bcl-build", "mstest-v1", "web-site"];
 
-    /// <summary>The first and last codes of the Windows-only build step range (OFR0110–OFR0119).</summary>
+    /// <summary>The first and last codes of the first Windows-only build step range (OFR0110–OFR0119).</summary>
     public const string FirstCode = "OFR0110";
 
     public const string LastCode = "OFR0119";
+
+    /// <summary>The step codes after the first range: Microsoft.Bcl.Build, MSTest v1, ASP.NET Web Site projects.</summary>
+    private static readonly string[] LaterCodes = ["OFR0124", "OFR0125", "OFR0126"];
+
+    /// <summary>The file <c>Microsoft.Bcl.Build</c> imports its <c>EnsureBindingRedirects</c> task from.</summary>
+    public const string BclBuildTargets = "Microsoft.Bcl.Build.targets";
+
+    /// <summary>The prefix of the MSTest v1 assemblies, which only Visual Studio installs.</summary>
+    private const string QualityTools = "Microsoft.VisualStudio.QualityTools.";
 
     /// <summary>The file Visual Studio installs under <c>$(VSToolsPath)</c> for ASP.NET (System.Web) projects.</summary>
     public const string WebApplicationTargets = "Microsoft.WebApplication.targets";
@@ -34,7 +65,7 @@ public static class WindowsOnlyBuildSteps
         [".exe", ".bat", ".cmd", "xcopy", "robocopy", "copy ", "del ", "powershell", "cmd ", "%"];
 
     public static bool IsStepCode(string code) =>
-        string.CompareOrdinal(code, FirstCode) >= 0 && string.CompareOrdinal(code, LastCode) <= 0;
+        (string.CompareOrdinal(code, FirstCode) >= 0 && string.CompareOrdinal(code, LastCode) <= 0) || LaterCodes.Contains(code, StringComparer.Ordinal);
 
     /// <summary>True when a loaded project has a step, or a project that could not load was reported with one.</summary>
     public static bool AnyIn(WorkspaceModel model) =>
@@ -53,12 +84,15 @@ public static class WindowsOnlyBuildSteps
     /// The steps in a project's evaluations, and in its <paramref name="errors"/>: an evaluation that failed
     /// on a missing import is recorded without its items and imports, so the error is the only evidence.
     /// </summary>
-    public static IReadOnlyList<WindowsOnlyStep> Detect(string projectFile, IEnumerable<EvaluatedProject> evaluations, IEnumerable<BuildError>? errors = null)
+    public static IReadOnlyList<WindowsOnlyStep> Detect(
+        string projectFile, IEnumerable<EvaluatedProject> evaluations, IEnumerable<BuildError>? errors = null, BuildStepContext? context = null)
     {
+        context ??= BuildStepContext.None;
         var found = new Dictionary<string, WindowsOnlyStep>(StringComparer.Ordinal);
         void Add(string id, DiagnosticDescriptor descriptor, string evidence) => found.TryAdd(id, new WindowsOnlyStep(id, descriptor, evidence));
 
         var errorList = (errors ?? []).ToList();
+        var evaluationList = evaluations.ToList();
         foreach (var error in errorList)
         {
             if (FromEvaluationError(error.Code, error.Message) is { } step)
@@ -67,12 +101,22 @@ public static class WindowsOnlyBuildSteps
             }
         }
 
-        foreach (var step in FromBuildErrors(errorList))
+        if (PathCase(errorList, context.Files) is { } pathCase)
+        {
+            found.TryAdd(pathCase.Id, pathCase);
+        }
+
+        if (Resources(errorList, evaluationList, context.Files) is { } resources)
+        {
+            found.TryAdd(resources.Id, resources);
+        }
+
+        foreach (var step in FromBuildErrors(errorList, context))
         {
             found.TryAdd(step.Id, step);
         }
 
-        foreach (var e in evaluations)
+        foreach (var e in evaluationList)
         {
             var sgen = e.Property("GenerateSerializationAssemblies");
             if (string.Equals(sgen, "On", StringComparison.OrdinalIgnoreCase)
@@ -120,9 +164,9 @@ public static class WindowsOnlyBuildSteps
             foreach (var name in new[] { "PreBuildEvent", "PostBuildEvent" })
             {
                 var command = e.Property(name);
-                if (command is not null && WindowsCommandMarkers.Any(m => command.Contains(m, StringComparison.OrdinalIgnoreCase)))
+                if (command is not null && IsWindowsCommand(command))
                 {
-                    Add("build-event", DiagnosticCatalog.OFR0115, $"{name}: {FirstLine(command)}");
+                    Add("build-event", DiagnosticCatalog.OFR0115, $"{name}: {FirstLine(context.Display(command))}");
                 }
             }
 
@@ -135,52 +179,154 @@ public static class WindowsOnlyBuildSteps
             {
                 Add("aspnet-compiler", DiagnosticCatalog.OFR0116, "MvcBuildViews=true (AspNetCompiler)");
             }
+
+            // The package's targets set SkipEnsureBindingRedirects themselves when the build generates redirects.
+            if (!e.IsTrue("SkipEnsureBindingRedirects") && e.Imports.Any(i => i.Replace('\\', '/').EndsWith("/" + BclBuildTargets, StringComparison.OrdinalIgnoreCase)))
+            {
+                Add("bcl-build", DiagnosticCatalog.OFR0124, $"imports {BclBuildTargets}, whose EnsureBindingRedirects task needs .NET Framework's MSBuild");
+            }
+
+            if (e.ItemsOf("Reference").FirstOrDefault(r => AssemblyName(r.Include).StartsWith(QualityTools, StringComparison.OrdinalIgnoreCase) && r.Get("HintPath") is null) is { } mstest)
+            {
+                Add("mstest-v1", DiagnosticCatalog.OFR0125, $"Reference {AssemblyName(mstest.Include)} (MSTest v1), which only Visual Studio installs");
+            }
         }
 
         return [.. Order.Where(found.ContainsKey).Select(id => found[id])];
     }
 
     /// <summary>
-    /// Steps only a failed build shows (docs/decisions/0037-legacy-projects-outside-windows.md): paths spelled in
-    /// another letter case than on disk, inline tasks, non-string resources, and <c>Exec</c> commands written for
-    /// cmd.exe, from a target or a build event.
+    /// Paths spelled in another letter case than on disk: every one the project's files name
+    /// (<see cref="ProjectFileChecks"/>), and those only the build's errors show, such as a path a target copies.
     /// </summary>
-    private static IEnumerable<WindowsOnlyStep> FromBuildErrors(IReadOnlyList<BuildError> errors)
+    private static WindowsOnlyStep? PathCase(IReadOnlyList<BuildError> errors, ProjectFileFindings files)
     {
-        var mismatches = errors
-            .Where(e => e.Code is "MSB4019" or "CS2001" or "MSB3030" or "CS0006")
-            .Select(e => QuotedPath(e.Message))
-            .OfType<string>()
-            .Select(CaseMismatch.Find)
-            .OfType<CaseMismatch>()
+        var mismatches = files.CaseMismatches
+            .Concat(errors
+                .Where(e => e.Code is "MSB4019" or "CS2001" or "MSB3030" or "CS0006")
+                .Select(e => QuotedPath(e.Message))
+                .OfType<string>()
+                .Select(CaseMismatch.Find)
+                .OfType<CaseMismatch>())
             .DistinctBy(m => m.Spelled, StringComparer.Ordinal)
             .ToList();
-        if (mismatches.Count > 0)
+        return mismatches.Count == 0
+            ? null
+            : new WindowsOnlyStep("path-case", DiagnosticCatalog.OFR0117, mismatches[0].Evidence + More(mismatches.Count))
+            {
+                Paths = [.. mismatches.Select(m => m.Spelled)],
+            };
+    }
+
+    /// <summary>
+    /// Non-string resources: the <c>.resx</c> files that have them, unless every target framework already embeds
+    /// preserialized resources (the SDK's default for .NET Core 3.0 and later), else the build's error, which points
+    /// into the common targets, not at the file.
+    /// </summary>
+    private static WindowsOnlyStep? Resources(IReadOnlyList<BuildError> errors, IReadOnlyList<EvaluatedProject> evaluations, ProjectFileFindings files)
+    {
+        var inner = evaluations.Where(e => e.TargetFramework is not null).ToList();
+        var preserialized = inner.Count > 0 && inner.All(e => e.IsTrue("GenerateResourceUsePreserializedResources"));
+        if (files.NonStringResources.Count > 0 && !preserialized)
         {
-            var more = mismatches.Count > 1 ? string.Create(CultureInfo.InvariantCulture, $" (and {mismatches.Count - 1} more)") : "";
-            yield return new WindowsOnlyStep("path-case", DiagnosticCatalog.OFR0117, mismatches[0].Evidence + more);
+            var first = files.NonStringResources[0] with { Path = files.NonStringResources[0].Path.Replace('\\', '/') };
+            var more = files.NonStringResources.Count > 1
+                ? string.Create(CultureInfo.InvariantCulture, $" (and {files.NonStringResources.Count - 1} more .resx file(s))")
+                : "";
+            return new WindowsOnlyStep("resources", DiagnosticCatalog.OFR0119,
+                string.Create(CultureInfo.InvariantCulture, $"{first.Count} non-string resource(s) in {first.Path}{more}"))
+            {
+                Paths = [.. files.NonStringResources.Select(r => r.Path)],
+            };
         }
 
+        return errors.FirstOrDefault(e => e.Code is "MSB3822" or "MSB3823") is { } error
+            ? new WindowsOnlyStep("resources", DiagnosticCatalog.OFR0119, $"non-string resources in a .resx file ({error.Code})")
+            : null;
+    }
+
+    private static string More(int count) =>
+        count > 1 ? string.Create(CultureInfo.InvariantCulture, $" (and {count - 1} more)") : "";
+
+    /// <summary>
+    /// Steps only a failed build shows (docs/decisions/0037-legacy-projects-outside-windows.md): inline tasks, and
+    /// <c>Exec</c> commands written for cmd.exe, from a target or a build event.
+    /// </summary>
+    private static IEnumerable<WindowsOnlyStep> FromBuildErrors(IReadOnlyList<BuildError> errors, BuildStepContext context)
+    {
         if (errors.FirstOrDefault(e => e.Code == "MSB4801") is { } inline)
         {
             var file = inline.File is null ? "" : " in " + Path.GetFileName(inline.File.Replace('\\', '/'));
             yield return new WindowsOnlyStep("inline-task", DiagnosticCatalog.OFR0118, $"{TaskFactory(inline.Message)}{file} (MSB4801)");
         }
 
-        // The error points into the common targets, not at the .resx file.
-        if (errors.FirstOrDefault(e => e.Code is "MSB3822" or "MSB3823") is { } resources)
+        if (errors.FirstOrDefault(e => e.Code == "MSB4062" && (e.Message.Contains("Microsoft.Bcl.Build", StringComparison.OrdinalIgnoreCase) || e.Message.Contains("EnsureBindingRedirects", StringComparison.Ordinal))) is not null)
         {
-            yield return new WindowsOnlyStep("resources", DiagnosticCatalog.OFR0119, $"non-string resources in a .resx file ({resources.Code})");
+            yield return new WindowsOnlyStep("bcl-build", DiagnosticCatalog.OFR0124, "Microsoft.Bcl.Build's EnsureBindingRedirects task cannot load on .NET's MSBuild (MSB4062)");
         }
 
         if (errors.FirstOrDefault(e => e.Code == "MSB3073" && ExecCommand(e.Message) is { } command && IsWindowsCommand(command)) is { } exec)
         {
-            yield return new WindowsOnlyStep("build-event", DiagnosticCatalog.OFR0115, $"Exec: {FirstLine(ExecCommand(exec.Message)!)} (MSB3073)");
+            var command = ExecCommand(exec.Message)!;
+            yield return Generator(exec, command, context)
+                ?? new WindowsOnlyStep("build-event", DiagnosticCatalog.OFR0115, $"Exec: {FirstLine(context.Display(command))} (MSB3073)");
         }
     }
 
-    private static bool IsWindowsCommand(string command) =>
-        WindowsCommandMarkers.Any(m => command.Contains(m, StringComparison.OrdinalIgnoreCase));
+    /// <summary>
+    /// An <c>Exec</c> that runs a program the solution itself builds: a build-time generator (Open Live Writer's
+    /// <c>MarketXmlGenerator.exe</c> writes an embedded resource). Guarding its target, the usual remedy, leaves its
+    /// outputs missing, so the evidence names them.
+    /// </summary>
+    private static WindowsOnlyStep? Generator(BuildError error, string command, BuildStepContext context)
+    {
+        var program = Path.GetFileName(FirstToken(command).Replace('\\', '/'));
+        if (!program.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !context.Executables.TryGetValue(program, out var project))
+        {
+            return null;
+        }
+
+        var target = error.File is not null && error.Line is { } line && error.ProjectFile is not null
+            && context.ToLocal(error.File) is { } file && context.ToLocal(error.ProjectFile) is { } projectFile
+                ? ExecTarget.Find(file, line, projectFile)
+                : null;
+        var outputs = (target?.Outputs ?? []).Select(o => context.Display(o.Replace('\\', '/'))).ToList();
+        var where = target is null ? "" : $" in target {target.Name}";
+        var writes = outputs.Count > 0 ? $"; it writes {string.Join(", ", outputs)}" : "";
+        var them = outputs.Count > 0 ? "those files" : "its output";
+        return new WindowsOnlyStep("build-event", DiagnosticCatalog.OFR0115,
+            $"Exec{where} runs {program}, which {project} builds: a build-time generator{writes}. Guarding the target with OfframpCompileOnly leaves {them} missing, so generate them once (the generator may run on .NET) or check them in (MSB3073)")
+        {
+            Paths = target?.Outputs ?? [],
+        };
+    }
+
+    /// <summary>The program an <c>Exec</c> command starts: its first token, without quotes.</summary>
+    private static string FirstToken(string command)
+    {
+        var trimmed = command.TrimStart();
+        if (trimmed.StartsWith('"'))
+        {
+            var end = trimmed.IndexOf('"', 1);
+            return end > 0 ? trimmed[1..end] : trimmed[1..];
+        }
+
+        var space = trimmed.IndexOf(' ', StringComparison.Ordinal);
+        return space < 0 ? trimmed : trimmed[..space];
+    }
+
+    /// <summary>The simple name of a <c>Reference</c> item (<c>Name, Version=...</c>).</summary>
+    private static string AssemblyName(string include) => include.Split(',')[0].Trim();
+
+    /// <summary>
+    /// True when a command reads as written for cmd.exe: it runs a <c>.exe</c>, <c>.bat</c>, or <c>.cmd</c>, or uses
+    /// <c>xcopy</c>, <c>copy</c>, <c>del</c>, or a <c>%VAR%</c>. MSBuild's own <c>%(Item.Metadata)</c> is not a variable.
+    /// </summary>
+    public static bool IsWindowsCommand(string command)
+    {
+        var text = command.Replace("%(", "(", StringComparison.Ordinal);
+        return WindowsCommandMarkers.Any(m => text.Contains(m, StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>The first quoted path in an error message: <c>"..."</c> for MSBuild, <c>'...'</c> for the compiler.</summary>
     private static string? QuotedPath(string message)
@@ -227,9 +373,10 @@ public static class WindowsOnlyBuildSteps
             && !path.Contains("/" + WebTargetsPackage + "/", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string FirstLine(string text)
-    {
-        var line = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "";
-        return line.Length > 120 ? line[..120] + "…" : line;
-    }
+    /// <summary>The first line, whole: paths in it are made repository-relative before <see cref="Shorten"/> cuts it.</summary>
+    private static string FirstLine(string text) =>
+        text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "";
+
+    /// <summary>Evidence cut to 120 characters, for a message; applied after paths are made repository-relative.</summary>
+    public static string Shorten(string evidence) => evidence.Length > 120 ? evidence[..120] + "…" : evidence;
 }

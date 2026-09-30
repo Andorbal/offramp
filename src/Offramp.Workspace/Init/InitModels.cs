@@ -5,7 +5,8 @@ namespace Offramp.Workspace.Init;
 /// <summary>The values <c>init</c> writes; detected, then optionally edited in the interview.</summary>
 public sealed record InitValues
 {
-    public int Target { get; init; } = 10;
+    /// <summary><c>target:</c>, a .NET major version or a target framework (ADR 0057).</summary>
+    public ModernTarget Target { get; init; } = ModernTarget.Default;
 
     public string? Solution { get; init; }
 

@@ -143,7 +143,7 @@
         },
         "target": {
           "type": "string",
-          "pattern": "^net[0-9]+\\.0$"
+          "pattern": "^(net[0-9]+\\.0(-windows)?|netstandard2\\.[01])$"
         }
       }
     },
@@ -187,7 +187,9 @@
             "file",
             "alreadyPresent",
             "applied",
-            "diff"
+            "diff",
+            "projectFiles",
+            "packagesConfigFiles"
           ],
           "properties": {
             "file": {
@@ -204,6 +206,98 @@
                 "string",
                 "null"
               ]
+            },
+            "projectFiles": {
+              "type": "array",
+              "description": "The MSBuild files whose Windows-only settings the fix conditions, sorted by path (docs/decisions/0063-condition-windows-only-settings-in-project-files.md).",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file",
+                  "guards",
+                  "applied",
+                  "diff"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Repository-relative path."
+                  },
+                  "guards": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "line",
+                        "setting",
+                        "step",
+                        "condition"
+                      ],
+                      "properties": {
+                        "line": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "setting": {
+                          "type": "string",
+                          "description": "The property, or `Exec in target X`."
+                        },
+                        "step": {
+                          "enum": [
+                            "sgen",
+                            "aspnet-compiler",
+                            "build-event",
+                            "nuget-restore",
+                            "msbuild-extensions-path"
+                          ]
+                        },
+                        "condition": {
+                          "type": "string",
+                          "description": "The condition added: '$(MSBuildRuntimeType)' != 'Core' or '$(OS)' == 'Windows_NT'."
+                        }
+                      }
+                    }
+                  },
+                  "applied": {
+                    "type": "boolean"
+                  },
+                  "diff": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "packagesConfigFiles": {
+              "type": "array",
+              "description": "With packages.config projects, the files that let dotnet restore restore them (Offramp.PackagesConfig.targets, Directory.Solution.targets), when they are missing or out of date (docs/decisions/0064-dotnet-build-and-packages-config-without-offramp.md).",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file",
+                  "applied",
+                  "diff"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "applied": {
+                    "type": "boolean"
+                  },
+                  "diff": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
             }
           }
         }

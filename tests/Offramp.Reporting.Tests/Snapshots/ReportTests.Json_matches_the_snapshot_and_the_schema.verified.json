@@ -11,6 +11,8 @@
     "frameworkLocChange": -4100,
     "applications": 3,
     "applicationsDone": 1,
+    "libraries": 0,
+    "librariesDone": 0,
     "ready": 2
   },
   "series": [
@@ -230,7 +232,8 @@
       "remainingLoc": 6600,
       "next": [
         "src/Core/Core.csproj"
-      ]
+      ],
+      "hosted": []
     },
     {
       "project": "src/Svc/Svc.csproj",
@@ -243,7 +246,8 @@
       "remainingLoc": 2100,
       "next": [
         "src/Svc/Svc.csproj"
-      ]
+      ],
+      "hosted": []
     },
     {
       "project": "src/Web/Web.csproj",
@@ -254,9 +258,11 @@
       "closure": 2,
       "remaining": 0,
       "remainingLoc": 0,
-      "next": []
+      "next": [],
+      "hosted": []
     }
   ],
+  "libraries": [],
   "frontier": [
     {
       "project": "src/Core/Core.csproj",

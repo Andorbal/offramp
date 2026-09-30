@@ -2,6 +2,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using Offramp.Core.Paths;
+using Offramp.Workspace.Ingest;
 using Offramp.Refactoring.Codemods;
 using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 
@@ -32,6 +33,12 @@ public sealed record ConversionInput
 
     /// <summary>Properties that replace assembly attributes the SDK generates.</summary>
     public IReadOnlyList<CodemodPropertyEdit> Properties { get; init; } = [];
+
+    /// <summary>
+    /// Set <c>DisableTransitiveProjectReferences</c>: a referenced project has project references of
+    /// its own, which the SDK would pass on and the legacy build did not.
+    /// </summary>
+    public bool DisableTransitiveProjectReferences { get; init; }
 }
 
 /// <summary>A note about the conversion: the diagnostic code and message.</summary>
@@ -81,7 +88,7 @@ public static class LegacyProjectConverter
         "Configuration", "Platform", "ProjectGuid", "AppDesignerFolder", "TargetFrameworkVersion", "TargetFrameworkProfile",
         "FileAlignment", "Deterministic", "ProjectTypeGuids", "NuGetPackageImportStamp", "SchemaVersion", "ProductVersion",
         "OldToolsVersion", "UpgradeBackupLocation", "FileUpgradeFlags", "TargetFrameworkIdentifier", "RestorePackages",
-        "SolutionDir", "AutoGenerateBindingRedirects", "PreBuildEvent", "PostBuildEvent", "RunPostBuildEvent",
+        "SolutionDir", "AutoGenerateBindingRedirects",
     };
 
     /// <summary>Configuration properties whose legacy template values are the SDK's defaults (by configuration).</summary>
@@ -96,6 +103,32 @@ public static class LegacyProjectConverter
         ["DebugType"] = "*", ["Optimize"] = "true", ["OutputPath"] = @"bin\Release\", ["DefineConstants"] = "TRACE",
         ["ErrorReport"] = "prompt", ["WarningLevel"] = "4", ["PlatformTarget"] = "AnyCPU",
     };
+
+    private static readonly HashSet<string> WpfAssemblies = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "PresentationCore", "PresentationFramework", "WindowsBase", "System.Xaml",
+    };
+
+    /// <summary>
+    /// Targets the common targets define, which a target of the same name in an SDK-style project's
+    /// body no longer replaces: the SDK imports them after the body (BeforeBuild and AfterBuild are
+    /// renamed and hooked instead).
+    /// </summary>
+    private static readonly HashSet<string> CommonTargets = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "BeforeRebuild", "AfterRebuild", "BeforeClean", "AfterClean", "BeforeResolveReferences", "AfterResolveReferences",
+        "BeforeCompile", "AfterCompile", "BeforeResGen", "AfterResGen", "BeforePublish", "AfterPublish",
+        "Build", "CoreBuild", "Rebuild", "Clean", "Compile", "CoreCompile", "ResolveReferences", "ResolveAssemblyReferences",
+        "PrepareForBuild", "CopyFilesToOutputDirectory", "_CopyFilesMarkedCopyLocal", "GetCopyToOutputDirectoryItems",
+        "_CopyOutOfDateSourceItemsToOutputDirectory", "GenerateBindingRedirects", "PrepareResources", "CoreResGen",
+    };
+
+    /// <summary>Properties the SDK sets from TargetFramework and its own layout, which an imported file should not set too.</summary>
+    private static readonly string[] SdkOwnedProperties =
+    [
+        "TargetFrameworkVersion", "TargetFrameworkIdentifier", "TargetFramework", "TargetFrameworks", "OutputPath", "BaseOutputPath",
+        "IntermediateOutputPath", "BaseIntermediateOutputPath", "MSBuildExtensionsPath", "MSBuildExtensionsPath32", "MSBuildExtensionsPath64",
+    ];
 
     private static readonly HashSet<string> DroppedItemTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -126,16 +159,16 @@ public static class LegacyProjectConverter
         var frameworks = input.TargetFrameworks.Count > 0 ? input.TargetFrameworks
             : input.Project.TargetFrameworks.Count > 0 ? input.Project.TargetFrameworks
             : [FrameworkFrom(Property(project, ns, "TargetFrameworkVersion"))];
-        var items = Items(context, project);
-        var global = GlobalProperties(context, project, frameworks, guids);
-        var configurations = ConfigurationGroups(context, project);
-        var tail = Tail(context, project);
+        var output = Body(context, project, frameworks, guids, newline);
 
-        var body = new List<XElement> { global };
-        body.AddRange(configurations);
-        body.AddRange(items);
-        body.AddRange(tail);
-        var output = Render(body, newline);
+        // SolutionDir is dropped (building the project alone must not need it), unless what is
+        // kept still uses it: then its definition, with its fallback for builds outside the solution, stays.
+        if (output.Contains("$(SolutionDir)", StringComparison.OrdinalIgnoreCase))
+        {
+            context = new Context(input, ns) { KeepSolutionDir = true };
+            output = Body(context, project, frameworks, guids, newline);
+        }
+
         return new ConversionOutput
         {
             Bytes = bom ? [0xEF, 0xBB, 0xBF, .. new UTF8Encoding(false).GetBytes(output)] : new UTF8Encoding(false).GetBytes(output),
@@ -146,6 +179,21 @@ public static class LegacyProjectConverter
             Dropped = context.Dropped,
             Notes = context.Notes,
         };
+    }
+
+    private static string Body(Context context, XElement project, IReadOnlyList<string> frameworks, string guids, string newline)
+    {
+        context.Frameworks = frameworks;
+        var items = Items(context, project);
+        var global = GlobalProperties(context, project, frameworks, guids);
+        var configurations = ConfigurationGroups(context, project);
+        var tail = Tail(context, project);
+
+        var body = new List<XElement> { global };
+        body.AddRange(configurations);
+        body.AddRange(items);
+        body.AddRange(tail);
+        return Render(body, newline);
     }
 
     /// <summary><c>v4.7.2</c> → <c>net472</c>.</summary>
@@ -161,7 +209,7 @@ public static class LegacyProjectConverter
         {
             var local = property.Name.LocalName;
             var value = property.Value;
-            if (DroppedProperties.Contains(local)
+            if (context.Drops(local)
                 || (local == "OutputType" && value.Equals("Library", StringComparison.OrdinalIgnoreCase))
                 || (local is "RootNamespace" or "AssemblyName" && value == name)
                 || (local is "TargetFramework" or "TargetFrameworks" or "Nullable" && group.Elements().Any(e => e.Name.LocalName == local)))
@@ -178,9 +226,17 @@ public static class LegacyProjectConverter
             group.Add(Strip(property));
         }
 
-        if (guids.Contains(WpfGuid, StringComparison.OrdinalIgnoreCase))
+        // A -windows target gets Windows Forms and WPF from the Windows desktop framework, not from references.
+        var windows = frameworks.Any(f => f.Contains("-windows", StringComparison.OrdinalIgnoreCase));
+        var referenced = FrameworkReferences(context, project);
+        if (guids.Contains(WpfGuid, StringComparison.OrdinalIgnoreCase) || (windows && referenced.Overlaps(WpfAssemblies)))
         {
             group.Add(new XElement("UseWPF", "true"));
+        }
+
+        if (windows && referenced.Contains("System.Windows.Forms"))
+        {
+            group.Add(new XElement("UseWindowsForms", "true"));
         }
 
         if (context.Input.Nullable is { } nullable)
@@ -198,6 +254,12 @@ public static class LegacyProjectConverter
         if (frameworks.Count == 1)
         {
             group.Add(new XElement("AppendTargetFrameworkToOutputPath", "false"));
+        }
+
+        // The SDK passes a referenced project's references on; the legacy project compiled against its own only.
+        if (context.Input.DisableTransitiveProjectReferences && !group.Elements().Any(e => e.Name.LocalName == "DisableTransitiveProjectReferences"))
+        {
+            group.Add(new XElement("DisableTransitiveProjectReferences", "true"));
         }
 
         foreach (var property in context.Input.Properties.Where(p => !group.Elements().Any(e => e.Name.LocalName == p.Name)))
@@ -226,7 +288,7 @@ public static class LegacyProjectConverter
                     continue;
                 }
 
-                if (property.Name.LocalName is "PreBuildEvent" or "PostBuildEvent" or "RunPostBuildEvent" || DroppedProperties.Contains(property.Name.LocalName))
+                if (context.Drops(property.Name.LocalName))
                 {
                     continue;
                 }
@@ -271,6 +333,7 @@ public static class LegacyProjectConverter
         bool FromPackages(string path) => packageFolders.Any(f => path.Replace('/', '\\').ToLowerInvariant().Contains(f, StringComparison.Ordinal));
 
         var references = new XElement("ItemGroup");
+        var frameworkReferences = new XElement("ItemGroup", new XAttribute("Condition", "'$(TargetFrameworkIdentifier)' == '.NETFramework'"));
         var compile = new XElement("ItemGroup");
         var updates = new XElement("ItemGroup");
         var projects = new XElement("ItemGroup");
@@ -297,6 +360,11 @@ public static class LegacyProjectConverter
                     else if (hint is not null && FromPackages(hint))
                     {
                         context.Drop("Reference " + simple + " (packages.config)");
+                    }
+                    else if (hint is null && context.Modern)
+                    {
+                        // A .NET Framework assembly: the other targets get theirs from their framework.
+                        frameworkReferences.Add(new XElement("Reference", new XAttribute("Include", simple), metadata));
                     }
                     else
                     {
@@ -325,8 +393,8 @@ public static class LegacyProjectConverter
                     break;
                 case "Compile":
                     break;
-                case "EmbeddedResource" when include.EndsWith(".resx", StringComparison.OrdinalIgnoreCase) && resourcesGlobbed:
-                    break;
+                case "EmbeddedResource" when include.EndsWith(".resx", StringComparison.OrdinalIgnoreCase):
+                    break; // The SDK's glob gives it, or the list is kept below.
                 case "None" when string.Equals(Path.GetFileName(include), "packages.config", StringComparison.OrdinalIgnoreCase):
                     context.Drop("None packages.config");
                     break;
@@ -356,13 +424,14 @@ public static class LegacyProjectConverter
             }
         }
 
-        if (!resourcesGlobbed && resources.Count > 0)
+        if (!resourcesGlobbed)
         {
+            // The SDK's glob would also embed the .resx files on disk that the project does not list.
             others.AddFirst(new XComment(" Kept as listed: the .resx files on disk are not the ones the project embeds. "));
+            others.Add(new XElement("EmbeddedResource", new XAttribute("Remove", @"**\*.resx")));
             foreach (var item in items.Where(i => i.Name.LocalName == "EmbeddedResource" && Include(i).EndsWith(".resx", StringComparison.OrdinalIgnoreCase)))
             {
-                others.Add(new XElement("EmbeddedResource", new XAttribute("Remove", Include(item))));
-                others.Add(new XElement("EmbeddedResource", new XAttribute("Include", Include(item)), item.Elements().Select(Strip)));
+                others.Add(Strip(item));
             }
         }
 
@@ -383,13 +452,12 @@ public static class LegacyProjectConverter
             packages.Add(element);
         }
 
-        return [.. new[] { compile, updates, references, packages, projects, others }.Where(g => g.HasElements)];
+        return [.. new[] { compile, updates, references, frameworkReferences, packages, projects, others }.Where(g => g.HasElements)];
     }
 
     /// <summary>Kept imports and targets, build events as targets, and conditioned groups kept as they are.</summary>
     private static List<XElement> Tail(Context context, XElement project)
     {
-        var ns = context.Ns;
         var result = new List<XElement>();
         foreach (var element in project.Elements())
         {
@@ -402,6 +470,19 @@ public static class LegacyProjectConverter
                 {
                     context.Drop("Import " + Path.GetFileName(path.Replace('\\', '/')));
                     continue;
+                }
+
+                // NuGet 2's package restore ("Enable NuGet Package Restore"), with RestorePackages: PackageReference restore replaces it.
+                if (path.Replace('\\', '/').EndsWith(".nuget/NuGet.targets", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Drop("Import NuGet.targets");
+                    continue;
+                }
+
+                if (SdkOwnedPropertiesIn(context, path) is { Count: > 0 } owned)
+                {
+                    context.Notes.Add(new ConversionNote("OFR4308",
+                        $"The imported {path} sets {string.Join(", ", owned)} unconditionally. The SDK sets them from TargetFramework and its own layout, and the import now comes after the project body: condition them on '$(UsingMicrosoftNETSdk)' != 'true', or remove them."));
                 }
 
                 result.Add(Strip(element));
@@ -422,6 +503,11 @@ public static class LegacyProjectConverter
                     target.SetAttributeValue(name == "BeforeBuild" ? "BeforeTargets" : "AfterTargets", name);
                     context.Notes.Add(new ConversionNote("OFR4302", $"The {name} target is renamed {name}Legacy and hooked to {name}: the SDK defines {name} after the project body, so the original would be overridden."));
                 }
+                else if (name is not null && CommonTargets.Contains(name))
+                {
+                    context.Notes.Add(new ConversionNote("OFR4308",
+                        $"The {name} target in the project body replaced the common target of that name. In an SDK-style project the SDK's targets come after the body and win, so this one no longer takes effect: hook a target of another name to it (BeforeTargets or AfterTargets), or remove it."));
+                }
 
                 result.Add(target);
             }
@@ -431,21 +517,97 @@ public static class LegacyProjectConverter
             }
         }
 
-        foreach (var (property, target, hook) in new[] { ("PreBuildEvent", "PreBuild", "BeforeTargets"), ("PostBuildEvent", "PostBuild", "AfterTargets") })
+        if (BuildEvents(context, project) is { } events)
         {
-            var command = project.Elements(ns + "PropertyGroup").SelectMany(g => g.Elements(ns + property)).Select(e => e.Value.Trim()).FirstOrDefault(v => v.Length > 0);
-            if (command is null)
-            {
-                continue;
-            }
-
-            result.Add(new XElement("Target", new XAttribute("Name", target), new XAttribute(hook, property),
-                new XElement("Exec", new XAttribute("Command", command))));
-            context.Notes.Add(new ConversionNote("OFR4302",
-                $"The {property} is now the {target} target ({hook}=\"{property}\"). Review it: macros such as $(TargetPath) keep their meaning, but paths relative to the output folder change with the SDK's bin/<configuration>/<framework>/ layout."));
+            result.Add(events);
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// The PreBuildEvent and PostBuildEvent stay where the legacy project defines them, and a target
+    /// that runs before the build sets each one that is set again, with the same text
+    /// (docs/decisions/0061-modernize-verification.md). In the project body the SDK has not defined
+    /// $(TargetPath) and the other macros yet, so they expand to nothing; in the target they have
+    /// their values. The SDK's PreBuildEvent and PostBuildEvent targets then run the events as the
+    /// legacy build did (from the output folder, by RunPostBuildEvent's rule), and a build that
+    /// passes <c>-p:PostBuildEvent=</c> leaves the property empty, so the target does not set it and
+    /// the event does not run. Each definition keeps its group's condition and its own, in document
+    /// order, as evaluation applies them. Null without build events.
+    /// </summary>
+    private static XElement? BuildEvents(Context context, XElement project)
+    {
+        var properties = new XElement("PropertyGroup");
+        foreach (var property in new[] { "PreBuildEvent", "PostBuildEvent" })
+        {
+            var definitions = project.Elements(context.Ns + "PropertyGroup").SelectMany(g => g.Elements(context.Ns + property)).Where(e => e.Value.Trim().Length > 0).ToList();
+            foreach (var definition in definitions)
+            {
+                var conditions = new[] { $"'$({property})' != ''", definition.Parent!.Attribute("Condition")?.Value, definition.Attribute("Condition")?.Value }
+                    .Select(c => c?.Trim())
+                    .Where(c => !string.IsNullOrEmpty(c))
+                    .ToList();
+                properties.Add(new XElement(property, new XAttribute("Condition", conditions.Count == 1 ? conditions[0]! : string.Join(" and ", conditions.Select((c, i) => i == 0 ? c : $"({c})"))),
+                    definition.Value.Trim()));
+            }
+
+            if (definitions.Count > 0)
+            {
+                context.Notes.Add(new ConversionNote("OFR4302",
+                    $"The {property} stays, and the SetBuildEvents target sets it again before the build, when macros such as $(TargetPath) have their values; the SDK's {property} target runs it from the output folder as before, and -p:{property}= still turns it off. Review what it does in an SDK-style build."));
+            }
+        }
+
+        return properties.HasElements
+            ? new XElement("Target", new XAttribute("Name", "SetBuildEvents"), new XAttribute("BeforeTargets", "BeforeBuild"), properties)
+            : null;
+    }
+
+    /// <summary>The simple names of the project's framework references (Reference items without a HintPath).</summary>
+    private static HashSet<string> FrameworkReferences(Context context, XElement project) =>
+        project.Elements(context.Ns + "ItemGroup").SelectMany(g => g.Elements(context.Ns + "Reference"))
+            .Where(r => r.Element(context.Ns + "HintPath") is null)
+            .Select(r => Include(r).Split(',')[0].Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The SDK-owned properties an imported file sets without a condition (on the property or its
+    /// group); empty when the path uses properties other than the project's folder, or the file is
+    /// not in the repository.
+    /// </summary>
+    private static List<string> SdkOwnedPropertiesIn(Context context, string path)
+    {
+        var relative = path.Replace("$(MSBuildProjectDirectory)", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("$(MSBuildThisFileDirectory)", "", StringComparison.OrdinalIgnoreCase)
+            .Replace('\\', '/')
+            .TrimStart('/');
+        if (relative.Contains("$(", StringComparison.Ordinal))
+        {
+            return [];
+        }
+
+        var file = Combine(RepoPaths.Normalize(Path.GetDirectoryName(context.Input.Project.Id)!), relative);
+        var absolute = RepoPaths.ToAbsolute(context.Input.RepositoryRoot, file);
+        if (file.StartsWith("../", StringComparison.Ordinal) || !File.Exists(absolute))
+        {
+            return [];
+        }
+
+        try
+        {
+            var imported = XDocument.Load(absolute).Root!;
+            var ns = imported.Name.Namespace;
+            return [.. imported.Elements(ns + "PropertyGroup").Where(g => g.Attribute("Condition") is null)
+                .SelectMany(g => g.Elements())
+                .Where(e => e.Attribute("Condition") is null && SdkOwnedProperties.Contains(e.Name.LocalName, StringComparer.OrdinalIgnoreCase))
+                .Select(e => e.Name.LocalName)
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
+        }
+        catch (XmlException)
+        {
+            return [];
+        }
     }
 
     private static string Render(List<XElement> body, string newline)
@@ -543,9 +705,21 @@ public static class LegacyProjectConverter
 
         public string CompileItems { get; set; } = "globbed";
 
+        public IReadOnlyList<string> Frameworks { get; set; } = [];
+
+        /// <summary>A target framework is not .NET Framework (net8.0, netstandard2.0, net10.0-windows).</summary>
+        public bool Modern => Frameworks.Any(f => !Tfm.IsNetFramework(f));
+
+        /// <summary>Keep SolutionDir's definition: something kept uses <c>$(SolutionDir)</c>.</summary>
+        public bool KeepSolutionDir { get; init; }
+
         public List<string> Dropped { get; } = [];
 
         public List<ConversionNote> Notes { get; } = [];
+
+        /// <summary>A property the SDK sets or makes meaningless.</summary>
+        public bool Drops(string property) =>
+            DroppedProperties.Contains(property) && !(KeepSolutionDir && string.Equals(property, "SolutionDir", StringComparison.OrdinalIgnoreCase));
 
         public void Drop(string what)
         {

@@ -7,7 +7,7 @@
   "source": {
     "kind": "build",
     "path": ".offramp/msbuild.binlog",
-    "sha256": "{Sha256}",
+    "sha256": null,
     "complog": null
   },
   "sdk": {
@@ -30,6 +30,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Billing/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -200,7 +201,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Billing/Billing.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 11,
@@ -224,6 +226,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Customer.Api/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -328,7 +331,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Customer.Api/Customer.Api.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 9,
@@ -352,6 +356,7 @@
       ],
       "frameworkClass": "modern",
       "outputType": "Exe",
+      "outputPath": "src/Modern.App/bin/Debug/net10.0",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -474,7 +479,8 @@
       "compilerCalls": {
         "net10.0": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Modern.App/Modern.App.csproj",
+          "targetFramework": "net10.0"
         }
       },
       "loc": 1,
@@ -498,6 +504,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Reporting/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -706,7 +713,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Reporting/Reporting.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 7,
@@ -730,6 +738,7 @@
       ],
       "frameworkClass": "standard",
       "outputType": "Library",
+      "outputPath": "src/Shared/bin/Debug/netstandard2.0",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -907,7 +916,8 @@
       "compilerCalls": {
         "netstandard2.0": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Shared/Shared.csproj",
+          "targetFramework": "netstandard2.0"
         }
       },
       "loc": 9,
@@ -1034,6 +1044,10 @@
     },
     {
       "path": "Versions.slnx",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "nuget.config",
       "sha256": "{Sha256}"
     },
     {

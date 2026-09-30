@@ -23,6 +23,11 @@ public sealed record ProjectBuildContext
 
     /// <summary>Errors the log records, with capture paths; a project's evaluation errors name some Windows-only steps.</summary>
     public IReadOnlyList<BuildError> Errors { get; init; } = [];
+
+    /// <summary>(project id, target framework) of compilations whose compiler task logged errors; "" when the log names no target framework.</summary>
+    public IReadOnlySet<(string Project, string Tfm)> FailedCompilations { get; init; } = new HashSet<(string, string)>();
+    /// <summary>Project id → what Windows-only step detection knows besides the log (<see cref="BuildStepContext"/>).</summary>
+    public IReadOnlyDictionary<string, BuildStepContext> BuildSteps { get; init; } = new Dictionary<string, BuildStepContext>();
 }
 
 /// <summary>Turns one project's evaluations into a <see cref="ProjectInfo"/> (docs/spec/02-workspace-model.md).</summary>
@@ -35,6 +40,9 @@ public static class ProjectModelBuilder
         "ManagePackageVersionsCentrally", "DirectoryPackagesPropsPath", "UseWPF", "UseWindowsForms", "IsPackable",
         "IsTestProject", "ProjectTypeGuids", "ImplicitUsings", "EnableWindowsTargeting", "OfframpCompileOnly",
     ];
+
+    /// <summary>Strong naming, recorded when <c>SignAssembly</c> is true; the key file repository-relative when it is inside the repository.</summary>
+    private static readonly string[] SigningProperties = ["SignAssembly", "AssemblyOriginatorKeyFile", "DelaySign", "PublicSign"];
 
     public static ProjectInfo Build(string projectId, IReadOnlyList<EvaluatedProject> evaluations, ProjectBuildContext context)
     {
@@ -107,10 +115,11 @@ public static class ProjectModelBuilder
             TargetFrameworks = tfms,
             FrameworkClass = Tfm.Classify(tfms),
             OutputType = first.Property("OutputType") ?? "Library",
+            OutputPath = OutputFolder(all, projectDirectory, context),
             IsTestProject = facts.IsTestProject,
             Properties = Properties(all, context),
             DefineConstants = DefineConstants(projectId, inner, context),
-            WindowsOnlyBuildSteps = [.. WindowsOnlyBuildSteps.Detect(projectFile, evaluations, context.Errors.Where(e => string.Equals(e.ProjectFile, projectFile, StringComparison.OrdinalIgnoreCase))).Select(s => s.Id)],
+            WindowsOnlyBuildSteps = [.. WindowsOnlyBuildSteps.Detect(projectFile, evaluations, context.Errors.Where(e => string.Equals(e.ProjectFile, projectFile, StringComparison.OrdinalIgnoreCase)), context.BuildSteps.GetValueOrDefault(projectId)).Select(s => s.Id)],
             PackagesConfig = File.Exists(Path.Combine(localDirectory, "packages.config")),
             PackagesConfigPackages = installed,
             Compile = compile,
@@ -140,7 +149,7 @@ public static class ProjectModelBuilder
             Resolved = Resolved(all, tfms, context),
             CompilerCalls = calls,
             Loc = CountLines(compile, context.Paths.RepositoryRoot),
-            Partial = language is "csharp" or "vb" && tfms.Any(t => !calls.ContainsKey(t)),
+            Partial = language is "csharp" or "vb" && tfms.Any(t => !calls.ContainsKey(t) || CompilationFailed(projectId, t, tfms.Count, context)),
             Config = new ProjectConfigState
             {
                 KindOverride = kindOverride,
@@ -149,6 +158,14 @@ public static class ProjectModelBuilder
             },
         };
     }
+
+    /// <summary>
+    /// True when the compiler call for a target framework logged errors: the call is recorded, but its compilation
+    /// is incomplete (NHibernate, Open Live Writer's MSTest projects).
+    /// </summary>
+    private static bool CompilationFailed(string projectId, string tfm, int targets, ProjectBuildContext context) =>
+        context.FailedCompilations.Contains((projectId, tfm))
+        || (targets == 1 && context.FailedCompilations.Contains((projectId, "")));
 
     public static string Language(string projectFile) => Path.GetExtension(projectFile).ToLowerInvariant() switch
     {
@@ -198,27 +215,55 @@ public static class ProjectModelBuilder
             result[name] = name == "DirectoryPackagesPropsPath" ? context.Paths.ToRelative(value) ?? Path.GetFileName(value) : value;
         }
 
+        var signed = evaluations.FirstOrDefault(e => e.IsTrue("SignAssembly"));
+        foreach (var name in signed is null ? [] : SigningProperties)
+        {
+            if (signed!.Property(name) is { } value)
+            {
+                result[name] = name == "AssemblyOriginatorKeyFile" ? KeyFile(signed.ProjectFile, value, context) : value;
+            }
+        }
+
         return result;
+    }
+
+    /// <summary>A key file path (relative to the project, or absolute) as a repository-relative path; unchanged when it is outside the repository.</summary>
+    private static string KeyFile(string projectFile, string value, ProjectBuildContext context)
+    {
+        var project = projectFile.Replace('\\', '/');
+        var relative = context.Paths.ToRelative(project[..Math.Max(project.LastIndexOf('/'), 0)], value);
+        return relative is null || relative.Length == 0 || relative.StartsWith("../", StringComparison.Ordinal) ? value : relative;
     }
 
     /// <summary>
     /// The symbols the compiler saw when there is a compiler call (they include the
-    /// SDK's implicit ones, such as NETFRAMEWORK); otherwise the evaluated property.
+    /// SDK's implicit ones, such as NETFRAMEWORK; a legacy project's call records no target
+    /// framework and is its only one); otherwise the evaluated property, read as the compiler reads it.
     /// </summary>
     private static SortedDictionary<string, IReadOnlyList<string>> DefineConstants(
-        string projectId, IEnumerable<EvaluatedProject> inner, ProjectBuildContext context)
+        string projectId, List<EvaluatedProject> inner, ProjectBuildContext context)
     {
         var result = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
         foreach (var e in inner)
         {
             var tfm = e.TargetFramework!;
             result[tfm] = context.CompilerDefines.TryGetValue((projectId, tfm), out var defines)
+                || (inner.Count == 1 && context.CompilerDefines.TryGetValue((projectId, ""), out defines))
                 ? [.. defines.Distinct(StringComparer.Ordinal)]
-                : [.. SplitList(e.Property("DefineConstants")).Distinct(StringComparer.Ordinal)];
+                : [.. DefinedSymbols(e.Property("DefineConstants")).Distinct(StringComparer.Ordinal)];
         }
 
         return result;
     }
+
+    /// <summary>
+    /// The symbols a <c>DefineConstants</c> value defines: the compiler separates them with <c>;</c> or <c>,</c>
+    /// (NHibernate's <c>NET,NET_2_0</c> is two), and a Visual Basic symbol may carry a value (<c>DEBUG=-1</c>).
+    /// </summary>
+    internal static IEnumerable<string> DefinedSymbols(string? value) =>
+        (value ?? "").Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(symbol => symbol.Split('=')[0].Trim())
+            .Where(symbol => symbol.Length > 0);
 
     private static IReadOnlyList<PackageReferenceInfo> PackageReferences(IReadOnlyList<EvaluatedProject> evaluations)
     {
@@ -293,17 +338,36 @@ public static class ProjectModelBuilder
             }
 
             var relative = context.Paths.ToRelative(projectDirectory, hintPath);
-            var local = relative is null ? null : RepoPaths.ToAbsolute(context.Paths.RepositoryRoot, relative);
+            var (written, local) = relative is not null
+                ? (relative, RepoPaths.ToAbsolute(context.Paths.RepositoryRoot, relative))
+                : Outside(hintPath, projectDirectory, evaluations.Select(e => e.Property("NuGetPackageRoot")).FirstOrDefault(p => p is not null));
             byName[name] = new AssemblyReferenceInfo
             {
                 Name = name,
-                HintPath = relative ?? Path.GetFileName(hintPath.Replace('\\', '/')),
+                HintPath = written,
                 Kind = AssemblyReferenceKind.File,
-                Metadata = local is not null && File.Exists(local) ? AssemblyFileInspector.Inspect(local) : null,
+                Metadata = File.Exists(local) ? AssemblyFileInspector.Inspect(local) : null,
             };
         }
 
         return [.. byName.Values];
+    }
+
+    /// <summary>
+    /// How a HintPath outside the repository is written in the model, and the file to read its
+    /// metadata from (the path as the build saw it). Under the NuGet global packages folder it is
+    /// <c>$(NuGetPackageRoot)&lt;id&gt;/&lt;version&gt;/...</c>, which names the package and reads the
+    /// same on every machine; anywhere else, its file name.
+    /// </summary>
+    private static (string HintPath, string File) Outside(string hintPath, string projectDirectory, string? packageRoot)
+    {
+        var absolute = CapturePathMapper.Absolute(projectDirectory, hintPath);
+        var comparison = CapturePathMapper.IsWindowsStyle(absolute) ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var root = packageRoot is null ? null : CapturePathMapper.Absolute(projectDirectory, packageRoot).TrimEnd('/') + "/";
+        var written = root is not null && absolute.StartsWith(root, comparison)
+            ? "$(NuGetPackageRoot)" + absolute[root.Length..]
+            : Path.GetFileName(absolute);
+        return (written, absolute);
     }
 
     /// <summary>
@@ -327,6 +391,18 @@ public static class ProjectModelBuilder
                 .Where(v => v != "/" && !project.StartsWith(v, StringComparison.OrdinalIgnoreCase))
                 .Distinct(StringComparer.OrdinalIgnoreCase),
         ];
+    }
+
+    /// <summary>
+    /// The folder the build writes the assembly to, repository-relative: <c>OutDir</c> (which defaults to
+    /// <c>OutputPath</c>) of the .NET Framework target when there is one, since that is the build a System.Web host
+    /// loads, else of the first target; null when it is outside the repository (ADR 0055).
+    /// </summary>
+    private static string? OutputFolder(List<EvaluatedProject> evaluations, string projectDirectory, ProjectBuildContext context)
+    {
+        var evaluation = evaluations.FirstOrDefault(e => e.TargetFramework is { } tfm && Tfm.Classify([tfm]) == FrameworkClass.Framework) ?? evaluations[0];
+        var value = evaluation.Property("OutDir") ?? evaluation.Property("OutputPath");
+        return value is null ? null : context.Paths.ToRelative(projectDirectory, value)?.TrimEnd('/');
     }
 
     /// <summary>

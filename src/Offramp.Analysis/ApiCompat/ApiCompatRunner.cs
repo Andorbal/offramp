@@ -1,9 +1,11 @@
 using System.Text.Json.Nodes;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Git;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using Offramp.Core.Processes;
+using Offramp.Workspace.Doctor;
 using Offramp.Workspace.Verification;
 using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 
@@ -29,6 +31,9 @@ public sealed record ApiCompatRequest
     public required IProcessRunner Processes { get; init; }
 
     public required IGitService Git { get; init; }
+
+    /// <summary><c>verify:</c>: both sides build with its configuration and properties, as verification builds do (ADR 0058).</summary>
+    public VerifyConfig Verify { get; init; } = new();
 
     public required DiagnosticBag Diagnostics { get; init; }
 }
@@ -109,6 +114,7 @@ public static class ApiCompatRunner
                     return null;
                 }
 
+                await PrepareBaselineAsync(request, scratch, cancellationToken);
                 leftAssembly = await BuildAsync(request, scratch.Path, left, Path.Combine(outputs, "baseline"), cancellationToken);
                 (leftSide, rightSide) = (new ApiCompatSide(request.Baseline!, left), new ApiCompatSide("working tree", right));
             }
@@ -200,12 +206,88 @@ public static class ApiCompatRunner
         return null;
     }
 
-    /// <summary>Builds the project for one target into a folder of its own; returns the assembly, or null (OFR3504).</summary>
+    /// <summary>
+    /// Gives the baseline's work tree what the working tree's build has and no revision holds (ADR 0058): the
+    /// compile-only sections of the root <c>Directory.Build.props</c> that Offramp owns and the Windows conditions on
+    /// the project files' own settings (ADR 0063), when the working tree has the block (<c>doctor --fix</c> writes
+    /// them, usually uncommitted), and the git-ignored files the working tree's
+    /// compilation of the project and the projects it references uses (a generated shared AssemblyInfo), with OFR3505.
+    /// </summary>
+    private static async Task PrepareBaselineAsync(ApiCompatRequest request, ScratchWorktree scratch, CancellationToken cancellationToken)
+    {
+        var props = Path.Combine(request.RepositoryRoot, CompileOnlyConditional.FileName);
+        if (File.Exists(props) && File.ReadAllText(props).Contains(CompileOnlyConditional.Marker, StringComparison.Ordinal))
+        {
+            try
+            {
+                DoctorRunner.ApplyFix(scratch.Path, DoctorRunner.GuardFiles(scratch.Path, request.Model, null));
+            }
+            catch (InvalidDataException)
+            {
+                // The revision's props file has no </Project>: its build fails on its own (OFR3504).
+            }
+        }
+
+        var used = Closure(request.Model, request.Project)
+            .SelectMany(p => p.Compile)
+            .Where(f => File.Exists(RepoPaths.ToAbsolute(request.RepositoryRoot, f)) && !File.Exists(scratch.Resolve(f)))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        var ignored = await request.Git.IgnoredAsync(request.RepositoryRoot, used, cancellationToken);
+        if (ignored.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var file in ignored)
+        {
+            scratch.CopyIn(file);
+        }
+
+        request.Diagnostics.Report(DiagnosticCatalog.OFR3505,
+            $"The baseline {request.Baseline} was built with {ignored.Count} git-ignored file{(ignored.Count == 1 ? "" : "s")} copied from the working tree, which its compilation uses and no revision has: {string.Join(", ", ignored)}.",
+            new DiagnosticLocation(request.Project.Id),
+            [KeyValuePair.Create<string, JsonNode?>("files", new JsonArray([.. ignored.Select(f => (JsonNode?)f)]))]);
+    }
+
+    /// <summary>The project and every project it references, directly or not: building it builds them.</summary>
+    private static List<ProjectInfo> Closure(WorkspaceModel model, ProjectInfo project)
+    {
+        var byId = model.Projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<ProjectInfo>([project]);
+        var closure = new List<ProjectInfo>();
+        while (pending.TryPop(out var next))
+        {
+            if (!seen.Add(next.Id))
+            {
+                continue;
+            }
+
+            closure.Add(next);
+            foreach (var reference in next.ProjectReferences)
+            {
+                if (byId.TryGetValue(reference, out var referenced))
+                {
+                    pending.Push(referenced);
+                }
+            }
+        }
+
+        return closure;
+    }
+
+    /// <summary>
+    /// Builds the project for one target into a folder of its own; returns the assembly, or null (OFR3504). The build
+    /// uses <c>verify.configuration</c> and <c>verify.properties</c> (with <c>RestorePackages=false</c> off Windows),
+    /// as verification does: a Release-only step (ILRepack in NHibernate's <c>AfterBuild</c>) is no part of the API.
+    /// </summary>
     private static async Task<string?> BuildAsync(ApiCompatRequest request, string root, string tfm, string output, CancellationToken cancellationToken)
     {
         var project = RepoPaths.ToAbsolute(root, request.Project.Id);
         var result = await request.Processes.RunAsync(new ProcessSpec("dotnet",
-            ["build", project, "-c", "Release", "-f", tfm, "-nologo", "-v:q", "-p:OutDir=" + output + Path.DirectorySeparatorChar])
+            ["build", project, "-c", request.Verify.Configuration, "-f", tfm, "-nologo", "-v:q", .. BuildProperties.Arguments(request.Verify), "-p:OutDir=" + output + Path.DirectorySeparatorChar])
         {
             WorkingDirectory = root,
             Timeout = TimeSpan.FromMinutes(20),

@@ -211,6 +211,117 @@ public sealed class DepsAuditTests
         Assert.Equal(["OFR1006"], bag.ToSortedList().Select(d => d.Code));
     }
 
+    /// <summary>
+    /// SmartStoreNET field test (P0 #4): EntityFramework.SqlServerCompact 6.4.4 was "upgraded" to 4.3.1,
+    /// a release with only content transforms and an install script; LibSassHost's native Windows
+    /// package was <c>ok</c>. A package whose later releases dropped their portable build is not an upgrade either.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR1007")]
+    public async Task Versions_without_assemblies_or_older_than_the_one_in_use_are_never_an_upgrade()
+    {
+        static RecordedFile Dll(string path, string name) => new() { Path = path, Assembly = new RecordedAssembly { Name = name, Version = "1.0.0.0" } };
+        var recording = new FeedRecording
+        {
+            Source = "synthetic",
+            RecordedAt = "2026-09-29",
+            Packages =
+            [
+                new RecordedPackage
+                {
+                    Id = "EntityFramework.SqlServerCompact", Version = "4.3.1", Synthetic = true,
+                    DependencyGroups = [new RecordedDependencyGroup("", [new RecordedDependency("EntityFramework", "[4.3.1, )")])],
+                    Files = [new RecordedFile { Path = "Content/App.config.transform", Content = "<configuration />" }, new RecordedFile { Path = "tools/install.ps1", Content = "param()" }],
+                },
+                new RecordedPackage
+                {
+                    Id = "EntityFramework.SqlServerCompact", Version = "6.4.4", Synthetic = true,
+                    Files = [Dll("lib/net45/EntityFramework.SqlServerCompact.dll", "EntityFramework.SqlServerCompact")],
+                },
+                new RecordedPackage { Id = "Contoso.Dropped", Version = "1.0.0", Synthetic = true, Files = [Dll("lib/netstandard2.0/Contoso.Dropped.dll", "Contoso.Dropped")] },
+                new RecordedPackage { Id = "Contoso.Dropped", Version = "2.0.0", Synthetic = true, Files = [Dll("lib/net45/Contoso.Dropped.dll", "Contoso.Dropped")] },
+                new RecordedPackage
+                {
+                    Id = "LibSassHost.Native.win-x64", Version = "1.3.3", Synthetic = true,
+                    Files = [new RecordedFile { Path = "runtimes/win-x64/native/libsass.dll" }, new RecordedFile { Path = "build/LibSassHost.Native.win-x64.props", Content = "<Project />" }],
+                },
+                new RecordedPackage { Id = "LibSassHost.Native.linux-x64", Version = "1.3.3", Synthetic = true, Files = [new RecordedFile { Path = "runtimes/linux-x64/native/libsass.so" }] },
+            ],
+        };
+        using var root = new ScratchDirectory();
+        static PackageUsage InUse(string version) => new() { Versions = new(StringComparer.Ordinal) { [version] = ["src/Web/Web.csproj"] } };
+        var model = FixtureModels.Load("versions") with
+        {
+            Packages = new SortedDictionary<string, PackageUsage>(StringComparer.Ordinal)
+            {
+                ["Contoso.Dropped"] = InUse("2.0.0"),
+                ["EntityFramework.SqlServerCompact"] = InUse("6.4.4"),
+                ["LibSassHost.Native.win-x64"] = InUse("1.3.3"),
+            },
+        };
+        var bag = new DiagnosticBag();
+
+        var result = await DepsAuditor.RunAsync(new DepsAuditRequest
+        {
+            Model = model, Config = Config(root.Path), Feeds = new RecordedPackageFeeds(recording), Cache = NullCache.Instance, Diagnostics = bag,
+        }, TestContext.Current.CancellationToken);
+        var byId = result.Packages.ToDictionary(p => p.Id, StringComparer.Ordinal);
+
+        var compact = byId["EntityFramework.SqlServerCompact"];
+        Assert.NotEqual(PackageStatus.Upgrade, compact.Status);
+        Assert.Null(compact.NewestSupporting);
+        Assert.True(compact.NoVersionSupports);
+        var dropped = byId["Contoso.Dropped"];
+        Assert.Equal((PackageStatus.Blocked, "1.0.0"), (dropped.Status, dropped.NewestSupporting));
+        var downgrade = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR1007");
+        Assert.Contains("Contoso.Dropped 2.0.0 does not support net10.0", downgrade.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(bag.ToSortedList(), d => d.Code == "OFR1002");
+        var sass = byId["LibSassHost.Native.win-x64"];
+        Assert.Equal((PackageStatus.Ok, true), (sass.Status, sass.WindowsOnly));
+        Assert.Equal("1.3.3 runtimes/win-x64/native/libsass.dll: native code for Windows only", sass.WindowsOnlyEvidence);
+        Assert.Contains(bag.ToSortedList(), d => d.Code == "OFR1004" && d.Message.EndsWith("the feed has LibSassHost.Native.linux-x64 for Linux.", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Open Live Writer field test (P2): Microsoft.Bcl.Build, whose only files are build targets, was
+    /// `ok` although the package map says it is built in on modern .NET (its targets fail under the
+    /// SDK's MSBuild). A build-only package the map does not know stays `ok`.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR1009")]
+    public async Task A_package_with_nothing_for_any_framework_follows_the_package_map()
+    {
+        var recording = new FeedRecording
+        {
+            Source = "synthetic",
+            RecordedAt = "2026-09-29",
+            Packages =
+            [
+                new RecordedPackage { Id = "Microsoft.Bcl.Build", Version = "1.0.21", Synthetic = true, Files = [new RecordedFile { Path = "build/Microsoft.Bcl.Build.targets", Content = "<Project />" }] },
+                new RecordedPackage { Id = "NUnitTestAdapter", Version = "2.2.0", Synthetic = true, Files = [new RecordedFile { Path = "build/NUnitTestAdapter.props", Content = "<Project />" }] },
+            ],
+        };
+        using var root = new ScratchDirectory();
+        static PackageUsage InUse(string version) => new() { Versions = new(StringComparer.Ordinal) { [version] = ["src/Web/Web.csproj"] } };
+        var model = FixtureModels.Load("versions") with
+        {
+            Packages = new SortedDictionary<string, PackageUsage>(StringComparer.Ordinal) { ["Microsoft.Bcl.Build"] = InUse("1.0.21"), ["NUnitTestAdapter"] = InUse("2.2.0") },
+        };
+        var bag = new DiagnosticBag();
+
+        var result = await DepsAuditor.RunAsync(new DepsAuditRequest
+        {
+            Model = model, Config = Config(root.Path), Feeds = new RecordedPackageFeeds(recording), Cache = NullCache.Instance, Diagnostics = bag,
+        }, TestContext.Current.CancellationToken);
+
+        var bcl = result.Packages.Single(p => p.Id == "Microsoft.Bcl.Build");
+        Assert.Equal((PackageStatus.Replace, "built in on modern .NET"), (bcl.Status, bcl.Replacement!.Replacement));
+        Assert.Equal(PackageStatus.Ok, result.Packages.Single(p => p.Id == "NUnitTestAdapter").Status);
+        var empty = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR1009");
+        Assert.Equal("Microsoft.Bcl.Build 1.0.21 has nothing for any framework (only build or tool files), so it does nothing for net10.0; the package map says: built in on modern .NET.", empty.Message);
+        Assert.DoesNotContain(bag.ToSortedList(), d => d.Code is "OFR1001" or "OFR1007");
+    }
+
     [Fact]
     public async Task Ignored_packages_and_project_filter()
     {

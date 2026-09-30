@@ -100,7 +100,7 @@ them.
 The `audit api` rules (`commands/audit.md`), run over the file as it is in the
 editor, reported only on new lines: APIs missing on the target (`OFR3001`),
 Windows-only APIs (`OFR3002`), APIs that throw on modern .NET (`OFR3003`), and
-technologies with no port (`OFR3004`–`OFR3009`, ...), each with its
+technologies with no port (`OFR3004`–`OFR3009`, `OFR3013`), each with its
 recommendation and, for a missing API, the assembly's mapping (the package or
 replacement). The codes, rule packs, `rules.packs.disable`, and per-code
 `rules:` overrides are `audit api`'s; nothing is new here except the filter. The

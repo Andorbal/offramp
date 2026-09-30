@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Evidence.Engine</RootNamespace>
+  </PropertyGroup>
+</Project>

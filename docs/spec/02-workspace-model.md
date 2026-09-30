@@ -37,6 +37,13 @@ There is no `--fast` mode: a build that skips the compiler produces no
 assemblies for project references, so dependents lose their compiler calls
 (`docs/decisions/0008-no-fast-scan.md`).
 
+The model holds the solution's C#, Visual Basic, and F# projects. A project of
+another kind (C++, an installer, a database project, JavaScript) is never in it,
+its counts, or the plan, whether MSBuild evaluated it or not: `scan` names it once
+(`OFR0024`, info), and a C++/CLI project (`CLRSupport` set), which compiles .NET
+code and does need migrating, as `OFR0025` (warning)
+(`docs/decisions/0049-what-the-workspace-model-records.md`).
+
 ## Ingest
 
 From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
@@ -47,7 +54,9 @@ From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
   `UseWPF`, `UseWindowsForms`, `IsTestProject`, `IsPackable`,
   `GenerateSerializationAssemblies`, `ManagePackageVersionsCentrally`,
   `DirectoryPackagesPropsPath`, `ProjectTypeGuids` (legacy), `LangVersion`,
-  `Nullable`, `TreatWarningsAsErrors`, `NoWarn`, `DefineConstants`.
+  `Nullable`, `TreatWarningsAsErrors`, `NoWarn`, `DefineConstants`, and, when
+  `SignAssembly` is true, `SignAssembly`, `AssemblyOriginatorKeyFile`
+  (repository-relative when inside the repository), `DelaySign`, `PublicSign`.
 - Items: `Compile`, `ProjectReference`, `PackageReference` (with `Version`,
   `VersionOverride`, `PrivateAssets`), `Reference` (with `HintPath`),
   `COMReference`, `EmbeddedResource`, `None` with `CopyToOutputDirectory`,
@@ -60,11 +69,23 @@ From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
   pre/post-build events calling Windows commands, and the ASP.NET web
   application targets imported from Visual Studio's `VSToolsPath` (or an
   MSB4019 error for that import, when evaluation stopped there) or
-  `MvcBuildViews=true` (`OFR0110`–`OFR0116`). A failed build's errors add
-  what only a build shows: a path that exists only in another letter case
-  (`path-case`, `OFR0117`), an inline task factory only .NET Framework's MSBuild
-  has (`inline-task`, `OFR0118`), non-string resources (`resources`, `OFR0119`),
-  and an `Exec` command written for cmd.exe (`build-event`, `OFR0115`).
+  `MvcBuildViews=true` (`OFR0110`–`OFR0116`), `Microsoft.Bcl.Build`'s targets
+  without `SkipEnsureBindingRedirects` (`bcl-build`, `OFR0124`, also from its
+  MSB4062), and a `Reference` to `Microsoft.VisualStudio.QualityTools.*` without a
+  `HintPath` (`mstest-v1`, `OFR0125`). For a log built in this
+  checkout, the projects' files add, in one pass: every path an import, a
+  `Compile` or `EmbeddedResource` item, a `None` or `Content` item copied to the
+  output, or a `.resx` file reference names that exists only in another letter case (`path-case`,
+  `OFR0117`), and `.resx` files with non-string resources unless every target
+  framework embeds them preserialized (`resources`, `OFR0119`)
+  (`docs/decisions/0047-static-checks-of-project-files.md`). A failed build's
+  errors add what only a build shows: such a path in a target, an inline task
+  factory only .NET Framework's MSBuild has (`inline-task`, `OFR0118`),
+  non-string resources, and an `Exec` command written for cmd.exe
+  (`build-event`, `OFR0115`).
+- The output folder (`OutDir`, which defaults to `OutputPath`) and the files a
+  project's own build copied its assembly to (`Copy` tasks), for hosted projects
+  (below).
 - `project.assets.json` path per project → parsed with `NuGet.ProjectModel`
   for the resolved transitive package graph per target framework.
 
@@ -80,7 +101,10 @@ resolved packages reachable only from `autoReferenced` dependencies
 From the compiler log, via `Basic.CompilerLog.Util`: one `CompilerCall` per
 project × target framework, from which a Roslyn `Compilation` is created on
 demand. Compilations are **not** stored in the model; the model stores enough
-to rebuild them (the complog path and call index).
+to rebuild them: the complog path, the project, and the target framework the log
+records for the call. Readers find the call's position in the log; the position
+follows the order a parallel build finished its compilations, so the model never
+records it (`docs/decisions/0049-what-the-workspace-model-records.md`).
 
 ## Project kind detection
 
@@ -90,6 +114,7 @@ Evaluated in order; first match wins; the evidence is recorded.
 |---|---|
 | `test` | `IsTestProject=true`, or a PackageReference to a known test framework (xunit, NUnit, MSTest.TestFramework, TUnit) or adapter, or the same in `packages.config`, or legacy test ProjectTypeGuid |
 | `web` | `Sdk=Microsoft.NET.Sdk.Web`, or legacy web ProjectTypeGuid, or `Reference Include="System.Web"` with `OutputType=Library` and a `web.config` |
+| `test` | a `Reference` to a test framework's assembly (`nunit.framework`, `xunit`, `xunit.core`, `MbUnit.Framework`, the MSTest assemblies, `TUnit.Core`), usually a checked-in DLL, with `OutputType=Library`. It comes after `web` because a web application project is a library too |
 | `winforms` | `UseWindowsForms=true`, or `Reference Include="System.Windows.Forms"` with `OutputType=WinExe` |
 | `wpf` | `UseWPF=true`, or `Sdk=Microsoft.NET.Sdk.WindowsDesktop` with `PresentationFramework` reference |
 | `service` | `Reference Include="System.ServiceProcess"` with `OutputType=Exe`, or a PackageReference to Topshelf or `Microsoft.Extensions.Hosting.WindowsServices` (or either in the `packages.config` of an `OutputType=Exe` project), or `Sdk=Microsoft.NET.Sdk.Worker` |
@@ -98,6 +123,20 @@ Evaluated in order; first match wins; the evidence is recorded.
 | `unknown` | anything else; emits `OFR0102` |
 
 Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
+
+## Hosted projects
+
+A web or library project is **hosted** by a web project when its assembly lands
+inside that project's folder and outside its own: its output folder is there
+(SmartStoreNET's plugins build into `SmartStore.Web/Plugins/<Name>/`, its admin
+area into `SmartStore.Web/bin/`), or its own build copies its assembly there
+(DotNetNuke's modules copy theirs into `Website/bin/` after building). The host is
+the deepest such web project. A web project with its own `Global.asax` is never
+hosted. `scan` records the host and the evidence in `hostedBy`. A hosted project is
+part of its host's application, not an application of its own: `report` and `plan
+--for` put it in the host's closure, `redirects sync` manages the host's
+configuration with its packages, and `web inventory`/`web scaffold` name the host
+(`docs/decisions/0055-hosted-projects-belong-to-their-host.md`).
 
 ## Schema (v1)
 
@@ -108,7 +147,8 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
   "createdAt": "2026-09-25T20:00:00Z",
   "repositoryRoot": "/abs/path",
   "solution": "src/Monolith.sln",
-  "source": { "kind": "binlog|complog|build", "path": ".offramp/msbuild.binlog", "sha256": "...",
+  "source": { "kind": "binlog|complog|build", "path": ".offramp/msbuild.binlog",
+              "sha256": "...",                                          // a supplied log's hash; null for kind build
               "complog": { "path": "win.complog", "sha256": "..." } },   // null unless --complog came with --binlog
   "sdk": { "version": "10.0.100", "os": "osx-arm64" },
   "projects": [
@@ -117,18 +157,22 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
       "name": "Foo",
       "assemblyName": "Foo",
       "rootNamespace": "Foo",
-      "language": "csharp",                       // csharp | vb | fsharp | other, from the extension
+      "language": "csharp",                       // csharp | vb | fsharp, from the extension (other: never written by scan)
       "kind": "library",
       "kindEvidence": "OutputType=Library",
+      "hostedBy": { "project": "src/Site/Site.csproj",   // absent unless hosted (see Hosted projects)
+                    "evidence": ["builds into src/Site/Plugins/Foo, inside src/Site", "has no Global.asax", "no project references it"] },
       "sdkStyle": true,
       "sdk": "Microsoft.NET.Sdk",
       "targetFrameworks": ["net48", "net10.0"],
       "frameworkClass": "dual",
       "outputType": "Library",
+      "outputPath": "src/Foo/bin/Debug/net48",   // OutDir of the net4x target (else the first), repo-relative; absent outside the repo
       "isTestProject": false,
       "properties": { "LangVersion": "latest", "Nullable": "disable", "GenerateSerializationAssemblies": "On" },
       "defineConstants": { "net48": ["TRACE", "DEBUG", "NETFRAMEWORK", "NET48", "NET48_OR_GREATER"] },  // what the compiler saw
-      "windowsOnlyBuildSteps": ["sgen"],          // ids: sgen, com, entity-deploy, t4, fakes, ssdt, build-event, web-targets, aspnet-compiler, path-case, inline-task, resources
+                                                  // (a legacy project's call too); without a call, DefineConstants split on ; and , as csc does
+      "windowsOnlyBuildSteps": ["sgen"],          // ids: sgen, com, entity-deploy, t4, fakes, ssdt, build-event, web-targets, aspnet-compiler, path-case, inline-task, resources, bcl-build, mstest-v1
       "packagesConfig": false,                    // a packages.config sits beside the project
       "packagesConfigPackages": [                 // what it lists (direct and transitive), sorted; absent without one
         { "id": "Newtonsoft.Json", "version": "13.0.3", "targetFramework": "net472", "developmentDependency": false }
@@ -144,7 +188,8 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
         { "name": "System.Web", "hintPath": null, "kind": "framework" },
         { "name": "ThirdParty.Thing", "hintPath": "lib/ThirdParty.Thing.dll", "kind": "file",
           "metadata": { "assemblyVersion": "2.1.0.0", "targetFramework": ".NETFramework,Version=v4.5", "publicKeyToken": "..." } }
-      ],
+      ],                                          // a hintPath outside the repository is "$(NuGetPackageRoot)<id>/<version>/..." under the
+                                                  // NuGet global packages folder, else the file name; its metadata is read where the build found it
       "comReferences": [],
       "internalsVisibleTo": ["Foo.Tests"],
       "resolved": {                               // from project.assets.json, per tfm
@@ -152,9 +197,12 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
           "packages": [ { "id": "Microsoft.Extensions.Logging", "version": "8.0.1", "dependencies": [ { "id": "Microsoft.Extensions.Logging.Abstractions", "range": "[8.0.1, )" } ], "direct": true } ]
         }
       },
-      "compilerCalls": { "net48": { "complog": ".offramp/build.complog", "index": 17 }, "net10.0": { "complog": "...", "index": 18 } },
+      "compilerCalls": {                          // named by project and the target framework the log records
+        "net48": { "complog": ".offramp/build.complog", "project": "src/Foo/Foo.csproj", "targetFramework": "net48" },
+        "net10.0": { "complog": ".offramp/build.complog", "project": "src/Foo/Foo.csproj", "targetFramework": "net10.0" }
+      },                                          // a legacy project's call has "targetFramework": null
       "loc": 18234,                               // lines in Compile items, cheap count
-      "partial": true,                            // only when a target framework has no compiler call
+      "partial": true,                            // only when a target framework has no compiler call, or its call logged errors
       "config": { "kindOverride": null, "excluded": false }
     }
   ],
@@ -175,12 +223,23 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
 
 The model records `inputs`: the SHA-256 of every project file (`.csproj`,
 `.vbproj`, `.fsproj`, `.sqlproj`), solution (`.sln`, `.slnx`, and the model's own
-`.slnf`), `Directory.*.props/targets`, and `packages.config` in the repository
-(outside `bin/`, `obj/`, `packages/`, dot-directories, and the state directory).
-Every command that reads the model compares them, and `source.sha256` for a
-supplied log, with the files on disk; any changed, added, or removed input
-produces `OFR0002` naming what changed (warning by default; `--fail-on-stale`
-makes it an error). Content hashes, not modification times, so a fresh clone of
+`.slnf`), `Directory.*.props/targets`, `packages.config`, and `NuGet.config` in the
+repository, and of every other file the evaluations imported from the repository
+(a shared `build.settings` or `.targets`), all outside `bin/`, `obj/`, `packages/`,
+and the state directory; files found by name also outside dot-directories, imported
+ones outside `.git/` only (NuGet 2's `.nuget/NuGet.targets` is imported). An imported
+file is recorded as the file system spells it: once where it ignores letter case, in
+each spelling a case-sensitive one holds (a `nuget.targets` link next to
+`NuGet.targets`). Imported files are hashed again by path;
+the others are found by name. Every command that reads the model compares them, and
+`source.sha256` for a supplied log, with the files on disk (a log `scan` built itself
+has no hash: every build of the same inputs writes a different log, and the inputs
+already say what the model was built from;
+`docs/decisions/0049-what-the-workspace-model-records.md`); any changed, added, or
+removed input produces `OFR0002` naming what changed (warning by default;
+`--fail-on-stale` makes it an error). The scratch copies of the repository that
+verification builds in (`csproj modernize`, `deps consolidate`) take the inputs from
+the working tree, so uncommitted edits to them count. Content hashes, not modification times, so a fresh clone of
 the same commit is fresh (`docs/decisions/0009-staleness-by-content-hash.md`).
 `scan --if-stale` rescans only when needed.
 

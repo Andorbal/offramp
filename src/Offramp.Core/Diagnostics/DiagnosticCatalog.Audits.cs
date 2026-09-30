@@ -24,7 +24,7 @@ public static partial class DiagnosticCatalog
         "OFR3003", Severity.Error,
         "API throws on modern .NET",
         "The API compiles on modern .NET but throws PlatformNotSupportedException at run time.",
-        "Thread.Abort, AppDomain.CreateDomain, CodeDom compilation, delegate BeginInvoke, and BinaryFormatter without the compatibility switch.",
+        "Thread.Abort, AppDomain.CreateDomain, CodeDom compilation, delegate BeginInvoke, BinaryFormatter without the compatibility switch, and on a -windows target the Windows Forms types kept only for binary compatibility (MenuItem, ContextMenu, MainMenu, DataGrid, StatusBar, ToolBar: [Obsolete] WFDEV006).",
         "These compile but throw PlatformNotSupportedException; replace them (cooperative cancellation, AssemblyLoadContext, Roslyn, System.Text.Json).",
         AuditArea);
 
@@ -72,7 +72,7 @@ public static partial class DiagnosticCatalog
         "OFR3009", Severity.Error,
         "COM+, Code Access Security, or AppDomain sandboxing",
         "Enterprise Services (COM+), Code Access Security, and sandboxed AppDomains are gone on modern .NET.",
-        "System.EnterpriseServices components, CAS permission attributes, PermissionSet, AllowPartiallyTrustedCallers.",
+        "System.EnterpriseServices components, CAS permission attributes (SecurityPermission, FileIOPermission, and the other CodeAccessSecurityAttribute types), PermissionSet, AppDomain.CreateDomain with a permission set. Security transparency attributes are OFR3014.",
         "COM+ services, CAS permissions, and sandboxed AppDomains are gone; isolate the code in a separate process.",
         AuditArea);
 
@@ -96,8 +96,48 @@ public static partial class DiagnosticCatalog
         "OFR3012", Severity.Warning,
         "project not audited",
         "The audit read none of the project's code: audits read C# compilations, and the project is Visual Basic or F#, or the scan recorded no compiler call for it. The message gives the reason; the result lists it under `skipped`.",
-        "A Visual Basic library in a C# solution, or a project whose build failed during `scan`.",
-        "Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build and run `offramp scan` again.",
+        "A Visual Basic library in a C# solution, or a project whose build failed during `scan` (the model marks it partial; `scan` reported the errors as OFR0130).",
+        "Port or review a Visual Basic project by hand (its API use is not reported); for a missing compiler call, fix the build errors `scan` reported and run `offramp scan` again.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3013 = new(
+        "OFR3013", Severity.Error,
+        "call context (CallContext)",
+        "The code keeps ambient data in CallContext (System.Runtime.Remoting.Messaging), which modern .NET does not have. It is not Remoting: AsyncLocal<T> replaces it.",
+        "CallContext.SetData/GetData or LogicalSetData/LogicalGetData for a per-request or per-session context (NHibernate's CallSessionContext, logging scopes).",
+        "CallContext is gone; keep ambient data in an AsyncLocal<T>, which flows like LogicalSetData (a ThreadLocal<T> where SetData's per-thread behavior is wanted).",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3014 = new(
+        "OFR3014", Severity.Info,
+        "security transparency attribute without effect",
+        "A security transparency attribute ([SecurityCritical], [SecuritySafeCritical], [SecurityTransparent], [AllowPartiallyTrustedCallers], [SecurityRules]) exists on the target and does nothing there, so the code compiles and behaves the same without partial trust.",
+        "Libraries written for partial trust, typically on GetObjectData overrides and at assembly level.",
+        "The attribute exists on the target and does nothing there; it can stay, or go when the .NET Framework build does.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3015 = new(
+        "OFR3015", Severity.Info,
+        "package not found for the target compilation",
+        "NuGet could not find some of the project's packages at their version (NU1101, NU1102, NU1103), so whether they support the target is not known. Their DLLs are referenced as the project records them, and the APIs used from them are not checked.",
+        "A packages.config package kept only in the repository's packages folder, or a feed that no longer has the version.",
+        "Make the package reachable from a feed in nuget.config (or the global packages folder) and run the audit again, or check the package with `offramp deps audit`.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3016 = new(
+        "OFR3016", Severity.Warning,
+        "project audited from a failed build",
+        "The model marks the project partial: its build failed during `scan`. The audit read the compiler call the build recorded, which can lack sources or references, so findings can be missing or wrong.",
+        "A generated source file the repository's own build writes first (a shared AssemblyInfo), or a compile error.",
+        "Fix the build errors `scan` reported (OFR0130), run `offramp scan` again, then the audit.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3017 = new(
+        "OFR3017", Severity.Info,
+        "project that runs compiled against .NET, not .NET Standard",
+        "Under a .NET Standard target, an application or a test project cannot move to .NET Standard, which runs nowhere by itself. `audit api` compiled it against .NET 10 instead (`net10.0-windows` with Windows Forms or WPF), the framework the guide ports it to (ADR 0057).",
+        "`--target netstandard2.0` (or `target: netstandard2.0`) and a console, service, web, desktop, or test project in the audit.",
+        "Nothing to do: its findings are against .NET 10. To audit it against another .NET, pass that target (`--target 8`).",
         AuditArea);
 
     public static readonly DiagnosticDescriptor OFR3101 = new(
@@ -434,5 +474,13 @@ public static partial class DiagnosticCatalog
         "A side of the comparison did not build, the baseline could not be checked out, or the ApiCompat tool could not be installed or run. The message carries the tool's own words.",
         "A build error, a revision that does not exist, or no access to the NuGet feed that hosts Microsoft.DotNet.ApiCompat.Tool.",
         "Fix the build or the revision the message names, or make the tool's feed reachable, and run again.",
+        AuditArea);
+
+    public static readonly DiagnosticDescriptor OFR3505 = new(
+        "OFR3505", Severity.Info,
+        "git-ignored files copied into the baseline",
+        "The working tree's compilation of the project (or of a project it references) uses files git ignores, which no revision has, so the baseline was built with the working tree's copies (ADR 0058).",
+        "A file the repository's own build or a setup step generates, such as NHibernate's `src/SharedAssemblyInfo.cs`.",
+        "Nothing to do when the file is generated the same way for every revision. Otherwise compare with a baseline built by your own build.",
         AuditArea);
 }

@@ -135,14 +135,16 @@
       "OFR3006",
       "OFR3007",
       "OFR3008",
-      "OFR3009"
+      "OFR3009",
+      "OFR3013",
+      "OFR3014"
     ],
     "summary": [
       {
         "rule": "OFR3001",
         "title": "API missing on target",
         "severity": "error",
-        "findings": 17,
+        "findings": 11,
         "projects": 1
       },
       {
@@ -198,7 +200,21 @@
         "rule": "OFR3009",
         "title": "COM+, Code Access Security, or AppDomain sandboxing",
         "severity": "error",
+        "findings": 2,
+        "projects": 1
+      },
+      {
+        "rule": "OFR3013",
+        "title": "call context (CallContext)",
+        "severity": "error",
         "findings": 1,
+        "projects": 1
+      },
+      {
+        "rule": "OFR3014",
+        "title": "security transparency attribute without effect",
+        "severity": "info",
+        "findings": 3,
         "projects": 1
       }
     ],
@@ -229,107 +245,6 @@
         "overridden": false,
         "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
         "file": "src/Behavior.Legacy/Rules/Api.cs",
-        "line": 17,
-        "column": 37,
-        "symbol": "System.Web.UI.Control",
-        "namespace": "System.Web.UI",
-        "category": "missing-api",
-        "message": "System.Web.UI.Control (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
-        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
-        "details": {
-          "assembly": "System.Web",
-          "compilerError": "CS0234",
-          "mapping": "none",
-          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
-        }
-      },
-      {
-        "rule": "OFR3001",
-        "severity": "error",
-        "overridden": false,
-        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
-        "file": "src/Behavior.Legacy/Rules/Api.cs",
-        "line": 67,
-        "column": 47,
-        "symbol": "System.Web.UI.Page",
-        "namespace": "System.Web.UI",
-        "category": "missing-api",
-        "message": "System.Web.UI.Page (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
-        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
-        "details": {
-          "assembly": "System.Web",
-          "compilerError": "CS0234",
-          "mapping": "none",
-          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
-        }
-      },
-      {
-        "rule": "OFR3001",
-        "severity": "error",
-        "overridden": false,
-        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
-        "file": "src/Behavior.Legacy/Rules/Api.cs",
-        "line": 78,
-        "column": 30,
-        "symbol": "System.Web.Services.WebServiceAttribute",
-        "namespace": "System.Web.Services",
-        "category": "missing-api",
-        "message": "System.Web.Services.WebServiceAttribute (System.Web.Services) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
-        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
-        "details": {
-          "assembly": "System.Web.Services",
-          "compilerError": "CS0234",
-          "mapping": "none",
-          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
-        }
-      },
-      {
-        "rule": "OFR3001",
-        "severity": "error",
-        "overridden": false,
-        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
-        "file": "src/Behavior.Legacy/Rules/Api.cs",
-        "line": 79,
-        "column": 53,
-        "symbol": "System.Web.Services.WebService",
-        "namespace": "System.Web.Services",
-        "category": "missing-api",
-        "message": "System.Web.Services.WebService (System.Web.Services) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`).",
-        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
-        "details": {
-          "assembly": "System.Web.Services",
-          "compilerError": "CS0234",
-          "mapping": "none",
-          "note": "ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`)."
-        }
-      },
-      {
-        "rule": "OFR3001",
-        "severity": "error",
-        "overridden": false,
-        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
-        "file": "src/Behavior.Legacy/Rules/Api.cs",
-        "line": 96,
-        "column": 44,
-        "symbol": "System.ServiceModel.ServiceHost",
-        "namespace": "System.ServiceModel",
-        "category": "missing-api",
-        "message": "System.ServiceModel.ServiceHost (System.ServiceModel) does not exist on the target. Package: System.ServiceModel.Http. WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
-        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
-        "details": {
-          "assembly": "System.ServiceModel",
-          "compilerError": "CS0234",
-          "mapping": "package",
-          "note": "WCF clients use the System.ServiceModel.* packages; services move to CoreWCF.",
-          "package": "System.ServiceModel.Http"
-        }
-      },
-      {
-        "rule": "OFR3001",
-        "severity": "error",
-        "overridden": false,
-        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
-        "file": "src/Behavior.Legacy/Rules/Api.cs",
         "line": 101,
         "column": 44,
         "symbol": "System.ServiceModel.EndpointAddress",
@@ -351,38 +266,19 @@
         "overridden": false,
         "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
         "file": "src/Behavior.Legacy/Rules/Api.cs",
-        "line": 109,
-        "column": 37,
-        "symbol": "System.Runtime.Remoting.RemotingConfiguration",
-        "namespace": "System.Runtime.Remoting",
+        "line": 196,
+        "column": 44,
+        "symbol": "System.AppDomain.DefineDynamicAssembly(System.Reflection.AssemblyName, System.Reflection.Emit.AssemblyBuilderAccess)",
+        "namespace": "System",
         "category": "missing-api",
-        "message": "System.Runtime.Remoting.RemotingConfiguration (mscorlib) does not exist on the target. The assembly is part of the target, but not this API. The core library; what it lost on modern .NET (Remoting, Code Access Security, AppDomain creation) has no port.",
+        "message": "System.AppDomain.DefineDynamicAssembly(System.Reflection.AssemblyName, System.Reflection.Emit.AssemblyBuilderAccess) (mscorlib) does not exist on the target. Use System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly.",
         "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
         "details": {
           "assembly": "mscorlib",
-          "compilerError": "CS0234",
+          "compilerError": "CS1061",
           "mapping": "builtin",
-          "note": "The core library; what it lost on modern .NET (Remoting, Code Access Security, AppDomain creation) has no port."
-        }
-      },
-      {
-        "rule": "OFR3001",
-        "severity": "error",
-        "overridden": false,
-        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
-        "file": "src/Behavior.Legacy/Rules/Api.cs",
-        "line": 126,
-        "column": 31,
-        "symbol": "System.Activities.Activity",
-        "namespace": "System.Activities",
-        "category": "missing-api",
-        "message": "System.Activities.Activity (System.Activities) does not exist on the target. Windows Workflow Foundation has no port; CoreWF covers WF4 workflows.",
-        "recommendation": "See the assembly's mapping (`offramp deps gac`); replace the API or isolate it behind a seam.",
-        "details": {
-          "assembly": "System.Activities",
-          "compilerError": "CS0234",
-          "mapping": "none",
-          "note": "Windows Workflow Foundation has no port; CoreWF covers WF4 workflows."
+          "note": "The core library; what it lost on modern .NET (Remoting, Code Access Security, AppDomain creation) has no port.",
+          "replacement": "System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly"
         }
       },
       {
@@ -850,6 +746,81 @@
         "message": "COM+, Code Access Security, or AppDomain sandboxing: System.Security.PermissionSet.",
         "recommendation": "COM+ services, CAS permissions, and sandboxed AppDomains are gone; isolate the code in a separate process.",
         "details": {}
+      },
+      {
+        "rule": "OFR3009",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 148,
+        "column": 10,
+        "symbol": "System.Security.Permissions.SecurityPermissionAttribute",
+        "namespace": "System.Security.Permissions",
+        "category": "removed-technology",
+        "message": "COM+, Code Access Security, or AppDomain sandboxing: System.Security.Permissions.SecurityPermissionAttribute.",
+        "recommendation": "COM+ services, CAS permissions, and sandboxed AppDomains are gone; isolate the code in a separate process.",
+        "details": {}
+      },
+      {
+        "rule": "OFR3013",
+        "severity": "error",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 164,
+        "column": 47,
+        "symbol": "System.Runtime.Remoting.Messaging.CallContext",
+        "namespace": "System.Runtime.Remoting.Messaging",
+        "category": "removed-technology",
+        "message": "Call context (CallContext): System.Runtime.Remoting.Messaging.CallContext.",
+        "recommendation": "CallContext is gone; keep ambient data in an AsyncLocal<T>, which flows like LogicalSetData (a ThreadLocal<T> where SetData's per-thread behavior is wanted).",
+        "details": {}
+      },
+      {
+        "rule": "OFR3014",
+        "severity": "info",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 154,
+        "column": 10,
+        "symbol": "System.Security.SecurityCriticalAttribute",
+        "namespace": "System.Security",
+        "category": "no-effect",
+        "message": "Security transparency attribute without effect: System.Security.SecurityCriticalAttribute.",
+        "recommendation": "The attribute exists on the target and does nothing there; it can stay, or go when the .NET Framework build does.",
+        "details": {}
+      },
+      {
+        "rule": "OFR3014",
+        "severity": "info",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 175,
+        "column": 10,
+        "symbol": "System.Security.SecurityCriticalAttribute",
+        "namespace": "System.Security",
+        "category": "no-effect",
+        "message": "Security transparency attribute without effect: System.Security.SecurityCriticalAttribute.",
+        "recommendation": "The attribute exists on the target and does nothing there; it can stay, or go when the .NET Framework build does.",
+        "details": {}
+      },
+      {
+        "rule": "OFR3014",
+        "severity": "info",
+        "overridden": false,
+        "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+        "file": "src/Behavior.Legacy/Rules/Api.cs",
+        "line": 180,
+        "column": 10,
+        "symbol": "System.Security.SecuritySafeCriticalAttribute",
+        "namespace": "System.Security",
+        "category": "no-effect",
+        "message": "Security transparency attribute without effect: System.Security.SecuritySafeCriticalAttribute.",
+        "recommendation": "The attribute exists on the target and does nothing there; it can stay, or go when the .NET Framework build does.",
+        "details": {}
       }
     ],
     "ledger": [
@@ -867,27 +838,30 @@
         "portableFiles": 1,
         "portability": 0.25,
         "byCategory": {
-          "missing-api": 17,
-          "removed-technology": 8,
+          "missing-api": 11,
+          "no-effect": 3,
+          "removed-technology": 10,
           "throws": 10,
           "windows-only": 2
         },
         "byNamespace": {
           "Microsoft.Win32": 1,
-          "System": 3,
-          "System.Activities": 2,
+          "System": 4,
+          "System.Activities": 1,
           "System.Configuration": 2,
           "System.Data.SqlClient": 1,
-          "System.Runtime.Remoting": 2,
+          "System.Runtime.Remoting": 1,
+          "System.Runtime.Remoting.Messaging": 1,
           "System.Runtime.Serialization.Formatters.Binary": 7,
-          "System.Security": 1,
-          "System.ServiceModel": 3,
+          "System.Security": 4,
+          "System.Security.Permissions": 1,
+          "System.ServiceModel": 2,
           "System.Threading": 1,
           "System.Web": 4,
           "System.Web.Script.Serialization": 1,
           "System.Web.Security": 1,
-          "System.Web.Services": 4,
-          "System.Web.UI": 4
+          "System.Web.Services": 2,
+          "System.Web.UI": 2
         }
       }
     ],
@@ -897,35 +871,31 @@
         "findings": 7
       },
       {
+        "namespace": "System",
+        "findings": 4
+      },
+      {
+        "namespace": "System.Security",
+        "findings": 4
+      },
+      {
         "namespace": "System.Web",
         "findings": 4
-      },
-      {
-        "namespace": "System.Web.Services",
-        "findings": 4
-      },
-      {
-        "namespace": "System.Web.UI",
-        "findings": 4
-      },
-      {
-        "namespace": "System",
-        "findings": 3
-      },
-      {
-        "namespace": "System.ServiceModel",
-        "findings": 3
-      },
-      {
-        "namespace": "System.Activities",
-        "findings": 2
       },
       {
         "namespace": "System.Configuration",
         "findings": 2
       },
       {
-        "namespace": "System.Runtime.Remoting",
+        "namespace": "System.ServiceModel",
+        "findings": 2
+      },
+      {
+        "namespace": "System.Web.Services",
+        "findings": 2
+      },
+      {
+        "namespace": "System.Web.UI",
         "findings": 2
       },
       {
@@ -933,11 +903,23 @@
         "findings": 1
       },
       {
+        "namespace": "System.Activities",
+        "findings": 1
+      },
+      {
         "namespace": "System.Data.SqlClient",
         "findings": 1
       },
       {
-        "namespace": "System.Security",
+        "namespace": "System.Runtime.Remoting",
+        "findings": 1
+      },
+      {
+        "namespace": "System.Runtime.Remoting.Messaging",
+        "findings": 1
+      },
+      {
+        "namespace": "System.Security.Permissions",
         "findings": 1
       },
       {
@@ -960,13 +942,13 @@
     {
       "code": "OFR3001",
       "severity": "error",
-      "message": "System.Web.HttpContext (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`). (17 findings in the project; the first is shown.)",
+      "message": "System.Web.HttpContext (System.Web) does not exist on the target. ASP.NET (System.Web) has no port; move to ASP.NET Core (`offramp web`). (11 findings in the project; the first is shown.)",
       "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
       "file": "src/Behavior.Legacy/Rules/Api.cs",
       "line": 14,
       "column": 31,
       "data": {
-        "findings": 17,
+        "findings": 11,
         "symbol": "System.Web.HttpContext"
       },
       "help": "https://offramp.dev/diagnostics/OFR3001"
@@ -1072,13 +1054,13 @@
     {
       "code": "OFR3009",
       "severity": "error",
-      "message": "COM+, Code Access Security, or AppDomain sandboxing: System.Security.PermissionSet.",
+      "message": "COM+, Code Access Security, or AppDomain sandboxing: System.Security.PermissionSet. (2 findings in the project; the first is shown.)",
       "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
       "file": "src/Behavior.Legacy/Rules/Api.cs",
       "line": 140,
       "column": 40,
       "data": {
-        "findings": 1,
+        "findings": 2,
         "symbol": "System.Security.PermissionSet"
       },
       "help": "https://offramp.dev/diagnostics/OFR3009"
@@ -1097,11 +1079,39 @@
         ]
       },
       "help": "https://offramp.dev/diagnostics/OFR3011"
+    },
+    {
+      "code": "OFR3013",
+      "severity": "error",
+      "message": "Call context (CallContext): System.Runtime.Remoting.Messaging.CallContext.",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 164,
+      "column": 47,
+      "data": {
+        "findings": 1,
+        "symbol": "System.Runtime.Remoting.Messaging.CallContext"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3013"
+    },
+    {
+      "code": "OFR3014",
+      "severity": "info",
+      "message": "Security transparency attribute without effect: System.Security.SecurityCriticalAttribute. (3 findings in the project; the first is shown.)",
+      "project": "src/Behavior.Legacy/Behavior.Legacy.csproj",
+      "file": "src/Behavior.Legacy/Rules/Api.cs",
+      "line": 154,
+      "column": 10,
+      "data": {
+        "findings": 3,
+        "symbol": "System.Security.SecurityCriticalAttribute"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3014"
     }
   ],
   "summary": {
-    "errors": 8,
+    "errors": 9,
     "warnings": 1,
-    "info": 1
+    "info": 2
   }
 }

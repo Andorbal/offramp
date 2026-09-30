@@ -9,12 +9,14 @@ internal sealed record ProjectFile(string Project, string Relative, string Text,
 /// <summary>
 /// The files beside the C# sources that name code without compiling it: resources and
 /// configuration (<c>.resx</c>, <c>.config</c>, <c>.xaml</c>, <c>.xml</c>, <c>.json</c>, and XML
-/// under other extensions, like plugin manifests) and ASP.NET markup (<c>.aspx</c>, <c>.ascx</c>, <c>.master</c>, <c>.ashx</c>, <c>.asmx</c>,
+/// under other extensions, like plugin manifests), pages and scripts (<c>.htm</c>, <c>.html</c>,
+/// <c>.js</c>, minified scripts aside), and ASP.NET markup (<c>.aspx</c>, <c>.ascx</c>, <c>.master</c>, <c>.ashx</c>, <c>.asmx</c>,
 /// <c>.asax</c>, <c>.svc</c>, Razor views), which the runtime compiles and binds by name.
 /// </summary>
 internal static class ProjectFiles
 {
-    private static readonly HashSet<string> Resources = new(StringComparer.OrdinalIgnoreCase) { ".resx", ".config", ".xaml", ".xml", ".json" };
+    /// <summary>Files read for names: resources and configuration, and the pages and scripts that call COM-visible code through <c>window.external</c>.</summary>
+    private static readonly HashSet<string> Resources = new(StringComparer.OrdinalIgnoreCase) { ".resx", ".config", ".xaml", ".xml", ".json", ".htm", ".html", ".js" };
 
     private static readonly HashSet<string> MarkupExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -24,7 +26,7 @@ internal static class ProjectFiles
     /// <summary>Files that are not read for names even when they hold XML: sources, and web page assets.</summary>
     private static readonly HashSet<string> NotScanned = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".cs", ".vb", ".fs", ".csproj", ".vbproj", ".fsproj", ".props", ".targets", ".html", ".htm", ".svg", ".xsd", ".xsl", ".xslt",
+        ".cs", ".vb", ".fs", ".csproj", ".vbproj", ".fsproj", ".props", ".targets", ".svg", ".xsd", ".xsl", ".xslt",
     };
 
     private static readonly HashSet<string> SkippedDirectories = new(StringComparer.OrdinalIgnoreCase) { "bin", "obj", "node_modules", "packages" };
@@ -47,7 +49,7 @@ internal static class ProjectFiles
                 var extension = Path.GetExtension(path);
                 var markup = MarkupExtensions.Contains(extension);
                 var relative = RepoPaths.ToRepositoryRelative(root, path);
-                if ((markup || Resources.Contains(extension) || IsXml(path, extension)) && !files.ContainsKey(relative))
+                if ((markup || (Resources.Contains(extension) && !IsMinified(path)) || IsXml(path, extension)) && !files.ContainsKey(relative))
                 {
                     files[relative] = (project.Id, path, markup);
                 }
@@ -69,6 +71,9 @@ internal static class ProjectFiles
 
         return read;
     }
+
+    /// <summary>A minified script (<c>jquery.min.js</c>): a library's build, whose names are the library's.</summary>
+    private static bool IsMinified(string path) => path.EndsWith(".min.js", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Whether a file with another extension holds XML, such as a plugin manifest (DotNetNuke's
@@ -206,7 +211,7 @@ internal static class ProjectFiles
         }
     }
 
-    private static IEnumerable<string> Walk(string directory)
+    internal static IEnumerable<string> Walk(string directory)
     {
         IEnumerable<string> files, subdirectories;
         try

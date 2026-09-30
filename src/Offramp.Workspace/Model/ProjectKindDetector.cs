@@ -41,6 +41,13 @@ public static class ProjectKindDetector
         "TUnit", "TUnit.Core", "TUnit.Engine",
     ];
 
+    /// <summary>The assemblies of those frameworks, for projects that reference them by HintPath instead of a package.</summary>
+    public static readonly IReadOnlyList<string> TestAssemblies =
+    [
+        "Microsoft.VisualStudio.QualityTools.UnitTestFramework", "Microsoft.VisualStudio.TestPlatform.TestFramework",
+        "nunit.framework", "TUnit.Core", "xunit", "xunit.core", "xunit.v3.core", "MbUnit.Framework",
+    ];
+
     private const string TestProjectGuid = "3AC096D0-A1C2-E12C-1390-A8335801FDAB";
     private const string WpfProjectGuid = "60DC8134-EBA5-43B8-BCC9-BB4BC16C2548";
 
@@ -99,6 +106,14 @@ public static class ProjectKindDetector
         if (facts.AssemblyReferences.Contains("System.Web") && isLibrary && facts.HasWebConfig)
         {
             return (ProjectKind.Web, "Reference System.Web + OutputType=Library + web.config");
+        }
+
+        // test, from a checked-in test framework: only a library, after the web rules, since a web application
+        // project is a library too and one that references a test framework is still the application
+        var testAssembly = TestAssemblies.FirstOrDefault(facts.AssemblyReferences.Contains);
+        if (testAssembly is not null && isLibrary)
+        {
+            return (ProjectKind.Test, $"Reference {testAssembly} + OutputType=Library");
         }
 
         // winforms

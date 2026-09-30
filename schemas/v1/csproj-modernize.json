@@ -32,7 +32,7 @@
           },
           "properties": {
             "type": "array",
-            "description": "Project properties that replace the AssemblyInfo attributes the SDK generates.",
+            "description": "Project properties that replace the AssemblyInfo attributes the SDK generates, and GenerateAssembly<Name>Attribute=false for the attributes a shared or generated file keeps (OFR4306).",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -48,7 +48,7 @@
               {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["passed", "targets", "addedTargets", "buildErrors"],
+                "required": ["passed", "targets", "addedTargets", "built", "buildErrorCount", "buildErrorCodes", "buildErrors"],
                 "properties": {
                   "passed": { "type": "boolean" },
                   "targets": {
@@ -57,7 +57,7 @@
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["targetFramework", "sourcesAdded", "sourcesRemoved", "referencesAdded", "referencesRemoved", "implicitReferencesAdded", "transitiveReferencesAdded", "resourcesAdded", "resourcesRemoved", "identical"],
+                      "required": ["targetFramework", "sourcesAdded", "sourcesRemoved", "referencesAdded", "referencesRemoved", "implicitReferencesAdded", "transitiveReferencesAdded", "frameworkReferencesAdded", "facadesRemoved", "explanations", "resourcesAdded", "resourcesRemoved", "identical"],
                       "properties": {
                         "targetFramework": { "type": "string" },
                         "sourcesAdded": { "type": "array", "items": { "type": "string" } },
@@ -65,7 +65,24 @@
                         "referencesAdded": { "type": "array", "items": { "type": "string" } },
                         "referencesRemoved": { "type": "array", "items": { "type": "string" } },
                         "implicitReferencesAdded": { "type": "array", "items": { "type": "string" }, "description": "The SDK's implicit .NET Framework references; allowed." },
-                        "transitiveReferencesAdded": { "type": "array", "items": { "type": "string" }, "description": "Assemblies of converted packages that now flow from referenced projects; allowed." },
+                        "transitiveReferencesAdded": { "type": "array", "items": { "type": "string" }, "description": "Assemblies of packages the converted project's restore resolved (its own packages' other assemblies, packages flowing from referenced projects); allowed." },
+                        "frameworkReferencesAdded": { "type": "array", "items": { "type": "string" }, "description": "Framework assemblies that restored packages declare (nuspec frameworkAssemblies); allowed." },
+                        "facadesRemoved": { "type": "array", "items": { "type": "string" }, "description": ".NET Standard facades the legacy build added and the SDK-style build does not; allowed." },
+                        "explanations": {
+                          "type": "array",
+                          "description": "The evidence for the allowed reference changes, by change, reason, and source (ADR 0061).",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["change", "reason", "source", "references"],
+                            "properties": {
+                              "change": { "enum": ["added", "removed"] },
+                              "reason": { "enum": ["package", "frameworkAssemblies", "facades"], "description": "package: the assembly is one of the package's compile assemblies; frameworkAssemblies: the packages declare it; facades: a facade the legacy build added from the named folder." },
+                              "source": { "type": "string", "description": "The package (Id Version), the declaring packages, or the facades' folder from its recognizable part on." },
+                              "references": { "type": "array", "items": { "type": "string" } }
+                            }
+                          }
+                        },
                         "resourcesAdded": { "type": "array", "items": { "type": "string" } },
                         "resourcesRemoved": { "type": "array", "items": { "type": "string" } },
                         "identical": { "type": "boolean" }
@@ -73,7 +90,19 @@
                     }
                   },
                   "addedTargets": { "type": "array", "items": { "type": "string" }, "description": "Target frameworks only the converted project has (not compared)." },
-                  "buildErrors": { "type": "array", "items": { "type": "string" } }
+                  "built": { "type": ["boolean", "null"], "description": "The converted project built; false when it did not (OFR4303), null when it was not built because the scan's log is gone." },
+                  "buildErrorCount": { "type": "integer", "minimum": 0, "description": "Distinct errors of the converted build; 0 when it built." },
+                  "buildErrorCodes": {
+                    "type": "array",
+                    "description": "The converted build's errors by code (other: no code), the most frequent first, then by code.",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["code", "count"],
+                      "properties": { "code": { "type": "string" }, "count": { "type": "integer", "minimum": 1 } }
+                    }
+                  },
+                  "buildErrors": { "type": "array", "items": { "type": "string" }, "description": "The first 10 errors, with paths relative to the repository." }
                 }
               }
             ]

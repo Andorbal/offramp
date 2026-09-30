@@ -46,6 +46,8 @@ public sealed class GlobalBehaviorTests : IDisposable
     [InlineData("frobnicate")]
     [InlineData("doctor", "--target", "3")]
     [InlineData("doctor", "--target", "ten")]
+    [InlineData("doctor", "--target", "net48")]
+    [InlineData("doctor", "--target", "netstandard1.6")]
     [InlineData("doctor", "--fail-on", "sometimes")]
     [InlineData("doctor", "--llm", "--no-llm")]
     [InlineData("init", "--apply", "--dry-run")]
@@ -70,6 +72,8 @@ public sealed class GlobalBehaviorTests : IDisposable
         Assert.Equal("net9.0", await Target());
 
         Assert.Equal("net11.0", await Target("--target", "11"));
+        Assert.Equal("netstandard2.0", await Target("--target", "netstandard2.0"));
+        Assert.Equal("net8.0-windows", await Target("-t", "net8.0-windows"));
 
         async Task<string> Target(params string[] extra)
         {

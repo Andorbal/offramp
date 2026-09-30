@@ -35,6 +35,9 @@ public sealed record WebScaffoldRequest
     /// <summary><c>--legacy-url</c>; null uses the project's IIS URL.</summary>
     public string? LegacyUrl { get; init; }
 
+    /// <summary>The compilations of the projects the application references (<see cref="WebInventory.Libraries"/>): their route registrations are the application's.</summary>
+    public IReadOnlyList<Compilation> Libraries { get; init; } = [];
+
     /// <summary>Resolves the target's reference assemblies for the in-memory compile; null skips it.</summary>
     public TargetReferenceResolver? References { get; init; }
 
@@ -63,7 +66,7 @@ public static class WebScaffolder
     {
         var root = request.RepositoryRoot;
         var project = request.Project;
-        var inventory = WebInventory.Analyze(root, project, compilation);
+        var inventory = WebInventory.Analyze(root, project, compilation, request.Libraries);
         var directory = RepoPaths.Normalize(request.NewDirectory).TrimEnd('/');
         var name = Path.GetFileName(directory);
         var tfm = string.Create(CultureInfo.InvariantCulture, $"net{request.TargetMajor}.0");
@@ -76,6 +79,7 @@ public static class WebScaffolder
             Proxy = request.Proxy,
             Adapters = request.Adapters,
             LegacyUrl = legacyUrl,
+            HostedBy = inventory.HostedBy,
         };
 
         var target = RepoPaths.ToAbsolute(root, directory);
@@ -83,6 +87,13 @@ public static class WebScaffolder
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR4204, $"{directory} already has files; nothing was generated.", new DiagnosticLocation(project.Id, directory));
             return null;
+        }
+
+        if (inventory.HostedBy is { } host)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR0205,
+                $"{project.Id} is hosted by {host} and serves nothing by itself: the proxy forwards to {legacyUrl}, and only its own actions are ported; `web scaffold --project {host}` puts the whole application behind the new one.",
+                new DiagnosticLocation(project.Id));
         }
 
         var systemWebFiles = inventory.SystemWeb.Select(s => s.File).ToHashSet(StringComparer.Ordinal);
@@ -108,6 +119,13 @@ public static class WebScaffolder
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR4201, $"{page} stays with the legacy application: keep it behind the proxy, rewrite it as a Razor Page or Blazor component, or use a third-party converter.",
                 new DiagnosticLocation(project.Id, page));
+        }
+
+        foreach (var route in MappableRoutes(inventory, controllers).Where(r => r.Computed is not null))
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR4205,
+                $"Route {(route.Name.Length == 0 ? "(unnamed)" : route.Name)} has a template computed at run time ({route.Computed}); it is not mapped, so the proxy keeps sending its requests to the legacy application.",
+                new DiagnosticLocation(project.Id, route.File, route.Line));
         }
 
         foreach (var handler in handlers)
@@ -395,12 +413,18 @@ public static class WebScaffolder
         return builder.ToString();
     }
 
-    /// <summary>Convention routes as <c>MapControllerRoute</c> calls: the MVC ones, and an area's when a controller of the area is ported.</summary>
-    private static List<string> Routes(WebInventoryResult inventory, List<PortedControllerSource> controllers)
+    /// <summary>The MVC convention routes the new application keeps: an area's when a controller of the area is ported.</summary>
+    private static IEnumerable<WebRoute> MappableRoutes(WebInventoryResult inventory, List<PortedControllerSource> controllers)
     {
         var portedAreas = controllers.Where(c => c.Ported.Any()).Select(c => inventory.Controllers.First(i => i.Type == c.Type.ToDisplayString()).Area).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        return inventory.Routes.Where(r => r.Kind == "mvc" && (r.Area is null || portedAreas.Contains(r.Area)));
+    }
+
+    /// <summary>Convention routes as <c>MapControllerRoute</c> calls; a template computed at run time cannot be written (OFR4205).</summary>
+    private static List<string> Routes(WebInventoryResult inventory, List<PortedControllerSource> controllers)
+    {
         var result = new List<string>();
-        foreach (var route in inventory.Routes.Where(r => r.Kind == "mvc" && (r.Area is null || portedAreas.Contains(r.Area))))
+        foreach (var route in MappableRoutes(inventory, controllers).Where(r => r.Computed is null))
         {
             var pattern = route.Template;
             var extra = new List<string>();
@@ -448,7 +472,7 @@ public static class WebScaffolder
                     paths.Add(info.Kind == "webapi" ? $"/api/{controllerName}" : $"/{(info.Area is null ? "" : info.Area + "/")}{controllerName}/{action.Name}");
 
                     // Convention routes that name the controller and action in their defaults (catalog/{category}).
-                    foreach (var route in inventory.Routes.Where(r => r.Kind == "mvc" && r.Area == info.Area && !r.Template.Contains("{controller}", StringComparison.Ordinal)
+                    foreach (var route in inventory.Routes.Where(r => r.Kind == "mvc" && r.Computed is null && r.Area == info.Area && !r.Template.Contains("{controller}", StringComparison.Ordinal)
                         && r.Defaults.Contains("controller = " + controllerName) && r.Defaults.Contains("action = " + action.Name)))
                     {
                         paths.Add("/" + route.Template);

@@ -19,7 +19,32 @@ public sealed record BinlogData
     public string? SdkVersion { get; init; }
 
     public string? RuntimeIdentifier { get; init; }
+
+    /// <summary>
+    /// Compilations whose compiler task logged an error, as captured: the compiler log records their calls,
+    /// but what the compiler saw does not compile.
+    /// </summary>
+    public IReadOnlyList<FailedCompilation> FailedCompilations { get; init; } = [];
+
+    /// <summary>
+    /// Files a project's own build copied its assembly to (an <c>AfterBuild</c> copy into a site's <c>bin</c>, as
+    /// DotNetNuke's modules do), as captured, sorted; the copy to its own output folder included.
+    /// </summary>
+    public IReadOnlyList<AssemblyCopy> AssemblyCopies { get; init; } = [];
 }
+
+/// <summary>A project's build copying its own assembly to <paramref name="Destination"/> (a file path, as captured).</summary>
+public sealed record AssemblyCopy(string ProjectFile, string Destination);
+
+/// <summary>A project and target framework (null when none is known) whose compiler task logged an error.</summary>
+public sealed record FailedCompilation(string ProjectFile, string? TargetFramework);
+
+/// <summary>
+/// The files a build read, as far as its log says, as captured (absolute, forward slashes, sorted): see
+/// <see cref="BinlogReader.ReadInputs"/>. <see cref="ProjectFiles"/> are the evaluated projects, for mapping the paths;
+/// <see cref="TaskAssemblies"/> the assemblies its tasks were loaded from, whose dependencies load from beside them.
+/// </summary>
+public sealed record BuildInputs(IReadOnlyList<string> ProjectFiles, IReadOnlyList<string> Files, IReadOnlyList<string> TaskAssemblies);
 
 /// <summary>Reads evaluations, items, targets, and errors from a binary log with MSBuild.StructuredLogger.</summary>
 public static class BinlogReader
@@ -39,6 +64,11 @@ public static class BinlogReader
         "TransformOnBuild", "EnableDefaultCompileItems", "NETCoreSdkVersion", "NETCoreSdkRuntimeIdentifier",
         "SolutionPath", "SqlServerVerification", "DSP", "ImplicitUsings", "ExcludeRestorePackageImports", "MSBuildRestoreSessionId",
         "EnableWindowsTargeting", "OfframpCompileOnly", "AdditionalExplicitAssemblyReferences", "MvcBuildViews", "BaseIntermediateOutputPath", "IntermediateOutputPath", "BaseOutputPath", "OutputPath",
+        "GenerateResourceUsePreserializedResources", "SkipEnsureBindingRedirects",
+        "MicrosoftCommonPropsHasBeenImported", "ImportDirectoryBuildProps", "DirectoryBuildPropsPath",
+        "SignAssembly", "AssemblyOriginatorKeyFile", "DelaySign", "PublicSign",
+        "NuGetPackageRoot",
+        "OutDir",
     };
 
     /// <summary>Item types copied from each evaluation.</summary>
@@ -69,6 +99,7 @@ public static class BinlogReader
 
         // Last build (non-restore) evaluation wins per project and target framework.
         var chosen = new Dictionary<(string File, string? Tfm), EvaluatedProject>();
+        var tfmByEvaluation = new Dictionary<int, string?>();
         foreach (var evaluation in evaluations.OrderBy(e => e.Id))
         {
             if (evaluation.ProjectFile is null || evaluation.ProjectFile.EndsWith(".metaproj", StringComparison.OrdinalIgnoreCase))
@@ -86,6 +117,7 @@ public static class BinlogReader
                 ?? (Get(properties, "TargetFrameworks") is null
                     ? Tfm.FromIdentifier(Get(properties, "TargetFrameworkIdentifier"), Get(properties, "TargetFrameworkVersion"))
                     : null);
+            tfmByEvaluation[evaluation.Id] = tfm;
             chosen[(evaluation.ProjectFile, tfm)] = new EvaluatedProject
             {
                 ProjectFile = evaluation.ProjectFile,
@@ -106,8 +138,164 @@ public static class BinlogReader
             SolutionPath = chosen.Values.Select(e => e.Property("SolutionPath")).FirstOrDefault(p => p is not null && !p.Contains('*', StringComparison.Ordinal)),
             SdkVersion = any?.Property("NETCoreSdkVersion"),
             RuntimeIdentifier = any?.Property("NETCoreSdkRuntimeIdentifier"),
+            FailedCompilations = FailedCompilations(errors, tfmByEvaluation),
+            AssemblyCopies = AssemblyCopies(build, chosen.Values),
         };
     }
+
+    /// <summary>Item types whose items are files a build hands to its tasks (the compiler, resource generation, XAML, copies to the output).</summary>
+    public static readonly IReadOnlySet<string> FileItemTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Compile", "EmbeddedResource", "Content", "None", "Resource", "Page", "ApplicationDefinition", "AdditionalFiles",
+        "Analyzer", "EntityDeploy", "COMFileReference",
+    };
+
+    /// <summary>
+    /// What a build read from disk, as far as its log records it: the files every evaluation imported, the files its
+    /// items name (<see cref="FileItemTypes"/>, and a <c>Reference</c>'s <c>HintPath</c>), the sources of every
+    /// <c>Copy</c> task that ran, and the assemblies the tasks that ran were loaded from. A target skipped as up to
+    /// date logs no inputs, so what it would read is not here. Paths are as captured, relative ones resolved against
+    /// their project's folder.
+    /// </summary>
+    public static BuildInputs ReadInputs(string binlogPath)
+    {
+        var build = ReadBuild(binlogPath);
+        var projects = new HashSet<string>(StringComparer.Ordinal);
+        var files = new HashSet<string>(StringComparer.Ordinal);
+        build.VisitAllChildren<ProjectEvaluation>(evaluation =>
+        {
+            if (evaluation.ProjectFile is not { Length: > 0 } project || project.EndsWith(".metaproj", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            projects.Add(project);
+            var directory = Path.GetDirectoryName(project.Replace('\\', '/')) ?? "";
+            files.UnionWith(SelectImports(evaluation).Select(i => CapturePathMapper.Absolute(directory, i)));
+            files.UnionWith(ItemFiles(evaluation).Select(f => CapturePathMapper.Absolute(directory, f)));
+        });
+        build.VisitAllChildren<CopyTask>(copy =>
+        {
+            var directory = copy.GetNearestParent<LoggedProject>()?.ProjectFile is { } project ? Path.GetDirectoryName(project.Replace('\\', '/')) ?? "" : "";
+            files.UnionWith(CopySources(copy).Select(s => CapturePathMapper.Absolute(directory, s)));
+        });
+        var assemblies = new HashSet<string>(StringComparer.Ordinal);
+        build.VisitAllChildren<Microsoft.Build.Logging.StructuredLogger.Task>(task =>
+        {
+            // A path, not an assembly name (the MSBuild tasks load by name).
+            if (task.FromAssembly is { Length: > 0 } assembly && (assembly[0] is '/' or '\\' || CapturePathMapper.IsWindowsStyle(assembly)))
+            {
+                assemblies.Add(CapturePathMapper.Absolute("", assembly));
+            }
+        });
+        return new BuildInputs([.. projects.Order(StringComparer.Ordinal)], [.. files.Order(StringComparer.Ordinal)], [.. assemblies.Order(StringComparer.Ordinal)]);
+    }
+
+    /// <summary>The includes of an evaluation's file items and the hint paths of its references.</summary>
+    private static IEnumerable<string> ItemFiles(ProjectEvaluation evaluation)
+    {
+        var itemsFolder = evaluation.Children.OfType<Folder>().FirstOrDefault(f => f.Name == "Items");
+        foreach (var group in itemsFolder?.Children.OfType<TreeNode>() ?? [])
+        {
+            var name = (group as NamedNode)?.Name ?? "";
+            var reference = string.Equals(name, "Reference", StringComparison.OrdinalIgnoreCase);
+            if (!reference && !FileItemTypes.Contains(name))
+            {
+                continue;
+            }
+
+            foreach (var item in group.Children.OfType<Item>())
+            {
+                var file = reference
+                    ? item.Children.OfType<Metadata>().FirstOrDefault(m => string.Equals(m.Name, "HintPath", StringComparison.OrdinalIgnoreCase))?.Value
+                    : item.Text ?? item.Name;
+                if (!string.IsNullOrWhiteSpace(file) && !file.Contains('*', StringComparison.Ordinal))
+                {
+                    yield return file.Trim();
+                }
+            }
+        }
+    }
+
+    /// <summary>A <c>Copy</c> task's sources: its <c>SourceFiles</c> parameter, and each copy it logged.</summary>
+    private static IEnumerable<string> CopySources(CopyTask copy)
+    {
+        foreach (var parameter in copy.FindChild<Folder>("Parameters")?.Children ?? [])
+        {
+            switch (parameter)
+            {
+                case Parameter { Name: "SourceFiles" } items:
+                    foreach (var item in items.Children.OfType<Item>())
+                    {
+                        if ((item.Text ?? item.Name) is { Length: > 0 } text)
+                        {
+                            yield return text;
+                        }
+                    }
+
+                    break;
+                case Property { Name: "SourceFiles", Value: { Length: > 0 } value }:
+                    foreach (var file in value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    {
+                        yield return file;
+                    }
+
+                    break;
+            }
+        }
+
+        foreach (var operation in copy.FileCopyOperations)
+        {
+            if (operation.Source is { Length: > 0 } source)
+            {
+                yield return source;
+            }
+        }
+    }
+
+    /// <summary>Copies, by a project's own targets, of a file named after its assembly (<c>Name.dll</c>, <c>Name.exe</c>).</summary>
+    private static List<AssemblyCopy> AssemblyCopies(Build build, IEnumerable<EvaluatedProject> evaluations)
+    {
+        var names = evaluations
+            .Where(e => e.Property("AssemblyName") is not null)
+            .GroupBy(e => e.ProjectFile, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Select(e => e.Property("AssemblyName")!).ToHashSet(StringComparer.OrdinalIgnoreCase), StringComparer.Ordinal);
+        var copies = new List<CopyTask>();
+        build.VisitAllChildren<CopyTask>(copies.Add);
+        return
+        [
+            .. copies
+                .Select(c => (Project: c.GetNearestParent<LoggedProject>()?.ProjectFile, Task: c))
+                .Where(c => c.Project is not null && names.ContainsKey(c.Project))
+                .SelectMany(c => c.Task.FileCopyOperations
+                    .Where(o => o.Destination is not null && IsAssemblyOf(o.Source, names[c.Project!]))
+                    .Select(o => new AssemblyCopy(c.Project!, o.Destination)))
+                .Distinct()
+                .OrderBy(c => c.ProjectFile, StringComparer.Ordinal)
+                .ThenBy(c => c.Destination, StringComparer.Ordinal),
+        ];
+    }
+
+    private static bool IsAssemblyOf(string? file, HashSet<string> assemblyNames) =>
+        file is not null
+        && Path.GetExtension(file).ToLowerInvariant() is ".dll" or ".exe"
+        && assemblyNames.Contains(Path.GetFileNameWithoutExtension(file.Replace('\\', '/')));
+
+    private static readonly HashSet<string> CompilerTasks = new(StringComparer.OrdinalIgnoreCase) { "Csc", "Vbc", "Fsc" };
+
+    /// <summary>The project and target framework of every compiler task that logged an error, sorted.</summary>
+    private static List<FailedCompilation> FailedCompilations(IEnumerable<Error> errors, Dictionary<int, string?> tfmByEvaluation) =>
+        [.. errors
+            .Where(e => e.GetNearestParent<Microsoft.Build.Logging.StructuredLogger.Task>() is { } task && CompilerTasks.Contains(task.Name))
+            .Select(e => e.GetNearestParent<LoggedProject>())
+            .OfType<LoggedProject>()
+            .Where(p => p.ProjectFile is not null)
+            .Select(p => new FailedCompilation(
+                p.ProjectFile,
+                tfmByEvaluation.TryGetValue(p.EvaluationId, out var tfm) ? tfm : Tfm.Normalize(p.TargetFramework)))
+            .Distinct()
+            .OrderBy(f => f.ProjectFile, StringComparer.Ordinal)
+            .ThenBy(f => f.TargetFramework, StringComparer.Ordinal)];
 
     /// <summary>
     /// Reads the log. <c>BinaryLog.ReadBuild</c> returns its result through a static field

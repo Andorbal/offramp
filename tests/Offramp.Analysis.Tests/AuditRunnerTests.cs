@@ -3,7 +3,9 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Offramp.Analysis.Audits;
 using Offramp.Core.Caching;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
+using Offramp.Core.Model;
 using Offramp.Core.Processes;
 using Offramp.Fixtures;
 using Offramp.Workspace.Store;
@@ -27,6 +29,8 @@ public sealed class AuditRunnerTests
     [ProducesDiagnostic("OFR3008")]
     [ProducesDiagnostic("OFR3009")]
     [ProducesDiagnostic("OFR3011")]
+    [ProducesDiagnostic("OFR3013")]
+    [ProducesDiagnostic("OFR3014")]
     public async Task Every_api_rule_has_a_positive_and_a_negative() =>
         await AssertPositivesAndNegatives(AuditKind.Api, extra: bag => Assert.Contains(bag.ToSortedList(),
             d => d.Code == "OFR3011" && d.Project == Legacy && d.Message.Contains("Microsoft.Web.Infrastructure", StringComparison.Ordinal)));
@@ -91,19 +95,147 @@ public sealed class AuditRunnerTests
         Assert.Equal("Compute", types["Behavior.Rules.Payload"].Details["delegates"]);
         Assert.False(types["Behavior.Rules.Invoice"].Details.ContainsKey("delegates"), "a [NonSerialized] delegate is not serialized");
 
-        // Line is serialized through Invoice.Body's field; OFR3205.Positive by nobody.
+        // Line is serialized through Invoice.Body's field; PdfAttachment as an implementation of
+        // IAttachment, the type of Invoice.Attachment, and PdfPage through PdfAttachment's field;
+        // OFR3205.Positive by nobody.
         Assert.Equal(["Behavior.Rules.OFR3205.Positive"], result.Findings.Where(f => f.Rule == "OFR3205").Select(f => f.Symbol));
+    }
+
+    [Fact]
+    public async Task A_removed_technology_is_not_also_missing_and_CallContext_is_not_remoting()
+    {
+        var (result, _) = await RunAsync("behavior", AuditKind.Api);
+        var fixture = await ScannedFixtures.GetAsync("behavior");
+        const string Api = "src/Behavior.Legacy/Rules/Api.cs";
+        string[] RulesAt(string text)
+        {
+            var line = Array.FindIndex(File.ReadAllLines(Path.Combine(fixture.Root, Api)), l => l.Contains(text, StringComparison.Ordinal)) + 1;
+            Assert.True(line > 0, $"'{text}' is not in {Api}");
+            return [.. result.Findings.Where(f => f.File == Api && f.Line == line).Select(f => f.Rule).Order(StringComparer.Ordinal)];
+        }
+
+        // CallContext is its own rule, with AsyncLocal<T> as the answer: not Remoting, and not also "missing".
+        Assert.Equal(["OFR3013"], RulesAt("CallContext.SetData"));
+        Assert.Contains("AsyncLocal<T>", result.Findings.First(f => f.Rule == "OFR3013").Recommendation, StringComparison.Ordinal);
+        Assert.Equal(["OFR3007"], RulesAt("RemotingConfiguration.Configure"));
+        Assert.Equal(["OFR3008"], RulesAt("System.Activities.Activity activity"));
+        Assert.Equal(["OFR3005"], RulesAt("public class Positive : System.Web.Services.WebService"));
+
+        // Security transparency attributes do nothing on the target (info); CAS permission attributes are gone (OFR3009).
+        Assert.Equal(["OFR3014"], RulesAt("[System.Security.SecurityCritical]").Distinct());
+        Assert.All(result.Findings.Where(f => f.Rule == "OFR3014"), f => Assert.Equal(Severity.Info, f.Severity));
+        Assert.DoesNotContain(result.Findings, f => f.Rule == "OFR3009" && f.Symbol.StartsWith("System.Security.Security", StringComparison.Ordinal));
+        Assert.Contains(result.Findings, f => f.Rule == "OFR3009" && f.Symbol == "System.Security.Permissions.SecurityPermissionAttribute");
+
+        // A missing API with a known replacement names it.
+        var dynamic = Assert.Single(result.Findings, f => f.Rule == "OFR3001" && f.Symbol.StartsWith("System.AppDomain.DefineDynamicAssembly", StringComparison.Ordinal));
+        Assert.Equal("System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly", dynamic.Details["replacement"]);
+        Assert.EndsWith("does not exist on the target. Use System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly.", dynamic.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3011")]
+    public async Task Packages_config_packages_are_compiled_for_the_target_instead_of_their_framework_dlls()
+    {
+        // Shop.Web gets MVC 5 and Web API 2 from packages.config; its HintPaths are the net45 DLLs.
+        var (result, diagnostics) = await RunAsync("mvc5", AuditKind.Api);
+
+        var missing = result.Findings.Where(f => f.Rule == "OFR3001").ToList();
+        Assert.All(missing.Where(f => f.Symbol == "System.Web.Mvc.Controller"), f => Assert.Equal("System.Web.Mvc", f.Details["assembly"]));
+        Assert.Contains(missing, f => f.Symbol == "System.Web.Mvc.Controller");
+        Assert.Contains(missing, f => f.Symbol == "System.Web.Http.ApiController");
+        Assert.Contains(missing, f => f.Symbol == "System.Web.Mvc.ActionResult");
+
+        // The packages without net10.0 assets are named; Web API's client and Json.NET support it.
+        var dropped = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR3011");
+        Assert.Equal(
+            ["Microsoft.AspNet.Mvc", "Microsoft.AspNet.Razor", "Microsoft.AspNet.WebApi", "Microsoft.AspNet.WebApi.Core", "Microsoft.AspNet.WebApi.WebHost", "Microsoft.AspNet.WebPages", "Microsoft.Web.Infrastructure"],
+            dropped.Data["packages"]!.AsArray().Select(p => p!.GetValue<string>()));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3015")]
+    public async Task A_package_nuget_cannot_find_keeps_its_dll_and_is_reported()
+    {
+        var fixture = await ScannedFixtures.GetAsync("mvc5");
+        var processes = new FakeProcessRunner().On(spec => spec.FileName == "dotnet", spec =>
+            File.ReadAllText(Path.Combine(spec.WorkingDirectory!, "references.csproj")).Contains("\"Microsoft.AspNet.Mvc\"", StringComparison.Ordinal)
+                ? new ProcessResult(1, "references.csproj : error NU1102: Unable to find package Microsoft.AspNet.Mvc with version (= 5.2.9)\n", "")
+                : ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult());
+        var bag = new DiagnosticBag();
+
+        var result = await AuditRunner.RunAsync(Request(fixture, AuditKind.Api, bag) with
+        {
+            References = new TargetReferenceResolver(fixture.Root, processes, NullCache.Instance),
+        });
+
+        var unavailable = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR3015");
+        Assert.Equal(("src/Shop.Web/Shop.Web.csproj", "Microsoft.AspNet.Mvc"), (unavailable.Project, Assert.Single(unavailable.Data["packages"]!.AsArray())!.GetValue<string>()));
+
+        // Its DLL is referenced as the project records it; the other packages are resolved for the target.
+        var missing = result.Findings.Where(f => f.Rule == "OFR3001").Select(f => f.Symbol).ToList();
+        Assert.DoesNotContain("System.Web.Mvc.Controller", missing);
+        Assert.Contains("System.Web.Http.ApiController", missing);
+    }
+
+    [Fact]
+    public async Task A_winforms_library_is_compiled_for_windows_and_its_removed_controls_throw()
+    {
+        // Editor.Controls is a library (not kind winforms) that references System.Windows.Forms.
+        var (result, diagnostics) = await RunAsync("winforms-library", AuditKind.Api);
+
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR3010");
+        Assert.DoesNotContain(result.Findings, f => f.Rule is "OFR3001" or "OFR3002");
+        var shims = result.Findings.Where(f => f.Rule == "OFR3003").ToList();
+        Assert.Contains(shims, f => f.Symbol == "System.Windows.Forms.MenuItem");
+        Assert.Contains(shims, f => f.Symbol == "System.Windows.Forms.ContextMenu");
+        Assert.All(shims, f => Assert.Equal("WFDEV006", f.Details["diagnosticId"]));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3016")]
+    public async Task A_project_whose_build_failed_is_named_as_such()
+    {
+        var fixture = await ScannedFixtures.GetAsync("behavior");
+        var model = WorkspaceStore.Read(fixture.WorkspacePath);
+        var bag = new DiagnosticBag();
+        var partial = model with
+        {
+            Projects = [.. model.Projects.Select(p => p.Id switch
+            {
+                Legacy => p with { Partial = true },
+                Clean => p with { Partial = true, CompilerCalls = new SortedDictionary<string, CompilerCallRef>(StringComparer.Ordinal) },
+                _ => p,
+            })],
+        };
+
+        var result = await AuditRunner.RunAsync(Request(fixture, AuditKind.Behavior, bag) with { Model = partial });
+
+        // The project whose compiler call failed is audited, and the audit says the build failed.
+        Assert.Contains(result.Findings, f => f.Project == Legacy);
+        Assert.Contains("its build failed during `offramp scan`", Assert.Single(bag.ToSortedList(), d => d.Code == "OFR3016").Message, StringComparison.Ordinal);
+
+        // The one without a compiler call is not audited, and the reason is the build, not a missing scan.
+        var skipped = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR3012");
+        Assert.Equal(Clean, skipped.Project);
+        Assert.Contains("its build failed (OFR0130)", skipped.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("(run `offramp scan`)", skipped.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task A_fully_qualified_name_is_reported_at_its_type_not_its_namespace()
     {
         var (result, _) = await RunAsync("behavior", AuditKind.Api);
+        var api = result.Findings.Where(f => f.File == "src/Behavior.Legacy/Rules/Api.cs").ToList();
 
-        var control = Assert.Single(result.Findings, f => f.Rule == "OFR3001" && f.Symbol == "System.Web.UI.Control");
-        Assert.Equal("System.Web.UI", control.Namespace);
-        Assert.DoesNotContain(result.Findings, f => f.Rule == "OFR3001" && f.Symbol is "System.Web.UI" or "System.Activities");
-        Assert.Contains(result.Findings, f => f.Rule == "OFR3001" && f.Symbol == "System.Activities.Activity");
+        var context = Assert.Single(api, f => f.Rule == "OFR3001" && f.Symbol == "System.Web.HttpContext");
+        Assert.Equal("System.Web", context.Namespace);
+        Assert.DoesNotContain(api, f => f.Symbol is "System.Web" or "System.Web.UI" or "System.Activities");
+
+        // A removed technology named in full is reported at its type too, as that technology (not also as missing).
+        Assert.Equal("System.Web.UI", Assert.Single(api, f => f.Symbol == "System.Web.UI.Control").Namespace);
+        Assert.Equal(["OFR3004"], api.Where(f => f.Symbol == "System.Web.UI.Control").Select(f => f.Rule));
+        Assert.Equal(["OFR3008"], api.Where(f => f.Symbol == "System.Activities.Activity").Select(f => f.Rule));
     }
 
     [Fact]
@@ -115,12 +247,22 @@ public sealed class AuditRunnerTests
         // every name looked up inside it, including Convert, EventArgs, and ModuleBase itself.
         var (result, diagnostics) = await RunAsync("webforms", AuditKind.Api);
 
-        var missing = result.Findings.Where(f => f.Rule == "OFR3001").ToList();
+        // What the class really uses from Web Forms is reported as Web Forms (OFR3004, not also as missing).
         Assert.Equal(
-            ["System.Web.UI.Control.ClientID", "System.Web.UI.Control.ViewState"],
-            missing.Where(f => f.File == "src/Portal.Modules/EditSettings.ascx.cs").Select(f => f.Symbol).Order(StringComparer.Ordinal));
-        Assert.Single(missing, f => f.Symbol == "System.Web.UI.UserControl" && f.File == "src/Portal.Controls/ModuleBase.cs");
+            ["OFR3004 Portal.Controls.ModuleBase", "OFR3004 System.Web.UI.Control.ClientID", "OFR3004 System.Web.UI.Control.ViewState"],
+            result.Findings.Where(f => f.File == "src/Portal.Modules/EditSettings.ascx.cs").Select(f => $"{f.Rule} {f.Symbol}").Order(StringComparer.Ordinal));
+        Assert.Equal(["OFR3004"], result.Findings.Where(f => f.Symbol == "System.Web.UI.UserControl" && f.File == "src/Portal.Controls/ModuleBase.cs").Select(f => f.Rule));
+        var missing = result.Findings.Where(f => f.Rule == "OFR3001").ToList();
         Assert.All(missing, f => Assert.Equal("System.Web", f.Details["assembly"]));
+
+        // PortalException derives from the missing HttpException; ErrorCode, inherited from
+        // ExternalException, exists on the target although the name cannot be looked up there.
+        Assert.Contains(missing, f => f.Symbol == "System.Web.HttpException" && f.File == "src/Portal.Modules/PortalException.cs");
+        Assert.DoesNotContain(missing, f => f.Symbol.Contains("ErrorCode", StringComparison.Ordinal));
+
+        // Portal.Controls' extension of HttpRequestBase is missing because HttpRequestBase is: it belongs to System.Web.
+        var extension = Assert.Single(missing, f => f.Symbol == "System.Web.HttpRequestBase.IsSecure()");
+        Assert.Equal(("Portal.Controls", "System.Web"), (extension.Details["extensionAssembly"], extension.Namespace));
 
         // The Visual Basic library is not audited, and says so.
         Assert.Equal(["src/Portal.Utilities/Portal.Utilities.vbproj: audits read C# only."], result.Skipped);
@@ -171,6 +313,60 @@ public sealed class AuditRunnerTests
         Assert.Equal(2, reported.Count);
         Assert.Contains("NU1301", reported[0].Message, StringComparison.Ordinal);
         Assert.Contains(result.Skipped, s => s.StartsWith("src/Legacy.Core/Legacy.Core.csproj: not compiled against net10.0", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// NHibernate P1 #7: about 50 of the 71 errors of NHibernate's netstandard2.0 build are Reflection.Emit, which
+    /// net10.0 has, so an audit against net10.0 reported none of them. Against netstandard2.0 the library compiles
+    /// against .NET Standard's reference assemblies, and the .NET Standard symbols replace .NET Framework's.
+    /// </summary>
+    [Fact]
+    public async Task A_standard_target_reports_what_net_has_and_the_standard_lacks()
+    {
+        var fixture = await ScannedFixtures.GetAsync("behavior");
+        var bag = new DiagnosticBag();
+
+        var standard = await AuditRunner.RunAsync(Request(fixture, AuditKind.Api, bag) with { Target = ModernTarget.Parse("netstandard2.0"), Projects = [Legacy] });
+        var (net, _) = await RunAsync("behavior", AuditKind.Api);
+
+        static bool Emit(AuditFinding f) => f.Rule == "OFR3001" && f.Symbol == "System.Reflection.Emit.ILGenerator";
+        Assert.Equal("netstandard2.0", standard.Target);
+        var finding = Assert.Single(standard.Findings, Emit);
+        Assert.Equal("src/Behavior.Legacy/Rules/Api.cs", finding.File);
+        Assert.DoesNotContain(net.Findings, Emit);
+        Assert.Contains(standard.Findings, f => f.Rule == "OFR3001" && f.Symbol == "System.Web.HttpContext");
+        Assert.DoesNotContain(bag.ToSortedList(), d => d.Code is "OFR3010" or "OFR3017");
+    }
+
+    /// <summary>Under a .NET Standard target a project that runs is compiled against .NET 10, and says so (ADR 0057).</summary>
+    [Fact]
+    [ProducesDiagnostic("OFR3017")]
+    public async Task Under_a_standard_target_an_application_is_compiled_against_net()
+    {
+        var fixture = await ScannedFixtures.GetAsync("netfx-only");
+        var bag = new DiagnosticBag();
+
+        var result = await AuditRunner.RunAsync(Request(fixture, AuditKind.Api, bag) with { Target = ModernTarget.Parse("netstandard2.0") });
+
+        var diagnostic = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR3017");
+        Assert.Equal("src/Legacy.App/Legacy.App.csproj", diagnostic.Project);
+        Assert.Equal("src/Legacy.App/Legacy.App.csproj is a console project, which needs a .NET to run on and netstandard2.0 is not one, so it was compiled against net10.0.", diagnostic.Message);
+        Assert.Contains(result.Findings, f => f.Project == "src/Legacy.Core/Legacy.Core.csproj" && f.Rule == "OFR3001" && f.Symbol.StartsWith("System.Web.", StringComparison.Ordinal));
+        Assert.DoesNotContain(bag.ToSortedList(), d => d.Code == "OFR3010");
+    }
+
+    [Fact]
+    public void Standard_symbols_replace_the_framework_ones()
+    {
+        var recorded = new CSharpParseOptions(preprocessorSymbols: ["NETFRAMEWORK", "NET48", "NET472_OR_GREATER", "TRACE", "DEBUG"]);
+
+        Assert.Equal(
+            ["DEBUG", "NETSTANDARD", "NETSTANDARD1_0_OR_GREATER", "NETSTANDARD1_1_OR_GREATER", "NETSTANDARD1_2_OR_GREATER", "NETSTANDARD1_3_OR_GREATER",
+                "NETSTANDARD1_4_OR_GREATER", "NETSTANDARD1_5_OR_GREATER", "NETSTANDARD1_6_OR_GREATER", "NETSTANDARD2_0", "NETSTANDARD2_0_OR_GREATER", "TRACE"],
+            TargetCompilation.Options(recorded, TargetCompilation.SymbolsFor("netstandard2.0")).PreprocessorSymbolNames);
+        Assert.Contains("NET8_0", TargetCompilation.SymbolsFor("net8.0-windows"));
+        Assert.Contains("WINDOWS", TargetCompilation.SymbolsFor("net8.0-windows"));
+        Assert.Contains("NETSTANDARD2_1_OR_GREATER", TargetCompilation.SymbolsFor("netstandard2.1"));
     }
 
     [Fact]
@@ -295,7 +491,7 @@ public sealed class AuditRunnerTests
         RepositoryRoot = fixture.Root,
         Model = WorkspaceStore.Read(fixture.WorkspacePath),
         Audit = audit,
-        TargetMajor = 10,
+        Target = ModernTarget.Default,
         Diagnostics = bag,
         References = new TargetReferenceResolver(fixture.Root, ProcessRunner.Instance, new FileCache(Path.Combine(fixture.Root, ".offramp", "cache"))),
     };
@@ -332,7 +528,8 @@ public sealed class AuditRunnerTests
                     }
                 }
 
-                ranges[type.Identifier.ValueText] = members;
+                // A rule's class can be partial: its members are those of every part.
+                (ranges.TryGetValue(type.Identifier.ValueText, out var known) ? known : ranges[type.Identifier.ValueText] = []).AddRange(members);
             }
         }
 

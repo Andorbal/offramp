@@ -205,7 +205,7 @@ public sealed class MigrationPlannerTests
         }
     }
 
-    private static WorkspaceModel ModelOf(params ProjectInfo[] projects) => new()
+    internal static WorkspaceModel ModelOf(params ProjectInfo[] projects) => new()
     {
         CreatedAt = "2026-09-25T20:11:04Z",
         RepositoryRoot = "/repo",

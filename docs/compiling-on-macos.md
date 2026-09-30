@@ -35,19 +35,22 @@ Visual Studio installs. The compile-only block's legacy section and
 | Thing | Why | What to do |
 |---|---|---|
 | Running `net48` output, including tests | needs the Framework runtime | run the modern target of dual-target tests locally; leave `net48` execution to Windows CI |
-| `sgen` (`GenerateSerializationAssemblies=On`) | loads the built assembly under the Framework runtime to pre-generate `XmlSerializer` code | turn it off for non-Windows builds (below); on modern .NET use `Microsoft.XmlSerializer.Generator` or drop it |
+| `sgen` (`GenerateSerializationAssemblies=On`) | loads the built assembly under the Framework runtime to pre-generate `XmlSerializer` code; .NET's MSBuild has no `SGen` task, on Windows either (MSB3474) | the compile-only block turns it off, and `doctor --fix` conditions it where a project sets it ([below](#settings-in-project-files)); on modern .NET use `Microsoft.XmlSerializer.Generator` or drop it |
 | COM references, `EmbedInteropTypes` | type library importer is Windows-only | reference the interop assembly as a file, or exclude the project from Mac builds |
 | Entity Framework 6 EDMX embedding (`EntityDeploy`) | build task ships with Visual Studio | use code-first mappings, or the compiler-log route |
 | T4 templates at build time, Microsoft Fakes | Visual Studio-only targets | run on Windows, or check generated output in |
 | SSDT `.sqlproj` | Windows-only targets | `MSBuild.Sdk.SqlProj` is the cross-platform replacement |
-| Pre/post-build events calling Windows executables | obvious | guard them with a condition on `$(OS)` |
+| Pre/post-build events, and `Exec` commands written for cmd.exe | Visual Studio runs build events as batch files; elsewhere MSBuild hands them to `/bin/sh` | `doctor --fix` conditions them on `'$(OS)' == 'Windows_NT'` ([below](#settings-in-project-files)) |
 | WPF / WinForms on modern targets | need Windows targeting packs | set `EnableWindowsTargeting=true`; they then build on macOS |
 | ASP.NET (System.Web) web application targets, including every `MSBuild.SDK.SystemWeb` project | `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets` ships with Visual Studio only; evaluation stops with MSB4019 | the compile-only block takes them from a package (below) |
-| Precompiled MVC views (`MvcBuildViews=true`, on by default in Release for `MSBuild.SDK.SystemWeb`) | `AspNetCompiler` exists only in .NET Framework's MSBuild (MSB4803) | the compile-only block turns it off |
-| `packages.config` packages | `dotnet restore` skips `packages.config`, and `NuGet.exe` needs Mono | `offramp scan` restores them into `packages/` (below) |
-| Paths in another letter case than the file on disk (Linux only) | Windows and macOS file systems ignore case; Linux does not (MSB4019, CS2001, MSB3030) | rename the reference or the file; `scan` names each project (`OFR0117`) |
+| Precompiled MVC views (`MvcBuildViews=true`, on by default in Release for `MSBuild.SDK.SystemWeb`) | `AspNetCompiler` exists only in .NET Framework's MSBuild (MSB4803) | the compile-only block turns the default off, and `doctor --fix` conditions it where a project sets it |
+| `packages.config` packages | `dotnet restore` skips `packages.config`, and `NuGet.exe` needs Mono | `doctor --fix` adds `Offramp.PackagesConfig.targets`, with which `dotnet restore` restores them into `packages/`; `offramp scan` does too ([below](#packagesconfig-with-dotnet-restore)) |
+| Paths in another letter case than the file on disk (Linux only) | Windows and macOS file systems ignore case; Linux does not (MSB4019, CS2001, MSB3030, MSB3554) | rename the reference or the file; `scan` names every one in each project at once (`OFR0117`) |
 | `CodeTaskFactory` inline tasks, as in `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` | only .NET Framework's MSBuild has the factory (MSB4801) | redefine the targets that use it (below); `OFR0118` |
-| Non-string `.resx` resources (images, icons) | .NET's MSBuild embeds them only preserialized (MSB3822, MSB3823) | `GenerateResourceUsePreserializedResources=true` and the `System.Resources.Extensions` package; `OFR0119` |
+| `Microsoft.Bcl.Build`'s binding redirects (`EnsureBindingRedirects`) | the task is built against .NET Framework's MSBuild 4.0 (MSB4062) | the compile-only block sets `SkipEnsureBindingRedirects=true`; `OFR0124` |
+| MSTest v1 (`Microsoft.VisualStudio.QualityTools.UnitTestFramework`) | the assembly ships with Visual Studio only (CS0246, CS0234) | reference `MSTest.TestFramework` ([below](#mstest-v1)); `OFR0125` |
+| ASP.NET Web Site projects (a folder in the solution, no project file) | `AspNetCompiler` exists only in .NET Framework's MSBuild; the whole solution stops (MSB4249) | `scan` builds the solution without them; `OFR0126` |
+| Non-string `.resx` resources (images, icons) | .NET's MSBuild embeds them only preserialized (MSB3822, MSB3823) | `GenerateResourceUsePreserializedResources=true` and `System.Resources.Extensions`, as a DLL reference in legacy projects ([below](#non-string-resources)); `OFR0119` |
 
 ## The compile-only conditional
 
@@ -69,7 +72,7 @@ Put this in the repository's root `Directory.Build.props` (`offramp doctor
 <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' == 'true' And '$(VSToolsPath)' != ''">
   <PackageReference Include="MSBuild.Microsoft.VisualStudio.Web.targets" Version="14.0.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
 </ItemGroup>
-<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects; offramp scan restores packages.config (added by offramp doctor). -->
+<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects (added by offramp doctor). -->
 <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'">
   <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
   <OfframpLegacyPackages>true</OfframpLegacyPackages>
@@ -85,16 +88,151 @@ Put this in the repository's root `Directory.Build.props` (`offramp doctor
     <DisableSdkPath>true</DisableSdkPath>
   </PropertyGroup>
 </Target>
+<!-- Microsoft.Bcl.Build on macOS/Linux: its binding-redirect task needs .NET Framework's MSBuild, and compile-only builds need no redirects (added by offramp doctor). -->
+<PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+  <SkipEnsureBindingRedirects>true</SkipEnsureBindingRedirects>
+</PropertyGroup>
+<!-- dotnet build on Windows: .NET's MSBuild has no SGen, AspNetCompiler, or Microsoft.Bcl.Build task and no Visual Studio web targets, so it skips and supplies them as on macOS/Linux; Visual Studio's build is unchanged (added by offramp doctor). -->
+<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(MSBuildRuntimeType)' == 'Core'">
+  <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+  <MvcBuildViews>false</MvcBuildViews>
+  <AspNetTargetsPath>$(MSBuildThisFileDirectory)</AspNetTargetsPath>
+  <SkipEnsureBindingRedirects>true</SkipEnsureBindingRedirects>
+  <OfframpWindowsDotnetBuild>true</OfframpWindowsDotnetBuild>
+</PropertyGroup>
+<ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' == 'true' And '$(VSToolsPath)' != ''">
+  <PackageReference Include="MSBuild.Microsoft.VisualStudio.Web.targets" Version="14.0.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
+</ItemGroup>
+<!-- packages.config for dotnet restore: Offramp.PackagesConfig.targets lays out what each packages.config lists in the packages folder, as nuget restore does (added by offramp doctor). -->
+<Import Project="$(MSBuildThisFileDirectory)Offramp.PackagesConfig.targets" Condition="'$(MSBuildRuntimeType)' == 'Core' And Exists('$(MSBuildThisFileDirectory)Offramp.PackagesConfig.targets')" />
 ```
 
-Then guard anything else that needs Windows with
-`Condition="'$(OfframpCompileOnly)' != 'true'"`. Offramp's own verification
-builds pass the properties from `offramp.yml` (`verify.properties`), so
-verification of the first section works even before you edit any props file;
-the ASP.NET section needs the file, because it adds a package.
+The last section comes only when the solution has `packages.config` projects
+([below](#packagesconfig-with-dotnet-restore)). The one before it is for `dotnet build` on Windows,
+which runs the same .NET MSBuild as on macOS and Linux and so lacks what they
+lack: with it, a solution that builds with `dotnet build` on a Mac builds with
+`dotnet build` on Windows too (`docs/decisions/0064-dotnet-build-and-packages-config-without-offramp.md`).
+Visual Studio and MSBuild.exe report `MSBuildRuntimeType` `Full` and are
+unaffected.
+
+MSBuild imports `Directory.Build.props` before the project's own properties,
+so a setting the project file makes itself wins over the block; `doctor --fix`
+conditions those where they are ([Settings in project
+files](#settings-in-project-files)). Guard anything else that needs Windows with
+`Condition="'$(OS)' == 'Windows_NT'"`. Offramp's own builds also pass the
+properties from `offramp.yml` (`verify.properties`) on the command line, but a
+plain `dotnet build` does not get them, so keep that list empty once the files
+carry the conditions; `doctor` warns while it is not (`OFR0026`).
 
 If your `Directory.Build.props` has sections from an earlier Offramp,
 `offramp doctor --fix` adds only the ones it lacks.
+
+MSBuild imports `Directory.Build.props` from `Microsoft.Common.props`, so the
+block reaches only projects that import that file. Outside Windows, `scan`
+checks each legacy project's evaluation after the build, and names each one the
+block did not reach (`OFR0122`), with the cause and the file to change:
+
+- A shared `.props` or `.settings` file sets `MSBuildExtensionsPath` (Open Live
+  Writer's `writer.build.settings` does, "to prevent accidental pickup of
+  local-machine scripts"), so `Microsoft.Common.props` is never imported.
+  Condition that line on `'$(OS)' == 'Windows_NT'`.
+- `ImportDirectoryBuildProps` is `false`.
+- A nearer `Directory.Build.props` does not import the root one. Add
+  `<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />`
+  to it.
+
+Such a project fails with MSB3644 (no reference assemblies) otherwise.
+Importing the block later, from `Directory.Build.targets`, does not help: the
+restore then fails, because `MSBuildProjectExtensionsPath` is empty.
+
+The last section turns off `Microsoft.Bcl.Build`'s `EnsureBindingRedirects`
+task, with the package's own switch. The package came with `Microsoft.Net.Http`,
+`Microsoft.Bcl`, and `Microsoft.Bcl.Async` in .NET Framework 4.0 and 4.5
+codebases, and its task is built against .NET Framework's MSBuild, so .NET's
+MSBuild cannot load it (MSB4062). Compile-only builds need no binding
+redirects; on Windows the task still writes the ones the application needs.
+`scan` reports a project that imports the package's targets without the switch
+as `OFR0124`.
+
+### Settings in project files
+
+The compile-only block cannot switch off what a project file sets itself:
+MSBuild reads `Directory.Build.props` first, and the project's own
+`<GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>` or
+`<MvcBuildViews>true</MvcBuildViews>` wins. `Directory.Build.targets` comes too
+late (the common targets read the sgen setting before it, and a legacy project
+defines its `PostBuildEvent` after them). So `offramp doctor --fix` puts a
+condition on each such setting where it is written: in the project files, the
+`Directory.Build.props`/`.targets` files above them, and the repository files
+they import (`docs/decisions/0063-condition-windows-only-settings-in-project-files.md`):
+
+```xml
+<GenerateSerializationAssemblies Condition="'$(MSBuildRuntimeType)' != 'Core'">On</GenerateSerializationAssemblies>
+<MvcBuildViews Condition="'$(MSBuildRuntimeType)' != 'Core'">true</MvcBuildViews>
+<PostBuildEvent Condition="'$(OS)' == 'Windows_NT'">xcopy /y "$(TargetDir)*.dll" "$(SolutionDir)deploy\"</PostBuildEvent>
+<Exec Condition="'$(OS)' == 'Windows_NT'" Command="copy /y &quot;$(TargetPath)&quot; ..\drop\" />
+<RestorePackages Condition="'$(OS)' == 'Windows_NT'">true</RestorePackages>
+<MSBuildExtensionsPath Condition="'$(OS)' == 'Windows_NT'">$(MSBuildToolsPath)\MsBuildExtensions</MSBuildExtensionsPath>
+```
+
+sgen and `AspNetCompiler` are kept for .NET Framework's MSBuild (Visual Studio,
+Build Tools), which is what they need: `dotnet build` cannot run them on
+Windows either. Build events, cmd.exe commands (`.exe`, `.bat`, `xcopy`,
+`copy`, `del`, `%VAR%`), NuGet 2's `RestorePackages`, and an
+`MSBuildExtensionsPath` override are kept for Windows. An `Exec` that runs
+`dotnet`, `npm`, or `git` is left alone, as is anything already conditioned on
+`$(OS)`, `IsOSPlatform`, `$(MSBuildRuntimeType)`, or `$(OfframpCompileOnly)`.
+An existing condition is kept inside the new one. Visual Studio's build on
+Windows is unchanged.
+
+The result is a repository that builds with a plain `dotnet build` outside
+Windows, for anyone, with or without Offramp. It is the same compile as on
+Windows, not the same output: the skipped steps do not run, so there is no
+`*.XmlSerializers.dll`, no precompiled views, and nothing a build event copies
+or merges. `doctor`'s **Builds without Offramp** check lists every skipped
+setting by file and line, so you know what only a Windows build proves, and
+warns about what still separates a plain build from Offramp's:
+
+- a Windows-only setting without its condition (`OFR0019`): run
+  `offramp doctor --fix --apply`;
+- `verify.properties` in `offramp.yml` (`OFR0026`): Offramp's builds pass them,
+  a plain build does not;
+- `packages.config` projects (`OFR0026`) until the repository has
+  `Offramp.PackagesConfig.targets` ([packages.config with dotnet
+  restore](#packagesconfig-with-dotnet-restore)): without it, `dotnet restore`
+  does not restore them, so a fresh clone fails;
+- an ASP.NET Web Site project (`OFR0026`, `OFR0126`): it stops `dotnet build`
+  of the whole solution, so `scan` builds a filter without it.
+
+### packages.config with dotnet restore
+
+`dotnet restore` does not read `packages.config`, and `NuGet.exe` needs Mono
+outside Windows, so a fresh clone of a legacy solution has an empty
+`packages/` folder, and every `HintPath` into it fails. When the solution has
+`packages.config` projects, `offramp doctor --fix --apply` adds, at the
+repository root:
+
+- `Offramp.PackagesConfig.targets`, which Offramp owns and rewrites when it
+  changes. After a restore, of a solution or of a project and the projects it
+  references, it takes what each `packages.config` lists and the packages
+  folder lacks, has NuGet's own restore download it (through a generated
+  project in `obj/offramp-packages-config/`, so the solution's `nuget.config`,
+  feeds, and credentials apply, and a package with two versions in two
+  projects gets both), and lays it out as `nuget restore` does:
+  `<Id>.<Version>/` with the `.nupkg` and the package's files, in
+  `repositoryPath` from `nuget.config`, else `packages/` beside the solution. A
+  project built on its own finds the folder from its `HintPath`s. A package
+  already there, in any letter case, is left alone. The build prints
+  `Offramp: laid out N packages.config package(s)` when it lays any out.
+- the import of that file in `Directory.Build.props` (the block's last
+  section) and in `Directory.Solution.targets`, which MSBuild imports into a
+  solution's build; `doctor --fix` creates that file or adds the import to it.
+
+Both imports are for .NET's MSBuild (`dotnet build`, `dotnet restore`, and IDEs
+that run them) on any OS; Visual Studio restores `packages.config` itself and
+does not import them. Commit all three files: then `git clone` and `dotnet
+build` is all anyone needs, with or without Offramp. `doctor`'s **Builds without
+Offramp** check says whether they are in place.
 
 ### ASP.NET (System.Web) projects
 
@@ -145,8 +283,10 @@ Offramp supplies each (`docs/decisions/0037-legacy-projects-outside-windows.md`)
 - **The Visual Basic runtime.** The reference assemblies package wires it for
   SDK-style projects only; the legacy section references `Microsoft.VisualBasic`
   and passes it to the compiler the way the SDK does.
-- **The `packages.config` packages.** `offramp scan` restores them into the
-  solution's packages folder (`repositoryPath` from `nuget.config`, else
+- **The `packages.config` packages.** `dotnet restore` restores them once
+  `doctor --fix` has added `Offramp.PackagesConfig.targets` ([packages.config
+  with dotnet restore](#packagesconfig-with-dotnet-restore)). `offramp scan`
+  restores them itself, too, into the solution's packages folder (`repositoryPath` from `nuget.config`, else
   `packages/` beside the solution) as `nuget restore` lays it out
   (`packages/<Id>.<Version>/`), from the NuGet global packages folder when it
   has them and otherwise from the feeds in `nuget.config`. It never overwrites a
@@ -162,7 +302,16 @@ What is left is the repository's own, and `scan` names each case with the file
 to change:
 
 - **Letter case** (`OFR0117`, Linux only): a reference spelled `Package.Targets`
-  for `Package.targets` on disk. Offramp does not rename anything.
+  for `Package.targets` on disk. `scan` checks every `Import`, `Compile`, and
+  `EmbeddedResource` path of each project, the `None` and `Content` items it
+  copies to the output, and the files that `.resx` files reference
+  (`ResXFileRef`, MSB3554), after the build and
+  whatever it got to, so one scan names them all; the diagnostic's
+  `data.paths` lists them. Offramp does not rename anything.
+- **Missing source files** (`OFR0123`): a `Compile` item whose file does not
+  exist in any letter case, and that no target of the build writes. When git ignores the path, the repository's own
+  build script (NAnt, psake, Cake, FAKE, GitVersion) generates it, typically a
+  shared `SharedAssemblyInfo.cs`: run that step once, then scan again.
 - **Inline tasks** (`OFR0118`): `Microsoft.CodeDom.Providers.DotNetCompilerPlatform`
   runs `CodeTaskFactory` tasks from its build targets. Redefine the two targets
   that call them as empty ones, in a file only compile-only builds import. In
@@ -182,9 +331,96 @@ to change:
   ```
 
 - **Build events and `Exec` commands written for cmd.exe** (`OFR0115`), such as
-  `XCOPY` in a `PostBuild` target: add
-  `Condition="'$(OfframpCompileOnly)' != 'true'"` to the target.
-- **Non-string resources** (`OFR0119`).
+  `XCOPY` in a `PostBuild` target: `offramp doctor --fix --apply` conditions
+  them on `'$(OS)' == 'Windows_NT'` ([Settings in project
+  files](#settings-in-project-files)); condition one it does not recognize the
+  same way. When the
+  command runs a program the solution itself builds (`$(OutDir)Tool.exe`), it
+  is a build-time generator, and `scan` names its target and the files it
+  writes (its `Outputs`). Guarding that target leaves those files missing, and
+  the build fails later instead (CS1566 for a missing resource), so write them
+  once: a generator written in C# often runs on .NET unchanged. Open Live
+  Writer's `MarketXmlGenerator.cs` does.
+- **MSTest v1** (`OFR0125`): a reference to
+  `Microsoft.VisualStudio.QualityTools.UnitTestFramework` without a `HintPath`,
+  which only Visual Studio installs; see [MSTest v1](#mstest-v1).
+- **ASP.NET Web Site projects** (`OFR0126`): a folder the solution lists
+  without a project file (type `{E24C65DC-7377-472B-9ABA-BC803B73C61A}`), which
+  the solution build precompiles with `AspNetCompiler`. `dotnet build` stops the
+  whole solution on it (MSB4249), before any project builds, so `scan` builds a
+  solution filter of the other projects (`.offramp/scan.slnf`) instead. The
+  site stays out of the model, with or without `--msbuild`: it has no project
+  file. To migrate it, convert it to a web application project first.
+- **Non-string resources** (`OFR0119`). `scan` reads each project's `.resx`
+  files and names the ones with images, icons, type-converted values, or
+  serialized objects (strings and byte arrays embed as they are). .NET's MSBuild
+  embeds those only as preserialized resources, which need
+  `GenerateResourceUsePreserializedResources=true` and a reference to
+  `System.Resources.Extensions`; see [Non-string resources](#non-string-resources).
+
+### Non-string resources
+
+An SDK-style project takes the property and a `PackageReference` to
+`System.Resources.Extensions`. A legacy project restored the `PackageReference`
+way (the legacy section) gets no compile references from packages under the
+.NET SDK, so the package is restored but not referenced, and the build still
+fails with MSB3822. Reference the DLL from the package folder instead. For
+compile-only builds, in `Directory.Build.props` after the block:
+
+```xml
+<!-- Non-string .resx resources in legacy projects on macOS/Linux (offramp scan: OFR0119). -->
+<PropertyGroup Condition="'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true'">
+  <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+</PropertyGroup>
+<ItemGroup Condition="'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true' And $([MSBuild]::VersionGreaterThanOrEquals($(TargetFrameworkVersion.TrimStart('v')), '4.6.1'))">
+  <PackageReference Include="System.Resources.Extensions" Version="6.0.0" IsImplicitlyDefined="true" PrivateAssets="all" />
+</ItemGroup>
+<Target Name="AddSystemResourcesExtensions" BeforeTargets="ResolveAssemblyReferences" Condition="'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true' And $([MSBuild]::VersionGreaterThanOrEquals($(TargetFrameworkVersion.TrimStart('v')), '4.6.1'))">
+  <ItemGroup>
+    <Reference Include="$(NuGetPackageRoot)system.resources.extensions/6.0.0/lib/net461/System.Resources.Extensions.dll" />
+  </ItemGroup>
+</Target>
+```
+
+The reference is added in a target, not as an item of the project, so the
+workspace model does not record a reference the project does not have, and
+`deps resolve-dlls` leaves it alone. Choose the version by target framework:
+
+| Target framework | `System.Resources.Extensions` | DLL in the package |
+|---|---|---|
+| .NET Framework 4.6.1 | 6.0.0 (8.0.0 has no `net461` build) | `lib/net461/` |
+| .NET Framework 4.6.2 and later | 8.0.0, or 6.0.0 as above | `lib/net462/` (8.0.0) |
+| .NET Framework 4.6 and earlier | none: no version supports them | build these projects on Windows, or use the compiler-log route |
+
+On Windows, .NET Framework's MSBuild embeds these resources without either
+change. If you set the property for every build instead, the .NET Framework
+application needs `System.Resources.Extensions` at run time.
+
+### MSTest v1
+
+MSTest v2's `MSTest.TestFramework` package has the same namespace
+(`Microsoft.VisualStudio.TestTools.UnitTesting`), so moving a test project to it
+is the real fix, and a step on the way to modern .NET. Until then, a legacy test
+project compiles outside Windows against the package's DLLs. As for resources,
+the package is restored the `PackageReference` way and referenced from a target,
+here for the test projects `scan` named (`MyApp.Tests` below):
+
+```xml
+<!-- MSTest v1 test projects on macOS/Linux (offramp scan: OFR0125). -->
+<ItemGroup Condition="'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true' And '$(MSBuildProjectName)' == 'MyApp.Tests'">
+  <PackageReference Include="MSTest.TestFramework" Version="1.4.0" IsImplicitlyDefined="true" PrivateAssets="all" />
+</ItemGroup>
+<Target Name="AddMSTestFramework" BeforeTargets="ResolveAssemblyReferences" Condition="'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true' And '$(MSBuildProjectName)' == 'MyApp.Tests'">
+  <ItemGroup>
+    <Reference Include="$(NuGetPackageRoot)mstest.testframework/1.4.0/lib/net45/Microsoft.VisualStudio.TestPlatform.TestFramework.dll" />
+    <Reference Include="$(NuGetPackageRoot)mstest.testframework/1.4.0/lib/net45/Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions.dll" />
+  </ItemGroup>
+</Target>
+```
+
+The v1 reference stays unresolved (a warning, MSB3245), and the tests compile
+against the replacement. Coded UI tests (`Microsoft.VisualStudio.QualityTools.CodedUITestFramework`)
+have no replacement.
 
 ## The compiler-log fallback
 
@@ -231,5 +467,7 @@ you which projects those are.
 1. `dotnet --list-sdks` shows an SDK that can target your `--target`.
 2. `offramp doctor` is green, or lists exactly which projects need the
    compiler-log route and why.
-3. `dotnet build` of your solution filter succeeds with the conditional above.
+3. `offramp doctor`'s **Builds without Offramp** check passes, and a plain
+   `dotnet build` of your solution succeeds with the conditional above and the
+   conditions `doctor --fix` added; the check lists what that build skips.
 4. Your IDE shows no red squiggles in a `net48` project.

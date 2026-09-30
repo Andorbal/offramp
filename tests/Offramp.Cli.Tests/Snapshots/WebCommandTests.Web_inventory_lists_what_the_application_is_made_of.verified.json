@@ -123,6 +123,7 @@
     "project": "src/Shop.Web/Shop.Web.csproj",
     "kind": "mvc+webapi+webforms",
     "url": "http://localhost:51234/",
+    "hostedBy": null,
     "controllers": [
       {
         "name": "DashboardController",
@@ -318,27 +319,32 @@
       {
         "name": "(ignored)",
         "template": "{resource}.axd/{*pathInfo}",
+        "computed": null,
         "kind": "ignore",
         "area": null,
         "defaults": [],
+        "helper": null,
         "file": "src/Shop.Web/App_Start/RouteConfig.cs",
         "line": 10
       },
       {
         "name": "Catalog",
         "template": "catalog/{category}",
+        "computed": null,
         "kind": "mvc",
         "area": null,
         "defaults": [
           "controller = Home",
           "action = Catalog"
         ],
+        "helper": null,
         "file": "src/Shop.Web/App_Start/RouteConfig.cs",
         "line": 13
       },
       {
         "name": "Default",
         "template": "{controller}/{action}/{id}",
+        "computed": null,
         "kind": "mvc",
         "area": null,
         "defaults": [
@@ -346,29 +352,34 @@
           "action = Index",
           "id = ?"
         ],
+        "helper": null,
         "file": "src/Shop.Web/App_Start/RouteConfig.cs",
         "line": 18
       },
       {
         "name": "DefaultApi",
         "template": "api/{controller}/{id}",
+        "computed": null,
         "kind": "webapi",
         "area": null,
         "defaults": [
           "id = ?"
         ],
+        "helper": null,
         "file": "src/Shop.Web/App_Start/WebApiConfig.cs",
         "line": 11
       },
       {
         "name": "Admin_default",
         "template": "Admin/{controller}/{action}/{id}",
+        "computed": null,
         "kind": "mvc",
         "area": "Admin",
         "defaults": [
           "action = Index",
           "id = ?"
         ],
+        "helper": null,
         "file": "src/Shop.Web/Areas/Admin/AdminAreaRegistration.cs",
         "line": 11
       }
@@ -380,6 +391,7 @@
     "globalFilters": [
       "HandleError"
     ],
+    "containerFilters": [],
     "areas": [
       "Admin"
     ],

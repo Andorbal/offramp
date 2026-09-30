@@ -7,7 +7,7 @@
   "source": {
     "kind": "build",
     "path": ".offramp/msbuild.binlog",
-    "sha256": "{Sha256}",
+    "sha256": null,
     "complog": null
   },
   "sdk": {
@@ -30,6 +30,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Bar/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -97,7 +98,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Bar/Bar.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 18,
@@ -121,6 +123,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Foo.Tests/bin/Debug/net48",
       "isTestProject": true,
       "properties": {
         "IsPackable": "false",
@@ -332,7 +335,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Foo.Tests/Foo.Tests.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 10,
@@ -356,6 +360,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Foo/bin/Debug/net48",
       "isTestProject": true,
       "properties": {
         "IsPackable": "false",
@@ -506,7 +511,8 @@
       "compilerCalls": {
         "net48": {
           "complog": ".offramp/build.complog",
-          "index": 0
+          "project": "src/Foo/Foo.csproj",
+          "targetFramework": "net48"
         }
       },
       "loc": 157,

@@ -165,14 +165,22 @@ public sealed class MoveTestsCommand : ICommandHandler<MoveTestsOptions, MoveTes
             output.Write(table);
         }
 
-        foreach (var skipped in result.Skipped)
+        // The source breaking without the moved files keeps every file: one line, not one per file.
+        var sourceBreaks = result.Skipped.Where(s => s.Code == "OFR2104").ToList();
+        foreach (var skipped in result.Skipped.Where(s => s.Code != "OFR2104"))
         {
             output.MarkupLine($"[{Theme.DecisionStyle}]Stays:[/] {Markup.Escape(skipped.File)} [dim]{Markup.Escape(skipped.Code)}[/]");
         }
 
+        if (sourceBreaks.Count > 0)
+        {
+            output.MarkupLine($"[{Theme.DecisionStyle}]Stays:[/] {sourceBreaks.Count} file{(sourceBreaks.Count == 1 ? "" : "s")} [dim]OFR2104[/] {Markup.Escape(sourceBreaks[0].Message)}");
+        }
+
         foreach (var candidate in result.Candidates)
         {
-            output.MarkupLine($"[dim]Review:[/] {Markup.Escape(candidate.File)} [dim]({Wire(candidate.Confidence)}: {Markup.Escape(string.Join("; ", candidate.Reasons))}; --include-helpers medium moves it)[/]");
+            var moves = candidate.Confidence == TestConfidence.Medium ? "; --include-helpers medium moves it" : "";
+            output.MarkupLine($"[dim]Review:[/] {Markup.Escape(candidate.File)} [dim]({Wire(candidate.Confidence)}: {Markup.Escape(string.Join("; ", candidate.Reasons))}{moves})[/]");
         }
 
         if (result.Preview is { Length: > 0 } preview)

@@ -75,7 +75,7 @@ public sealed class SerializationFlowMatcher : IAuditMatcher
 
         foreach (var (id, (type, _)) in types)
         {
-            Close(type, context.Run.SerializedTypes);
+            Close(type, context.Run);
         }
 
         if (typesRule is null)
@@ -354,40 +354,54 @@ public sealed class SerializationFlowMatcher : IAuditMatcher
         }
     }
 
-    /// <summary>A serialized type, its base types, and the types of its serialized fields, transitively.</summary>
-    private static void Close(ITypeSymbol root, HashSet<string> serialized)
+    /// <summary>
+    /// A serialized type, its base types, and the types of its serialized fields, transitively.
+    /// Every type but a base type is also recorded as declared (<see cref="AuditRunState.DeclaredSerializedTypes"/>).
+    /// </summary>
+    internal static void Close(ITypeSymbol root, AuditRunState run)
     {
-        var queue = new Queue<ITypeSymbol>([root]);
-        while (queue.TryDequeue(out var type))
+        var queue = new Queue<(ITypeSymbol Type, bool Declared)>([(root, true)]);
+        while (queue.TryDequeue(out var next))
         {
+            var (type, declared) = next;
             switch (type)
             {
                 case IArrayTypeSymbol array:
-                    queue.Enqueue(array.ElementType);
+                    queue.Enqueue((array.ElementType, declared));
                     continue;
                 case not INamedTypeSymbol:
                     continue;
             }
 
             var named = (INamedTypeSymbol)type;
-            if (named.OriginalDefinition.GetDocumentationCommentId() is not { } id || !serialized.Add(id))
+            if (named.OriginalDefinition.GetDocumentationCommentId() is not { } id)
+            {
+                continue;
+            }
+
+            if (declared)
+            {
+                run.DeclaredSerializedTypes.Add(id);
+            }
+
+            if (!run.SerializedTypes.Add(id))
             {
                 continue;
             }
 
             foreach (var argument in named.TypeArguments)
             {
-                queue.Enqueue(argument);
+                queue.Enqueue((argument, true));
             }
 
             if (named.BaseType is { } baseType)
             {
-                queue.Enqueue(baseType);
+                queue.Enqueue((baseType, false));
             }
 
             foreach (var field in named.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic && !f.IsConst && !f.GetAttributes().Any(IsNonSerialized)))
             {
-                queue.Enqueue(field.Type);
+                queue.Enqueue((field.Type, true));
             }
         }
     }
@@ -433,12 +447,90 @@ public sealed class SerializationFlowMatcher : IAuditMatcher
 
 /// <summary>
 /// <c>OFR3205</c>: <c>[Serializable]</c> types declared in the project that no binary formatter
-/// in the audited solution receives (directly, as a base type, or through a serialized field).
-/// Runs after <see cref="SerializationFlowMatcher"/> has seen every project.
+/// in the audited solution receives (directly, as a base type, through a serialized field, or as
+/// an implementation of a type a serialized value is declared as). Runs after
+/// <see cref="SerializationFlowMatcher"/> has seen every project and
+/// <see cref="ExtendToImplementations"/> has run.
 /// </summary>
 public sealed class SerializableUnusedMatcher : IAuditMatcher
 {
     public string Name => "serializable-unused";
+
+    /// <summary>
+    /// Adds to the serialized types the audited projects' <c>[Serializable]</c> classes and
+    /// structs that derive from or implement a type a serialized value is declared as (a
+    /// serialized <c>ISession</c> can be a <c>SessionImpl</c>), with their bases and fields,
+    /// until nothing changes. <c>object</c> is left out: it would make every type serialized.
+    /// </summary>
+    public static void ExtendToImplementations(IReadOnlyList<AuditMatchContext> contexts)
+    {
+        if (contexts.Count == 0 || contexts[0].Rule("OFR3205") is null)
+        {
+            return;
+        }
+
+        var run = contexts[0].Run;
+        var candidates = contexts
+            .SelectMany(c => SourceTypes(c.Compilation.Assembly.GlobalNamespace))
+            .Where(t => t.IsSerializable && t.TypeKind is TypeKind.Class or TypeKind.Struct)
+            .Select(t => (Type: t, Id: t.GetDocumentationCommentId()))
+            .Where(t => t.Id is not null)
+            .ToList();
+        for (var changed = true; changed;)
+        {
+            changed = false;
+            foreach (var (type, id) in candidates)
+            {
+                if (!run.SerializedTypes.Contains(id!) && Supertypes(type).Any(run.DeclaredSerializedTypes.Contains))
+                {
+                    SerializationFlowMatcher.Close(type, run);
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<INamedTypeSymbol> SourceTypes(INamespaceOrTypeSymbol container)
+    {
+        foreach (var member in container.GetMembers())
+        {
+            if (member is INamespaceSymbol ns)
+            {
+                foreach (var type in SourceTypes(ns))
+                {
+                    yield return type;
+                }
+            }
+            else if (member is INamedTypeSymbol type && type.Locations.Any(l => l.IsInSource))
+            {
+                yield return type;
+                foreach (var nested in SourceTypes(type))
+                {
+                    yield return nested;
+                }
+            }
+        }
+    }
+
+    /// <summary>Documentation IDs of a type's base classes (<c>object</c> and <c>ValueType</c> aside) and interfaces.</summary>
+    private static IEnumerable<string> Supertypes(INamedTypeSymbol type)
+    {
+        for (var current = type.BaseType; current is { SpecialType: not (SpecialType.System_Object or SpecialType.System_ValueType) }; current = current.BaseType)
+        {
+            if (current.OriginalDefinition.GetDocumentationCommentId() is { } id)
+            {
+                yield return id;
+            }
+        }
+
+        foreach (var implemented in type.AllInterfaces)
+        {
+            if (implemented.OriginalDefinition.GetDocumentationCommentId() is { } id)
+            {
+                yield return id;
+            }
+        }
+    }
 
     public IEnumerable<RawFinding> Run(AuditMatchContext context)
     {

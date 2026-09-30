@@ -1,0 +1,3 @@
+packages/
+# Written by build/Version.targets on every build.
+src/GlobalVersionInfo.cs

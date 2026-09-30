@@ -31,9 +31,9 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR1004 = new(
         "OFR1004", Severity.Warning,
         "package assets are Windows-only",
-        "The assets NuGet would pick for the target are marked [SupportedOSPlatform(\"windows\")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, the registry, directory services).",
-        "A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later.",
-        "Fine if the application stays on Windows; otherwise choose a cross-platform alternative before containerizing.",
+        "The assets NuGet would pick for the target are marked [SupportedOSPlatform(\"windows\")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, directory services), call a library only Windows has by P/Invoke (user32, shell32, msdelta, ...; not kernel32, ntdll, advapi32, or ole32, which portable code guards), or declare a `[ComImport]` class; or the package has nothing in lib/ or ref/ and its runtime-specific code (`runtimes/<rid>/`) is for Windows only. The message names the package for `linux-x64` when the id ends in a Windows runtime identifier and the feed has one.",
+        "A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later, or a native package such as LibSassHost.Native.win-x64.",
+        "Fine if the application stays on Windows; otherwise choose a cross-platform alternative, or add the native package for the other operating systems, before containerizing.",
         DependenciesArea);
 
     public static readonly DiagnosticDescriptor OFR1005 = new(
@@ -50,6 +50,30 @@ public static partial class DiagnosticCatalog
         "A NuGet feed could not be queried, so any answer that depends on it is incomplete.",
         "No network, a feed that is down, or missing credentials for a private feed.",
         "Check `nuget.config`, network access, and credential providers, then re-run.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1007 = new(
+        "OFR1007", Severity.Error,
+        "only versions older than the one in use support the target",
+        "The version in use does not support the target and no newer version does; only older versions do. Moving back to one is a downgrade, so `deps audit` does not propose it: the package is `replace` or `blocked`.",
+        "A package that dropped its .NET Standard or modern .NET build in a later release.",
+        "Replace the package with its successor (the message names one when the package map knows it), ask its authors for a modern build, or isolate the code that uses it behind a seam. Moving back to the older version is a decision to make with its release notes, not an upgrade.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1008 = new(
+        "OFR1008", Severity.Info,
+        "DLL references the audit does not see",
+        "Projects reference DLLs by `HintPath` that no packages.config installs: checked-in or copied DLLs, which are dependencies too, but not packages, so `deps audit` has nothing to say about them. `deps resolve-dlls` matches them to packages and projects.",
+        "A codebase from before NuGet, with third-party DLLs in a lib folder (NHibernate 4.1: 15 references, no package).",
+        "Run `offramp deps resolve-dlls`, apply what it finds, and audit again.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1009 = new(
+        "OFR1009", Severity.Warning,
+        "package has nothing for any framework, and the package map replaces it",
+        "The versions in use have no assemblies, no framework-specific assets, no dependency groups, and no native code (only build or tool files), so they \"support\" every target only because there is nothing to judge. The package map names what replaces the package, so its status is `replace`.",
+        "A build-time helper for .NET Framework, such as Microsoft.Bcl.Build, whose targets fail under the .NET SDK's MSBuild.",
+        "Remove the package, or move to what the message names.",
         DependenciesArea);
 
     public static readonly DiagnosticDescriptor OFR1200 = new(
@@ -143,7 +167,7 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR1402 = new(
         "OFR1402", Severity.Info,
         "loose DLL matched to a package",
-        "A `Reference` with a `HintPath` points at a DLL that a package ships (same assembly name and public key, at the referenced version or higher, for every target framework of the project).",
+        "A `Reference` with a `HintPath` points at a DLL that a package ships (same assembly name and public key, at the referenced version or higher, for every target framework of the project). The message says what matched: the same file, the same file or informational version, the closest build (the assembly version only), or a newer version, which is an upgrade.",
         "A package's DLL copied into a lib folder by hand.",
         "Apply `deps resolve-dlls`, which swaps the reference for a `PackageReference`.",
         DependenciesArea);
@@ -151,17 +175,49 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR1403 = new(
         "OFR1403", Severity.Warning,
         "loose DLL unmatched",
-        "No project builds the DLL and no package named like the assembly ships it. Its metadata (version, target framework, public key token) is attached for a person to decide.",
-        "A vendor or in-house DLL with no package, or a package whose id differs from the assembly name.",
+        "No project builds the DLL and no package named like the assembly ships it. Its metadata (version, target framework, public key token) is attached for a person to decide. An unsigned DLL is matched only by its file (the same bytes, file version, or informational version), since anyone can publish an assembly of that name; the message names the package that has the name.",
+        "A vendor or in-house DLL with no package, a package whose id differs from the assembly name, or an unsigned DLL built from source.",
         "Find the package or source it came from, or publish it to a private feed.",
         DependenciesArea);
 
     public static readonly DiagnosticDescriptor OFR1404 = new(
         "OFR1404", Severity.Error,
         "loose Framework-only DLL with no replacement",
-        "A DLL referenced by `HintPath` is built for .NET Framework, and no project or package replaces it, so the project cannot move to the target while it depends on it.",
+        "A DLL referenced by `HintPath` is built for .NET Framework (its `TargetFrameworkAttribute` says so, or, for a DLL without one, it references the .NET Framework's `mscorlib`), and no project or package replaces it, so the project cannot move to the target while it depends on it.",
         "A vendor library that never shipped for .NET Standard or modern .NET.",
         "Ask the vendor for a modern build, replace the library, or isolate its use behind a seam (`offramp seams`).",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1405 = new(
+        "OFR1405", Severity.Warning,
+        "loose DLL is a COM interop assembly",
+        "A DLL referenced by `HintPath` was generated from a COM type library (it has `ImportedFromTypeLibAttribute`, which tlbimp writes). No package replaces it; COM interop works on modern .NET, but on Windows only.",
+        "An interop assembly for a Windows component (Internet Explorer's SHDocVw, Office, a vendor's ActiveX control) checked in instead of generated by the build.",
+        "Keep it and target net10.0-windows for the code that uses it, or reference the type library with a `COMReference` so the build generates the interop assembly; isolate COM use behind a seam if the code must run elsewhere.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1406 = new(
+        "OFR1406", Severity.Warning,
+        "loose DLL reference declared outside the project file",
+        "The `Reference` comes from a file the project imports (a Directory.Build.props, a shared .props or .settings file), not from the project file, so `deps resolve-dlls` leaves it alone: editing the project would add a second reference and remove none. One diagnostic per assembly and declaring file, with the projects it reaches.",
+        "A reference shared by every project, declared once, such as a `HintPath` into the NuGet global packages folder for legacy projects.",
+        "Change the reference in the file the message names (for SDK-style projects, a `PackageReference` there), or leave it if it is how legacy projects get the package outside Windows.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1407 = new(
+        "OFR1407", Severity.Warning,
+        "package reference not added to a legacy project outside Windows",
+        "Outside Windows the .NET SDK restores a legacy (non-SDK) project's `PackageReference` items but never gives their assemblies to the compiler: that is `ResolveNuGetPackageAssets`, in Visual Studio's `Microsoft.NuGet.targets`, which the SDK does not ship. So `deps resolve-dlls` leaves the project's `Reference` items as they are instead of breaking its build.",
+        "Running `deps resolve-dlls` on Linux or macOS on a solution of legacy projects (NHibernate 4.1 had 2,505 errors after `--apply`).",
+        "Convert the project with `offramp csproj modernize` first and run `deps resolve-dlls` again, or apply it on Windows, where Visual Studio's MSBuild resolves the package's assemblies.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1408 = new(
+        "OFR1408", Severity.Error,
+        "verification failed; resolve-dlls rolled back",
+        "After `deps resolve-dlls --apply` replaced the references, the configured verification (a restore and build of the edited projects and their direct dependents, or `verify.command`) failed, and `verify.onFailure: rollback` restored every file from the journal.",
+        "A package that restores but does not give the compiler what the DLL did (another assembly version, a missing framework), or a build that was already broken.",
+        "Read the verification errors; fix them, or apply the references one project at a time (`--project`). `verify.onFailure: keep` leaves the change in place.",
         DependenciesArea);
 
     public static readonly DiagnosticDescriptor OFR1501 = new(
@@ -210,5 +266,13 @@ public static partial class DiagnosticCatalog
         "The application, or a project it references, is partial in the workspace model: its build failed during `scan`, so its references and packages are not all known. Redirects computed from that would be wrong, and `--prune` would remove live ones, so the application's configuration file is left alone.",
         "A build that fails outside Windows (letter case, Windows-only steps), or a missing package.",
         "Fix the build errors `scan` reported (`OFR0130` and the step diagnostics), run `offramp scan` again, then `offramp redirects sync`.",
+        DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1507 = new(
+        "OFR1507", Severity.Info,
+        "hosted project's configuration left alone",
+        "The project is hosted by another web project (it builds into the host's folder and is loaded by the host's application), so the runtime reads the host's `web.config`, never the project's. `redirects sync` leaves the project's configuration file alone and computes the host's redirects with the hosted project's packages.",
+        "A plugin, module, or area project with a `web.config` of its own, as Visual Studio's templates create.",
+        "Nothing to do; run `redirects sync` for the host. The hosted project's binding redirects can be deleted by hand.",
         DependenciesArea);
 }

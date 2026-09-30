@@ -11,30 +11,30 @@ public sealed class InitPlannerTests : IDisposable
 
     public void Dispose() => _repo.Dispose();
 
-    private InitDetection Detect(DiagnosticBag? bag = null) =>
-        InitPlanner.Detect(_repo.Path, new OfframpConfig(), bag ?? new DiagnosticBag());
+    private Task<InitDetection> DetectAsync(DiagnosticBag? bag = null) =>
+        InitPlanner.DetectAsync(_repo.Path, new OfframpConfig(), bag ?? new DiagnosticBag(), TestContext.Current.CancellationToken);
 
     [Fact]
-    public void The_only_solution_is_chosen()
+    public async Task The_only_solution_is_chosen()
     {
         _repo.Write("src/Monolith.sln", "");
         _repo.Write("src/bin/Debug/Copied.sln", "");
         _repo.Write(".git/Hidden.sln", "");
 
-        var detection = Detect();
+        var detection = await DetectAsync();
 
         Assert.Equal("src/Monolith.sln", detection.Values.Solution);
         Assert.Equal(["src/Monolith.sln"], detection.SolutionCandidates);
     }
 
     [Fact]
-    public void A_single_root_solution_wins_over_nested_ones_and_filters_are_never_chosen()
+    public async Task A_single_root_solution_wins_over_nested_ones_and_filters_are_never_chosen()
     {
         _repo.Write("Monolith.slnx", "");
         _repo.Write("samples/Sample.sln", "");
         _repo.Write("Core.slnf", "{}");
 
-        var detection = Detect();
+        var detection = await DetectAsync();
 
         Assert.Equal("Monolith.slnx", detection.Values.Solution);
         Assert.Equal(["Core.slnf", "Monolith.slnx", "samples/Sample.sln"], detection.SolutionCandidates);
@@ -42,13 +42,13 @@ public sealed class InitPlannerTests : IDisposable
 
     [Fact]
     [ProducesDiagnostic("OFR0020")]
-    public void Ambiguous_solutions_leave_the_setting_empty_with_a_warning()
+    public async Task Ambiguous_solutions_leave_the_setting_empty_with_a_warning()
     {
         _repo.Write("a/A.sln", "");
         _repo.Write("b/B.sln", "");
         var bag = new DiagnosticBag();
 
-        var detection = Detect(bag);
+        var detection = await DetectAsync(bag);
 
         Assert.Null(detection.Values.Solution);
         var diagnostic = Assert.Single(bag.ToSortedList());
@@ -56,13 +56,98 @@ public sealed class InitPlannerTests : IDisposable
         Assert.Equal(Severity.Warning, diagnostic.Severity);
     }
 
+    /// <summary>SmartStoreNET P2: SmartStoreNET.sln (25 projects) contains SmartStoreNET.Minimal.sln's 10; it is the one.</summary>
     [Fact]
-    public void Existing_directory_packages_props_is_detected_and_kept_at_the_root()
+    [ProducesDiagnostic("OFR0023")]
+    public async Task A_solution_that_contains_the_others_is_chosen_and_the_reason_given()
+    {
+        WriteSlnx("src/Store.slnx", "Core/Core.csproj", "Web/Web.csproj", "Plugins/Pay/Pay.csproj");
+        WriteSlnx("src/Store.Minimal.slnx", "Core/Core.csproj", "Web/Web.csproj");
+        var bag = new DiagnosticBag();
+
+        var detection = await DetectAsync(bag);
+
+        Assert.Equal("src/Store.slnx", detection.Values.Solution);
+        var chosen = Assert.Single(bag.ToSortedList());
+        Assert.Equal("OFR0023", chosen.Code);
+        Assert.Equal("Chose src/Store.slnx among 2 solutions: it contains every project of src/Store.Minimal.slnx. Pass --solution or set `solution:` in offramp.yml for another.", chosen.Message);
+    }
+
+    /// <summary>Open Live Writer P2: writer.sln (29 projects) and three one-to-four-project utility solutions.</summary>
+    [Fact]
+    public async Task Otherwise_the_solution_with_the_most_projects_is_chosen()
+    {
+        WriteSlnx("src/managed/writer.slnx", "A/A.csproj", "B/B.csproj", "C/C.csproj");
+        WriteSlnx("utilities/BlogRunner/BlogRunner.slnx", "Runner/Runner.csproj", "Gui/Gui.csproj");
+        WriteSlnx("utilities/Culture/Culture.slnx", "Culture.csproj");
+        var bag = new DiagnosticBag();
+
+        var detection = await DetectAsync(bag);
+
+        Assert.Equal("src/managed/writer.slnx", detection.Values.Solution);
+        Assert.Contains("it has the most projects (3; next: utilities/BlogRunner/BlogRunner.slnx with 2)", Assert.Single(bag.ToSortedList()).Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// NHibernate: NHibernate.Everything.sln has one project more than NHibernate.sln, but one of them is a Web Site project,
+    /// which stops a build with .NET's MSBuild (MSB4249); the solution that builds is chosen.
+    /// </summary>
+    [Fact]
+    public async Task A_solution_with_a_web_site_project_is_set_aside()
+    {
+        WriteSln("src/NHibernate.sln", ("NHibernate", @"NHibernate\NHibernate.csproj", CSharp), ("Test", @"Test\Test.csproj", CSharp), ("Setup", @"Setup\Setup.csproj", CSharp));
+        WriteSln("src/NHibernate.Everything.sln",
+            ("NHibernate", @"NHibernate\NHibernate.csproj", CSharp), ("Test", @"Test\Test.csproj", CSharp), ("Tool", @"Tool\Tool.csproj", CSharp),
+            ("Example.Web", @"Example.Web\", WebSite));
+        var bag = new DiagnosticBag();
+
+        var detection = await DetectAsync(bag);
+
+        Assert.Equal("src/NHibernate.sln", detection.Values.Solution);
+        Assert.Contains("src/NHibernate.Everything.sln has a Web Site project, which .NET's MSBuild cannot build (MSB4249)", Assert.Single(bag.ToSortedList()).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Solutions_of_the_same_size_are_a_tie()
+    {
+        WriteSlnx("a/A.slnx", "One/One.csproj", "Two/Two.csproj");
+        WriteSlnx("b/B.slnx", "Three/Three.csproj", "Four/Four.csproj");
+        var bag = new DiagnosticBag();
+
+        var detection = await DetectAsync(bag);
+
+        Assert.Null(detection.Values.Solution);
+        var tie = Assert.Single(bag.ToSortedList());
+        Assert.Equal("OFR0020", tie.Code);
+        Assert.Contains("a/A.slnx has 2 projects, b/B.slnx has 2 projects", tie.Message, StringComparison.Ordinal);
+    }
+
+    private const string CSharp = "FAE04EC0-301F-11D3-BF4B-00C04F79EFBC";
+    private const string WebSite = "E24C65DC-7377-472B-9ABA-BC803B73C61A";
+
+    private void WriteSlnx(string path, params string[] projects) =>
+        _repo.Write(path, "<Solution>\n" + string.Concat(projects.Select(p => $"  <Project Path=\"{p}\" />\n")) + "</Solution>\n");
+
+    private void WriteSln(string path, params (string Name, string Path, string Type)[] projects)
+    {
+        var body = new System.Text.StringBuilder("\nMicrosoft Visual Studio Solution File, Format Version 12.00\n# Visual Studio Version 17\n");
+        var index = 0;
+        foreach (var (name, projectPath, type) in projects)
+        {
+            var id = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{{00000000-0000-0000-0000-{++index:D12}}}");
+            body.Append(System.Globalization.CultureInfo.InvariantCulture, $"Project(\"{{{type}}}\") = \"{name}\", \"{projectPath}\", \"{id}\"\nEndProject\n");
+        }
+
+        _repo.Write(path, body.Append("Global\nEndGlobal\n").ToString());
+    }
+
+    [Fact]
+    public async Task Existing_directory_packages_props_is_detected_and_kept_at_the_root()
     {
         _repo.Write("Directory.Packages.props", "<Project />");
         _repo.Write("src/Monolith.sln", "");
 
-        var values = Detect().Values;
+        var values = (await DetectAsync()).Values;
 
         Assert.Equal(("Directory.Packages.props", "repo"), (values.CpmFile, values.CpmScope));
         Assert.Equal("Directory.Packages.props", new CpmConfig { File = values.CpmFile, Scope = values.CpmScope }.PathFor(values.Solution));
@@ -71,8 +156,10 @@ public sealed class InitPlannerTests : IDisposable
     public static TheoryData<InitValues> ValueSets => new()
     {
         new InitValues(),
-        new InitValues { Target = 9, Solution = "src/My App/App.sln", VerifyMode = "none", CpmFile = "eng/Packages.props" },
+        new InitValues { Target = ModernTarget.FromMajor(9), Solution = "src/My App/App.sln", VerifyMode = "none", CpmFile = "eng/Packages.props" },
         new InitValues { VerifyMode = "command", VerifyCommand = "./build.sh --configuration \"Debug\"", CpmFile = "Packages.props", CpmScope = "repo" },
+        new InitValues { Target = ModernTarget.Parse("netstandard2.0") },
+        new InitValues { Target = ModernTarget.Parse("net8.0-windows") },
         new InitValues
         {
             Solution = "true",
@@ -96,6 +183,7 @@ public sealed class InitPlannerTests : IDisposable
         Assert.True(loaded.IsValid);
         Assert.Empty(loaded.Diagnostics);
         Assert.Equal(values.Target, loaded.Config.Target);
+        Assert.Equal(values.Target.Written, loaded.Config.Target.Written);
         Assert.Equal(values.Solution, loaded.Config.Solution);
         Assert.Equal(values.VerifyMode, loaded.Config.Verify.Mode);
         Assert.Equal(values.VerifyCommand, loaded.Config.Verify.Command);
@@ -109,12 +197,12 @@ public sealed class InitPlannerTests : IDisposable
         Verify(InitPlanner.Render(new InitValues { Solution = "src/Monolith.sln" }), extension: "yml");
 
     [Fact]
-    public void Apply_writes_config_and_gitignore_entries_without_duplicates()
+    public async Task Apply_writes_config_and_gitignore_entries_without_duplicates()
     {
         _repo.Write(".gitignore", "bin/\n.offramp/cache/");
         var bag = new DiagnosticBag();
 
-        var result = InitPlanner.Apply(_repo.Path, Detect(), new InitValues(), ".offramp", dryRun: false, force: false, interactive: false, bag);
+        var result = InitPlanner.Apply(_repo.Path, await DetectAsync(), new InitValues(), ".offramp", dryRun: false, force: false, interactive: false, bag);
 
         Assert.True(result.Written);
         Assert.Equal(InitPlanner.Render(new InitValues()), _repo.Read("offramp.yml"));
@@ -125,19 +213,19 @@ public sealed class InitPlannerTests : IDisposable
             _repo.Read(".gitignore"));
         Assert.Equal(0, bag.Count);
 
-        var again = InitPlanner.Apply(_repo.Path, Detect(), new InitValues(), ".offramp", dryRun: false, force: true, interactive: false, bag);
+        var again = InitPlanner.Apply(_repo.Path, await DetectAsync(), new InitValues(), ".offramp", dryRun: false, force: true, interactive: false, bag);
         Assert.True(again.Replaced);
         Assert.Empty(again.Gitignore.Added);
     }
 
     [Fact]
     [ProducesDiagnostic("OFR0030")]
-    public void Apply_refuses_to_overwrite_without_force()
+    public async Task Apply_refuses_to_overwrite_without_force()
     {
         _repo.Write("offramp.yml", "target: 8\n");
         var bag = new DiagnosticBag();
 
-        var result = InitPlanner.Apply(_repo.Path, Detect(), new InitValues(), ".offramp", dryRun: false, force: false, interactive: false, bag);
+        var result = InitPlanner.Apply(_repo.Path, await DetectAsync(), new InitValues(), ".offramp", dryRun: false, force: false, interactive: false, bag);
 
         Assert.False(result.Written);
         Assert.Equal("target: 8\n", _repo.Read("offramp.yml"));
@@ -146,9 +234,9 @@ public sealed class InitPlannerTests : IDisposable
     }
 
     [Fact]
-    public void Dry_run_writes_nothing()
+    public async Task Dry_run_writes_nothing()
     {
-        var result = InitPlanner.Apply(_repo.Path, Detect(), new InitValues(), ".offramp", dryRun: true, force: false, interactive: false, new DiagnosticBag());
+        var result = InitPlanner.Apply(_repo.Path, await DetectAsync(), new InitValues(), ".offramp", dryRun: true, force: false, interactive: false, new DiagnosticBag());
 
         Assert.False(result.Written);
         Assert.True(result.DryRun);

@@ -2,8 +2,9 @@ using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Operations;
 using Offramp.Analysis.Audits;
+using Offramp.Analysis.Compilations;
+using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 
@@ -24,7 +25,12 @@ public static class WebInventory
         "Route", "RoutePrefix", "AcceptVerbs", "ActionName", "NonAction", "HttpGet", "HttpPost", "HttpPut", "HttpDelete", "HttpPatch", "HttpHead", "HttpOptions",
     };
 
-    public static WebInventoryResult Analyze(string root, ProjectInfo project, Compilation compilation)
+    /// <summary>
+    /// The inventory of <paramref name="project"/>. <paramref name="libraries"/> are the compilations
+    /// of the projects it references (<see cref="Libraries"/>): their route, filter, and bundle
+    /// registrations run in the application too, and the helpers they declare are followed.
+    /// </summary>
+    public static WebInventoryResult Analyze(string root, ProjectInfo project, Compilation compilation, IReadOnlyList<Compilation>? libraries = null)
     {
         var directory = RepoPaths.Normalize(Path.GetDirectoryName(project.Id) ?? "");
         var trees = AuditEngine.Sources(compilation).Where(t => FileOf(root, t) is not null).OrderBy(t => t.FilePath, StringComparer.Ordinal).ToList();
@@ -35,9 +41,14 @@ public static class WebInventory
             .OrderBy(t => t.ToDisplayString(), StringComparer.Ordinal)
             .ToList();
 
-        var areas = types.Where(t => Derives(t, "System.Web.Mvc.AreaRegistration")).Select(t => AreaName(compilation, t)).OfType<string>().Order(StringComparer.Ordinal).ToList();
+        var registrations = WebRegistrations.Find(root, compilation, libraries ?? []);
+        var areas = types.Where(t => Derives(t, "System.Web.Mvc.AreaRegistration")).Select(t => AreaName(compilation, t))
+            .Concat(registrations.Routes.Select(r => r.Area))
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
         var controllers = types.Select(t => Controller(root, compilation, t)).OfType<WebController>().ToList();
-        var (routes, attributeRouting, globalFilters, bundles) = Registrations(root, compilation, trees);
         var config = WebConfig(root, directory);
         var modules = Components(root, types, "System.Web.IHttpModule", config?.Modules ?? []);
         var handlers = Components(root, types.Where(t => !Derives(t, "System.Web.UI.Page") && !Derives(t, "System.Web.HttpApplication")), "System.Web.IHttpHandler", config?.Handlers ?? []);
@@ -63,11 +74,14 @@ public static class WebInventory
         {
             Project = project.Id,
             Kind = kinds.Count == 0 ? "none" : string.Join('+', kinds),
-            Url = IisUrl(root, project.Id),
+            // A hosted project serves nothing by itself: its URL is its host's (ADR 0055).
+            Url = IisUrl(root, project.HostedBy?.Project ?? project.Id),
+            HostedBy = project.HostedBy?.Project,
             Controllers = controllers,
-            Routes = routes,
-            AttributeRouting = attributeRouting,
-            GlobalFilters = globalFilters,
+            Routes = registrations.Routes,
+            AttributeRouting = registrations.AttributeRouting,
+            GlobalFilters = registrations.GlobalFilters,
+            ContainerFilters = registrations.ContainerFilters,
             Areas = areas,
             Modules = modules,
             Handlers = handlers,
@@ -75,13 +89,42 @@ public static class WebInventory
                 .Where(m => m.Name.StartsWith("Application_", StringComparison.Ordinal) || m.Name.StartsWith("Session_", StringComparison.Ordinal))
                 .OrderBy(m => m.Locations[0].SourceSpan.Start)
                 .Select(m => m.Name)],
-            Bundles = bundles,
+            Bundles = registrations.Bundles,
             WebForms = webForms,
             Session = Session(root, compilation, trees),
             OutputCache = OutputCache(root, compilation, trees),
             Settings = config?.Settings ?? new WebSettings(),
             SystemWeb = Surface(root, compilation, trees),
         };
+    }
+
+    /// <summary>
+    /// The compilations of the C# libraries an application references, directly or through
+    /// other libraries, sorted by project (ADR 0059). A referenced web application (a plugin
+    /// referencing the site) or test project is not a library: its registrations are its own.
+    /// Projects without a recorded compilation are left out.
+    /// </summary>
+    public static IReadOnlyList<Compilation> Libraries(WorkspaceModel model, ProjectInfo project, ICompilationSource source)
+    {
+        var projects = model.Projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        var references = model.Graph.Edges.ToLookup(e => e.From, e => e.To, StringComparer.Ordinal);
+        var closure = new SortedSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>(references[project.Id]);
+        while (pending.TryPop(out var id))
+        {
+            if (id != project.Id && projects.TryGetValue(id, out var library) && library.Kind is not (ProjectKind.Web or ProjectKind.Test) && closure.Add(id))
+            {
+                foreach (var next in references[id])
+                {
+                    pending.Push(next);
+                }
+            }
+        }
+
+        return [.. closure.Select(id => projects[id])
+            .Where(p => p.Language == "csharp")
+            .Select(source.LoadPreferred)
+            .OfType<Compilation>()];
     }
 
     private static WebController? Controller(string root, Compilation compilation, INamedTypeSymbol type)
@@ -148,104 +191,6 @@ public static class WebInventory
         : string.IsNullOrEmpty(prefix) ? template
         : template.Length == 0 ? prefix
         : prefix.TrimEnd('/') + "/" + template;
-
-    /// <summary>Convention routes, attribute routing switches, global filters, and bundles, in source order.</summary>
-    private static (List<WebRoute> Routes, List<string> AttributeRouting, List<string> GlobalFilters, List<string> Bundles) Registrations(string root, Compilation compilation, List<SyntaxTree> trees)
-    {
-        var routes = new List<WebRoute>();
-        var attributeRouting = new List<string>();
-        var filters = new List<string>();
-        var bundles = new List<string>();
-        foreach (var tree in trees)
-        {
-            var model = compilation.GetSemanticModel(tree);
-            foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>())
-            {
-                if (model.GetOperation(syntax) is not IInvocationOperation invocation)
-                {
-                    continue;
-                }
-
-                var method = invocation.TargetMethod;
-                var container = method.ContainingType.ToDisplayString();
-                var line = syntax.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                switch (method.Name)
-                {
-                    case "MapRoute" when container is "System.Web.Mvc.RouteCollectionExtensions" or "System.Web.Mvc.AreaRegistrationContext":
-                    case "MapHttpRoute" when container == "System.Web.Http.HttpRouteCollectionExtensions":
-                    case "IgnoreRoute" when container == "System.Web.Mvc.RouteCollectionExtensions":
-                        var area = container == "System.Web.Mvc.AreaRegistrationContext"
-                            ? AreaName(compilation, model.GetEnclosingSymbol(syntax.SpanStart)?.ContainingType)
-                            : null;
-                        routes.Add(new WebRoute
-                        {
-                            Name = String(invocation, "name") ?? (method.Name == "IgnoreRoute" ? "(ignored)" : ""),
-                            Template = String(invocation, "url") ?? String(invocation, "routeTemplate") ?? "",
-                            Kind = method.Name switch { "MapHttpRoute" => "webapi", "IgnoreRoute" => "ignore", _ => "mvc" },
-                            Area = area,
-                            Defaults = Defaults(invocation),
-                            File = FileOf(root, tree)!,
-                            Line = line,
-                        });
-                        break;
-                    case "MapMvcAttributeRoutes":
-                        attributeRouting.Add("mvc");
-                        break;
-                    case "MapHttpAttributeRoutes":
-                        attributeRouting.Add("webapi");
-                        break;
-                    case "Add" when container is "System.Web.Mvc.GlobalFilterCollection" or "System.Web.Http.Filters.HttpFilterCollection":
-                        var argument = invocation.Arguments.FirstOrDefault()?.Value;
-                        if ((argument is IConversionOperation conversion ? conversion.Operand : argument) is IObjectCreationOperation { Type: { } filter })
-                        {
-                            filters.Add(Strip(filter.Name));
-                        }
-
-                        break;
-                    case "Add" when container == "System.Web.Optimization.BundleCollection":
-                        if (invocation.Arguments.FirstOrDefault()?.Value.Descendants().OfType<IObjectCreationOperation>().FirstOrDefault()?.Arguments.FirstOrDefault()?.Value.ConstantValue.Value is string path)
-                        {
-                            bundles.Add(path);
-                        }
-
-                        break;
-                }
-            }
-        }
-
-        return (routes, [.. attributeRouting.Distinct(StringComparer.Ordinal)], filters, bundles);
-    }
-
-    private static string? String(IInvocationOperation invocation, string parameter) =>
-        invocation.Arguments.FirstOrDefault(a => a.Parameter?.Name == parameter)?.Value.ConstantValue.Value as string;
-
-    /// <summary>An anonymous defaults object as <c>name = value</c>; <c>UrlParameter.Optional</c> and <c>RouteParameter.Optional</c> are <c>?</c>.</summary>
-    private static List<string> Defaults(IInvocationOperation invocation)
-    {
-        var argument = invocation.Arguments.FirstOrDefault(a => a.Parameter?.Name == "defaults")?.Value;
-        var creation = argument is IConversionOperation conversion ? conversion.Operand : argument;
-        if (creation is not IAnonymousObjectCreationOperation anonymous)
-        {
-            return [];
-        }
-
-        var result = new List<string>();
-        foreach (var initializer in anonymous.Initializers.OfType<ISimpleAssignmentOperation>())
-        {
-            if (initializer.Target is not IPropertyReferenceOperation property)
-            {
-                continue;
-            }
-
-            var value = initializer.Value is IConversionOperation inner ? inner.Operand : initializer.Value;
-            var text = value.ConstantValue.HasValue ? value.ConstantValue.Value?.ToString() ?? "null"
-                : value is IFieldReferenceOperation { Field.Name: "Optional" } ? "?"
-                : value.Syntax.ToString();
-            result.Add(property.Property.Name + " = " + text);
-        }
-
-        return result;
-    }
 
     private static List<WebComponent> Components(string root, IEnumerable<INamedTypeSymbol> types, string contract, IReadOnlyList<(string Section, string Name, string Type, string? Path, string? Verb)> registrations)
     {
@@ -419,7 +364,8 @@ public static class WebInventory
         }
     }
 
-    private static string? AreaName(Compilation compilation, INamedTypeSymbol? type)
+    /// <summary>What an AreaRegistration class's AreaName property returns, when it is a constant.</summary>
+    internal static string? AreaName(Compilation compilation, INamedTypeSymbol? type)
     {
         var property = type?.GetMembers("AreaName").OfType<IPropertySymbol>().FirstOrDefault();
         var syntax = property?.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as PropertyDeclarationSyntax;

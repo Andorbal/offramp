@@ -45,6 +45,13 @@ public sealed record ClassifiedFile
 
     /// <summary>Production files, and projects other than the destination, that use code in this file; they keep it where it is.</summary>
     public IReadOnlyList<string> ProductionReferrers { get; init; } = [];
+
+    /// <summary>
+    /// The file declares a public type of a shipped project (ADR 0041) and looks like test
+    /// support: it is listed for review at <c>low</c> and never moved, since other
+    /// repositories may use it.
+    /// </summary>
+    public bool ShippedApi { get; init; }
 }
 
 /// <summary>
@@ -79,8 +86,9 @@ public static class TestCodeClassifier
     /// <param name="files">The source project's own files (repository-relative) with their absolute paths; generated files are left out.</param>
     /// <param name="consumers">Other projects' compilations that may use the source project's code.</param>
     /// <param name="destination">The project tests will move to; its uses of the source are expected.</param>
+    /// <param name="shipped">Why the source project is shipped (ADR 0041), or null: then its public types are never test support.</param>
     public static IReadOnlyList<ClassifiedFile> Classify(
-        Compilation source, IReadOnlyDictionary<string, string> files, IReadOnlyList<ConsumerCompilation> consumers, string? destination)
+        Compilation source, IReadOnlyDictionary<string, string> files, IReadOnlyList<ConsumerCompilation> consumers, string? destination, string? shipped = null)
     {
         var byPath = files.ToDictionary(f => Normalize(f.Value), f => f.Key, StringComparer.OrdinalIgnoreCase);
         var trees = source.SyntaxTrees
@@ -120,12 +128,14 @@ public static class TestCodeClassifier
         }
 
         var evidence = trees.ToDictionary(t => t.Key, t => Signals(t.Key, t.Value, source), StringComparer.Ordinal);
-        var helpers = Fixpoint(trees.Keys.Where(f => !tests.Contains(f) && evidence[f].Count > 0), tests, referrers, outside);
+        var api = shipped is null ? [] : trees.Where(t => !tests.Contains(t.Key) && DeclaredTypes(source, t.Value).Any(IsPublic)).Select(t => t.Key).ToHashSet(StringComparer.Ordinal);
+        var helpers = Fixpoint(trees.Keys.Where(f => !tests.Contains(f) && !api.Contains(f) && evidence[f].Count > 0), tests, referrers, outside);
         var reflected = StringMentions(source, consumers);
         return
         [
-            .. trees.Keys.Order(StringComparer.Ordinal).Select(file => Describe(
-                file, trees[file], source, tests, helpers, referrers[file], outside, frameworks[file], reflected, evidence[file])),
+            .. trees.Keys.Order(StringComparer.Ordinal).Select(file => api.Contains(file) && evidence[file].Count > 0
+                ? ShippedApi(file, trees[file], source, tests, helpers, referrers[file], outside, evidence[file], shipped!)
+                : Describe(file, trees[file], source, tests, helpers, referrers[file], outside, frameworks[file], reflected, evidence[file])),
         ];
     }
 
@@ -189,15 +199,36 @@ public static class TestCodeClassifier
         return reached;
     }
 
+    /// <summary>
+    /// A file of a shipped project that declares a public type and looks like test support:
+    /// production code keeps it where it is, as for any file; otherwise it is a <c>low</c>
+    /// candidate that says why it stays.
+    /// </summary>
+    private static ClassifiedFile ShippedApi(
+        string file, SyntaxTree tree, Compilation source, HashSet<string> tests, HashSet<string> helpers, HashSet<string> users, HashSet<string> outside, List<string> evidence, string shipped)
+    {
+        var production = Production(users, tests, helpers, outside);
+        if (production.Count > 0)
+        {
+            return new ClassifiedFile { File = file, Kind = TestFileKind.Production, ProductionReferrers = production };
+        }
+
+        var types = string.Join(", ", DeclaredTypes(source, tree).Where(IsPublic).Select(t => t.Name).Distinct(StringComparer.Ordinal));
+        return new ClassifiedFile
+        {
+            File = file,
+            Kind = TestFileKind.Helper,
+            Confidence = TestConfidence.Low,
+            Reasons = [$"public API of a shipped library ({shipped}): other repositories may use {types}, so it is never moved", .. evidence],
+            ShippedApi = true,
+        };
+    }
+
     private static ClassifiedFile Describe(
         string file, SyntaxTree tree, Compilation source, HashSet<string> tests, HashSet<string> helpers, HashSet<string> users,
         HashSet<string> outside, IReadOnlyList<string> frameworks, HashSet<string> reflected, List<string> evidence)
     {
-        var production = users
-            .Where(u => outside.Contains(u) || (!u.StartsWith("project ", StringComparison.Ordinal) && !tests.Contains(u) && !helpers.Contains(u)))
-            .Select(u => u.StartsWith("project ", StringComparison.Ordinal) ? u["project ".Length..] : u)
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        var production = Production(users, tests, helpers, outside);
         var declared = DeclaredTypes(source, tree).ToList();
         var mentioned = declared.Where(t => reflected.Contains(t.Name) || reflected.Contains(t.ToDisplayString())).Select(t => t.Name).ToList();
 
@@ -252,6 +283,15 @@ public static class TestCodeClassifier
         };
     }
 
+    /// <summary>The users of a file that keep it where it is: production files, and projects other than the destination.</summary>
+    private static List<string> Production(HashSet<string> users, HashSet<string> tests, HashSet<string> helpers, HashSet<string> outside) =>
+    [
+        .. users
+            .Where(u => outside.Contains(u) || (!u.StartsWith("project ", StringComparison.Ordinal) && !tests.Contains(u) && !helpers.Contains(u)))
+            .Select(u => u.StartsWith("project ", StringComparison.Ordinal) ? u["project ".Length..] : u)
+            .Order(StringComparer.Ordinal),
+    ];
+
     /// <summary>Evidence that a file is test support: what it uses, what its types are called, where it lives.</summary>
     private static List<string> Signals(string file, SyntaxTree tree, Compilation source)
     {
@@ -270,7 +310,7 @@ public static class TestCodeClassifier
             signals.Add("uses " + string.Join(", ", testing));
         }
 
-        var hinted = declared.Where(t => HelperNameHints.Any(h => t.Name.Contains(h, StringComparison.Ordinal))).Select(t => t.Name).ToList();
+        var hinted = declared.Where(HasHelperName).Select(t => t.Name).ToList();
         if (hinted.Count > 0)
         {
             signals.Add("name suggests test support (" + string.Join(", ", hinted) + ")");
@@ -296,6 +336,51 @@ public static class TestCodeClassifier
         }
 
         return signals;
+    }
+
+    /// <summary>
+    /// Whether a type's name says test support: a hint (<c>Builder</c>, <c>Fake</c>, ...) as a
+    /// whole word of the name (<c>OrderBuilder</c>, not <c>Stubborn</c>), on a type that is not
+    /// public or lives in a test namespace. A public <c>QueryOverBuilderExtensions</c> or
+    /// <c>LocalizationExpressionBuilder</c> is a product's API that happens to build things.
+    /// </summary>
+    private static bool HasHelperName(INamedTypeSymbol type) =>
+        HelperNameHints.Any(h => ContainsWord(type.Name, h)) && (!IsPublic(type) || InTestNamespace(type));
+
+    private static bool ContainsWord(string name, string word)
+    {
+        for (var at = name.IndexOf(word, StringComparison.Ordinal); at >= 0; at = name.IndexOf(word, at + 1, StringComparison.Ordinal))
+        {
+            var end = at + word.Length;
+            if (end < name.Length && name[end] == 's')
+            {
+                end++;
+            }
+
+            if (end == name.Length || !char.IsLower(name[end]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool InTestNamespace(INamedTypeSymbol type) =>
+        type.ContainingNamespace?.ToDisplayString().Split('.').Any(s => TestFolders.Contains(s, StringComparer.OrdinalIgnoreCase) || s.EndsWith("Tests", StringComparison.Ordinal)) == true;
+
+    /// <summary>Visible outside the assembly: public, and public all the way out.</summary>
+    private static bool IsPublic(INamedTypeSymbol type)
+    {
+        for (var current = type; current is not null; current = current.ContainingType)
+        {
+            if (current.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Test frameworks whose attributes or base types the file's types use.</summary>

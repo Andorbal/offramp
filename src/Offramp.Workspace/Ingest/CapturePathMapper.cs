@@ -94,6 +94,17 @@ public sealed class CapturePathMapper
         return ToRelative(Normalize(capturedDirectory).TrimEnd('/') + "/" + normalized);
     }
 
+    /// <summary>
+    /// The captured absolute path of a path relative to a captured directory (or already
+    /// absolute): forward slashes, "." and ".." resolved, the file system untouched.
+    /// </summary>
+    public static string Absolute(string capturedDirectory, string pathMaybeRelative)
+    {
+        var normalized = Normalize(pathMaybeRelative);
+        var path = IsRooted(normalized) ? normalized : Normalize(capturedDirectory).TrimEnd('/') + "/" + normalized;
+        return (path.StartsWith('/') ? "/" : "") + Collapse(path);
+    }
+
     public static bool IsWindowsStyle(string path) =>
         path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':' || path.StartsWith(@"\\", StringComparison.Ordinal);
 

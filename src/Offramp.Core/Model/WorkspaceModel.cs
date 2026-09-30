@@ -39,7 +39,8 @@ public sealed record WorkspaceModel
 
     /// <summary>
     /// Content hashes of the files that shape the model (project files,
-    /// Directory.*.props/targets, solutions, packages.config), for staleness checks.
+    /// Directory.*.props/targets, solutions, packages.config, NuGet.config, and the other
+    /// files the evaluations imported from inside the repository), for staleness checks.
     /// </summary>
     public IReadOnlyList<InputFile> Inputs { get; init; } = [];
 
@@ -60,8 +61,12 @@ public enum WorkspaceSourceKind
 /// <summary>
 /// Where the model came from. <see cref="Complog"/> is the compiler log supplied
 /// alongside a binlog (<c>scan --binlog X --complog Y</c>), otherwise null.
+/// <see cref="Sha256"/> is the hash of a supplied log (<c>binlog</c>, <c>complog</c>), and null for a
+/// log Offramp built (<c>build</c>): a build of the same inputs writes a different log every time
+/// (timings, node assignment), and the model's <c>inputs</c> say when it is stale
+/// (docs/decisions/0049-what-the-workspace-model-records.md).
 /// </summary>
-public sealed record WorkspaceSource(WorkspaceSourceKind Kind, string Path, string Sha256)
+public sealed record WorkspaceSource(WorkspaceSourceKind Kind, string Path, string? Sha256)
 {
     public LogFile? Complog { get; init; }
 }
@@ -111,6 +116,13 @@ public sealed record ProjectInfo
 
     public string? KindEvidence { get; init; }
 
+    /// <summary>
+    /// The web project whose application loads this one at run time, with the evidence; null for a project that
+    /// runs on its own or is only referenced (docs/decisions/0055-hosted-projects-belong-to-their-host.md).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProjectHost? HostedBy { get; init; }
+
     public bool SdkStyle { get; init; }
 
     public string? Sdk { get; init; }
@@ -120,6 +132,14 @@ public sealed record ProjectInfo
     public FrameworkClass FrameworkClass { get; init; }
 
     public string? OutputType { get; init; }
+
+    /// <summary>
+    /// The folder the build writes the project's assembly to (evaluated <c>OutDir</c>, else <c>OutputPath</c>),
+    /// repository-relative without a trailing slash, for its .NET Framework target when it has one and else its first;
+    /// null when the folder is outside the repository or the model came from a compiler log alone.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OutputPath { get; init; }
 
     public bool IsTestProject { get; init; }
 
@@ -167,11 +187,44 @@ public sealed record ProjectInfo
 
     public int Loc { get; init; }
 
-    /// <summary>True when the analysis build failed for this project and parts of the model are missing.</summary>
+    /// <summary>
+    /// True when the analysis build failed for this project: a target framework has no compiler call, or its
+    /// compiler call logged errors, so parts of the model or of its compilation are missing.
+    /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Partial { get; init; }
 
     public ProjectConfigState Config { get; init; } = new();
+
+    /// <summary>
+    /// The package in <see cref="PackagesConfigPackages"/> whose <c>packages/&lt;Id&gt;.&lt;Version&gt;/</c>
+    /// folder <paramref name="hintPath"/> goes through, or null. The folder names the exact package
+    /// and version, as <c>nuget restore</c> lays it out.
+    /// </summary>
+    public PackagesConfigPackage? PackagesConfigPackageFor(string hintPath)
+    {
+        var segments = hintPath.Replace('\\', '/').Split('/');
+        for (var i = 0; i + 1 < segments.Length; i++)
+        {
+            if (segments[i].Equals("packages", StringComparison.OrdinalIgnoreCase)
+                && (PackagesConfigPackages ?? []).FirstOrDefault(p => string.Equals($"{p.Id}.{p.Version}", segments[i + 1], StringComparison.OrdinalIgnoreCase)) is { } package)
+            {
+                return package;
+            }
+        }
+
+        return null;
+    }
+}
+
+/// <summary>A hosted project's host: the web project whose folder its output lies in, and why Offramp says so.</summary>
+public sealed record ProjectHost
+{
+    /// <summary>The host project's id.</summary>
+    public required string Project { get; init; }
+
+    /// <summary>What the relation rests on, output folder first.</summary>
+    public IReadOnlyList<string> Evidence { get; init; } = [];
 }
 
 public sealed record PackageReferenceInfo
@@ -258,7 +311,13 @@ public sealed record ResolvedPackage
 
 public sealed record PackageDependency(string Id, string Range);
 
-public sealed record CompilerCallRef(string Complog, int Index);
+/// <summary>
+/// A compiler call in a compiler log, named by the repository-relative project and the target framework the
+/// log records for it (null for a legacy project's call, which has none). Readers find its position in the
+/// log (<c>CompilerLogIngest.CallIndexes</c>); the position follows the order in which a parallel build
+/// finished its compilations, so the model does not record it (docs/decisions/0049-what-the-workspace-model-records.md).
+/// </summary>
+public sealed record CompilerCallRef(string Complog, string Project, string? TargetFramework);
 
 public sealed record ProjectConfigState
 {

@@ -15,7 +15,7 @@ namespace Offramp.Workspace.Tests;
 /// </summary>
 public sealed class ScanFixtureTests
 {
-    public static TheoryData<string> Fixtures => ["netfx-only", "dual-target", "cycle", "windows-only-build-steps", "versions", "tests-in-prod", "move-cases", "loose-dlls", "cpm-shadowing", "legacy-csproj", "webforms"];
+    public static TheoryData<string> Fixtures => ["netfx-only", "dual-target", "cycle", "windows-only-build-steps", "versions", "tests-in-prod", "move-cases", "loose-dlls", "cpm-shadowing", "legacy-csproj", "webforms", "plugin-host"];
 
     [Theory]
     [MemberData(nameof(Fixtures))]
@@ -270,5 +270,31 @@ public sealed class ScanFixtureTests
         var node = JsonNode.Parse(Scrub.Model(modelJson, root))!.AsObject();
         node.Remove("source");
         return OfframpJson.Format(node);
+    }
+
+    /// <summary>
+    /// SmartStoreNET P1 #5: a plugin that builds into the site's <c>Plugins/</c> folder, an area nested in the site
+    /// that builds into its <c>bin/</c>, and a DotNetNuke-style module whose build copies its assembly into that
+    /// <c>bin/</c> are hosted by the site; the model records every output folder.
+    /// </summary>
+    [Fact]
+    public async Task Plugins_and_areas_that_build_into_the_site_are_hosted_by_it()
+    {
+        var model = (await ScannedFixtures.GetAsync("plugin-host")).Outcome.Model!;
+
+        Assert.Equal(
+            [
+                ("src/Core/Core.csproj", "src/Core/bin/Debug/net48", null),
+                ("src/Modules/Html/Html.csproj", "src/Modules/Html/bin", "src/Site/Site.csproj"),
+                ("src/Plugins/Tax/Tax.csproj", "src/Site/Plugins/Tax", "src/Site/Site.csproj"),
+                ("src/Site/Admin/Admin.csproj", "src/Site/bin", "src/Site/Site.csproj"),
+                ("src/Site/Site.csproj", "src/Site/bin", null),
+            ],
+            model.Projects.Select(p => (p.Id, p.OutputPath, p.HostedBy?.Project)));
+        Assert.Equal(
+            ["builds into src/Site/Plugins/Tax, inside src/Site", "has no Global.asax", "no project references it"],
+            model.Projects.Single(p => p.Name == "Tax").HostedBy!.Evidence);
+        Assert.Equal("its build copies its assembly into src/Site/bin, inside src/Site", model.Projects.Single(p => p.Name == "Html").HostedBy!.Evidence[0]);
+        Assert.All(model.Projects, p => Assert.False(p.Partial, p.Id));
     }
 }

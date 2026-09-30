@@ -79,7 +79,7 @@ public sealed class ServiceCommand : ICommandHandler<ServiceOptions, ServiceResu
         {
             RepositoryRoot = root,
             Project = project,
-            TargetMajor = config.Target,
+            TargetMajor = config.Target.RuntimeMajor,
             Host = options.Host,
             OutputDirectory = options.Out,
             Dockerfile = options.Dockerfile,

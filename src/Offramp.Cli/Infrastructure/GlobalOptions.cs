@@ -1,5 +1,5 @@
 using System.CommandLine;
-using System.Globalization;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 
 namespace Offramp.Cli.Infrastructure;
@@ -7,7 +7,8 @@ namespace Offramp.Cli.Infrastructure;
 /// <summary>Values of the global options, bound once per invocation.</summary>
 public sealed record GlobalSettings
 {
-    public int? Target { get; init; }
+    /// <summary><c>--target</c> as given: an integer (<c>10</c>) or a target framework (<c>netstandard2.0</c>); ADR 0057.</summary>
+    public string? Target { get; init; }
 
     public string? Solution { get; init; }
 
@@ -46,10 +47,10 @@ public sealed record GlobalSettings
 /// </summary>
 public sealed class GlobalOptions
 {
-    public Option<int?> Target { get; } = new("--target", "-t")
+    public Option<string?> Target { get; } = new("--target", "-t")
     {
-        Description = "Integer major version of the modern target (10 = net10.0). Default: config target (10).",
-        HelpName = "N",
+        Description = "The modern target: a .NET major version (10 = net10.0), a target framework (net8.0, net10.0-windows), or netstandard2.0 for libraries. Default: config target (10).",
+        HelpName = "N|TFM",
         Recursive = true,
     };
 
@@ -153,13 +154,9 @@ public sealed class GlobalOptions
     {
         Target.Validators.Add(result =>
         {
-            // Conversion errors ("ten") are reported by the parser; only range-check integers here.
-            if (result.Tokens.Count > 0
-                && int.TryParse(result.Tokens[0].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value)
-                && value < 5)
+            if (result.Tokens.Count > 0 && !ModernTarget.TryParse(result.Tokens[0].Value, out _))
             {
-                result.AddError(string.Create(CultureInfo.InvariantCulture,
-                    $"--target must be 5 or higher (a modern .NET major version); got {value}."));
+                result.AddError($"--target must be {ModernTarget.Expected}; got '{result.Tokens[0].Value}'.");
             }
         });
         FailOn.AcceptOnlyFromAmong("info", "warning", "error", "never");

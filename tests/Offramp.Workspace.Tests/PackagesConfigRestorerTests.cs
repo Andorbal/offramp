@@ -87,6 +87,32 @@ public sealed class PackagesConfigRestorerTests : IDisposable
         Assert.True(File.Exists(_repo.Combine("packages/Cached.Only.1.2.0/lib/net45/Cached.txt")));
     }
 
+    /// <summary>The packages.config restore took about 200 silent seconds on Open Live Writer; it reports each package.</summary>
+    [Fact]
+    public async Task Each_package_is_reported_as_it_is_restored()
+    {
+        var progress = new List<string>();
+
+        await PackagesConfigRestorer.RestoreAsync(
+            _repo.Combine("App.slnx"), [_repo.Combine("src/App/App.csproj")], new RecordingPhase(progress), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["0/2 Legacy.Widgets 1.0.0.0", "1/2 Missing.Package 2.0.0", "2/2"], progress);
+        Assert.True(PackagesConfigRestorer.HasPackagesConfig([_repo.Combine("src/App/App.csproj")]));
+        Assert.False(PackagesConfigRestorer.HasPackagesConfig([_repo.Combine("src/Other/Other.csproj")]));
+    }
+
+    private sealed class RecordingPhase(List<string> reports) : Offramp.Core.Progress.IProgressPhase
+    {
+        public string Name => "restore";
+
+        public void Report(int current, int total, string? item = null) =>
+            reports.Add(item is null ? $"{current}/{total}" : $"{current}/{total} {item}");
+
+        public void Dispose()
+        {
+        }
+    }
+
     [Fact]
     public async Task A_solution_without_packages_config_needs_no_restore()
     {

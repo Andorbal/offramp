@@ -27,10 +27,13 @@ public sealed class SystemWebFixtureTests
         Assert.False(scanned.Outcome.Result!.BuildSucceeded);
     }
 
+    /// <summary>
+    /// With <c>dotnet build</c> on every OS: on Windows its <c>VSToolsPath</c> points into the SDK as well, so the block's
+    /// dotnet build section supplies the web targets there (ADR 0064); Visual Studio's build would use its own.
+    /// </summary>
     [Fact]
-    public async Task The_compile_only_block_makes_the_web_project_build_outside_windows()
+    public async Task The_compile_only_block_makes_the_web_project_build_with_dotnet_build()
     {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "The compile-only block applies outside Windows only.");
 
         var scanned = await ScannedFixtures.ScanAsync("systemweb", (root, request) =>
         {

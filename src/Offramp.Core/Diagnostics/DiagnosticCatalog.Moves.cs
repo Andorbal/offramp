@@ -47,15 +47,15 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR2202 = new(
         "OFR2202", Severity.Error,
         "multiple candidate test projects",
-        "More than one project is named after the source project plus `move.tests.targetSuffix`, so the destination is ambiguous.",
-        "Test projects with the same name in different folders.",
+        "More than one project is named after the source project plus `move.tests.targetSuffix`, or, with none so named, more than one test project references the source and none of them is named after it, so the destination is ambiguous.",
+        "Test projects with the same name in different folders, or unit and integration test projects that both reference the source.",
         "Name the destination with `--to`.",
         MovesArea);
 
     public static readonly DiagnosticDescriptor OFR2203 = new(
         "OFR2203", Severity.Error,
         "no test project found",
-        "No project is named after the source project plus `move.tests.targetSuffix`, and `--create` was not given.",
+        "No project is named after the source project plus `move.tests.targetSuffix`, no test project references the source, and `--create` was not given.",
         "A production project whose tests never had a project of their own.",
         "Name an existing destination with `--to`, or pass `--create` to create `<Name>.Tests` next to the source.",
         MovesArea);
@@ -82,6 +82,22 @@ public static partial class DiagnosticCatalog
         "The file is compiled into the project through a link but lives outside the project's folder, so it has no place under the destination and stays.",
         "`<Compile Include=\"..\\Common\\X.cs\" />` sharing a file between projects.",
         "Move the shared file by hand, or stop sharing it.",
+        MovesArea);
+
+    public static readonly DiagnosticDescriptor OFR2207 = new(
+        "OFR2207", Severity.Info,
+        "destination is a test project that references the source",
+        "No project is named after the source project plus `move.tests.targetSuffix`, so the tests go to the C# test project that references the source (or, of several, the one named `<Name>.Test`, `.Tests`, `.UnitTest`, or `.UnitTests`).",
+        "A test project named by another convention, such as NHibernate's `NHibernate.Test`.",
+        "Nothing, if it is the right project; otherwise name the destination with `--to`, or set `move.tests.targetSuffix`.",
+        MovesArea);
+
+    public static readonly DiagnosticDescriptor OFR2208 = new(
+        "OFR2208", Severity.Info,
+        "new test project created although one references the source",
+        "`--create` creates `<Name>` plus `move.tests.targetSuffix` next to the source, while existing test projects already reference the source and could take the tests.",
+        "A test project named by another convention, or `--create` from a guide that did not know it.",
+        "Run again with `--to` and the existing project to keep the tests together, or keep the new project.",
         MovesArea);
 
     public static readonly DiagnosticDescriptor OFR2210 = new(
@@ -202,6 +218,30 @@ public static partial class DiagnosticCatalog
         "The file compiles in the destination, but raises warnings the destination treats as errors (`TreatWarningsAsErrors`, `WarningsAsErrors`), so it stays where it is. The message names the warnings and the first one; the file is portable.",
         "A destination that generates documentation (CS1591 for public members without XML comments), enables nullable warnings, or runs analyzers the source does not, with warnings as errors.",
         "Fix the warnings in the source project first (they are the destination's rules), or relax them for the moved code in the destination (`NoWarn`, `WarningsNotAsErrors`, an `.editorconfig` section), then plan the move again.",
+        MovesArea);
+
+    public static readonly DiagnosticDescriptor OFR2113 = new(
+        "OFR2113", Severity.Info,
+        "co-move no longer needed",
+        "The file was added to the move as a co-move (a file that a moving file needs), but the file it was co-moved for stays, and no other moving file needs it, so it stays too. The message names the file it was co-moved for.",
+        "A requested file that is excluded (it does not compile in the destination, would close a cycle, ...) after the files it needs were added to the move.",
+        "Nothing to do; ask for the file explicitly if it should move on its own.",
+        MovesArea);
+
+    public static readonly DiagnosticDescriptor OFR2114 = new(
+        "OFR2114", Severity.Info,
+        "source's friend assemblies not granted by the new project",
+        "`move extract` creates the new project strong-named like the source, and the source grants its internal members to friend assemblies by public key (`InternalsVisibleTo`). The new project grants them nothing, so a friend that uses internal members of the moved code no longer compiles. The data lists the friends.",
+        "A strong-named library whose test project uses its internals, as NHibernate's does.",
+        "If a friend uses internal members of the moved code, add `<InternalsVisibleTo Include=\"Friend\" Key=\"...\" />` to the new project (the move's verification build shows it), or keep those files in the source.",
+        MovesArea);
+
+    public static readonly DiagnosticDescriptor OFR2115 = new(
+        "OFR2115", Severity.Warning,
+        "solution rewritten by the serializer",
+        "Adding a project to a `.sln` inserts the lines for the project and leaves every other line as it was. This solution could not be edited that way (no `Global` section, or a layout the check did not read back), so the solution serializer rewrote it whole: in its own format (`Format Version 12.00`) and without what it does not model, such as `TestCaseManagementSettings` or comments. The message and data name the lines that are gone or changed.",
+        "A hand-edited or unusual `.sln` file.",
+        "Review the solution's diff before committing; restore the lines you need, or add the project with Visual Studio or `dotnet sln add` instead.",
         MovesArea);
 
     public static readonly DiagnosticDescriptor OFR2120 = new(

@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Offramp.Analysis.Compilations;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
@@ -17,7 +18,7 @@ namespace Offramp.Analysis.Audits;
 /// editor's text laid over it.
 /// </summary>
 public sealed class TargetCompilationBuilder(
-    string repositoryRoot, WorkspaceModel model, int targetMajor, TargetReferenceResolver? references, DiagnosticBag diagnostics, ICompilationSource compilations)
+    string repositoryRoot, WorkspaceModel model, ModernTarget target, TargetReferenceResolver? references, DiagnosticBag diagnostics, ICompilationSource compilations)
 {
     private readonly Dictionary<string, TargetCompilation?> _built = new(StringComparer.Ordinal);
     private readonly Dictionary<string, MetadataReference> _files = new(StringComparer.Ordinal);
@@ -43,24 +44,32 @@ public sealed class TargetCompilationBuilder(
             return null;
         }
 
-        var desktop = project.Kind is ProjectKind.Winforms or ProjectKind.Wpf;
-        var tfm = $"net{targetMajor}.0" + (desktop ? "-windows" : "");
+        var tfm = target.For(project);
+        var standard = tfm.StartsWith("netstandard", StringComparison.Ordinal);
         var frameworks = new List<string>();
-        if (project.Kind == ProjectKind.Web)
+        if (project.Kind == ProjectKind.Web && !standard)
         {
             frameworks.Add("Microsoft.AspNetCore.App");
         }
 
-        if (desktop)
+        if (WindowsDesktop.Uses(project) && !standard)
         {
             frameworks.Add("Microsoft.WindowsDesktop.App");
+        }
+
+        if (target.IsStandard && !standard)
+        {
+            diagnostics.Report(DiagnosticCatalog.OFR3017,
+                $"{project.Id} is a {Wire(project.Kind)} project, which needs a .NET to run on and {target.Moniker} is not one, so it was compiled against {tfm}.",
+                new DiagnosticLocation(project.Id),
+                [KeyValuePair.Create<string, JsonNode?>("targetFramework", tfm)]);
         }
 
         var resolved = await references.ResolveAsync(new TargetReferenceRequest
         {
             TargetFramework = tfm,
             Frameworks = frameworks,
-            Packages = DirectPackages(project),
+            Packages = TargetPackages(project),
         }, cancellationToken).ConfigureAwait(false);
         if (resolved.Error is { } error)
         {
@@ -79,6 +88,15 @@ public sealed class TargetCompilationBuilder(
                 [KeyValuePair.Create<string, JsonNode?>("packages", new JsonArray([.. resolved.DroppedPackages.Select(p => (JsonNode?)p)]))]);
         }
 
+        if (resolved.UnavailablePackages.Count > 0)
+        {
+            var one = resolved.UnavailablePackages.Count == 1;
+            diagnostics.Report(DiagnosticCatalog.OFR3015,
+                $"{string.Join(", ", resolved.UnavailablePackages)} could not be found for {tfm} (NuGet found no such version on the feeds), so {(one ? "its" : "their")} DLLs are referenced as the project records them and the APIs used from {(one ? "it" : "them")} are not checked.",
+                new DiagnosticLocation(project.Id),
+                [KeyValuePair.Create<string, JsonNode?>("packages", new JsonArray([.. resolved.UnavailablePackages.Select(p => (JsonNode?)p)]))]);
+        }
+
         var metadata = resolved.Paths.Select(File).ToList();
         foreach (var reference in project.ProjectReferences.Order(StringComparer.Ordinal))
         {
@@ -90,6 +108,13 @@ public sealed class TargetCompilationBuilder(
 
         foreach (var loose in project.AssemblyReferences.Where(a => a.Kind == AssemblyReferenceKind.File && a.HintPath is not null))
         {
+            // A packages.config package's DLL is its .NET Framework build: the package was resolved for the target above.
+            if (project.PackagesConfigPackageFor(loose.HintPath!) is { DevelopmentDependency: false } package
+                && !resolved.UnavailablePackages.Contains(package.Id, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             var path = RepoPaths.ToAbsolute(repositoryRoot, loose.HintPath!);
             if (System.IO.File.Exists(path))
             {
@@ -97,7 +122,7 @@ public sealed class TargetCompilationBuilder(
             }
         }
 
-        return TargetCompilation.Create(recorded, tfm, targetMajor, metadata);
+        return TargetCompilation.Create(recorded, tfm, metadata);
     }
 
     /// <summary>
@@ -139,8 +164,30 @@ public sealed class TargetCompilationBuilder(
         return _recorded[project.Id] = reference;
     }
 
+    private static string Wire(ProjectKind kind) => char.ToLowerInvariant(kind.ToString()[0]) + kind.ToString()[1..];
+
     private MetadataReference File(string path) =>
         _files.TryGetValue(path, out var reference) ? reference : _files[path] = MetadataReference.CreateFromFile(path);
+
+    /// <summary>
+    /// The packages the target compilation asks NuGet for: the direct <c>PackageReference</c>
+    /// packages at their resolved versions, and every package <c>packages.config</c> lists (it
+    /// lists transitive packages too, with no graph) except development dependencies, which
+    /// are build tools. The assets file of a <c>packages.config</c> project has none of them.
+    /// </summary>
+    internal static List<(string Id, string Version)> TargetPackages(ProjectInfo project)
+    {
+        var packages = DirectPackages(project);
+        foreach (var package in project.PackagesConfigPackages ?? [])
+        {
+            if (!package.DevelopmentDependency && !packages.Any(p => string.Equals(p.Id, package.Id, StringComparison.OrdinalIgnoreCase)))
+            {
+                packages.Add((package.Id, package.Version));
+            }
+        }
+
+        return packages;
+    }
 
     private static List<(string Id, string Version)> DirectPackages(ProjectInfo project)
     {

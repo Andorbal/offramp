@@ -18,7 +18,8 @@ public sealed record WrapFinding(string Rule, string File, int Line, int Column,
 {
     /// <summary>
     /// The findings of an <c>audit</c> result: the <c>--format json</c> document, or the
-    /// <c>--json</c> envelope around it.
+    /// <c>--json</c> envelope around it. Info findings are left out: they name code that works
+    /// on the target (<c>OFR3014</c>, an attribute without effect there).
     /// </summary>
     public static IReadOnlyList<WrapFinding> Parse(string json)
     {
@@ -30,7 +31,7 @@ public sealed record WrapFinding(string Rule, string File, int Line, int Column,
             throw new JsonException("The findings file has no findings array; pass the output of `offramp audit api --format json`.");
         }
 
-        return [.. findings.OfType<JsonObject>().Select(f => new WrapFinding(
+        return [.. findings.OfType<JsonObject>().Where(f => f["severity"]?.GetValue<string>() != "info").Select(f => new WrapFinding(
             f["rule"]?.GetValue<string>() ?? "",
             f["file"]?.GetValue<string>() ?? "",
             f["line"]?.GetValue<int>() ?? 0,

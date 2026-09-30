@@ -12,6 +12,137 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- `doctor --fix` makes `dotnet restore` restore `packages.config` (ADR 0064): for a solution with
+  `packages.config` projects it adds `Offramp.PackagesConfig.targets`, imported from the block and
+  from `Directory.Solution.targets`, which after a restore has NuGet download what each
+  `packages.config` lists (through a generated project, so the solution's feeds and credentials
+  apply) and lays it out in the packages folder as `nuget restore` does. A fresh clone of a legacy
+  solution then builds with a plain `dotnet build` on any OS, without Offramp: on the mvc5 fixture
+  it fails without the file (CS0246) and succeeds with it, and legacy-shared's two versions of
+  Newtonsoft.Json restore from an empty NuGet cache. `doctor`'s plain-build check counts
+  `packages.config` as handled once the files are in place. The inline task's code never spells an
+  MSBuild property reference, which MSBuild would expand in it (on Windows, into a path that broke
+  the compile).
+- The compile-only block has a section for `dotnet build` on Windows (ADR 0064): .NET's MSBuild
+  has no `SGen`, `AspNetCompiler`, or `Microsoft.Bcl.Build` task there either, and no Visual
+  Studio web targets, so it gets what macOS and Linux get. An `MSBuild.SDK.SystemWeb` site, which
+  turns `MvcBuildViews` on in Release, built with `dotnet build -c Release` on a Mac and failed on
+  Windows (MSB4803); Visual Studio's build is unchanged. The systemweb and windows-only-settings
+  fixtures now build on Windows in CI as well.
+- `doctor --fix` conditions the Windows-only settings a project file sets itself, which win over the
+  compile-only block in `Directory.Build.props` (ADR 0063): `GenerateSerializationAssemblies` and
+  `MvcBuildViews` on `'$(MSBuildRuntimeType)' != 'Core'` (only Visual Studio's MSBuild has sgen and
+  `AspNetCompiler`), and build events, `Exec` commands written for cmd.exe, NuGet 2's
+  `RestorePackages`, and `MSBuildExtensionsPath` on `'$(OS)' == 'Windows_NT'`, in the project files,
+  the `Directory.Build.*` files above them, and the repository files they import. It shows a diff
+  per file and writes with `--apply`, keeping every other byte. The block alone left
+  `<GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>` in a project running sgen
+  (MSB3474) and an explicit `MvcBuildViews` running `AspNetCompiler` (MSB4803); on the new
+  `windows-only-settings` fixture a plain `dotnet build` of the whole solution now succeeds outside
+  Windows, in Debug and Release. On the corpus it conditions NHibernate's ILRepack step, Open Live
+  Writer's `MSBuildExtensionsPath` override (so the block reaches all 28 projects without a harness
+  edit), and SmartStoreNET's 24 NuGet 2 restores and two post-build events; the harnesses no longer pass
+  `PostBuildEvent=""` or edit Open Live Writer's build files for it.
+- A `doctor` check, "Builds without Offramp" (`plain-build`), that reads the files rather than the
+  model and warns when a plain `dotnet build` would do less than Offramp's own build: `OFR0019` for
+  each Windows-only setting without its condition, `OFR0026` for `verify.properties`,
+  `packages.config` restore, and a Web Site project that only Offramp's builds handle. It lists the
+  conditioned settings a build outside Windows skips.
+- Three field tests (`docs/field-tests/`), each with its fixes and a corpus test that pins them:
+  NHibernate 4.1.2 (a library shipped on NuGet, `nhibernate`), SmartStoreNET 4.2.0 (an MVC 5 site
+  with plugins, `smartstore`), and Open Live Writer 0.6.3 (a WinForms desktop application with COM
+  interop, `olw`). The corpus sweep also runs a second full `scan` and compares its model, which
+  `scan --no-build` could not do, and the harness applies `OFR0117`'s fix on Linux as symbolic links.
+- `--target`, `target:`, and `OFFRAMP_TARGET` take a target framework as well as a .NET major
+  version (ADR 0057): `net8.0`, `net10.0-windows` (every project on Windows: Windows-only APIs are
+  not findings), and `netstandard2.0`/`netstandard2.1` for a library that keeps serving .NET
+  Framework; `10` stays shorthand for `net10.0` and the default. A library's target was not
+  expressible, so `audit api` on NHibernate 4.1.2 checked `net10.0`, which has Reflection.Emit,
+  and missed about 50 of the 71 errors of its `netstandard2.0` build. Against `netstandard2.0` a
+  library compiles against .NET Standard's reference assemblies with the `NETSTANDARD` symbols:
+  on NHibernate, `--target netstandard2.0` gives 114 `OFR3001` findings in 30 files, 78 of them
+  Reflection.Emit (`ILGenerator` 28, `TypeBuilder` 8, ...), where `net10.0` gives 36 in 15 files,
+  one of them Reflection.Emit. Applications and test projects, which cannot run on .NET
+  Standard, are compiled against `net10.0` and say so with `OFR3017` (info); `doctor` checks that
+  the SDK builds it.
+- `report` lists the libraries other code uses (ADR 0041's shipped rule) with what is left in
+  their closure (`libraries`, `headline.libraries`, `headline.librariesDone`), and talks about
+  them when the workspace has no application: NHibernate's report said "applications 0" and
+  nothing about the library; it now says 0 of 2 libraries are done, NHibernate ready and
+  NHibernate.DomainModel waiting on it.
+- `OFR3505` (info): `audit api-compat --baseline` copied git-ignored files the working tree
+  compiles, which no revision has, into the baseline's work tree.
+- `web inventory` lists the filters registered with Autofac (`containerFilters`:
+  `As{Action,Result,Exception,Authorization,Authentication}Filter[Override]For<TController>`, MVC
+  and Web API), with the filter class, its kind, and the controller (or base class) and action it
+  applies to (ADR 0059).
+- `OFR4205` (info): `web scaffold` does not map a convention route whose template is computed at
+  run time, and says so with the code that computes it; the proxy keeps sending its requests to the
+  legacy application. Such a route was mapped with an empty pattern, which took the site's root.
+- `OFR4407` (warning): `config convert` knows the sections .NET Framework's `machine.config`
+  declares, which a configuration file uses without declaring them, and names the code that
+  replaces each on .NET (ADR 0060): `system.net` (the HttpClient handler's connection limit and
+  proxy, SmtpClient), `system.data` (`DbProviderFactories.RegisterFactory`), `system.transactions`,
+  `system.runtime.caching`, and others. The ones .NET has nothing for (`system.codedom`, `uri`, ...)
+  are dropped with a note, and `system.web.extensions` is `OFR4403` like `system.web`.
+- `OFR4031` (warning): `seams` proposes no extraction when it would take more than a quarter of
+  the project's types (and more than 10), and lists the types that use unportable APIs themselves,
+  to fence instead (ADR 0053). `OFR4032` (info): an API `audit api` reports missing (`OFR3001`)
+  that a package supplies on the target, which `seams` no longer counts as unportable.
+- `seams` counts COM interop and P/Invoke into Windows system libraries as unportable when the
+  target is not `-windows` (ADR 0054): a `[ComImport]` type, a `[DllImport]` of `user32`,
+  `kernel32`, ..., and a type using such a COM type or P/Invoke from another assembly. It took
+  taint from `audit api` only, so Open Live Writer's MSHTML interop never counted; on
+  `OpenLiveWriter.Interop.Mshtml` (`net10.0`) its 121 `[ComImport]` interfaces are now what is
+  tainted. On a `-windows` target interop works and taints nothing.
+- The workspace model records each project's output folder (`outputPath`: `OutDir` of the .NET Framework
+  target, repository-relative) and, for a plugin, area, or module, the web project that hosts it
+  (`hostedBy`, with the evidence): a web or library project whose assembly lands in a web project's
+  folder, outside its own (its output folder, or a copy its own build makes), and that has no
+  `Global.asax` (ADR 0055). New fixture `plugin-host`.
+- `OFR0204` (info): a hosted project is part of its host's application (`report`, `plan --for`,
+  `web inventory`). `OFR0205` (warning): `web scaffold` of a hosted project proxies to its host.
+  `OFR1507` (info): `redirects sync` leaves a hosted project's configuration file alone.
+- `OFR3013` (error): `CallContext` (and `LogicalCallContext`), which modern .NET does not have,
+  with `AsyncLocal<T>` as the replacement. It was reported as .NET Remoting (`OFR3007`, "use gRPC,
+  HTTP, or named pipes") and as missing (`OFR3001`) at the same place.
+- `OFR3014` (info): security transparency attributes (`[SecurityCritical]`,
+  `[SecuritySafeCritical]`, `[AllowPartiallyTrustedCallers]`, ...), which exist on the target and
+  do nothing there.
+- Audit rules can `exclude` documentation IDs that their `symbols` leave to another rule, and
+  `OFR3001` names a known replacement (`replacements` in `rules/audit-api.yml`, the finding's
+  `details.replacement`): `AppDomain.DefineDynamicAssembly` says `AssemblyBuilder.DefineDynamicAssembly`.
+- `OFR3016` (warning): `audit` read a project the model marks partial, whose build failed during
+  `scan`; the compiler call it recorded can lack sources or references.
+- `OFR3015` (info): `audit api` could not find one of a project's packages on the feeds (NU1101,
+  NU1102, NU1103), so it references the package's DLLs as recorded and does not check them.
+- `init` and `scan` choose among several solutions when none is at the root (ADR 0050): setting
+  aside solutions with a Web Site project (which .NET's MSBuild cannot build) when others have
+  none, the one that contains every other one's projects, else the one with the most projects;
+  `OFR0023` (info) says which and why, and a tie stays `OFR0020` with each solution's project
+  count. `init --defaults` left `solution: null` on SmartStoreNET (now `src/SmartStoreNET.sln`,
+  which contains `SmartStoreNET.Minimal.sln`), Open Live Writer (`src/managed/writer.sln`, 29
+  projects against 4 or fewer), and NHibernate (`src/NHibernate.sln`: `NHibernate.Everything.sln`
+  has one project more, but it is a Web Site project that stops the whole build).
+- `OFR0024` (info): a solution project that is not C#, Visual Basic, or F# (C++, WiX, a database or
+  JavaScript project) is named once and left out of the model; `OFR0025` (warning): a C++/CLI
+  project (`CLRSupport` set), which compiles .NET code that Offramp does not migrate.
+- `OFR0122` (warning): outside Windows, a legacy project that the compile-only block does not
+  reach, with the cause and the file to change: `MSBuildExtensionsPath` set in a shared file (so
+  `Microsoft.Common.props`, which imports `Directory.Build.props`, is never imported),
+  `ImportDirectoryBuildProps=false`, or a nearer `Directory.Build.props` that does not import the
+  root one. On Open Live Writer, `writer.build.settings` kept the block from all 25 projects that
+  import it; they failed with MSB3644 and nothing said why.
+- `OFR2207` (info): `move tests` sends the tests to the test project that references the source,
+  when no project is named after it. `OFR2208` (info): `move tests --create` creates a project
+  although test projects already reference the source, and names them.
+- `deps resolve-dlls` looks for a DLL in the packages that ship it under another name, from a
+  new rule table, `rules/assembly-packages.yml`, extended by `deps.assemblyPackages` in
+  `offramp.yml` (ADR 0042). On NHibernate 4.1, `nunit.framework` (package NUnit) and
+  `System.Data.SqlServerCe` (Microsoft.SqlServer.Compact) matched nothing.
+- `OFR1405` (warning): a DLL referenced by `HintPath` is a COM interop assembly generated from a
+  type library, which works on Windows only; Open Live Writer's checked-in
+  `OpenLiveWriter.Interop.SHDocVw.dll` was reported as matching nothing (`OFR1403`).
 - The workspace model records the packages each `packages.config` lists
   (`packagesConfigPackages`: id, version, target framework, development dependency), and the
   `packages` index includes them (ADR 0035). `deps audit` audits them: on DotNetNuke 9.13 it
@@ -79,10 +210,537 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `OFR0017` (MSBuild not found): `--msbuild` found no MSBuild.exe, or could not start it; scan exits 3.
 
 ### Changed
+- `report`'s applications leave out hosted projects and list them under the host (`applications[].hosted`,
+  also shown as "(hosts N)"); an application's `closure` includes them. `web inventory` and `web
+  scaffold` results gain `hostedBy`, and a hosted project's `url`/`legacyUrl` is its host's (ADR 0055).
+- `target` in `offramp.yml` and `effectiveConfig`, and `init`'s `values.target`, are an integer or a
+  target framework string, and the envelope's, `audit`'s, `guide`'s, and `doctor`'s `target` can be
+  `net10.0-windows` or `netstandard2.0` (ADR 0057). Migration: none for integer targets, which are
+  written back as integers.
+- The guide's port step proposes `<framework>;netstandard2.0` for a library other code uses
+  (listed in `deadCode.externalConsumers`, packable, packed by a `.nuspec`, or used by no
+  application), unless it uses Windows Forms or WPF, with a note naming `audit api --target
+  netstandard2.0`: NHibernate (packed by its `.nuspec.template`) was offered `net40;net10.0` and is
+  now offered `net40;netstandard2.0`. Under a .NET Standard target libraries get the standard and
+  applications and tests `net10.0`.
+- `audit api-compat` builds both sides with `verify.configuration` and `verify.properties`
+  (`RestorePackages=false` outside Windows) instead of `-c Release` (ADR 0058).
+- `web inventory` reads the libraries the application references (ADR 0059): routes have
+  `computed` (the C# that computes a template shown as `(computed)`) and `helper` (the codebase's
+  method the registration goes through), a route kind `odata`, and the result has
+  `containerFilters`; routes are in file and line order across the projects. It reads the
+  libraries' compilations too: 55 s instead of 28 s on SmartStoreNET's site.
+- `audit api` reports an API of a removed technology once, under that technology's rule (ADR
+  0044): `OFR3001` is no longer repeated where Web Forms, ASMX, WCF hosting, Remoting, WF, COM+ or
+  `CallContext` (`OFR3004`–`OFR3009`, `OFR3013`) matched. `OFR3001` counts drop on such code;
+  `seams` and the porting ledger count those rules too, so they see the same code as unportable.
+  Disabling the technology's rule or pack brings the `OFR3001` findings back.
+- `OFR3009` no longer covers `[SecurityCritical]` and `[AllowPartiallyTrustedCallers]`: they are
+  `OFR3014` (info). 23 of NHibernate 4.1's 24 `OFR3009` errors were those attributes, with the
+  advice to isolate the code in a separate process. `ifdef wrap` leaves info findings alone.
+- The workspace model names each compiler call by project and target framework:
+  `compilerCalls.<tfm>` is `{ complog, project, targetFramework }` (`targetFramework` is `null` for
+  a legacy project's call) instead of `{ complog, index }`, and `source.sha256` is `null` when
+  `scan` built the log itself (ADR 0049). Migration: rescan; commands report a model written by an
+  older Offramp as stale (`OFR0002`, "an older Offramp wrote it"), and `scan --if-stale` rescans it.
 - Every envelope's `effectiveConfig` has a `scan` section (`builder`, `msbuildPath`), and `init`
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `scan` said "no evaluation for it in the build log; MSBuild did not build it (check the solution
+  configuration)" for a project whose reference was loaded but never compiled, because something it
+  depends on failed first. It now names that reference ("which did not compile because a project it
+  depends on failed"). The DotNetNuke corpus test found it once `doctor --fix` let more of the build
+  run (DDRMenu and Tests.Urls, after DotNetNuke.Library). The corpus sweep compares a second full
+  scan's model only when both builds succeed: how far a failing parallel build gets varies by run.
+- On Windows: `move extract` added a project to a `.sln` with forward slashes, which its in-place edit
+  did not find, so it rewrote the whole solution (`OFR2115`); `csproj modernize`'s verification errors,
+  scan's non-string resource evidence, and a build-time generator's outputs had backslashes in their
+  repository-relative paths. Found by the Windows CI job, with test helpers that assumed `/`.
+- The test helper that fills `packages/` for fixture scans restored one version of a package that
+  two projects list in two versions (legacy-shared's Newtonsoft.Json 12.0.1 and 13.0.3), so
+  `CsprojModernizeCommandTests.Verification_builds_with_the_working_trees_untracked_imports` failed
+  on a runner with an empty NuGet cache (macOS CI). It now downloads every version.
+- `OFR0110` and `OFR0116` said the compile-only block turns sgen and `MvcBuildViews` off outside
+  Windows; it cannot where the project file sets them, and their fixes now say what `doctor --fix`
+  does there. `doctor` said "No project needs Windows to build" when `verify.properties` only hid a
+  step from the model; it now names the properties and leaves the rest to the plain-build check.
+- `csproj modernize` keeps the `.resx` files a legacy project does not embed out of the converted
+  project. When the `.resx` files on disk were not the ones the project lists, the conversion kept the
+  list but left the SDK's `**/*.resx` glob on, which embedded the others too: 9 of Open Live Writer
+  0.6.3's 28 conversions failed verification with "resources added" (69 unlisted files in
+  `OpenLiveWriter.ApplicationFramework`, 124 in `OpenLiveWriter.PostEditor`). The converted project now
+  removes the glob's `.resx` files (`<EmbeddedResource Remove="**\*.resx" />`) before it lists its
+  own, also when it lists none. With the two fixes below, all 28 Open Live Writer conversions pass.
+- `csproj modernize` verifies in a scratch copy that has what the scan's build read from the working
+  tree (ADR 0062). The copy was `HEAD` plus the model's inputs, compile items, hint paths, and the
+  converted projects' folders, and it lacked what the legacy projects a conversion references read
+  without its being committed. On Open Live Writer 0.6.3, 20 of 28 conversions failed with MSB3030:
+  `OpenLiveWriter.CoreServices` copies `intl/markets/Master.xml`, an untracked link (`OFR0117`'s
+  letter-case fix), and embeds the generated, git-ignored `Marketization/Markets.xml`. On
+  SmartStoreNET 4.2.0, `SmartStore.Web.MVC.Tests` failed because the site's
+  `EnsureNuGetPackageBuildImports` found none of the `packages/<Id>.<Version>/build/` files `scan` had
+  restored, and then because a package's `KillProcess` task assembly was missing (MSB4062). The copy
+  now also takes every file inside the repository that the scan's build read, as its binary log
+  records it: imports (restored packages' build files included), the files its items name, reference
+  hint paths, copy sources, and task assemblies with the files beside them; never a file in `bin` or
+  `obj`, from `packages/` only what was read, and only where `HEAD` lacks the file or has other
+  content. `OFR4309` (info) names the files `HEAD` does not have (384 on Open Live Writer: the link,
+  the generated files, an untracked `Directory.Build.props`, case-fixed bitmaps) and counts those of
+  restored packages. All 20 Open Live Writer conversions now build (11 of them pass; the other 9 embed
+  `.resx` files their projects do not list, fixed separately), and `SmartStore.Web.MVC.Tests` verifies
+  when converted on its own.
+- `csproj modernize` no longer takes the files a build generates in an intermediate folder outside the
+  project for sources the conversion added. Open Live Writer 0.6.3's `writer.build.settings` puts every
+  project's intermediate files in `src/managed/obj/<Configuration>/<Project>/`, and 8 of its 28
+  conversions failed verification (`OFR4303`) with "sources added:
+  `../obj/Debug/<Project>/<Project>.AssemblyInfo.cs`", the attributes the SDK generates. A source in the
+  folder the compiler writes the assembly to (the intermediate output path, wherever the project puts
+  it) is now the build's own, like one under `obj/`; those 8 conversions pass.
+- `csproj modernize` verifies a conversion against what the legacy build really compiled (ADR 0061).
+  On SmartStoreNET 4.2.0, 10 of 11 conversions still failed verification (`OFR4303`) for reasons
+  that were not the conversion's; now 10 of 11 pass:
+  - The comparison counted as differences the .NET Standard facades the legacy builds added (103
+    of them, from the framework's `Facades` folder), the framework assemblies that packages declare
+    (`frameworkAssemblies`: PresentationCore, System.Security, System.Net.Http), and a package's
+    other assemblies (Microsoft.Web.Infrastructure). With the converted project's
+    `project.assets.json` as evidence, they are allowed and listed: `transitiveReferencesAdded`,
+    the new `frameworkReferencesAdded` and `facadesRemoved`, and `explanations` with the package
+    or folder each comes from. Other reference changes still fail.
+  - Files imported from a dot-directory were not model inputs, and of two spellings of one name
+    only one was kept, so the scratch copy lacked the working tree's untracked
+    `.nuget/nuget.targets` link (OFR0117's letter-case fix) and SmartStore.Web.MVC.Tests' legacy
+    references failed with MSB4019. Imports are inputs outside `.git/` and the state directory,
+    in each spelling a case-sensitive file system holds.
+  - A converted `PreBuildEvent`/`PostBuildEvent` became a target with the command inline, so
+    `verify.properties: PostBuildEvent: ""` (OFR0115's remedy) no longer turned it off, and
+    SmartStore.Data.Tests failed with MSB3073. The events now stay where the legacy project
+    defines them, and a `SetBuildEvents` target sets each one that is set again before the build,
+    when `$(TargetDir)` and the other macros have their values. The SDK's own targets run them as
+    before: from the output folder, by `RunPostBuildEvent` (now kept), and not under
+    `-p:PostBuildEvent=`.
+- `move plan` and `move extract` report a source that does not compile without the moved files
+  once, at the project, with the file count and the first error, instead of one `OFR2104` per file
+  (and one more for each resource pair or partial sibling kept with it): DotNetNuke 9.13's
+  `move plan --all` from `DotNetNuke.Library` gave 98 identical errors. Each file is still in
+  `excluded`, with the reason and the errors.
+- `audit api-compat --baseline` on a legacy project outside Windows: on NHibernate 4.1.2 both sides
+  failed (`OFR3504`, exit 3). The working tree built with `-c Release`, which runs NHibernate's
+  Release-only ILRepack step (MSB3073), without `RestorePackages=false`; the baseline's scratch work
+  tree had neither the compile-only block `doctor --fix` wrote (uncommitted) nor the git-ignored
+  `src/SharedAssemblyInfo.cs` that NAnt generates (MSB3644). Both sides now build as verification
+  does, and the baseline gets Offramp's compile-only sections and the git-ignored files the working
+  tree compiles, named by `OFR3505` (ADR 0058). On NHibernate `--baseline 4.1.1.GA` now exits 0 in
+  46 s (no public API difference), with `OFR3505` naming `src/SharedAssemblyInfo.cs`.
+- `web scaffold` left actions to the legacy application with "no one-to-one ASP.NET Core
+  counterpart" for `EmptyResult` (18 actions of SmartStoreNET 4.2's site), `ModelState.AddModelError`
+  (9) and `IsValid`, `ViewBag` (8), `TempData`, `ViewData`, `RedirectResult`, `Url` (23),
+  `HttpUnauthorizedResult` (50) and `FormCollection` (14). They are ported: the types and members of
+  the same name as they are, `HttpUnauthorizedResult` as `UnauthorizedResult` and `FormCollection`
+  as `IFormCollection`; the in-memory compile still leaves an action whose use differs to the
+  legacy application. On SmartStoreNET's site no action is left for these any more; its 270
+  actions stay for views (151), for their controllers' base classes in the framework library (66),
+  and for other System.Web APIs (`Request`, `RouteValueDictionary`, ...).
+- `web inventory` found 8 of the 68 routes SmartStoreNET 4.2's site declares in code, no areas in
+  any project, none of the Web API and OData routes of its framework library, none of the 15
+  filters its projects register with Autofac, and 7 of 8 bundles. It now follows the codebase's
+  own route helpers with the semantic model, up to five calls deep (`MapLocalizedRoute`'s
+  overloads, `CreateLocalizedRoute`, `MapGenericPathRoute`, a local function around `MapRoute`),
+  with the helper's parameters replaced by each call's arguments; reads `DataTokens["area"]` and
+  `area` defaults; reads the route, filter, and bundle registrations of the libraries the
+  application references (not referenced web applications); and follows a bundle through its
+  local. On SmartStoreNET the site has 71 routes (its 68 and the framework's two `MapHttpRoute`
+  and `MapODataServiceRoute`), the framework's 5 Autofac filters, and 8 bundles; SmartStore.Admin
+  has the area `Admin` and 6 filters, and each plugin its own area (`SmartStore.Tax`). The four
+  media routes, whose templates start with a path from the settings, were one route with an empty
+  name and template; they are four, with their names and their templates shown as computed.
+- `config convert` said "bundleTransformer is left out: it is not declared in configSections"
+  (`OFR4401`) on SmartStoreNET 4.2's `Web.config`, where `bundleTransformer` is a `<sectionGroup>`:
+  the declared sections were keyed by their own names and looked up by the group's. A group's
+  element is now converted section by section under the group's key (`BundleTransformer:Core`,
+  `--sections` takes the group's name), and a section's elements are found also when the section
+  sets an `xmlns` (for the editor's schema, as `bundleTransformer` does). On SmartStoreNET the four
+  BundleTransformer sections convert (33 values; their 8 element collections are `OFR4401`).
+  `system.net`, `system.data` and `system.codedom` got the same "not declared" message: they are
+  machine.config sections, now `OFR4407` (the first two) and dropped with a note.
+- `seams` on NHibernate 4.1.2 tainted 1,445 of 2,355 types and proposed moving them all to
+  `NHibernate.Windows`, with 13 seams unrelated to the unportable APIs, in 14.6 MB of JSON. The
+  cycles that move together were the components of every reference, calls included, which put 7
+  directly tainted types in one component of 979; they are now built from structure only (base
+  types, and the types in non-private signatures), so calls stay places to cut, and taint spreads
+  to a fixed point. An API a package supplies on the target (`ConfigurationManager`) no longer
+  taints. A type tainted by its cycle names the cycle's partition (`in a structural cycle with a
+  tainted type (partition N)`) instead of listing its members, which made one reason 42,036
+  characters long. Now: 11 tainted types (SqlClient, ODBC, OLE DB, CodeDom, `CallContext`,
+  `SecurityManager`, `DefineDynamicAssembly`), 7 seams, 2.7 MB (ADR 0053).
+- `move extract` (and `move tests --create`) add the new project to a `.sln` without rewriting the
+  rest of it. The solution serializer's round trip changed NHibernate 4.1.2's `src/NHibernate.sln`
+  from "Format Version 11.00" to "12.00" and dropped its `TestCaseManagementSettings` section. The
+  lines the serializer writes for the project (its `Project` block, configurations, and solution
+  folder) are now inserted into the file as it is, keeping its line endings and byte order mark. A
+  `.sln` that cannot be edited that way (no `Global` section) is still rewritten, with the new
+  `OFR2115` (warning) naming the lines that are gone or changed.
+- `move extract` creates a strong-named project next to a strong-named one. The template copied
+  only `LangVersion`, `Nullable` and `ImplicitUsings`, so NHibernate 4.1.2's extracted
+  `NHibernate.DynamicProxy` was unsigned while the signed `NHibernate.dll` referenced it, which
+  .NET Framework refuses to load. The workspace model now records `SignAssembly`,
+  `AssemblyOriginatorKeyFile` (repository-relative), `DelaySign` and `PublicSign` for signed
+  projects, and the new project gets them, the key file relative to its folder. Its
+  `InternalsVisibleTo` grant to the source carries the source's public key, and `OFR2114` (info)
+  names the friend assemblies the source grants its internals to by public key, which the new
+  project does not.
+- `move plan` and `move extract` move code out of a .NET Framework project that references no
+  .NET Standard assembly yet. The source check added the .NET Standard destination to the recorded
+  compilation without the facades a build adds with it (`netstandard.dll` and the `System.*`
+  facades), so every first move out of such a project failed: Open Live Writer 0.6.3's
+  `Progress/*.cs` from the net461 `OpenLiveWriter.CoreServices` into a new `netstandard2.0` project
+  planned 0 moves (11 × `OFR2104`, CS0012 "The type 'Exception' is defined in an assembly that is
+  not referenced ... 'netstandard'"). Trial compilations of .NET Framework 4.6.1+ targets that gain
+  a .NET Standard reference (the source's, or the destination's for a project the moved files need)
+  now get the facades MSBuild would add, from the SDK's `Microsoft.NET.Build.Extensions` (net461 to
+  net471) and the reference assemblies' `Facades` folder (ADR 0052). The same extraction now plans
+  12 moves, and applying it passes verification.
+- `move plan` and `move extract` no longer move co-moves whose reason stays. When a requested
+  file was excluded, only the files co-moved directly for it were removed from the plan, silently,
+  and theirs stayed: moving SmartStoreNET 4.2.0's `SmartStore.Core/Collections` (10 files) into a
+  new `netstandard2.0` project moved 1 requested file and 40 others, among them a
+  `BinaryFormatter` helper, and for 35 of the 41 moves the file named in `coMoveOf` neither moved
+  nor was excluded. After every exclusion the planner now keeps only the files a requested file
+  still needs, transitively; a co-move another moving file needs stays, with `coMoveOf` naming
+  that file, and each dropped co-move is listed in `excluded` with the new `OFR2113` (info),
+  naming the file it was co-moved for. With `--namespace-mismatch block`, a file that needs a
+  blocked file is now excluded too (`OFR2101`) instead of moving without it.
+- `report`, `plan --for`, `redirects sync`, `web inventory`, and `web scaffold` know what a plugin host
+  is. On SmartStoreNET 4.2.0, one site whose admin area builds into its `bin/` and whose 12 plugins
+  build into its `Plugins/` folder, `report` counted 16 applications (every web project and two tools),
+  `plan --for SmartStore.Web` listed 5 projects and left out the 13 (104,877 lines) the site loads,
+  `redirects sync` rewrote 13 plugin `web.config` files the runtime never reads and computed the site's
+  redirects without the plugins' packages, and `web scaffold` on a plugin proxied to the plugin's own
+  Visual Studio URL, which serves nothing. DotNetNuke's modules, which copy their assembly into the
+  site's `bin/` after building, made 20 applications of one site. Now only a project that no web
+  project hosts is an application, a host's closure includes what it hosts, the host's redirects take
+  its hosted projects' packages and their configuration files are left alone, and `web inventory`/`web
+  scaffold` name the host and use its URL. Rescan to record `outputPath` and `hostedBy`.
+- `csproj modernize` reports what its verification found in full. A converted build that failed
+  showed its first 10 errors and nothing else (NHibernate 4.1.2's `netstandard2.0` conversion had
+  71): the result's `verification` now has `built`, `buildErrorCount`, and `buildErrorCodes` (the
+  count per code, most frequent first), `OFR4303`'s message gives the count by code, and error
+  paths are repository-relative instead of the scratch copy's. The terminal view says a project
+  "does not build" instead of "compiles different inputs" when its converted build failed, with
+  the error count by code (SmartStoreNET 4.2.0). `--all` passes every project to the conversion,
+  so a legacy Visual Basic project is reported as not converted (`OFR4304`); it left NHibernate's
+  `.vbproj` out without a word.
+- `csproj modernize` converts to a project that compiles what the legacy one did (ADR 0043):
+  - An SDK-style project compiles against its references' references too, so NHibernate 4.1.2's
+    `TestDatabaseSetup` (which references `Test`, which references `DomainModel`) failed
+    verification with "references added: NHibernate.DomainModel" (`OFR4303`). A converted project
+    whose referenced projects have project references of their own sets
+    `DisableTransitiveProjectReferences`.
+  - The NuGet 2 restore import (`$(SolutionDir)\.nuget\NuGet.targets`) is removed with
+    `RestorePackages`. It stayed while `SolutionDir` went, so 10 of SmartStoreNET 4.2.0's 11
+    conversions failed with MSB4019. `SolutionDir`'s definition now stays while a build event or
+    import still uses it (SmartStore.Data.Tests' post-build step uses
+    `$(SolutionDir)packages\...`).
+  - A `packages.config` version lower than the one a referenced project brings is raised to it,
+    with `OFR4307` (warning): with `PackageReference` the higher version flows in, and the lower
+    one is a package downgrade, NU1605, an error. It failed 5 of Open Live Writer 0.6.3's
+    conversions (Newtonsoft.Json 10.0.2 in `PostEditor`, 13.0.1 from `BlogClient`).
+  - A build event in a conditioned property group keeps the condition on its target; Open Live
+    Writer's installer step, conditioned off for compile-only builds, ran unconditioned
+    (MSB3073).
+  - With a `-windows` target (`--tfm "net461;net10.0-windows"`), a project that references
+    Windows Forms or WPF gets `UseWindowsForms` or `UseWPF`, and its .NET Framework references
+    are conditioned on the .NET Framework target instead of applying to every target.
+  - `OFR4308` (warning) names a target in the project body that a common target of the same name
+    now overrides (Open Live Writer's empty `_CopyFilesMarkedCopyLocal`, which turned copy-local
+    off), and an imported file that sets `TargetFrameworkVersion`, `OutputPath`,
+    `IntermediateOutputPath`, or `MSBuildExtensionsPath` unconditionally (`writer.build.settings`).
+    Both stopped working without a word.
+- `csproj modernize` and `codemod run --mod assemblyinfo` edit only a project's own AssemblyInfo
+  files (ADR 0039). They stripped the version, company, and product attributes from any file the
+  project compiled: NHibernate 4.1.2's git-ignored `SharedAssemblyInfo.cs`, which NAnt writes
+  and six projects link (one outside the solution); SmartStoreNET 4.2.0's two shared files, which
+  19 projects compile, 14 of them web projects `csproj modernize` does not convert (they would
+  have built as version 0.0.0.0); and, one `--project` at a time as the guide converts, Open Live
+  Writer 0.6.3's `GlobalAssemblyInfo.cs`, linked into 20 projects. A file outside the project's
+  folder, compiled by another project, ignored by git, added to the compilation by a build target
+  (Open Live Writer's generated `GlobalAssemblyVersionInfo.cs`, which caused CS0579 in 20
+  conversions), or generated code (an `<auto-generated>` header) now keeps its attributes, and
+  the project sets `GenerateAssembly<Name>Attribute` to `false` for each of them so the SDK does
+  not generate them again. `OFR4306` (info) names each such file and why.
+- An audit names a failed build: `OFR3012` for a project without a compiler call told the user to
+  run `offramp scan`, which they just had (4 NHibernate projects whose dependency did not build);
+  it now says the build failed (`OFR0130`) or its call could not be read (`OFR0132`). A project
+  with a compiler call that the model marks partial is audited with `OFR3016` instead of silently,
+  and a project whose call is missing from the compiler log is reported (`OFR3012`), not only
+  listed under `skipped`.
+- `audit serialization` counts a `[Serializable]` type as serialized when it derives from or
+  implements a type a serialized value is declared as, with its own fields: NHibernate 4.1 had 753
+  `OFR3205` ("never serialized"), `NHibernate.Impl.SessionImpl` among them, while `OFR3204` said
+  `NHibernate.ISession` is serialized; it has 580 now, and `SessionImpl` is not one of them.
+- `audit behavior` `OFR3103` looks only at the path parameters of `System.IO` APIs: 6 of
+  SmartStoreNET's 13 "Windows path" findings were `TextWriter.Write(@"\t")` and other JavaScript
+  escapes (7 now).
+- `audit api` attributes an extension method on a missing type to that type's assembly:
+  "`System.Web.HttpRequestBase.IsHttps()` (SmartStore.Core) does not exist on the target" and 132
+  more on SmartStoreNET were attributed to the solution's own assemblies, with "No known mapping".
+  With MVC and Web API compiled for the target, 237 such findings are now System.Web's (120),
+  System.Web.Mvc's (75), and System.Web.Http's (42); `details.extensionAssembly` names the
+  assembly that declares the method.
+- `audit api` no longer reports an API the target has, looked up through a missing base type:
+  `Component.DesignMode` inside a class deriving from a missing `Control` (66 findings on Open Live
+  Writer, none now).
+- `audit api` compiles a project for `net10.0-windows` when it uses Windows Forms or WPF: it
+  references `System.Windows.Forms`, `PresentationFramework`, `WindowsBase` or `System.Xaml`, or
+  sets `UseWindowsForms` or `UseWPF` (ADR 0040). Only `winforms` and `wpf` projects, which are
+  applications, were, so on Open Live Writer 18 class libraries of forms and controls were
+  compiled for `net10.0`: 13,374 of 13,910 `OFR3001` findings were Windows Forms and
+  `System.Drawing` APIs that `net10.0-windows` has, and all 140 `OFR3002`. On `-windows`, the
+  Windows Forms types .NET keeps only as shims that throw (`MenuItem`, `ContextMenu`, `DataGrid`:
+  `[Obsolete]` `WFDEV006`) are `OFR3003`. Open Live Writer has 590 `OFR3001` now (none from
+  Windows Forms, 13 from `System.Drawing`), no `OFR3002`, and 165 `OFR3003` for the shims. The
+  guide's `csproj modernize --tfm` suggestion uses the same rule.
+- `audit api` compiles `packages.config` projects against their packages as the target sees them
+  (ADR 0040). It passed only the assets file's packages, which a `packages.config` project does
+  not have, and referenced every `HintPath` DLL as it was, so the .NET Framework
+  `System.Web.Mvc.dll` went into the `net10.0` compilation: on SmartStoreNET 4.2 no finding named
+  ASP.NET MVC or Web API although 363 files use MVC. Every package `packages.config` lists
+  (development dependencies aside) is now resolved for the target, and the `HintPath` DLLs in
+  their `packages/<Id>.<Version>/` folders are left out: SmartStoreNET has 11,057 `OFR3001`
+  instead of 1,439, 6,989 of them `System.Web.Mvc` and 714 `System.Web.Http`, and `OFR3011`
+  names the packages without target support in 23 projects (the audit takes 201 s instead of
+  142 s). This was the `audit api` part of DotNetNuke's P1 #7.
+- `doctor` before the first scan reads the solution's project files: legacy projects without the
+  compile-only block's legacy section are `OFR0018`, so the README's order (doctor, init, scan)
+  no longer leads to a failed first scan (SmartStoreNET, Open Live Writer, NHibernate). Its
+  reference-assemblies check probes the .NET Framework targets the projects compile for
+  (`net40`, `net461`, `net472`), not `net48` only. When `verify.properties` overrides
+  `PostBuildEvent` or `PreBuildEvent`, it names the projects that still set them instead of
+  saying "No project needs Windows to build" (SmartStoreNET).
+- `report`'s trend uses only the ledger snapshots of the model's solution, and names the others
+  (new `OFR0203`, info). On NHibernate, a scan of a solution filter followed by one of the solution
+  read as "down 232 since".
+- Paths in `scan`'s messages are repository-relative before they are shortened: `OFR0115`'s
+  evidence was cut to 120 characters first, which left `Exec: "src/managed/PostBui…` on Open Live
+  Writer and `del "src/Pres…` on SmartStoreNET, and `OFR0130`'s compiler messages and `OFR0132`'s
+  message kept absolute `/tmp/...` paths (NHibernate, SmartStoreNET, Open Live Writer).
+- `scan` reports progress during the build: each project the build finishes (from MSBuild's
+  `Name -> output` lines), out of the solution's projects, and the `packages.config` restore is a
+  phase of its own that reports each package. The build phase was one progress event: 74 silent
+  seconds on SmartStoreNET, 34 on NHibernate, and about 200 seconds of restore on Open Live Writer
+  (the DotNetNuke "still open" heartbeat).
+- A project that is not C#, Visual Basic, or F# is never in the workspace model, its framework
+  counts, `plan`, or `report` (ADR 0049). When MSBuild evaluated Open Live Writer's
+  `OpenLiveWriter.Ribbon.vcxproj`, it was a .NET Framework library (`language: other`, no target
+  frameworks classified as `framework`), `plan` put it in wave 1 as `ready`, and `report` counted
+  it; when MSBuild did not, it was `OFR0101` "unsupported project type". Now it is `OFR0024`
+  either way, or `OFR0025` for C++/CLI.
+- A project whose compiler call logged errors is `partial` in the workspace model and in `scan`'s
+  result: the compiler log records the call, but its compilation is broken. NHibernate compiled
+  with an error (a generated file missing) and Open Live Writer's MSTest project with 363 errors,
+  and both were `partial: false`, so the audits analyzed them as if complete.
+- `defineConstants` lists the symbols the compiler saw for legacy projects too (their compiler
+  call records no target framework, so the model fell back to the evaluated property), and
+  without a call it splits `DefineConstants` on `,` as well as `;`, as the compiler does:
+  NHibernate's `NET,NET_2_0` was one symbol. A legacy Visual Basic project now lists its implicit
+  symbols (`CONFIG`, `TARGET`, `_MyType`) instead of none.
+- The files the projects import from the repository (Open Live Writer's `writer.build.settings`)
+  and `NuGet.config` are inputs of the workspace model (ADR 0049). Editing them did not make the
+  model stale, and the scratch copies `csproj modernize` and `deps consolidate` verify in had the
+  committed versions, so on Open Live Writer converting `LocEdit` failed with MSB3644 in the
+  scratch copy where the working tree built, and restores there used the feed the fixed
+  `NuGet.config` had replaced.
+- Two full scans of the same tree write the same model (ADR 0049). The compiler-call index
+  followed the order the parallel build finished its compilations (10 of SmartStoreNET's 25
+  projects differed between two scans), and `source.sha256` hashed the binary log, which differs
+  with every build; now calls are found in the compiler log by project and target framework, and
+  a log Offramp built is not hashed (the model's `inputs` decide staleness, as before).
+- `OFR0101`'s reasons and `OFR0130`'s counts say what happened:
+  - A project the solution makes depend on a failed project (`ProjectDependencies`) names it. Open
+    Live Writer's application depends on its native Ribbon project, which fails evaluation outside
+    Visual Studio (MSB4278), and the reason was "check the solution configuration".
+  - When the restore failed, every missing project's reason is "the restore failed", with the
+    first error, instead of "it references X, which failed" (Open Live Writer behind a blocked
+    feed), and when no project was evaluated at all, the first error (NHibernate's MSB4249). A
+    project referencing one that merely was not built says so instead of "which failed".
+  - `OFR0130` counts errors once per project and says how many projects each code affects
+    (`data.projectsByCode`): Open Live Writer's MSB3644 in 25 projects, all in one shared targets
+    file, read "2 error(s) (MSB3644 ×1, ...)" and now reads "MSB3644 ×25 in 25 projects". A
+    restore error without a code is labeled `restore` (it read "( ×3)"), and paths in the message
+    are repository-relative.
+- `OFR0115` names a build-time generator: an `Exec` that runs a program the solution itself builds.
+  Open Live Writer's CoreServices runs `$(OutDir)MarketXmlGenerator.exe` to write an embedded
+  resource; the evidence was `Exec: "src/managed//bin/De…`, and the remedy (guard the target)
+  turned MSB3073 into CS1566. The message now names the target, the program and the project that
+  builds it, and the target's outputs, and says they must exist before a guarded build. Evidence
+  is made repository-relative before it is shortened.
+- Three more build steps that stopped field-test builds outside Windows are named, each with its
+  fix in `docs/compiling-on-macos.md` (ADR 0048):
+  - An ASP.NET Web Site project no longer stops the whole solution: `dotnet build` fails with
+    MSB4249 before building any project, so NHibernate 4.1's `NHibernate.Everything.sln` loaded 0
+    projects and every `OFR0101` reason was wrong. `scan` now builds a solution filter without the
+    site (`.offramp/scan.slnf`), and reports the site as `OFR0101` ("ASP.NET Web Site project",
+    where it said "unsupported project type ()") and `OFR0126` (new, `web-site`).
+  - `Microsoft.Bcl.Build`'s `EnsureBindingRedirects` task (MSB4062 in SmartStoreNET's FacebookAuth
+    and Open Live Writer's PostEditor) is `OFR0124` (new, `bcl-build`), and the compile-only block
+    has a fourth section that sets the package's `SkipEnsureBindingRedirects` outside Windows;
+    `doctor --fix` adds it to files with the first three.
+  - MSTest v1 (`Microsoft.VisualStudio.QualityTools.UnitTestFramework`, 363 errors in Open Live
+    Writer's two test projects) is `OFR0125` (new, `mstest-v1`), documented with the
+    `MSTest.TestFramework` replacement for compile-only builds.
+- `scan` checks the projects' files for letter-case, resource, and missing-file problems in
+  one pass, after the build and whatever it got to (ADR 0047), instead of naming them from build
+  errors one project per build. SmartStoreNET 4.2 needed four scans to find its 14 paths in the
+  wrong letter case, and which projects failed varied between builds; Open Live Writer named one
+  project with images in `.resx` files per scan, and not the `ResXFileRef` paths in the wrong case
+  in `Localization/Images.resx` (MSB3554). The first scan of a fresh checkout now names all 14
+  SmartStoreNET paths in all 19 projects that use them, and all 13 Open Live Writer projects with
+  non-string resources and its 62 paths in the wrong case. Now:
+  - `OFR0117` names every import, source file, resource, file copied to the output, and `.resx`
+    file reference that exists only in another letter case, one diagnostic per
+    project with all of them in `data.paths`, and resolves `..` in the evidence
+    (`src/managed/OpenLiveWriter.CoreServices/../../../intl/markets/Master.xml` read as
+    `intl/markets/Master.xml`).
+  - `OFR0119` names each project whose `.resx` files hold non-string resources, by file, before
+    the build reaches them, by the rules of MSBuild's own reader (byte arrays and text files are
+    not reported), unless every target framework already embeds them preserialized.
+  - `OFR0123` (new, warning): a `Compile` item whose file exists in no letter case. When git ignores
+    it, the message says the repository's own build generates it and must run first. NHibernate
+    4.1's `src/SharedAssemblyInfo.cs`, which its NAnt build writes, was one `CS2001` inside
+    `OFR0130`, with an absolute path.
+  - `docs/compiling-on-macos.md` gives `OFR0119`'s fix for legacy projects, whose
+    `PackageReference` to `System.Resources.Extensions` is restored but never referenced under the
+    .NET SDK: a target that references the DLL, with the version per target framework (6.0.0 for
+    .NET Framework 4.6.1, which 8.0.0 does not support).
+- `move tests` without `--to` looked only for `<Name>.Tests` and failed with `OFR2203` on
+  NHibernate, whose tests are in `NHibernate.Test`, and on DotNetNuke (`DotNetNuke.Tests.Core`).
+  Without a project so named, it now uses the C# test project that references the source, or of
+  several the one named `<Name>.Test`, `.Tests`, `.UnitTest`, or `.UnitTests` (ADR 0045); on
+  NHibernate it chooses `NHibernate.Test` over `NHibernate.TestDatabaseSetup`. A source that does not
+  compile without the moved files is one `OFR2104` for the project, with the file count, instead of
+  one per file (1,272 identical errors on NHibernate.Test); each file is still in `skipped`.
+- `move tests` never moves a public type of a shipped library (ADR 0045; shipped as in ADR 0041):
+  it is listed in `candidates` at `low`, with the reason, and `--include-helpers` does not move it.
+  On NHibernate 4.1, `move tests --project src/NHibernate/NHibernate.csproj --to
+  src/NHibernate.Test/NHibernate.Test.csproj` planned to move `QueryOverBuilderExtensions`, part of
+  the QueryOver API that only the repository's tests call, into the test project at `high`
+  confidence; the next NuGet package would have lost it. A type's name now suggests test support
+  only when the hint (`Builder`, `Fake`, `Stub`, ...) is a whole word of it and the type is not
+  public or lives in a test namespace, so `QueryOverBuilderExtensions`, DotNetNuke's
+  `LocalizationExpressionBuilder`, and SmartStoreNET's `LinqContainsPredicateBuilder` are no longer
+  test support by name.
+- `audit dead-code` rates `low` what test runners, COM, and page scripts find by name (ADR 0041):
+  a type whose methods (or a base type's) carry a test framework's attribute, since NUnit 2.5 and
+  later run a class with `[Test]` methods and no `[TestFixture]` (245 of NHibernate's fixture
+  files have none); a public member of a `[ComVisible(true)]` type or assembly, which COM clients
+  and `window.external` scripts call; and names in `.htm`, `.html`, and `.js` files (minified
+  `.min.js` aside), which are now string sources like markup. On Open Live Writer, the 7
+  high-confidence methods of COM-visible classes are `low`, among them
+  `JSMapController.NextEvent()`, which `map.html` calls. `[ComVisible]` no longer counts as a
+  reflection attribute by itself.
+- `audit dead-code` follows the solution's own type discovery (ADR 0041). A method that passes its
+  type parameter or `Type` parameter to `IsAssignableFrom` (or to another such method, four calls
+  deep, through interfaces) is a discovery method, and the type each call passes it is found by
+  reflection; so are `x.GetGenericTypeDefinition() == typeof(G<>)` and the Entity Framework
+  assembly scans (`Configurations.AddFromAssembly`, `ApplyConfigurationsFromAssembly`). On
+  SmartStoreNET 4.2, 182 live classes found with `typeFinder.FindClassesOfType<T>()` or by their
+  `EntityTypeConfiguration<>` base were `high`; now 184 of the 254 high-confidence classes are
+  `low`, each naming the call that finds it, and the removable lines drop from 12,802 to 7,764. A
+  public controller action is `medium` at most, and its name matches strings in any letter case,
+  as MVC matches it: 8 actions were `high`, among them `BoardsController.ActiveDiscussionsRss`,
+  linked as `"ActiveDiscussionsRSS"`.
+- `audit dead-code` rates the public symbols of a shipped library `medium`, never `high`, and says
+  which rule shipped it (ADR 0041). Before, only `IsPackable` and `deadCode.externalConsumers`
+  counted, which legacy projects never have: on NHibernate 4.1, which NAnt packs from
+  `src/NHibernate/NHibernate.nuspec.template`, 250 public symbols (SQL dialects chosen by name in
+  configuration, `Configuration.AddXmlReader`, ...) were `high`; now the high-confidence total is
+  20 symbols and 184 lines instead of 273 and 3,158. A project is shipped when it is listed in
+  `deadCode.externalConsumers`, is packable, has its DLL packed by a `.nuspec` anywhere in the
+  repository (Open Live Writer's `OpenLiveWriter.SDK.nuspec` at the root packs its plugin SDK, whose
+  5 high-confidence symbols are now `medium`), is a library with a `.nuspec` or `.nuspec.template`
+  beside it, or is a library no application in the solution depends on. A `.nuspec` that packs an
+  `.exe` is an application's installer (Open Live Writer's Squirrel package carries every DLL of
+  the application) and ships nothing. `deadCode.externalConsumers` is now documented in
+  `docs/spec/03-configuration.md`.
+- `deps gac` judges `System.Web` and `System.Web.Services` by what the project uses from them. On
+  Open Live Writer it told 9 projects that use only `HttpUtility` and `MimeMapping` to move to
+  ASP.NET Core, and did the same for a SOAP client. `System.Web` used only for `HttpUtility` is
+  now `builtin` (modern .NET has `System.Web.HttpUtility`), with `MimeMapping` the note says what
+  to do about it, and `System.Web.Services` used only as a SOAP client maps to a WCF client
+  (`System.ServiceModel.Http`, dotnet-svcutil).
+- `deps audit` finds Windows-only packages by what their code calls (ADR 0046): a P/Invoke into a
+  library only Windows has, or a `[ComImport]` class, is `OFR1004` evidence. On Open Live Writer,
+  DeltaCompressionDotNet 2.0.1 (its netstandard2.0 DLL calls msdelta.dll and mspatcha.dll) and
+  PlatformSpellCheck 1.1.0 (a Windows COM API) were not Windows-only. A package whose versions in
+  use have nothing for any framework is `replace` when the package map names a successor (new
+  `OFR1009`): Microsoft.Bcl.Build was `ok`, although the map says it is built in on modern .NET
+  and its targets fail under the SDK's MSBuild. Cached inspections are recomputed.
+- `deps audit` points to `deps resolve-dlls` when projects reference DLLs by `HintPath` that no
+  packages.config installs (new `OFR1008`, info): on NHibernate 4.1, with 15 such references and
+  no package, it said "0 packages" and nothing else. Feed requests give up after 60 seconds (the
+  feed is then unreachable, `OFR1006`): on Open Live Writer a v2 feed whose CDN was blocked kept
+  the audit busy for 1,668 seconds. `deps audit`, `deps resolve-dlls` and `codemod run` read a
+  package from the packages.config folder `scan` restored before downloading it again.
+- `codemod run` checks each package a codemod adds against the project's target frameworks, by
+  inspecting the package on the configured feeds (ADR 0046). On NHibernate 4.1, `--mod sqlclient`
+  added Microsoft.Data.SqlClient 7.1.0, which starts at .NET Framework 4.6.2, to a net40 project
+  and the dry run did not say so. Such a project's sites are now left alone, with the new
+  `OFR4511` listing the frameworks the package supports.
+- `deps resolve-dlls --apply` verifies its edits and rolls them back when the build fails (new
+  `OFR1408`), as `move apply` and `codemod run` do; `--verify none` skips it. On NHibernate 4.1 it
+  exited 0 with `applied: true`, and the solution then failed with 2,505 errors outside Windows,
+  where the .NET SDK gives a legacy project's compiler none of a `PackageReference`'s assemblies.
+  Outside Windows a legacy project now keeps its References (new `OFR1407`, pointing to `csproj
+  modernize`), and `codemod run` leaves the sites of a codemod that needs a package in such a
+  project alone instead of rewriting code that cannot compile (new `OFR4512`). The result has
+  `verify` and `rolledBack`.
+- `deps resolve-dlls` no longer guesses the version of a DLL outside the repository, nor edits
+  projects that do not declare the reference. On Open Live Writer, a `System.Resources.Extensions`
+  6.0.0 reference declared once in `Directory.Build.props` through `$(NuGetPackageRoot)` was
+  proposed as 4.6.0 (`OFR1402` with an empty version), and the preview added a
+  `PackageReference` to all 28 project files. The model now writes such a HintPath as
+  `$(NuGetPackageRoot)<id>/<version>/...` and reads the metadata of a DLL outside the repository;
+  resolve-dlls takes the package and version from that path (`match: path`), matches no package
+  for a DLL of unknown version, and reports a reference declared outside the project file once
+  per assembly and declaring file (new `OFR1406`) instead of editing the projects. On Open Live
+  Writer now: 32 references resolved by their path (System.Resources.Extensions 6.0.0 in 28
+  projects, MSTest.TestFramework 1.4.0), no project file edited, and 3 `OFR1406` naming
+  `Directory.Build.props`.
+- `deps resolve-dlls` reports a DLL built before .NET 4.0 as a .NET Framework blocker
+  (`OFR1404`) by the .NET Framework `mscorlib` it references, since it has no
+  `TargetFrameworkAttribute`: 8 of NHibernate 4.1's 9 checked-in DLLs have none, so none could be
+  a blocker.
+- `deps resolve-dlls` chooses a package version by the DLL's file (ADR 0042): a package asset
+  with the same SHA-256, then the same file version, then the same informational version, then
+  the lowest version with the assembly version, then the lowest newer one. On NHibernate 4.1 it
+  proposed Iesi.Collections 4.0.0.4000 for a DLL byte-identical to 4.0.1.4000 (both ship
+  assembly version 4.0.0.0), which `--apply` would have written as a downgrade in 3 projects.
+  `OFR1402` says what matched ("the same file, byte for byte", "the closest build", "is newer
+  ...: an upgrade" for FirebirdSql.Data.FirebirdClient 2.5.2 → 2.6.5, which it called "is"), and
+  the result has `match` and the DLL's `fileVersion`. An exact unlisted version counts (log4net
+  1.2.10), an unsigned DLL is matched only by its file, not by the package id alone (`OFR1403`),
+  and `--apply` keeps a `Reference`'s condition and its item group's: NHibernate's Debug-only
+  Antlr3.Runtime and Remotion.Linq references became unconditional. A file or informational
+  version that only repeats the assembly version (a default such as `1.0.0.0`) is no evidence.
+  On NHibernate's 15 references: 12 are now the same file as a package's (Iesi.Collections
+  4.0.1.4000, log4net 1.2.10, NUnit 2.6.1, Antlr 3.5.0.2, ...), FirebirdSql.Data.FirebirdClient
+  2.6.5 an upgrade, System.Data.SqlServerCe the closest build, and the unsigned
+  System.Linq.Dynamic is no longer taken for the package of that name (it is a .NET Framework
+  blocker, `OFR1404`).
+- `deps audit` no longer proposes a version without assemblies, or an older one, as an upgrade
+  (ADR 0046). On SmartStoreNET 4.2 it told the user to "upgrade" EntityFramework.SqlServerCompact
+  6.4.4 to 4.3.1, a release with only content transforms and an install script; the package is
+  now `blocked`. A package whose only supporting versions are older than the one in use is
+  `replace` or `blocked` with the new `OFR1007` (error). A package whose only code is native code
+  for Windows (`runtimes/win-x64/native/`) is Windows-only (`OFR1004`), naming the `linux-x64`
+  package when the feed has one: SmartStoreNET's LibSassHost and V8 native packages were `ok`.
+  Cached inspections are recomputed.
+- A library that references a test framework's assembly (`nunit.framework`, `xunit`, the MSTest
+  assemblies, usually a DLL checked in and referenced by `HintPath`) is a `test` project, with the
+  evidence `Reference nunit.framework + OutputType=Library` (ADR 0038). NHibernate 4.1's three
+  NUnit projects were `library`, so `audit dead-code` called 249 NUnit fixtures dead and `guide`
+  proposed moving the tests out of the test projects. The rule comes after the web rules, so a web
+  application project that references a test framework stays `web`.
 - `deps resolve-dlls` takes a DLL's package and version from the `packages/<Id>.<Version>/`
   folder its `HintPath` goes through when the project's `packages.config` lists it, as the new
   `packagesConfig` resolution, and leaves it alone. It matched by assembly version before and

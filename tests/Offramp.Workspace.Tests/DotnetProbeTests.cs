@@ -28,7 +28,7 @@ public sealed class ReferenceAssembliesProbeTests
     [Trait("Category", "Network")]
     public async Task The_real_probe_finds_the_package_in_the_cache_or_on_a_feed()
     {
-        var result = await new ReferenceAssembliesProbe().ProbeAsync(Directory.GetCurrentDirectory(), CancellationToken.None);
+        var result = await new ReferenceAssembliesProbe().ProbeAsync(Directory.GetCurrentDirectory(), ["net48"], CancellationToken.None);
 
         Assert.Contains(result.State, new[]
         {

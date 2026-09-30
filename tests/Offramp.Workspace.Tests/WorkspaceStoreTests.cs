@@ -36,6 +36,64 @@ public sealed class WorkspaceStoreTests : IDisposable
         Assert.Contains("slices/other.slnf", WorkspaceInputs.Collect(_repo.Path, State, "slices/other.slnf").Select(i => i.Path));
     }
 
+    /// <summary>
+    /// Open Live Writer P1 #9: an imported settings file and NuGet.config shape the model too, so editing them makes
+    /// it stale (and scratch copies of the repository take them from the working tree).
+    /// </summary>
+    [Fact]
+    public void Imported_files_inside_the_repository_and_nuget_config_are_inputs()
+    {
+        _repo.Write("src/managed/writer.sln", "");
+        _repo.Write("src/managed/A/A.csproj", "<Project />");
+        _repo.Write("src/managed/writer.build.settings", "<Project />");
+        _repo.Write("NuGet.config", "<configuration />");
+        _repo.Write("src/managed/A/obj/A.csproj.nuget.g.props", "<Project />");
+        _repo.Write("src/managed/packages/Bcl.Build/build/Bcl.Build.targets", "<Project />");
+        _repo.Write(".offramp/generated.props", "<Project />");
+        string[] imports =
+        [
+            "src/managed/writer.build.settings", "src/managed/A/obj/A.csproj.nuget.g.props", "src/managed/packages/Bcl.Build/build/Bcl.Build.targets",
+            ".offramp/generated.props", "src/managed/missing.props", "src/managed/A/A.csproj",
+        ];
+
+        var model = Model(WorkspaceInputs.Collect(_repo.Path, State, "src/managed/writer.sln", imports));
+
+        Assert.Equal(["NuGet.config", "src/managed/A/A.csproj", "src/managed/writer.build.settings", "src/managed/writer.sln"], model.Inputs.Select(i => i.Path));
+        Assert.False(WorkspaceInputs.Compare(model, _repo.Path, State).IsStale);
+
+        _repo.Write("src/managed/writer.build.settings", "<Project><PropertyGroup /></Project>");
+        _repo.Write("NuGet.config", "<configuration><packageSources /></configuration>");
+        Assert.Equal(["NuGet.config", "src/managed/writer.build.settings"], WorkspaceInputs.Compare(model, _repo.Path, State).Changed);
+
+        File.Delete(_repo.Combine("src", "managed", "writer.build.settings"));
+        Assert.Equal(["src/managed/writer.build.settings"], WorkspaceInputs.Compare(model, _repo.Path, State).Removed);
+    }
+
+    /// <summary>
+    /// SmartStoreNET 4.2.0 (corpus): the projects import <c>$(SolutionDir)\.nuget\nuget.targets</c>, and on Linux
+    /// the working tree has <c>nuget.targets</c> as an untracked link to <c>NuGet.targets</c> (OFR0117's fix). An
+    /// import from a dot folder was not an input, so <c>csproj modernize</c>'s scratch copy lacked the link
+    /// (MSB4019). Both spellings are inputs where the file system tells them apart; one, spelled as on disk,
+    /// where it does not.
+    /// </summary>
+    [Fact]
+    public void Imports_from_dot_folders_are_inputs_in_every_spelling_the_disk_has()
+    {
+        _repo.Write("src/.nuget/NuGet.targets", "<Project />");
+        _repo.Write(".git/info.targets", "<Project />");
+        var link = _repo.Combine("src", ".nuget", "nuget.targets");
+        var caseSensitive = !File.Exists(link);
+        if (caseSensitive)
+        {
+            File.CreateSymbolicLink(link, "NuGet.targets");
+        }
+
+        var inputs = WorkspaceInputs.Collect(_repo.Path, State, imports: ["src/.nuget/nuget.targets", "src/.nuget/NuGet.targets", ".git/info.targets"])
+            .Select(i => i.Path);
+
+        Assert.Equal(caseSensitive ? ["src/.nuget/NuGet.targets", "src/.nuget/nuget.targets"] : ["src/.nuget/NuGet.targets"], inputs);
+    }
+
     [Fact]
     public void A_model_with_the_same_inputs_is_fresh_and_any_change_makes_it_stale()
     {
@@ -70,6 +128,25 @@ public sealed class WorkspaceStoreTests : IDisposable
         _repo.Write("ci/msbuild.binlog", "two");
 
         Assert.True(WorkspaceInputs.Compare(model, _repo.Path, State).SourceChanged);
+    }
+
+    /// <summary>ADR 0049: an older model numbers its compiler calls, which cannot be found in the log any more.</summary>
+    [Fact]
+    public void A_model_with_numbered_compiler_calls_is_stale()
+    {
+        var path = _repo.Combine(".offramp", WorkspaceStore.FileName);
+        WorkspaceStore.Save(path, Model([]) with { Projects = [new ProjectInfo { Id = "a.csproj", Name = "a" }] });
+        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+        json["projects"]![0]!["compilerCalls"] = new System.Text.Json.Nodes.JsonObject
+        {
+            ["net48"] = new System.Text.Json.Nodes.JsonObject { ["complog"] = ".offramp/build.complog", ["index"] = 3 },
+        };
+        File.WriteAllText(path, json.ToJsonString());
+
+        var staleness = WorkspaceInputs.Compare(WorkspaceStore.Read(path), _repo.Path, State);
+
+        Assert.True(staleness.IsStale);
+        Assert.Equal("an older Offramp wrote it", staleness.Describe());
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 using Offramp.Analysis.Audits;
 using Offramp.Analysis.Compilations;
 using Offramp.Core.Diagnostics;
@@ -61,6 +62,14 @@ public static class DeadCodeAnalyzer
         "System.Runtime.CompilerServices.", "System.CLSCompliantAttribute",
     ];
 
+    /// <summary>Namespaces of test frameworks' attributes: a type whose methods carry one is found by the test runner.</summary>
+    private static readonly string[] TestFrameworkNamespaces =
+    [
+        "NUnit.Framework", "Xunit", "Microsoft.VisualStudio.TestTools.UnitTesting", "MbUnit.Framework", "TUnit.Core",
+    ];
+
+    private const string ComVisibleAttribute = "System.Runtime.InteropServices.ComVisibleAttribute";
+
     private static readonly HashSet<string> SerializationAttributes = new(StringComparer.Ordinal)
     {
         "System.SerializableAttribute", "System.Runtime.Serialization.DataContractAttribute", "System.Runtime.Serialization.DataMemberAttribute",
@@ -73,16 +82,17 @@ public static class DeadCodeAnalyzer
         var skipped = new List<string>();
         var compilations = Load(request, loader, skipped);
         var solutionAssemblies = compilations.Select(c => c.Compilation.AssemblyName).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var shipped = ShippedProjects.Read(request.RepositoryRoot, request.Model, request.ExternalConsumers);
 
         Index index;
         using (var phase = request.Progress.BeginPhase("dead code: references", 1, 2))
         {
-            index = Index.Build(request.RepositoryRoot, compilations, phase);
+            index = Index.Build(request.RepositoryRoot, compilations, solutionAssemblies, phase);
         }
 
         var files = ProjectFiles.Read(request.RepositoryRoot, compilations.Select(c => c.Project), skipped);
         index.AddMarkup(files);
-        var strings = Strings(request, compilations, files);
+        var mentions = Mentions.Read(request.RepositoryRoot, compilations, files);
         var projects = new List<DeadCodeProject>();
         using (var phase = request.Progress.BeginPhase("dead code: candidates", 2, 2))
         {
@@ -90,7 +100,7 @@ public static class DeadCodeAnalyzer
             for (var i = 0; i < inScope.Count; i++)
             {
                 phase.Report(i, inScope.Count, inScope[i].Project.Id);
-                if (Project(request, inScope[i], index, strings, solutionAssemblies) is { } project)
+                if (Project(request, inScope[i], index, mentions, solutionAssemblies, shipped.Of(inScope[i].Project)) is { } project)
                 {
                     projects.Add(project);
                 }
@@ -135,7 +145,7 @@ public static class DeadCodeAnalyzer
 
             var compilation = project.Language == "csharp" ? loader.LoadForProject(project) : null;
             var reason = project.Language != "csharp" ? "dead-code analysis reads C# only; its references to C# projects are not seen."
-                : compilation is null ? "no compiler call was recorded for it (run `offramp scan`)."
+                : compilation is null ? AuditRunner.NoCompilation(project)
                 : null;
             if (reason is not null)
             {
@@ -144,12 +154,25 @@ public static class DeadCodeAnalyzer
                 continue;
             }
 
-
             loaded.Add(new Loaded(project, compilation!));
         }
 
         return loaded;
     }
+
+    /// <summary>
+    /// The configuration base types an Entity Framework model builder instantiates from an
+    /// assembly: EF6 <c>modelBuilder.Configurations.AddFromAssembly</c> creates every
+    /// <c>EntityTypeConfiguration&lt;T&gt;</c> and <c>ComplexTypeConfiguration&lt;T&gt;</c>, EF Core
+    /// <c>ApplyConfigurationsFromAssembly</c> every <c>IEntityTypeConfiguration&lt;T&gt;</c>.
+    /// </summary>
+    internal static IReadOnlyList<string> ConfigurationsFromAssembly(IMethodSymbol called) => (called.Name, called.ContainingType?.ToDisplayString()) switch
+    {
+        ("AddFromAssembly", "System.Data.Entity.ModelConfiguration.Configuration.ConfigurationRegistrar") =>
+            ["T:System.Data.Entity.ModelConfiguration.EntityTypeConfiguration`1", "T:System.Data.Entity.ModelConfiguration.ComplexTypeConfiguration`1"],
+        ("ApplyConfigurationsFromAssembly", "Microsoft.EntityFrameworkCore.ModelBuilder") => ["T:Microsoft.EntityFrameworkCore.IEntityTypeConfiguration`1"],
+        _ => [],
+    };
 
     /// <summary>Where the solution uses each symbol (by documentation ID): project, file, and position.</summary>
     private sealed class Index
@@ -168,28 +191,27 @@ public static class DeadCodeAnalyzer
         public string? DiscoveryOf(INamedTypeSymbol type) =>
             type.OriginalDefinition.GetDocumentationCommentId() is { } id && _discovered.TryGetValue(id, out var where) ? where : null;
 
-        /// <summary>
-        /// The type a reflection check finds types by: <c>typeof(X).IsAssignableFrom(t)</c>,
-        /// <c>t.IsSubclassOf(typeof(X))</c>, or <c>t.IsAssignableTo(typeof(X))</c>, the way plugin
-        /// hosts discover implementations in the assemblies they load.
-        /// </summary>
-        private static INamedTypeSymbol? DiscoveredBy(SemanticModel model, InvocationExpressionSyntax invocation, IMethodSymbol called)
-        {
-            if (called.ContainingType?.ToDisplayString() != "System.Type")
-            {
-                return null;
-            }
+        /// <summary>The methods that find types by reflection, by documentation ID, with the type parameters and <c>Type</c> parameters they find types by.</summary>
+        private readonly Dictionary<string, HashSet<Slot>> _discoveryMethods = new(StringComparer.Ordinal);
 
-            var typeOf = called.Name switch
-            {
-                "IsAssignableFrom" => (invocation.Expression as MemberAccessExpressionSyntax)?.Expression as TypeOfExpressionSyntax,
-                "IsSubclassOf" or "IsAssignableTo" => invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression as TypeOfExpressionSyntax,
-                _ => null,
-            };
-            return typeOf is not null && model.GetTypeInfo(typeOf.Type).Type is INamedTypeSymbol { TypeKind: not TypeKind.Error } type ? type : null;
-        }
+        /// <summary>For a method, the interface members it implements and the methods it overrides: calls through them reach it.</summary>
+        private readonly Dictionary<string, List<string>> _aliases = new(StringComparer.Ordinal);
 
-        public static Index Build(string root, List<Loaded> compilations, IProgressPhase phase)
+        /// <summary>Calls to solution methods that pass a type (a type argument or a <c>Type</c> argument), in the order met.</summary>
+        private readonly List<TypeCall> _calls = [];
+
+        /// <summary>How many times calls are followed back from a discovery method to the methods that call it.</summary>
+        private const int DiscoveryDepth = 4;
+
+        /// <summary>A type parameter or a <c>Type</c> parameter of a method, by ordinal.</summary>
+        private readonly record struct Slot(bool TypeParameter, int Ordinal);
+
+        /// <summary>What a call passes into one slot: a named type, or a slot of the calling method (<see cref="Caller"/>).</summary>
+        private sealed record Flow(Slot Into, INamedTypeSymbol? Type, string? Caller, Slot From);
+
+        private sealed record TypeCall(string Target, string TargetName, IReadOnlyList<Flow> Flows, string Where);
+
+        public static Index Build(string root, List<Loaded> compilations, HashSet<string> solutionAssemblies, IProgressPhase phase)
         {
             var index = new Index();
             var trees = compilations.SelectMany(c => c.Compilation.SyntaxTrees.Select(t => (c.Project, c.Compilation, Tree: t))).ToList();
@@ -214,23 +236,318 @@ public static class DeadCodeAnalyzer
 
                     if (node is InvocationExpressionSyntax invocation && AuditEngine.Bound(model, invocation) is IMethodSymbol called)
                     {
-                        var line = invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                        if (ConventionCalls.Contains(called.Name))
-                        {
-                            index.ConventionRegistrations.Add($"{called.ContainingType?.Name}.{called.Name} at {file}:{line}");
-                        }
-
-                        if (DiscoveredBy(model, invocation, called) is { } discovered && discovered.OriginalDefinition.GetDocumentationCommentId() is { } discoveredId)
-                        {
-                            index._discovered.TryAdd(discoveredId, $"typeof({discovered.Name}).{called.Name} at {file}:{line}");
-                        }
+                        index.AddInvocation(model, invocation, called, $"{file}:{Line(invocation)}", solutionAssemblies);
+                    }
+                    else if (node is BinaryExpressionSyntax binary && GenericDefinitionCompared(model, binary) is { } generic && Id(generic) is { } genericId)
+                    {
+                        index._discovered.TryAdd(genericId, $"GetGenericTypeDefinition() == typeof({Display(generic)}) at {file}:{Line(binary)}");
                     }
                 }
             }
 
+            index.ResolveDiscoveryCalls();
             index.ConventionRegistrations.Sort(StringComparer.Ordinal);
             return index;
         }
+
+        private void AddInvocation(SemanticModel model, InvocationExpressionSyntax invocation, IMethodSymbol called, string where, HashSet<string> solutionAssemblies)
+        {
+            if (ConventionCalls.Contains(called.Name))
+            {
+                ConventionRegistrations.Add($"{called.ContainingType?.Name}.{called.Name} at {where}");
+            }
+
+            foreach (var configuration in ConfigurationsFromAssembly(called))
+            {
+                _discovered.TryAdd(configuration, $"{called.Name} at {where}");
+            }
+
+            var discovering = DiscoveredBy(model, invocation, called);
+            if (discovering is ITypeOfOperation { TypeOperand: INamedTypeSymbol { TypeKind: not TypeKind.Error } discovered } && Id(discovered) is { } discoveredId)
+            {
+                _discovered.TryAdd(discoveredId, $"typeof({discovered.Name}).{called.Name} at {where}");
+            }
+            else if (OwnSlot(discovering) is { } own && Remember(own.Method) is { } method)
+            {
+                AddDiscovery(method, own.Slot);
+            }
+
+            var definition = (called.ReducedFrom ?? called).OriginalDefinition;
+            if (definition.ContainingAssembly?.Name is { } assembly && solutionAssemblies.Contains(assembly)
+                && (definition.TypeParameters.Length > 0 || definition.Parameters.Any(p => IsSystemType(p.Type))))
+            {
+                AddCall(model, invocation, where);
+            }
+        }
+
+        /// <summary>
+        /// The operand a reflection check finds types by: <c>X</c> in <c>X.IsAssignableFrom(t)</c>,
+        /// <c>t.IsSubclassOf(X)</c>, or <c>t.IsAssignableTo(X)</c>, the way plugin hosts and type
+        /// finders discover implementations in the assemblies they load.
+        /// </summary>
+        private static IOperation? DiscoveredBy(SemanticModel model, InvocationExpressionSyntax invocation, IMethodSymbol called)
+        {
+            if (!IsSystemType(called.ContainingType) || called.Name is not ("IsAssignableFrom" or "IsSubclassOf" or "IsAssignableTo")
+                || model.GetOperation(invocation) is not IInvocationOperation operation)
+            {
+                return null;
+            }
+
+            return Unwrap(called.Name == "IsAssignableFrom" ? operation.Instance : operation.Arguments.FirstOrDefault()?.Value);
+        }
+
+        /// <summary>
+        /// The slot an operand stands for in the method that owns it: <c>typeof(T)</c> of the
+        /// method's type parameter, or one of its <c>Type</c> parameters; null otherwise.
+        /// </summary>
+        private static (IMethodSymbol Method, Slot Slot)? OwnSlot(IOperation? operand) => operand switch
+        {
+            ITypeOfOperation { TypeOperand: ITypeParameterSymbol { DeclaringMethod: { MethodKind: MethodKind.Ordinary } method } parameter } => (method, new Slot(true, parameter.Ordinal)),
+            IParameterReferenceOperation { Parameter: { ContainingSymbol: IMethodSymbol { MethodKind: MethodKind.Ordinary } method } parameter } when IsSystemType(parameter.Type)
+                => (method, new Slot(false, parameter.Ordinal)),
+            _ => null,
+        };
+
+        /// <summary>
+        /// Records a call to a solution method that passes types: its type arguments, and its
+        /// arguments for <c>Type</c> parameters that are <c>typeof(X)</c> or the caller's own type
+        /// parameter or <c>Type</c> parameter. Whether the method discovers types by them is
+        /// decided once every call is known.
+        /// </summary>
+        private void AddCall(SemanticModel model, InvocationExpressionSyntax invocation, string where)
+        {
+            if (model.GetOperation(invocation) is not IInvocationOperation operation || Remember(operation.TargetMethod.OriginalDefinition) is not { } target)
+            {
+                return;
+            }
+
+            var flows = new List<Flow>();
+            var method = operation.TargetMethod;
+            for (var k = 0; k < method.TypeArguments.Length; k++)
+            {
+                AddFlow(flows, new Slot(true, k), method.TypeArguments[k] as INamedTypeSymbol, method.TypeArguments[k] as ITypeParameterSymbol);
+            }
+
+            foreach (var argument in operation.Arguments.Where(a => a.Parameter is { } p && IsSystemType(p.Type)))
+            {
+                var into = new Slot(false, argument.Parameter!.Ordinal);
+                var value = Unwrap(argument.Value);
+                if (value is ITypeOfOperation typeOf)
+                {
+                    AddFlow(flows, into, typeOf.TypeOperand as INamedTypeSymbol, typeOf.TypeOperand as ITypeParameterSymbol);
+                }
+                else if (OwnSlot(value) is { } own && Remember(own.Method) is { } caller)
+                {
+                    flows.Add(new Flow(into, null, caller, own.Slot));
+                }
+            }
+
+            if (flows.Count > 0)
+            {
+                _calls.Add(new TypeCall(target, method.Name, flows, where));
+            }
+        }
+
+        private void AddFlow(List<Flow> flows, Slot into, INamedTypeSymbol? type, ITypeParameterSymbol? parameter)
+        {
+            if (type is { TypeKind: not TypeKind.Error })
+            {
+                flows.Add(new Flow(into, type, null, default));
+            }
+            else if (parameter is { DeclaringMethod: { MethodKind: MethodKind.Ordinary } method } && Remember(method) is { } caller)
+            {
+                flows.Add(new Flow(into, null, caller, new Slot(true, parameter.Ordinal)));
+            }
+        }
+
+        /// <summary>
+        /// Follows the calls back from the discovery methods, a few levels: a method that passes
+        /// its own type parameter or <c>Type</c> parameter into a discovery slot discovers by it
+        /// too (<c>FindClassesOfType&lt;T&gt;() =&gt; FindClassesOfType(typeof(T))</c>). Then every
+        /// type passed into a discovery slot is found by reflection, where it is passed.
+        /// </summary>
+        private void ResolveDiscoveryCalls()
+        {
+            for (var depth = 0; depth < DiscoveryDepth; depth++)
+            {
+                var changed = false;
+                foreach (var call in _calls)
+                {
+                    if (_discoveryMethods.TryGetValue(call.Target, out var slots))
+                    {
+                        foreach (var flow in call.Flows.Where(f => f.Caller is not null && slots.Contains(f.Into)).ToList())
+                        {
+                            changed |= AddDiscovery(flow.Caller!, flow.From);
+                        }
+                    }
+                }
+
+                if (!changed)
+                {
+                    break;
+                }
+            }
+
+            foreach (var call in _calls)
+            {
+                if (!_discoveryMethods.TryGetValue(call.Target, out var slots))
+                {
+                    continue;
+                }
+
+                foreach (var flow in call.Flows.Where(f => f.Type is not null && slots.Contains(f.Into)))
+                {
+                    if (Id(flow.Type!) is { } id)
+                    {
+                        var name = Display(flow.Type!);
+                        _discovered.TryAdd(id, flow.Into.TypeParameter ? $"{call.TargetName}<{name}> at {call.Where}" : $"{call.TargetName}(typeof({name})) at {call.Where}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>Records that a method finds types by a slot, as do the interface members it implements and the methods it overrides.</summary>
+        private bool AddDiscovery(string method, Slot slot)
+        {
+            var changed = false;
+            foreach (var id in _aliases.GetValueOrDefault(method, []).Prepend(method))
+            {
+                var slots = _discoveryMethods.TryGetValue(id, out var existing) ? existing : _discoveryMethods[id] = [];
+                changed |= slots.Add(slot);
+            }
+
+            return changed;
+        }
+
+        /// <summary>A method's documentation ID, remembering the interface members it implements and the methods it overrides.</summary>
+        private string? Remember(IMethodSymbol method)
+        {
+            if (Id(method) is not { } id)
+            {
+                return null;
+            }
+
+            if (!_aliases.ContainsKey(id))
+            {
+                _aliases[id] = [.. Aliases(method.OriginalDefinition).Select(Id).OfType<string>().Distinct(StringComparer.Ordinal)];
+            }
+
+            return id;
+        }
+
+        private static IEnumerable<IMethodSymbol> Aliases(IMethodSymbol method)
+        {
+            foreach (var implemented in method.ExplicitInterfaceImplementations)
+            {
+                yield return implemented;
+            }
+
+            if (method.ContainingType is { } type)
+            {
+                foreach (var member in type.AllInterfaces.SelectMany(i => i.GetMembers(method.Name)).OfType<IMethodSymbol>())
+                {
+                    if (SymbolEqualityComparer.Default.Equals(type.FindImplementationForInterfaceMember(member)?.OriginalDefinition, method))
+                    {
+                        yield return member;
+                    }
+                }
+            }
+
+            for (var overridden = method.OverriddenMethod; overridden is not null; overridden = overridden.OverriddenMethod)
+            {
+                yield return overridden;
+            }
+        }
+
+        /// <summary>
+        /// The generic type definition <c>G&lt;&gt;</c> of <c>x.GetGenericTypeDefinition() == typeof(G&lt;&gt;)</c>
+        /// (or <c>!=</c>, directly or through a local or a query's <c>let</c>), the way EF6 model
+        /// builders find their <c>EntityTypeConfiguration&lt;T&gt;</c> classes; null otherwise.
+        /// Definitions from the base class library are left out: comparing with
+        /// <c>typeof(Nullable&lt;&gt;)</c> or <c>typeof(IEnumerable&lt;&gt;)</c> inspects a type; it does not find one.
+        /// </summary>
+        private static INamedTypeSymbol? GenericDefinitionCompared(SemanticModel model, BinaryExpressionSyntax binary)
+        {
+            if (!binary.IsKind(SyntaxKind.EqualsExpression) && !binary.IsKind(SyntaxKind.NotEqualsExpression))
+            {
+                return null;
+            }
+
+            foreach (var (side, other) in new[] { (binary.Left, binary.Right), (binary.Right, binary.Left) })
+            {
+                if (Unparenthesized(side) is TypeOfExpressionSyntax typeOf
+                    && model.GetTypeInfo(typeOf.Type).Type is INamedTypeSymbol { IsUnboundGenericType: true } generic
+                    && !IsBaseClassLibrary(generic.ContainingAssembly)
+                    && IsGenericTypeDefinition(model, other, follow: true))
+                {
+                    return generic;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsGenericTypeDefinition(SemanticModel model, ExpressionSyntax expression, bool follow)
+        {
+            expression = Unparenthesized(expression);
+            if (expression is InvocationExpressionSyntax invocation)
+            {
+                return AuditEngine.Bound(model, invocation) is IMethodSymbol { Name: "GetGenericTypeDefinition" } method && IsSystemType(method.ContainingType);
+            }
+
+            if (!follow || expression is not IdentifierNameSyntax name || model.GetSymbolInfo(name).Symbol is not { } variable || variable is not (ILocalSymbol or IRangeVariableSymbol))
+            {
+                return false;
+            }
+
+            foreach (var declaration in variable.DeclaringSyntaxReferences.Select(r => r.GetSyntax()).Where(d => d.SyntaxTree == model.SyntaxTree))
+            {
+                var value = declaration switch
+                {
+                    VariableDeclaratorSyntax { Initializer.Value: var initial } => initial,
+                    LetClauseSyntax let => let.Expression,
+                    _ => null,
+                };
+                if (value is not null && IsGenericTypeDefinition(model, value, follow: false))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static ExpressionSyntax Unparenthesized(ExpressionSyntax expression) =>
+            expression is ParenthesizedExpressionSyntax parenthesized ? Unparenthesized(parenthesized.Expression) : expression;
+
+        private static IOperation? Unwrap(IOperation? operation)
+        {
+            while (true)
+            {
+                switch (operation)
+                {
+                    case IConversionOperation { IsImplicit: true } conversion:
+                        operation = conversion.Operand;
+                        break;
+                    case IParenthesizedOperation parenthesized:
+                        operation = parenthesized.Operand;
+                        break;
+                    default:
+                        return operation;
+                }
+            }
+        }
+
+        private static bool IsBaseClassLibrary(IAssemblySymbol? assembly) =>
+            assembly?.Name is "mscorlib" or "netstandard" or "System" || assembly?.Name.StartsWith("System.", StringComparison.Ordinal) == true;
+
+        private static bool IsSystemType(ITypeSymbol? type) => type?.ToDisplayString() == "System.Type";
+
+        private static string? Id(ISymbol symbol) => symbol.OriginalDefinition.GetDocumentationCommentId();
+
+        private static string Display(INamedTypeSymbol type) => type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+        private static int Line(SyntaxNode node) => node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
         /// <summary>
         /// The types ASP.NET markup names for the runtime to create (a page's <c>Inherits</c>, a
@@ -331,29 +648,68 @@ public static class DeadCodeAnalyzer
         };
     }
 
-    /// <summary>String literals, and the text of resource, configuration, and markup files, with where each is.</summary>
-    private static List<(string Text, string Where)> Strings(DeadCodeRequest request, List<Loaded> compilations, List<ProjectFile> files)
+    /// <summary>
+    /// The words of the solution's string literals and of resource, configuration, and markup
+    /// files, with where each first appears. A word is a run of identifier characters, so a
+    /// name is mentioned when a run equals it: the name as a whole word.
+    /// </summary>
+    private sealed class Mentions
     {
-        var strings = new List<(string, string)>();
-        foreach (var tree in compilations.SelectMany(c => c.Compilation.SyntaxTrees).DistinctBy(t => t.FilePath))
+        private readonly Dictionary<string, string> _exact = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _anyCase = new(StringComparer.OrdinalIgnoreCase);
+
+        public static Mentions Read(string root, List<Loaded> compilations, List<ProjectFile> files)
         {
-            var file = FileOf(request.RepositoryRoot, tree);
-            foreach (var token in tree.GetRoot().DescendantTokens())
+            var mentions = new Mentions();
+            foreach (var tree in compilations.SelectMany(c => c.Compilation.SyntaxTrees).DistinctBy(t => t.FilePath))
             {
-                if (token.IsKind(SyntaxKind.StringLiteralToken) || token.IsKind(SyntaxKind.InterpolatedStringTextToken))
+                var file = FileOf(root, tree);
+                foreach (var token in tree.GetRoot().DescendantTokens())
                 {
-                    strings.Add((token.ValueText, $"{file}:{token.GetLocation().GetLineSpan().StartLinePosition.Line + 1}"));
+                    if (token.IsKind(SyntaxKind.StringLiteralToken) || token.IsKind(SyntaxKind.InterpolatedStringTextToken))
+                    {
+                        mentions.Add(token.ValueText, $"{file}:{token.GetLocation().GetLineSpan().StartLinePosition.Line + 1}");
+                    }
                 }
             }
+
+            foreach (var file in files)
+            {
+                mentions.Add(file.Text, file.Relative);
+            }
+
+            return mentions;
         }
 
-        strings.AddRange(files.Select(f => (f.Text, f.Relative)));
-        return strings;
+        /// <summary>Where the name first appears as a word, or null; <paramref name="ignoreCase"/> for names looked up the way MVC routes, without regard to case.</summary>
+        public string? Of(string name, bool ignoreCase) => (ignoreCase ? _anyCase : _exact).GetValueOrDefault(name);
+
+        private void Add(string text, string where)
+        {
+            for (var at = 0; at < text.Length; at++)
+            {
+                if (!IsIdentifierChar(text[at]))
+                {
+                    continue;
+                }
+
+                var start = at;
+                while (at < text.Length && IsIdentifierChar(text[at]))
+                {
+                    at++;
+                }
+
+                var word = text[start..at];
+                _exact.TryAdd(word, where);
+                _anyCase.TryAdd(word, where);
+            }
+        }
     }
 
     private sealed record Declared(ISymbol Symbol, IReadOnlyList<SyntaxNode> Declarations);
 
-    private static DeadCodeProject? Project(DeadCodeRequest request, Loaded loaded, Index index, List<(string Text, string Where)> strings, HashSet<string> solutionAssemblies)
+    private static DeadCodeProject? Project(
+        DeadCodeRequest request, Loaded loaded, Index index, Mentions mentions, HashSet<string> solutionAssemblies, ShippedReason? shipped)
     {
         var (project, compilation) = loaded;
         var sources = AuditEngine.Sources(compilation).ToHashSet();
@@ -399,7 +755,7 @@ public static class DeadCodeAnalyzer
                 unusedTypes.Add(symbol);
             }
 
-            var (confidence, evidence) = Confidence(request, project, symbol, index, strings, solutionAssemblies);
+            var (confidence, evidence) = Confidence(project, symbol, index, mentions, solutionAssemblies, shipped);
             if (confidence < request.MinConfidence)
             {
                 continue;
@@ -511,19 +867,26 @@ public static class DeadCodeAnalyzer
         declared.Declarations.Any(d => FileOf(root, d.SyntaxTree) == file && d.FullSpan.Contains(position));
 
     private static (DeadCodeConfidence Confidence, List<string> Evidence) Confidence(
-        DeadCodeRequest request, ProjectInfo project, ISymbol symbol, Index index, List<(string Text, string Where)> strings, HashSet<string> solutionAssemblies)
+        ProjectInfo project, ISymbol symbol, Index index, Mentions mentions, HashSet<string> solutionAssemblies, ShippedReason? shipped)
     {
         var evidence = new List<string>();
         DeadCodeConfidence confidence;
         var accessibility = Accessibility(symbol);
-        if (accessibility == "public")
+        var controller = accessibility == "public" ? ControllerOf(symbol) : null;
+        if (controller is not null)
         {
-            var external = request.ExternalConsumers.Any(c => string.Equals(c, project.Name, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(c, project.AssemblyName, StringComparison.OrdinalIgnoreCase) || string.Equals(c, project.Id, StringComparison.Ordinal));
-            var packable = project.Properties.TryGetValue("IsPackable", out var value) && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
-            (confidence, var why) = external ? (DeadCodeConfidence.Medium, "public, and the assembly is listed in deadCode.externalConsumers")
-                : packable ? (DeadCodeConfidence.Medium, "public in a packable assembly (IsPackable): other repositories may use it")
-                : (DeadCodeConfidence.High, "public, and the assembly is not packed");
+            // MVC finds actions by the request's route, never through code: at most medium.
+            confidence = DeadCodeConfidence.Medium;
+            if (shipped is not null)
+            {
+                evidence.Add(Shipped(shipped));
+            }
+
+            evidence.Add($"a public action of a controller (derives from {controller}): MVC routes requests to it by name");
+        }
+        else if (accessibility == "public")
+        {
+            (confidence, var why) = shipped is null ? (DeadCodeConfidence.High, "public, and the assembly is not packed") : (DeadCodeConfidence.Medium, Shipped(shipped));
             evidence.Add(why);
         }
         else
@@ -535,7 +898,7 @@ public static class DeadCodeAnalyzer
             evidence.Add(why);
         }
 
-        var low = LowEvidence(symbol, index, strings).ToList();
+        var low = LowEvidence(symbol, index, mentions, ignoreCase: controller is not null).ToList();
         if (low.Count > 0)
         {
             confidence = DeadCodeConfidence.Low;
@@ -545,14 +908,21 @@ public static class DeadCodeAnalyzer
         return (confidence, evidence);
     }
 
-    /// <summary>What static analysis cannot see: strings, conventions, serializers, entry points, reflection-driven attributes.</summary>
-    private static IEnumerable<string> LowEvidence(ISymbol symbol, Index index, List<(string Text, string Where)> strings)
+    /// <summary>Why a public symbol of a shipped project is only <c>medium</c> (ADR 0041).</summary>
+    private static string Shipped(ShippedReason shipped) => shipped.Rule switch
     {
-        var name = symbol.Name;
-        var mention = strings.FirstOrDefault(s => MentionsWord(s.Text, name));
-        if (mention.Where is not null)
+        ShippedRule.ExternalConsumer => "public, and the assembly is listed in deadCode.externalConsumers",
+        ShippedRule.Packable => "public in a packable assembly (IsPackable): other repositories may use it",
+        ShippedRule.Nuspec => $"public in an assembly {shipped.Reason}: other repositories may use it",
+        _ => "public in a library no application in the solution uses (only tests and other libraries reference it): other repositories may use it",
+    };
+
+    /// <summary>What static analysis cannot see: strings, conventions, serializers, entry points, reflection-driven attributes.</summary>
+    private static IEnumerable<string> LowEvidence(ISymbol symbol, Index index, Mentions mentions, bool ignoreCase)
+    {
+        if (mentions.Of(symbol.Name, ignoreCase) is { } where)
         {
-            yield return $"the name appears in a string or resource at {mention.Where}";
+            yield return $"the name appears in a string or resource at {where}";
         }
 
         if (symbol is INamedTypeSymbol type)
@@ -566,6 +936,11 @@ public static class DeadCodeAnalyzer
             {
                 yield return "entry point";
             }
+
+            if (TestMethodAttribute(type) is { } test)
+            {
+                yield return $"[{Short(test)}] on its methods: the test runner finds the class by them";
+            }
         }
 
         if (symbol is IMethodSymbol { IsStatic: true, Name: "Main" })
@@ -578,8 +953,18 @@ public static class DeadCodeAnalyzer
             yield return byName;
         }
 
+        if (Accessibility(symbol) == "public" && ComVisible(symbol))
+        {
+            yield return "COM-visible ([ComVisible(true)]): COM and script clients (ObjectForScripting, window.external) call it by name";
+        }
+
         foreach (var attribute in symbol.GetAttributes().Select(a => a.AttributeClass?.ToDisplayString()).OfType<string>().Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
+            if (attribute == ComVisibleAttribute)
+            {
+                continue;
+            }
+
             if (SerializationAttributes.Contains(attribute))
             {
                 yield return $"[{Short(attribute)}]: serializers use it by reflection";
@@ -595,6 +980,42 @@ public static class DeadCodeAnalyzer
             yield return "public data member: serializers, ORMs, and data binding use them by reflection";
         }
     }
+
+    /// <summary>
+    /// A test framework attribute (<c>[Test]</c>, <c>[Fact]</c>, <c>[TestMethod]</c>, ...) on a
+    /// method of the type or of a type it derives from, or null. NUnit 2.5 and later run a
+    /// class with <c>[Test]</c> methods and no <c>[TestFixture]</c>.
+    /// </summary>
+    private static string? TestMethodAttribute(INamedTypeSymbol type) =>
+        new[] { type }.Concat(BaseTypes(type))
+            .SelectMany(t => t.GetMembers().OfType<IMethodSymbol>())
+            .SelectMany(m => m.GetAttributes())
+            .Select(a => a.AttributeClass)
+            .Where(a => a?.ContainingNamespace?.ToDisplayString() is { } ns && TestFrameworkNamespaces.Any(f => ns == f || ns.StartsWith(f + ".", StringComparison.Ordinal)))
+            .Select(a => a!.ToDisplayString())
+            .Order(StringComparer.Ordinal)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// Whether COM sees the symbol: the nearest <c>[ComVisible]</c> on it, a type containing it,
+    /// or its assembly says <c>true</c>. COM clients, and scripts through <c>ObjectForScripting</c>
+    /// and <c>window.external</c>, call its public members by name.
+    /// </summary>
+    private static bool ComVisible(ISymbol symbol)
+    {
+        for (var current = symbol; current is not null and not INamespaceSymbol; current = current.ContainingSymbol)
+        {
+            if (ComVisibleValue(current.GetAttributes()) is { } visible)
+            {
+                return visible;
+            }
+        }
+
+        return ComVisibleValue(symbol.ContainingAssembly?.GetAttributes() ?? []) ?? false;
+    }
+
+    private static bool? ComVisibleValue(IEnumerable<AttributeData> attributes) =>
+        attributes.FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == ComVisibleAttribute)?.ConstructorArguments.FirstOrDefault().Value as bool?;
 
     /// <summary>
     /// Why ASP.NET calls a method by its name, or null: the <c>Page_</c> handlers of pages and
@@ -635,6 +1056,22 @@ public static class DeadCodeAnalyzer
         return false;
     }
 
+    /// <summary>
+    /// The controller base (<c>Controller</c>, <c>ControllerBase</c>, <c>ApiController</c>) a
+    /// public instance method's type derives from, or null: such a method is an action, which
+    /// MVC and Web API reach by name from a route.
+    /// </summary>
+    private static string? ControllerOf(ISymbol symbol)
+    {
+        if (symbol is not IMethodSymbol { MethodKind: MethodKind.Ordinary, IsStatic: false, DeclaredAccessibility: Microsoft.CodeAnalysis.Accessibility.Public } method
+            || method.GetAttributes().Any(a => a.AttributeClass?.Name == "NonActionAttribute"))
+        {
+            return null;
+        }
+
+        return BaseTypes(method.ContainingType).FirstOrDefault(b => b.Name is "Controller" or "ControllerBase" or "ApiController")?.Name;
+    }
+
     /// <summary>Why a type may be created by convention, or null.</summary>
     private static string? Convention(INamedTypeSymbol type, Index index)
     {
@@ -668,21 +1105,6 @@ public static class DeadCodeAnalyzer
         return solutionInterface is not null && index.ConventionRegistrations.Count > 0
             ? $"implements {AuditEngine.Name(solutionInterface)}, and the solution registers types by convention ({index.ConventionRegistrations[0]})"
             : null;
-    }
-
-    private static bool MentionsWord(string text, string word)
-    {
-        for (var at = text.IndexOf(word, StringComparison.Ordinal); at >= 0; at = text.IndexOf(word, at + 1, StringComparison.Ordinal))
-        {
-            var before = at == 0 || !IsIdentifierChar(text[at - 1]);
-            var after = at + word.Length == text.Length || !IsIdentifierChar(text[at + word.Length]);
-            if (before && after)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static bool IsIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';

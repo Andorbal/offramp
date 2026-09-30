@@ -22,6 +22,20 @@ public static class PackageInspector
         "System.Drawing", "System.DirectoryServices",
     ];
 
+    /// <summary>
+    /// Native libraries that exist only on Windows and that portable code does not call behind an
+    /// operating-system check the way it calls kernel32, ntdll, advapi32, the COM runtime (ole32,
+    /// oleaut32; ClearScript), or the C runtime: calling one by P/Invoke makes an assembly
+    /// Windows-only (DeltaCompressionDotNet calls msdelta.dll).
+    /// </summary>
+    public static readonly IReadOnlySet<string> WindowsOnlyLibraries = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "comctl32", "comdlg32", "credui", "cfgmgr32", "dwmapi", "gdi32", "gdiplus", "hid", "imm32", "mpr", "msdelta", "msi",
+        "mspatcha", "netapi32", "odbc32", "oleacc", "powrprof", "setupapi", "shell32", "shlwapi",
+        "urlmon", "user32", "uxtheme", "wevtapi", "winhttp", "wininet", "winmm", "winscard", "winspool.drv", "wintrust",
+        "wlanapi", "wtsapi32",
+    };
+
     private static readonly string[] AssetRoots = ["lib", "ref", "build", "buildTransitive"];
 
     public static PackageInspection Inspect(byte[] nupkg)
@@ -31,8 +45,15 @@ public static class PackageInspector
         var identity = reader.GetIdentity();
         var frameworks = new HashSet<NuGetFramework>();
         var assemblies = new List<InspectedAssembly>();
+        var native = new List<string>();
         foreach (var path in reader.GetFiles().Order(StringComparer.Ordinal))
         {
+            if (IsNativeAsset(path))
+            {
+                native.Add(path);
+                continue;
+            }
+
             var framework = AssetFramework(path);
             if (framework is null)
             {
@@ -50,8 +71,16 @@ public static class PackageInspector
                 using var copy = new MemoryStream();
                 entry.CopyTo(copy);
                 var bytes = copy.ToArray();
-                var (name, version, token) = Identity(bytes);
-                assemblies.Add(new InspectedAssembly(path, framework.GetShortFolderName(), WindowsEvidence(bytes)) { Name = name, Version = version, PublicKeyToken = token });
+                var facts = AssemblyFacts.Read(bytes);
+                assemblies.Add(new InspectedAssembly(path, framework.GetShortFolderName(), WindowsEvidence(bytes))
+                {
+                    Name = facts?.Name,
+                    Version = facts?.Version,
+                    PublicKeyToken = facts?.PublicKeyToken,
+                    FileVersion = facts?.FileVersion,
+                    InformationalVersion = facts?.InformationalVersion,
+                    Sha256 = facts?.Sha256,
+                });
             }
         }
 
@@ -62,6 +91,7 @@ public static class PackageInspector
             AssetFrameworks = Names(frameworks),
             DependencyFrameworks = Names(reader.GetPackageDependencies().Select(g => g.TargetFramework)),
             Assemblies = assemblies,
+            NativeAssets = native,
             DependencyGroups = [.. reader.GetPackageDependencies()
                 .Where(g => !g.TargetFramework.IsUnsupported)
                 .Select(g => new InspectedDependencyGroup(
@@ -103,25 +133,13 @@ public static class PackageInspector
         return framework.IsUnsupported ? null : framework;
     }
 
-    /// <summary>An assembly's name, version, and public key token; nulls when it has no assembly metadata.</summary>
-    internal static (string? Name, string? Version, string? PublicKeyToken) Identity(byte[] bytes)
+    /// <summary>True for a file under <c>runtimes/&lt;rid&gt;/native/</c>: native code for one runtime identifier.</summary>
+    internal static bool IsNativeAsset(string path)
     {
-        try
-        {
-            using var pe = new PEReader(new MemoryStream(bytes));
-            if (!pe.HasMetadata || !pe.GetMetadataReader().IsAssembly)
-            {
-                return (null, null, null);
-            }
-
-            var metadata = pe.GetMetadataReader();
-            var definition = metadata.GetAssemblyDefinition();
-            return (metadata.GetString(definition.Name), definition.Version.ToString(), PublicKeyToken(metadata.GetBlobBytes(definition.PublicKey)));
-        }
-        catch (BadImageFormatException)
-        {
-            return (null, null, null);
-        }
+        var parts = path.Split('/');
+        return parts.Length >= 4
+            && parts[0].Equals("runtimes", StringComparison.OrdinalIgnoreCase)
+            && parts[2].Equals("native", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The public key token: the last eight bytes of the key's SHA-1, reversed; null for an unsigned assembly.</summary>
@@ -167,13 +185,60 @@ public static class PackageInspector
                 .Select(h => metadata.GetString(metadata.GetAssemblyReference(h).Name))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var windowsReference = WindowsOnlyReferences.FirstOrDefault(references.Contains);
-            return windowsReference is null ? null : "references " + windowsReference;
+            if (windowsReference is not null)
+            {
+                return "references " + windowsReference;
+            }
+
+            if (NativeLibraries(metadata).FirstOrDefault(WindowsOnlyLibraries.Contains) is { } library)
+            {
+                return $"calls {library}{(library.Contains('.', StringComparison.Ordinal) ? "" : ".dll")} (P/Invoke)";
+            }
+
+            return ComClasses(metadata).FirstOrDefault() is { } com ? $"creates the COM class {com} ([ComImport])" : null;
         }
         catch (BadImageFormatException)
         {
             return null;
         }
     }
+
+    /// <summary>The libraries the assembly's P/Invoke methods import, lowercase, without ".dll", sorted.</summary>
+    private static List<string> NativeLibraries(MetadataReader metadata)
+    {
+        var libraries = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var handle in metadata.MethodDefinitions)
+        {
+            var method = metadata.GetMethodDefinition(handle);
+            if ((method.Attributes & System.Reflection.MethodAttributes.PinvokeImpl) == 0)
+            {
+                continue;
+            }
+
+            var import = method.GetImport();
+            if (import.Module.IsNil)
+            {
+                continue;
+            }
+
+            var name = metadata.GetString(metadata.GetModuleReference(import.Module).Name).ToLowerInvariant();
+            libraries.Add(name.EndsWith(".dll", StringComparison.Ordinal) ? name[..^4] : name);
+        }
+
+        return [.. libraries];
+    }
+
+    /// <summary>
+    /// The full names of the classes the assembly declares with <c>[ComImport]</c> (coclasses, which
+    /// create a registered Windows component), sorted. A <c>[ComImport]</c> interface alone is not
+    /// evidence: portable libraries declare them for code they guard (EPPlus's IEnumSTATSTG).
+    /// </summary>
+    private static List<string> ComClasses(MetadataReader metadata) =>
+        [.. metadata.TypeDefinitions
+            .Select(metadata.GetTypeDefinition)
+            .Where(t => (t.Attributes & System.Reflection.TypeAttributes.Import) != 0 && (t.Attributes & System.Reflection.TypeAttributes.Interface) == 0)
+            .Select(t => (metadata.GetString(t.Namespace) is { Length: > 0 } ns ? ns + "." : "") + metadata.GetString(t.Name))
+            .Order(StringComparer.Ordinal)];
 
     private static IEnumerable<string> SupportedPlatforms(MetadataReader metadata)
     {

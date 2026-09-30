@@ -7,6 +7,7 @@ using Offramp.Core.Paths;
 using Offramp.Fixtures;
 using Offramp.Workspace.Doctor;
 using Offramp.Workspace.Environment;
+using PackagesConfigRestore = Offramp.Workspace.Doctor.PackagesConfigRestore;
 
 namespace Offramp.Workspace.Tests;
 
@@ -16,7 +17,10 @@ public sealed class DoctorRunnerTests : IDisposable
 
     public void Dispose() => _repo.Dispose();
 
-    private async Task<(DoctorReport Report, DiagnosticBag Diagnostics)> RunAsync(FakeMachine machine, int target = 10)
+    private Task<(DoctorReport Report, DiagnosticBag Diagnostics)> RunAsync(FakeMachine machine, int target = 10, bool fix = false) =>
+        RunAsync(machine, (System.Text.Json.Nodes.JsonNode)target, fix);
+
+    private async Task<(DoctorReport Report, DiagnosticBag Diagnostics)> RunAsync(FakeMachine machine, System.Text.Json.Nodes.JsonNode target, bool fix = false)
     {
         var runner = machine.CreateRunner();
         var git = new GitService(runner);
@@ -38,6 +42,7 @@ public sealed class DoctorRunnerTests : IDisposable
             ReferenceAssemblies = machine.CreateReferenceAssembliesProbe(),
             Diagnostics = bag,
             Os = "linux-x64",
+            Fix = fix,
         }, CancellationToken.None);
         return (report, bag);
     }
@@ -171,6 +176,24 @@ public sealed class DoctorRunnerTests : IDisposable
 
         var (older, _) = await RunAsync(machine, target: 8);
         Assert.Equal(CheckStatus.Pass, Status(older, "target"));
+    }
+
+    /// <summary>Every SDK builds .NET Standard; what runs moves to .NET 10 under it, which needs the .NET 10 SDK (ADR 0057).</summary>
+    [Fact]
+    public async Task A_standard_target_needs_the_sdk_of_the_net_that_applications_move_to()
+    {
+        var machine = Healthy();
+        machine.SelectedSdk = "8.0.404";
+
+        var (report, _) = await RunAsync(machine, "netstandard2.0");
+
+        var check = report.Checks.Single(c => c.Id == "target");
+        Assert.Equal((CheckStatus.Fail, "SDK can target netstandard2.0"), (check.Status, check.Title));
+        Assert.Equal("SDK 8.0.404 cannot build net10.0, which applications and tests move to under netstandard2.0; it targets up to net8.0.", check.Message);
+        Assert.Equal("netstandard2.0", report.Environment.Target);
+
+        machine.SelectedSdk = "10.0.100";
+        Assert.Equal(CheckStatus.Pass, Status((await RunAsync(machine, "netstandard2.0")).Report, "target"));
     }
 
     [Fact]
@@ -355,13 +378,200 @@ public sealed class DoctorRunnerTests : IDisposable
         Assert.Equal(["OFR1303"], with.Checks.Single(c => c.Id == "cpm").Codes);
     }
 
+    /// <summary>
+    /// SmartStoreNET, Open Live Writer, NHibernate P2: before the first scan there was no legacy check, so the README's
+    /// order (doctor, init, scan) led to a failed first scan; the solution's project files tell now.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR0018")]
+    public async Task Before_the_first_scan_the_project_files_tell_that_legacy_projects_need_the_legacy_section()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has the .NET Framework targeting packs.");
+        _repo.Write("src/Legacy/Legacy.csproj", """
+            <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup>
+                <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+              </PropertyGroup>
+            </Project>
+            """);
+        _repo.Write("src/Modern/Modern.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net472</TargetFramework>\n  </PropertyGroup>\n</Project>\n");
+        _repo.Write("src/App.slnx", "<Solution>\n  <Project Path=\"Legacy/Legacy.csproj\" />\n  <Project Path=\"Modern/Modern.csproj\" />\n</Solution>\n");
+
+        var (report, bag) = await RunAsync(Healthy());
+
+        var check = report.Checks.Single(c => c.Id == "reference-assemblies");
+        Assert.Equal(CheckStatus.Warn, check.Status);
+        Assert.StartsWith("1 legacy (non-SDK) project(s) get no reference assemblies from the SDK", check.Message, StringComparison.Ordinal);
+        Assert.True(bag.Contains("OFR0018"));
+    }
+
+    /// <summary>
+    /// NHibernate, Open Live Writer P2: the probe looked for net48's reference assemblies only, while the projects target
+    /// net40, net461, and net472.
+    /// </summary>
+    [Fact]
+    public async Task Reference_assemblies_are_probed_for_the_frameworks_the_projects_target()
+    {
+        _repo.Write("src/A/A.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFrameworks>net461;net472;net10.0</TargetFrameworks>\n  </PropertyGroup>\n</Project>\n");
+        _repo.Write("src/B/B.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net40-client</TargetFramework>\n  </PropertyGroup>\n</Project>\n");
+        _repo.Write("App.slnx", "<Solution>\n  <Project Path=\"src/A/A.csproj\" />\n  <Project Path=\"src/B/B.csproj\" />\n</Solution>\n");
+        var machine = Healthy();
+        machine.ReferenceAssemblies = new ReferenceAssembliesResult(ReferenceAssembliesState.NotFound, null) { Frameworks = ["net40"] };
+
+        var (beforeScan, _) = await RunAsync(machine);
+        WriteFreshModel(Project("src/C/C.csproj") with { TargetFrameworks = ["net45", "netstandard2.0"], SdkStyle = true });
+        await RunAsync(machine);
+
+        Assert.Equal([["net40", "net461", "net472"], ["net45"]], machine.ProbedFrameworks);
+        Assert.Equal("Microsoft.NETFramework.ReferenceAssemblies.net40 is neither cached nor on any configured feed.",
+            beforeScan.Checks.Single(c => c.Id == "reference-assemblies").Message);
+    }
+
+    /// <summary>
+    /// The settings a project file sets itself win over the compile-only block, and <c>verify.properties</c> hides them
+    /// from the model, so a scan that builds cleanly said nothing about a plain build (SmartStoreNET's post-build
+    /// events, an explicit <c>MvcBuildViews</c>). The plain-build check reads the files.
+    /// </summary>
+    [Fact]
+    [ProducesDiagnostic("OFR0019")]
+    [ProducesDiagnostic("OFR0026")]
+    public async Task A_plain_build_is_checked_against_the_project_files_not_the_model()
+    {
+        _repo.Write("offramp.yml", "verify:\n  properties:\n    PostBuildEvent: \"\"\n");
+        _repo.Write("src/Web/Web.csproj", """
+            <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup>
+                <MvcBuildViews>true</MvcBuildViews>
+                <PostBuildEvent>xcopy "$(ProjectDir)bin" "$(SolutionDir)build" /s /y</PostBuildEvent>
+              </PropertyGroup>
+            </Project>
+            """);
+        _repo.Write("src/Core/Core.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\" />\n");
+        WriteFreshModel(Project("src/Core/Core.csproj"), Project("src/Web/Web.csproj"));
+
+        var (report, bag) = await RunAsync(Healthy());
+
+        Assert.Equal(
+            "No project needs Windows to build with offramp.yml's verify.properties (PostBuildEvent); the plain-build check says what a build without them does.",
+            report.Checks.Single(c => c.Id == "windows-only-build-steps").Message);
+        var check = report.Checks.Single(c => c.Id == "plain-build");
+        Assert.Equal(CheckStatus.Warn, check.Status);
+        Assert.Equal(
+            "A plain `dotnet build` does less than Offramp's build: 2 Windows-only setting(s) in 1 file(s) have no condition (src/Web/Web.csproj:3 MvcBuildViews, src/Web/Web.csproj:4 PostBuildEvent); verify.properties passes PostBuildEvent.",
+            check.Message);
+        Assert.Equal(["OFR0019", "OFR0026"], check.Codes);
+        var unguarded = bag.ToSortedList().Where(d => d.Code == "OFR0019").ToList();
+        Assert.Equal([("src/Web/Web.csproj", 3), ("src/Web/Web.csproj", 4)], unguarded.Select(d => (d.File!, d.Line!.Value)));
+        Assert.Equal("'$(MSBuildRuntimeType)' != 'Core'", unguarded[0].Data["condition"]!.ToString());
+        Assert.Contains(bag.ToSortedList(), d => d.Code == "OFR0026" && d.Data["cause"]!.ToString() == "verify-properties");
+
+        var fix = DoctorRunner.ApplyFix(_repo.Path, DoctorRunner.GuardFiles(_repo.Path, WorkspaceStore.Read(Path.Combine(_repo.Path, ".offramp", "workspace.json")), null));
+        _repo.Write("offramp.yml", "version: 1\n");
+        WriteFreshModel(Project("src/Core/Core.csproj"), Project("src/Web/Web.csproj"));
+        var (after, afterBag) = await RunAsync(Healthy());
+
+        Assert.Equal(["src/Web/Web.csproj"], fix.ProjectFiles.Select(f => f.File));
+        var passed = after.Checks.Single(c => c.Id == "plain-build");
+        Assert.Equal(CheckStatus.Pass, passed.Status);
+        Assert.Equal(
+            "A plain `dotnet build` of the solution does what Offramp's build does. Outside Windows it skips 2 conditioned setting(s) that Visual Studio's build runs (src/Web/Web.csproj:3 MvcBuildViews, src/Web/Web.csproj:4 PostBuildEvent).",
+            passed.Message);
+        Assert.DoesNotContain(afterBag.ToSortedList(), d => d.Code is "OFR0019" or "OFR0026");
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0026")]
+    public async Task Packages_config_and_web_sites_are_what_only_offramps_build_handles()
+    {
+        _repo.Write("src/Legacy/Legacy.csproj", "<Project ToolsVersion=\"15.0\" />\n");
+        WriteFreshModel(
+            [Project("src/Legacy/Legacy.csproj") with { PackagesConfig = true }],
+            [
+                new Diagnostic
+                {
+                    Code = "OFR0126",
+                    Severity = Severity.Warning,
+                    Message = "Needs Windows to build: ASP.NET Web Site project (AspNetCompiler).",
+                    Project = "src/OldSite/",
+                    Help = "https://offramp.dev/diagnostics/OFR0126",
+                },
+            ]);
+
+        var (report, bag) = await RunAsync(Healthy());
+
+        var check = report.Checks.Single(c => c.Id == "plain-build");
+        Assert.Equal(CheckStatus.Warn, check.Status);
+        Assert.Equal(
+            "A plain `dotnet build` does less than Offramp's build: 1 project(s) use packages.config, which dotnet restore skips; the solution lists ASP.NET Web Site project(s): src/OldSite/.",
+            check.Message);
+        Assert.Equal(["packages-config", "web-site"], bag.ToSortedList().Where(d => d.Code == "OFR0026").Select(d => d.Data["cause"]!.ToString()).Order());
+    }
+
+    [Fact]
+    public async Task Packages_config_counts_as_restored_once_the_targets_file_and_its_imports_are_in_place()
+    {
+        _repo.Write("src/Legacy/Legacy.csproj", "<Project ToolsVersion=\"15.0\" />\n");
+        WriteFreshModel([Project("src/Legacy/Legacy.csproj") with { PackagesConfig = true }], []);
+
+        var (planned, _) = await RunAsync(Healthy(), fix: true);
+
+        Assert.True(planned.Fix!.PackagesConfig);
+        Assert.Equal([PackagesConfigRestore.TargetsFileName, PackagesConfigRestore.SolutionTargetsFileName], planned.Fix.PackagesConfigFiles.Select(f => f.File));
+        Assert.Contains(PackagesConfigRestore.TargetsFileName, planned.Fix.Diff, StringComparison.Ordinal);
+
+        DoctorRunner.ApplyFix(_repo.Path, packagesConfig: true);
+        WriteFreshModel([Project("src/Legacy/Legacy.csproj") with { PackagesConfig = true }], []);
+        var (report, bag) = await RunAsync(Healthy());
+
+        var check = report.Checks.Single(c => c.Id == "plain-build");
+        Assert.Equal(CheckStatus.Pass, check.Status);
+        Assert.Equal(
+            "A plain `dotnet build` of the solution does what Offramp's build does. `dotnet restore` restores the 1 packages.config project(s) through Offramp.PackagesConfig.targets.",
+            check.Message);
+        Assert.DoesNotContain(bag.ToSortedList(), d => d.Code == "OFR0026");
+
+        // Without the solution's import, a solution restore would not lay anything out.
+        File.Delete(Path.Combine(_repo.Path, PackagesConfigRestore.SolutionTargetsFileName));
+        var (missing, _) = await RunAsync(Healthy());
+        Assert.Equal(CheckStatus.Warn, missing.Checks.Single(c => c.Id == "plain-build").Status);
+    }
+
+    [Fact]
+    public async Task Doctor_fix_plans_the_conditions_with_the_block()
+    {
+        _repo.Write("src/A/A.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>\n  </PropertyGroup>\n</Project>\n");
+        WriteFreshModel(Project("src/A/A.csproj"));
+
+        var (report, _) = await RunAsync(Healthy(), fix: true);
+
+        var fix = report.Fix!;
+        Assert.False(fix.AlreadyPresent);
+        Assert.True(fix.HasChanges);
+        var file = Assert.Single(fix.ProjectFiles);
+        Assert.Equal("src/A/A.csproj", file.File);
+        Assert.Equal(new WindowsGuard { Line = 3, Setting = "GenerateSerializationAssemblies", Step = "sgen", Condition = WindowsGuards.OnFrameworkMsbuild }, Assert.Single(file.Guards));
+        Assert.Equal("""
+            --- a/src/A/A.csproj
+            +++ b/src/A/A.csproj
+            @@ -1,5 +1,5 @@
+             <Project Sdk="Microsoft.NET.Sdk">
+               <PropertyGroup>
+            -    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>
+            +    <GenerateSerializationAssemblies Condition="'$(MSBuildRuntimeType)' != 'Core'">On</GenerateSerializationAssemblies>
+               </PropertyGroup>
+             </Project>
+
+            """, file.Diff);
+        Assert.Equal("<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>\n  </PropertyGroup>\n</Project>\n", _repo.Read("src/A/A.csproj"));
+    }
+
     [Fact]
     public async Task Checks_always_appear_in_the_same_order()
     {
         var (report, _) = await RunAsync(new FakeMachine { DotnetInstalled = false, GitVersion = null });
 
         Assert.Equal(
-            ["dotnet-sdk", "global-json", "target", "reference-assemblies", "git", "git-repository", "config", "workspace", "windows-only-build-steps", "cpm"],
+            ["dotnet-sdk", "global-json", "target", "reference-assemblies", "git", "git-repository", "config", "workspace", "windows-only-build-steps", "plain-build", "cpm"],
             report.Checks.Select(c => c.Id));
         Assert.Equal(report.Checks.Count, report.Summary.Pass + report.Summary.Warn + report.Summary.Fail + report.Summary.Skip);
     }

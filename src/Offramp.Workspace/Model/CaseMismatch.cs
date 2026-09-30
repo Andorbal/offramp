@@ -7,12 +7,15 @@ namespace Offramp.Workspace.Model;
 /// <param name="Spelled">The path as the build asked for it.</param>
 /// <param name="OnDisk">The path as it is on disk.</param>
 /// <param name="Evidence">The path as spelled and its first segment that differs; <c>scan</c> makes the path repository-relative.</param>
-internal sealed record CaseMismatch(string Spelled, string OnDisk, string Evidence)
+public sealed record CaseMismatch(string Spelled, string OnDisk, string Evidence)
 {
-    /// <summary>The mismatch for an absolute <paramref name="path"/>, or null when it exists as spelled or not at all.</summary>
+    /// <summary>
+    /// The mismatch for an absolute <paramref name="path"/>, or null when it exists as spelled or not at all.
+    /// <c>.</c> and <c>..</c> segments are resolved first, so the evidence names the file, not the way to it.
+    /// </summary>
     public static CaseMismatch? Find(string path)
     {
-        var spelled = path.Replace('\\', '/');
+        var spelled = Path.GetFullPath(path.Replace('\\', '/')).Replace('\\', '/');
         var root = Path.GetPathRoot(spelled);
         if (string.IsNullOrEmpty(root) || File.Exists(spelled) || Directory.Exists(spelled))
         {

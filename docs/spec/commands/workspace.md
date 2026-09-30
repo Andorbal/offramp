@@ -8,6 +8,9 @@ Builds the workspace model. See `02-workspace-model.md` for inputs and schema.
 offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH | --no-build | --msbuild | --msbuild-path PATH] [--if-stale]
 ```
 
+- Without `--solution` or `solution:`, builds the solution `init` would choose
+  (`OFR0023` says which and why; a tie is `OFR0020`, exit 2;
+  `docs/decisions/0050-choose-among-several-solutions.md`).
 - Runs `dotnet build -bl` unless a log is supplied. Uses `verify.properties`
   and `verify.configuration` from config so the analysis build matches
   verification builds, and `verify.timeoutSeconds` as the build timeout.
@@ -39,6 +42,15 @@ offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH 
   `nuget.config`. A folder that exists in any letter case is never touched.
   `OFR0106` (info) lists what was written, `OFR0105` each package that could not
   be found (`docs/decisions/0037-legacy-projects-outside-windows.md`).
+- Progress: the `packages.config` restore is a phase of its own that reports
+  each package (`Id Version`), and the build phase reports each project the
+  build finishes (MSBuild's `Name -> output` lines) out of the solution's
+  projects, so a long build is never silent.
+- When the solution lists ASP.NET Web Site projects (folders without a project
+  file, which `dotnet build` cannot build: MSB4249 stops the whole solution),
+  `dotnet build` builds `.offramp/scan.slnf`, a filter of every other project,
+  instead; the model's `solution` stays the scanned one. Each Web Site is
+  `OFR0101` and `OFR0126` (`docs/decisions/0048-web-sites-bcl-build-and-mstest-v1-outside-windows.md`).
 - Converts the binlog to a complog (`.offramp/build.complog`) so compilations
   can be rebuilt without MSBuild. With `--complog`, copies that one instead.
 - `--no-build` reuses `.offramp/msbuild.binlog` from the previous scan
@@ -57,7 +69,7 @@ Result (`schemas/v1/scan.json`):
 {
   "model": ".offramp/workspace.json",
   "upToDate": false,
-  "source": { "kind": "build", "path": ".offramp/msbuild.binlog", "sha256": "...", "complog": null },
+  "source": { "kind": "build", "path": ".offramp/msbuild.binlog", "sha256": null, "complog": null },  // sha256: a supplied log's
   "solution": "src/Monolith.sln",
   "buildSucceeded": true,            // null for a compiler log alone
   "projects": 412, "loc": 1830421,
@@ -78,17 +90,33 @@ or times out exits 3.
 
 Diagnostics: `OFR0003` no binary log to reuse, `OFR0004` log not found or
 unreadable, `OFR0010` no `dotnet`, `OFR0017` no MSBuild.exe (with `--msbuild`),
-`OFR0020` several solutions, `OFR0022` no
-solution, `OFR0101` project not understood (reason: its evaluation error, or,
-when MSBuild never evaluated it, the referenced project that failed), `OFR0102` kind unknown,
+`OFR0020` several solutions and none chosen, `OFR0023` solution chosen among several, `OFR0022` no
+solution, `OFR0101` project not understood (reason, first that applies: an
+ASP.NET Web Site project; its evaluation error, or "the restore failed" with
+the error; an unsupported project type, named; the failed restore; the
+project it references, or the solution makes it depend on
+(`ProjectDependencies`), that failed with errors of its own; MSBuild stopped
+before evaluating any project, with the first error; the one it references or
+depends on that was not built either; else the solution configuration), `OFR0102` kind unknown,
 `OFR0103` model from a compiler log alone, `OFR0104` assets file missing,
 `OFR0105` packages.config package not restored, `OFR0106` packages.config
 packages restored, `OFR0110`–`0119` Windows-only build step detected (one code
-per step family; `OFR0117`–`0119` and `Exec` commands written for cmd.exe
-are found from the failed build's errors), `OFR0120` project reference cycle,
-`OFR0121` portable target references a framework-only project, `OFR0130` build failed (with
-the count per error code, most first, and the first N
-errors; scan still produces a model for projects whose compiler call
+per step family; `OFR0118` and `Exec` commands written for cmd.exe are found
+from the failed build's errors, `OFR0117` and `OFR0119` also from the
+projects' files, all at once, for a log built in this checkout), `OFR0120`
+project reference cycle,
+`OFR0121` portable target references a framework-only project, `OFR0122` the
+compile-only block does not reach a legacy project (outside Windows, from its
+evaluation: `MSBuildExtensionsPath` overridden and in which file,
+`ImportDirectoryBuildProps=false`, or a nearer `Directory.Build.props`), `OFR0123` a
+`Compile` item's file missing in every letter case (naming the git-ignored
+ones, which the repository's own build generates), `OFR0124`–`0126`
+Windows-only build steps (`Microsoft.Bcl.Build`'s binding redirects, MSTest v1,
+an ASP.NET Web Site project), `OFR0130` build failed (errors count
+once per project; with the count per error code, most first, and how many
+projects each affects in the message and `data.projectsByCode`, an error
+without a code labeled `restore` when the restore logged it, and the first N
+distinct errors with repository-relative paths; scan still produces a model for projects whose compiler call
 succeeded, and marks the rest `partial: true`), `OFR0131` build timed out,
 `OFR0132` compiler calls unavailable.
 
@@ -103,21 +131,48 @@ offramp doctor [--fix [--apply]]
 
 Checks, each with pass/warn/fail and a remedy:
 - SDKs installed and which one `global.json` selects; whether it can target
-  `--target`. When no installed SDK satisfies `global.json`, the remedy names
+  `--target` (under `netstandard2.x`, whether it can build `net10.0`, which
+  applications and tests move to). When no installed SDK satisfies `global.json`, the remedy names
   the least permissive `rollForward` that selects one (`latestFeature`,
   `latestMinor`, `latestMajor`), or says none is new enough.
-- `Microsoft.NETFramework.ReferenceAssemblies` resolvable (offline cache or feed).
-  Outside Windows, when the model has legacy (non-SDK) projects, the check
-  warns (`OFR0018`) unless the compile-only block has its legacy section, the
-  only way those projects get the package.
+- `Microsoft.NETFramework.ReferenceAssemblies.<tfm>` resolvable (offline cache,
+  targeting pack, or feed) for every .NET Framework target the projects compile
+  for (`net40`, `net461`, ...; `net48` when none is known): the model's targets,
+  or before the first scan the solution's project files'. Outside Windows, when
+  there are legacy (non-SDK) projects (from the model, or before the first scan
+  from the project files), the check warns (`OFR0018`) unless the compile-only
+  block has its legacy section, the only way those projects get the package.
 - git present; repo detected; `git mv` will be used.
 - `offramp.yml` valid; unknown keys; pins without reasons.
 - Workspace model present and fresh (`OFR0002` names what changed).
 - Windows-only build steps per project (from the model), with the exact
-  conditional to add: `--fix` shows the diff of the compile-only block against
-  the root `Directory.Build.props`; `--fix --apply` writes it (asking first on a
-  terminal unless `--yes`), keeping every other byte of the file
-  (`docs/decisions/0012-doctor-fix-and-slice.md`).
+  conditional to add. `--fix` shows the diff of the compile-only block against
+  the root `Directory.Build.props`, and of a condition on each Windows-only
+  setting the MSBuild files set themselves, which win over the block; `--fix
+  --apply` writes them (asking first on a terminal unless `--yes`), keeping
+  every other byte of each file (`docs/decisions/0012-doctor-fix-and-slice.md`,
+  `docs/decisions/0063-condition-windows-only-settings-in-project-files.md`).
+  The files are the model's projects (before the first scan, the solution's),
+  the `Directory.Build.props`/`.targets` files above them, the repository files
+  they import by a path readable without evaluation, and a settings file named
+  by `OFR0122`. `GenerateSerializationAssemblies` (not `Off`) and `MvcBuildViews`
+  (`true`) get `'$(MSBuildRuntimeType)' != 'Core'`; non-empty
+  `PreBuildEvent`/`PostBuildEvent`, an `Exec` in a target whose command reads as
+  cmd.exe's, `RestorePackages` (`true`), and `MSBuildExtensionsPath` get
+  `'$(OS)' == 'Windows_NT'`. A setting already conditioned on the platform or
+  builder is left alone, so a second run changes nothing. When the solution has
+  `packages.config` projects, `--fix` also adds `Offramp.PackagesConfig.targets`
+  and its imports (the block's last section, `Directory.Solution.targets`), with
+  which `dotnet restore` downloads and lays out what `packages.config` lists
+  (`docs/decisions/0064-dotnet-build-and-packages-config-without-offramp.md`).
+- Builds without Offramp (`plain-build`), from the files, not the model: warns
+  when a plain `dotnet build` of the solution would do less than Offramp's
+  build, with `OFR0019` for each Windows-only setting without its condition
+  (file and line) and `OFR0026` for each thing only Offramp's builds supply
+  (`verify.properties`, `packages.config` restore without
+  `Offramp.PackagesConfig.targets`, a Web Site project left out of the
+  solution). The message lists the conditioned settings a build outside Windows
+  skips.
 - CPM shadowing hazards (see `deps.md`), against the model's projects or, before
   the first scan, the solution's. `packages.config` projects (`OFR1303`) count
   only once a `Directory.Packages.props` (or `deps.cpm.file`) exists; before that
@@ -140,21 +195,27 @@ Result (`schemas/v1/doctor.json`; decided in `docs/decisions/0006-doctor-contrac
     "git": { "version": "2.45.0", "repository": true }, "os": "linux-x64", "target": "net10.0"
   },
   "summary": { "pass": 7, "warn": 1, "fail": 0, "skip": 0 },
-  "fix": null   // with --fix: { "file": "Directory.Build.props", "alreadyPresent": false, "applied": false, "diff": "--- a/..." }
+  "fix": null   // with --fix: { "file": "Directory.Build.props", "alreadyPresent": false, "applied": false, "diff": "--- a/...",
+                //   "projectFiles": [ { "file": "src/Site/Site.csproj", "applied": false, "diff": "--- a/...",
+                //     "guards": [ { "line": 4, "setting": "MvcBuildViews", "step": "aspnet-compiler",
+                //                   "condition": "'$(MSBuildRuntimeType)' != 'Core'" } ] } ],
+                //   "packagesConfigFiles": [ { "file": "Offramp.PackagesConfig.targets", "applied": false, "diff": "--- /dev/null..." } ] }
 }
 ```
 
 Check ids, in output order: `dotnet-sdk`, `global-json`, `target`,
 `reference-assemblies`, `git`, `git-repository`, `config`, `workspace`,
-`windows-only-build-steps`, `cpm`; M13 appends `llm`. A check's status
+`windows-only-build-steps`, `plain-build`, `cpm`; M13 appends `llm`. A check's status
 matches its diagnostic's severity (fail = error, warn = warning), so the exit code
 follows `--fail-on`. Diagnostics: `OFR0010` no SDK, `OFR0011` global.json SDK not
 installed, `OFR0012` SDK cannot target `--target`, `OFR0013` reference assemblies
 unresolvable, `OFR0014` git not found, `OFR0015` not a git repository, `OFR0016`
 no `offramp.yml` (info), `OFR0018` legacy projects without the legacy section,
+`OFR0019` Windows-only setting in a project file without a condition, `OFR0026`
+a plain `dotnet build` does less than Offramp's build,
 `OFR0001` workspace model missing (reported as a warning
-by doctor), `OFR0002` model stale, `OFR0110`–`OFR0119` Windows-only build
-steps (from the model), `OFR1301`–`OFR1303` CPM hazards, `OFR1006` feed
+by doctor), `OFR0002` model stale, `OFR0110`–`OFR0119` and `OFR0124`–`OFR0126`
+Windows-only build steps (from the model), `OFR1301`–`OFR1303` CPM hazards, `OFR1006` feed
 unreachable, and the configuration codes `OFR0050`–`OFR0056`.
 
 ## `init`
@@ -193,8 +254,12 @@ offramp plan [--frontier] [--for PROJECT] [--waves] [--exclude-kind test,...]
   or `dual`, i.e. portable today (`readiness: ready`, wave 1).
 - `--for PROJECT`: the framework-only projects in `PROJECT`'s closure (itself
   included), in order: the minimal set to port for it to run on the target.
-  `report`'s application numbers use the same rule. An unknown project is
-  `OFR0021`.
+  The closure is the project, the projects it hosts (plugins, areas, and modules
+  that land in its folder; `02-workspace-model.md#hosted-projects`), and
+  everything they depend on; a project reached through a reference brings its
+  dependencies, not the projects its own host loads. `report`'s application
+  numbers use the same rule. Naming a hosted project is `OFR0204` (info: it runs
+  in its host's application). An unknown project is `OFR0021`.
 - `--waves`: groups the human view by wave; the JSON always carries `wave`.
 - `--exclude-kind`: leaves projects of those kinds out of the listing; blast
   radius, blockers, and readiness still come from the whole model.
@@ -297,22 +362,32 @@ offramp report [--format html|json|markdown] [--out PATH] [--since DATE] [--titl
 
 - Reads ledger snapshots (`report.ledger`, default `.offramp/ledger`) for the
   series, and the current model for everything else. The series is every
-  snapshot at or after `--since` and older than the model, then the model
-  itself; per point: projects and lines of code by framework class and by kind.
+  snapshot of the model's solution at or after `--since` and older than the
+  model, then the model itself (snapshots of another solution or filter are
+  left out, with `OFR0203`, info); per point: projects and lines of code by framework class and by kind.
   `asOf` is the model's `createdAt` (`docs/decisions/0016-report.md`).
 - Areas: projects and lines by framework class per directory holding project
   folders (the `graph --cluster directory` rule).
-- Applications (console, service, web, winforms, wpf): the application and
-  everything it depends on; status `done` when nothing in that closure is
-  framework-only, `ready` when only the application is, `blocked` otherwise;
-  `next` lists the framework-only projects in the closure that can be ported
-  today. `plan --for` must agree with these numbers.
+- Applications (console, service, web, winforms, wpf, except hosted projects):
+  the application, the projects it hosts (`hosted`), and everything they depend
+  on; status `done` when nothing in that closure is framework-only, `ready` when
+  only the application is, `blocked` otherwise; `next` lists the framework-only
+  projects in the closure that can be ported today. `plan --for` must agree with
+  these numbers. Each hosted web project is `OFR0204` (info), naming its host
+  (`docs/decisions/0055-hosted-projects-belong-to-their-host.md`).
+- Libraries: the `library` projects other code uses (ADR 0041's shipped rule:
+  `deadCode.externalConsumers`, packable, packed by a `.nuspec`, or used by no
+  application), with the evidence (`shipped`) and, over each library's own
+  closure, the same status and `next` as applications; the headline counts them
+  (`libraries`, `librariesDone`). When the workspace has no application, the
+  renderings talk about libraries instead (tile, summary sentence, table), so a
+  repository of libraries does not read "0 of 0 applications" (ADR 0057).
 - Frontier: framework-only projects whose dependencies are all portable
   (`ready`), most dependents first.
 - HTML: single self-contained file with no scripts; sections: headline numbers,
   burn-down of lines of code by framework class over time (stacked, framework at
   the bottom and its edge drawn as the burn-down line), framework class by area
-  (stacked bars), application table, the frontier list, and with `--with-graph`
+  (stacked bars), application table (the library table without applications), the frontier list, and with `--with-graph`
   the dependency graph from `graph --format html` (tests excluded, frontier
   highlighted) in a sandboxed `iframe srcdoc`. Charts are SVG computed by
   Offramp, so the same data gives the same bytes.

@@ -3,7 +3,11 @@
 All commands read the workspace model. Feed access goes through
 `NuGet.Protocol` using the repository's `nuget.config` (private feeds and
 credentials included), or exactly the sources in `deps.feeds`. A version already
-in the global packages folder is read from there. Package inspection results are
+in the global packages folder is read from there, then one in a packages.config
+folder (`<Id>.<Version>/<Id>.<Version>.nupkg`, as `scan` and `nuget restore` write
+it: `repositoryPath` from `nuget.config`, else `packages/` beside the solution or at
+the root). Each request to a feed gives up after 60 seconds, and the feed then counts
+as unreachable (`OFR1006`). Package inspection results are
 cached under `.offramp/cache/packages/<id>/<version>.json` and never expire unless
 `--no-cache` (a published version is immutable); version lists, listing state, and
 deprecation are asked for on every run.
@@ -22,17 +26,30 @@ For a package version and a target framework:
    with `net10.0`; `net48` assets are not. Files directly under `lib/` count as
    .NET Framework (NuGet's legacy rule); files directly under `build/` carry no
    framework. A package with neither assets nor dependency groups supports every
-   target.
+   target. A version without managed assemblies (`lib/`, `ref/`, `runtimes/*/lib/`)
+   never stands in for one with them: when the version in use has assemblies, a
+   content-only or tools-only release does not count as supporting the target
+   (ADR 0046).
 4. **Windows-only detection**: for each managed assembly under a compatible
    folder, read `System.Reflection.Metadata` assembly references and the
    `SupportedOSPlatform` assembly attribute. Referencing `System.Windows.Forms`,
    `PresentationFramework`, `System.Web` (the Framework one), `System.Drawing`
    (Framework), or `System.DirectoryServices` marks the version
    `windowsOnly: true`. `Microsoft.Win32.Registry` does not: it ships with .NET
-   on every OS, and libraries reference it for code they guard. Only the assets NuGet would pick for
+   on every OS, and libraries reference it for code they guard. A P/Invoke into
+   a library that exists only on Windows marks the version too (`user32`, `gdi32`,
+   `shell32`, `msdelta`, ...; not `kernel32`, `ntdll`, `advapi32`, the COM runtime
+   `ole32`/`oleaut32`, or the C runtime, which portable code calls behind an OS
+   check), and so does a class declared `[ComImport]`, which creates a Windows
+   component (a `[ComImport]` interface alone does not). Only the assets NuGet would pick for
    the target count (the nearest `lib/` folder, else `ref/`): System.Drawing.Common
-   8.0 is Windows-only for `net10.0` but not for `netstandard2.0` consumers. This is
-   a warning (`OFR1004`), not a fail.
+   8.0 is Windows-only for `net10.0` but not for `netstandard2.0` consumers. A
+   package with nothing in `lib/` or `ref/` whose runtime-specific files
+   (`runtimes/<rid>/native/` and `runtimes/<rid>/lib/`) are all for Windows runtime
+   identifiers (`win`, `win-x64`, `win10-arm64`, ...) is Windows-only for every
+   target, such as LibSassHost.Native.win-x64; when its id
+   ends in the runtime identifier and a feed has the same id for `linux-x64`, the
+   message names it. This is a warning (`OFR1004`), not a fail.
 5. **Deprecated/unlisted**: read from the registration index; deprecation
    reasons and alternate packages are surfaced.
 
@@ -50,7 +67,7 @@ built-in table) lists Framework-era packages and their modern successors, e.g.
 ## `deps audit`
 
 ```
-offramp deps audit [--target N] [--package ID] [--project P] [--include-prerelease] [--format table|json|markdown]
+offramp deps audit [--target N|TFM] [--package ID] [--project P] [--include-prerelease] [--format table|json|markdown]
 ```
 
 It audits every package in the model's `packages` index: `PackageReference` items and the
@@ -95,8 +112,13 @@ log₂(versions) inspections rather than one per version. Every version it retur
 was inspected and supports the target. `newest` is the newest listed candidate.
 
 `status`: `ok` every in-use version supports the target; `upgrade` some
-version does; `replace` none does but a mapping exists; `blocked` none does and
-no mapping; `unknown` no feed has the package, or the feeds could not be reached.
+version newer than every in-use version that does not support the target does;
+`replace` none does but a mapping exists; `blocked` none does and
+no mapping. A supporting version older than one in use is a downgrade, never an
+upgrade: the package is `replace` or `blocked` with `OFR1007`, and
+`newestSupporting` still names that version. A package whose versions in use
+have nothing for any framework (build or tool files only) is `replace` when the
+package map names a successor (`OFR1009`: Microsoft.Bcl.Build); `unknown` no feed has the package, or the feeds could not be reached.
 `--format table` (the terminal view) sorts blocked first, then replace, upgrade,
 unknown, and ok, each by number of projects; `--format markdown` prints the same
 table as Markdown and `--format json` the result alone (`--json` gives the
@@ -107,7 +129,11 @@ the `deps gac` mapping for framework assemblies (file references are
 Diagnostics: `OFR1001` no version supports target (error), `OFR1002` in-use
 version does not support target, `OFR1003` package or in-use version deprecated,
 `OFR1004` windows-only assets, `OFR1005` package not found on any feed,
-`OFR1006` feed unreachable (result marked partial, exit 4).
+`OFR1006` feed unreachable (result marked partial, exit 4), `OFR1007` only
+versions older than the one in use support the target, `OFR1008` (info) projects
+reference DLLs by `HintPath` that no packages.config installs, which the audit does
+not see: it points to `deps resolve-dlls`, `OFR1009` versions in use have nothing
+for any framework and the package map replaces the package.
 
 ## `deps consolidate`
 
@@ -231,7 +257,7 @@ Result: per package `{ id, current: [...], selected, reason, constraints: [...],
 Loose assembly references (`HintPath`) → package or project references.
 
 ```
-offramp deps resolve-dlls [--project P] [--apply]
+offramp deps resolve-dlls [--project P] [--apply] [--verify end|none]
 ```
 
 For each `Reference` with a `HintPath`:
@@ -246,20 +272,55 @@ For each `Reference` with a `HintPath`:
    target (`OFR1402`). No match → `OFR1403` with the metadata so the user can
    decide.
 4. Report DLLs whose `TargetFrameworkAttribute` is `.NETFramework` and that
-   have no package replacement as blockers for the target (`OFR1404`).
+   have no package replacement as blockers for the target (`OFR1404`). A DLL
+   without the attribute (built before .NET 4.0) that references the .NET
+   Framework's `mscorlib` (public key token `b77a5c561934e089`) is .NET
+   Framework too: v1.0, v1.1, v2.0, or v4.0 by the `mscorlib` version.
+5. A COM interop assembly (with `ImportedFromTypeLibAttribute`, as tlbimp
+   writes it) matches no package and is not a blocker: `OFR1405` says it works
+   on Windows only.
 
 Details (M6, ADR 0020):
-- **Candidates.** NuGet feeds cannot be searched by assembly name, so the only
-  candidate is the package whose id is the assembly name, confirmed by
-  inspecting its versions' assets.
-- **Match rules.**
-  - A candidate DLL must have the same public key token.
-  - The exact assembly version wins over the lowest package version above
-    it.
-  - Every target framework of the project must be supported.
+- **Candidates.** NuGet feeds cannot be searched by assembly name, so the
+  candidates are the packages `deps.assemblyPackages` in `offramp.yml` and
+  `rules/assembly-packages.yml` name for the assembly (NUnit ships
+  `nunit.framework`, Microsoft.SqlServer.Compact ships
+  `System.Data.SqlServerCe`), in that order, then the package whose id is the
+  assembly name, each confirmed by inspecting its versions' assets. The
+  strongest match across them wins; on a tie, the first.
+- **Match rules** (ADR 0042). The DLL is read from disk: its identity, its
+  `AssemblyFileVersion` and `AssemblyInformationalVersion` attributes, and its
+  SHA-256; the model's metadata stands in when the file cannot be read.
+  - A candidate assembly must have the DLL's name and the same public key
+    token (none for an unsigned DLL), at the referenced assembly version or
+    higher, and the package version must support every target framework of
+    the project.
+  - Candidates rank by what matches (`match`): `identical` (a package asset is
+    the same file), then `fileVersion`, then `informationalVersion`, then
+    `assemblyVersion` (the closest build: the lowest package version shipping
+    the assembly version), then `newer` (the lowest package version with a
+    higher assembly version: an upgrade). Within a rank a listed version wins
+    over an unlisted one, then the lower version. A file or informational
+    version that only repeats the assembly version (`1.0.0.0` for 1.0.0.0, `4.0`
+    for 4.0.0.0, the defaults) does not count: it says nothing the assembly
+    version does not.
+  - Unlisted versions are candidates when they ship the referenced assembly
+    version (log4net 1.2.10 is unlisted on nuget.org), never as an upgrade.
+  - An unsigned DLL is matched only by its file (`identical`, `fileVersion`,
+    `informationalVersion`): a name alone does not identify it. Otherwise it
+    is `OFR1403`, and the message names the package that has the name.
+  - A DLL whose version is unknown (the file cannot be read) matches no
+    package.
+  - `OFR1402`'s message says what matched: "is ... the same file, byte for
+    byte", "the same file version", "the closest build is in", or "is newer
+    ...: an upgrade".
 - **Blockers and unmatched DLLs.** A .NET Framework DLL with no replacement is
   reported only as a blocker (`OFR1404`). Other unmatched DLLs are `OFR1403`,
   with their metadata.
+- **The global packages folder.** A `HintPath` into the NuGet global packages
+  folder (the model writes it `$(NuGetPackageRoot)<id>/<version>/...`; a legacy
+  project outside Windows can reference a package's DLL no other way) resolves
+  to that package and version (`match: path`), whatever the assembly version.
 - **Installed packages.** A `HintPath` through `packages/<Id>.<Version>/` for a
   package the project's `packages.config` lists resolves to that package and
   version (`packagesConfig`): NuGet manages it already, so it is neither
@@ -267,9 +328,26 @@ Details (M6, ADR 0020):
   The folder, not the assembly version, names the version: Newtonsoft.Json
   13.0.1 to 13.0.3 all ship assembly version 13.0.0.0.
 - **`--apply`** replaces the `Reference` with the `ProjectReference` or
-  `PackageReference`; versionless under central management. A `packages.config`
+  `PackageReference`; versionless under central management. A conditioned
+  `Reference` (its own condition, its item group's, or a `Choose`) is replaced
+  in place, so the new item keeps the condition; NHibernate references two DLLs
+  in Debug only because its Release build merges them. A `Reference` the project
+  file does not declare (it comes from an import, such as a Directory.Build.props)
+  is left alone, since editing the project would add a second reference and remove
+  none: `OFR1406` names the declaring file (a Directory.Build.props or .targets in
+  the project's folder or above, or a file the project imports by a literal path)
+  once per assembly, with the projects it reaches. A `packages.config`
   project gets `ProjectReference`s only (NuGet does not mix the two styles in a
-  project; `csproj modernize` converts it). It writes through a journal.
+  project; `csproj modernize` converts it). Outside Windows a legacy (non-SDK)
+  project gets no `PackageReference` either: the .NET SDK restores it but gives
+  the compiler none of its assemblies (`ResolveNuGetPackageAssets` is in Visual
+  Studio's `Microsoft.NuGet.targets`), so its References stay and `OFR1407`
+  points to `csproj modernize` (ADR 0042). It writes through a journal, then
+  runs the configured verification (`verify.mode`: a restore and build of the
+  edited projects and their direct dependents, or `verify.command`; `--verify
+  none` skips it). A failed verification restores every file from the journal
+  (`OFR1408`, `rolledBack: true`) unless `verify.onFailure: keep`. The result
+  has `verify` and `rolledBack`.
 - **Schema:** `schemas/v1/deps-resolve-dlls.json`.
 
 ## `deps gac`
@@ -277,7 +355,7 @@ Details (M6, ADR 0020):
 Framework assembly references → their modern equivalents.
 
 ```
-offramp deps gac [--project P] [--target N]
+offramp deps gac [--project P] [--target N|TFM]
 ```
 
 Rules table `rules/framework-assemblies.yml` maps each Framework assembly to
@@ -308,7 +386,12 @@ from a real dependency):
 `usages` counts the names in C# source that bind to a type or member defined in
 the assembly, in the compilation rebuilt from the compiler log for the project's
 .NET Framework target; `null` when there is no compiler log or the project is not
-C#.
+C#. The types the project uses from the assembly make two mappings specific:
+`System.Web` used only for `HttpUtility` is `builtin` (modern .NET has
+`System.Web.HttpUtility`), and with `MimeMapping` too its note says so instead of
+"move to ASP.NET Core"; `System.Web.Services` used only as a SOAP client (a web
+reference's `SoapHttpClientProtocol` proxy) is `package: System.ServiceModel.Http`,
+a WCF client generated with dotnet-svcutil.
 
 ## `redirects sync`
 
@@ -332,10 +415,16 @@ offramp redirects sync [--app PATH ...] [--apply] [--prune]
   project (its build failed during `scan`), is skipped with the reason
   (`OFR1506`): its references are not known, so redirects computed from them
   would be wrong and `--prune` would remove live ones.
+- A hosted project (a plugin, area, or module that lands in a web project's
+  folder; `02-workspace-model.md#hosted-projects`) is skipped with the reason
+  (`OFR1507`): the runtime reads its host's configuration, never its own. The
+  host's graph includes the packages of the projects it hosts, and a partial
+  hosted project makes the host partial too (ADR 0055).
 - Diagnostics: `OFR1501` redirect added, `OFR1502` redirect changed,
   `OFR1503` redirect pruned, `OFR1504` redirect points at a version not in the
   graph (stale), `OFR1505` deployed version older than a reference,
-  `OFR1506` application skipped (partial model).
+  `OFR1506` application skipped (partial model), `OFR1507` hosted project's
+  configuration left alone.
 - After `deps consolidate`, `redirects sync` typically deletes most redirects;
   the summary says how many.
 
@@ -350,7 +439,9 @@ Details (M6, ADR 0020):
   System.Reflection.Metadata. The packages are the application's restored ones
   and those its `packages.config` and the `packages.config` of every project it
   references list (copy-local deploys them; ADR 0035); an application without a
-  restored graph also takes its referenced projects' restored packages. A
+  restored graph also takes its referenced projects' restored packages. The
+  projects an application hosts count as its own: their restored packages and
+  `packages.config` packages, and those of the projects they reference. A
   `packages.config` package is read from `packages/<Id>.<Version>/` beside the
   solution or at the repository root before the global packages folder.
 - **Needing a redirect.** A signed assembly needs one when a reference names

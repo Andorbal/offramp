@@ -10,7 +10,7 @@ overridden findings.
 Common options:
 
 ```
-offramp audit <kind> [--target N] [--project P ...] [--pack NAME ...] [--format table|json|sarif|markdown] [--group-by project|rule|namespace|file]
+offramp audit <kind> [--target N|TFM] [--project P ...] [--pack NAME ...] [--format table|json|sarif|markdown] [--group-by project|rule|namespace|file]
 ```
 
 SARIF output lets GitHub code scanning and IDEs show findings inline.
@@ -35,11 +35,16 @@ Method:
 3. **Throws on modern .NET** (`OFR3003`): a curated list of APIs that compile
    but throw `PlatformNotSupportedException` (e.g. `Thread.Abort`,
    `AppDomain.CreateDomain`, `Remoting`, `CodeDom` compilation,
-   `System.Drawing` on non-Windows, `BinaryFormatter` without the switch).
-4. **Removed technologies** (`OFR3004`–`3009`, error): WebForms (`System.Web.UI`),
-   ASMX, WCF server without CoreWCF, Remoting, Workflow Foundation,
-   `System.EnterpriseServices`, Code Access Security attributes, AppDomain
-   sandboxing. Each carries the recommended direction.
+   `System.Drawing` on non-Windows, `BinaryFormatter` without the switch), and
+   on a `-windows` target the Windows Forms types kept only for binary
+   compatibility (`MenuItem`, `ContextMenu`, `DataGrid`: `[Obsolete]` `WFDEV006`).
+4. **Removed technologies** (`OFR3004`–`3009` and `OFR3013`, error): WebForms
+   (`System.Web.UI`), ASMX, WCF server without CoreWCF, Remoting, Workflow
+   Foundation, `System.EnterpriseServices`, Code Access Security attributes,
+   AppDomain sandboxing, `CallContext`. Each carries the recommended direction.
+5. **No effect on the target** (`OFR3014`, info): security transparency
+   attributes (`[SecurityCritical]`, `[AllowPartiallyTrustedCallers]`), which
+   exist on the target and do nothing there.
 
 Result: findings plus a **porting ledger**: per project, counts by category and
 by namespace, a `portability` score (fraction of files with no error-level
@@ -129,8 +134,18 @@ Decisions behind the four code audits (ADR 0021).
 - `symbols` are documentation IDs. A `T:` type matches the type and its members, an
   `N:` namespace everything in it, and an `M:` without a parameter list every
   overload. A name that binds to a namespace is never a finding: the types and
-  members used from it are.
+  members used from it are. `exclude` lists documentation IDs, read the same way,
+  that `symbols` leaves to another rule (`OFR3007` leaves `CallContext` to
+  `OFR3013`).
+- `OFR3001` has `replacements`: documentation IDs, read the same way, mapped to what
+  replaces the API on the target (`AppDomain.DefineDynamicAssembly` →
+  `AssemblyBuilder.DefineDynamicAssembly`). The finding's message names it, and its
+  `details.replacement` holds it (ADR 0044).
 - One finding per rule and line.
+- `OFR3001` is not reported where a removed-technology rule (category
+  `removed-technology`) matched: at the same name, or on the same line for the same
+  symbol (a base type or attribute, reported at the declaration). The removed
+  technology's finding says what to do instead (ADR 0044).
 - `--pack` runs only the packs named and overrides `rules.packs.disable`. A rule set to
   `none` in `offramp.yml` does not run. Any other override changes the severity and
   marks the finding `overridden`.
@@ -154,15 +169,41 @@ Decisions behind the four code audits (ADR 0021).
 - Only `framework`-class projects are compiled against the target.
 - The reference assemblies come from the SDK: a scratch project under
   `.offramp/cache/targets/` with the target framework, `Microsoft.AspNetCore.App` for
-  web projects, `Microsoft.WindowsDesktop.App` and `-windows` for WinForms and WPF, and
-  the project's direct packages at their resolved versions. `dotnet msbuild -restore
+  web projects, `Microsoft.WindowsDesktop.App` and `-windows` for projects that use
+  Windows Forms or WPF, and the project's packages. `dotnet msbuild -restore
   -getItem:ReferencePathWithRefAssemblies` lists them.
+- A project uses Windows Forms or WPF when its kind is `winforms` or `wpf`, it sets
+  `UseWindowsForms` or `UseWPF`, or it references `System.Windows.Forms`,
+  `PresentationFramework`, `PresentationCore`, `WindowsBase`, `System.Xaml`, or
+  `UIAutomationProvider`: class libraries of forms and controls included. The guide's
+  `csproj modernize --tfm` suggestion uses the same rule (`WindowsDesktop` in
+  `Offramp.Core`).
+- The framework each project is compiled against is the one it moves to under the target
+  (ADR 0057, `ModernTarget.For`): `netN.0`, `-windows` for Windows Forms and WPF; every project
+  `netN.0-windows` under a `-windows` target; under `netstandard2.0` or `netstandard2.1` the
+  standard for libraries, with its reference assemblies and the `NETSTANDARD` symbols, and no
+  shared framework. An application or a test project cannot run on .NET Standard: it is compiled
+  against `net10.0` (`net10.0-windows` with Windows Forms or WPF) and OFR3017 (info) says so.
+  Rules whose severity depends on the .NET version use .NET 10 under .NET Standard, whose
+  libraries run on every .NET.
+- The packages are the direct `PackageReference` packages at their resolved versions,
+  and every package `packages.config` lists except development dependencies (it lists
+  transitive packages too). A `HintPath` into the `packages/<Id>.<Version>/` folder of
+  a `packages.config` package is left out: it is the .NET Framework build of a package
+  resolved for the target above (ADR 0040).
 - Implicit asset target fallback is off, so a package without assets for the target
   fails restore with NU1202. It is left out, together with every direct package that
   depends on it (OFR3011), and the APIs used from it become OFR3001 findings.
+- A package NuGet cannot find at its version (NU1101, NU1102, NU1103), directly or
+  through a dependency, is left out of the restore and reported (OFR3015); its
+  `HintPath` DLLs are referenced as recorded, so the APIs used from it are not checked.
 - A project an audit cannot read (Visual Basic or F#, or no compiler call) is listed in
   `skipped` and reported as OFR3012; `audit dead-code` does the same, since what such a
-  project uses from C# projects is not seen.
+  project uses from C# projects is not seen. A project without a compiler call that the
+  model marks partial is named as a failed build, not as a project to scan.
+- A project the model marks partial (its build failed during `scan`) that has a
+  compiler call is audited from it, with OFR3016: a failed call can lack sources or
+  references.
 - Any other restore failure leaves the project uncompiled (OFR3010). Its symbol rules
   still run.
 - The target compilation keeps the recorded sources, compilation options, and language
@@ -170,8 +211,8 @@ Decisions behind the four code audits (ADR 0021).
   ...) for the target's (`NET`, `NET10_0`, `NET10_0_OR_GREATER`, ...).
 - Project references become the referenced project's own target compilation
   (`framework` class) or its recorded modern or standard build. A `framework` project
-  that is not C# (Visual Basic) is referenced as recorded, like a DLL. `HintPath` DLLs
-  are referenced as they are.
+  that is not C# (Visual Basic) is referenced as recorded, like a DLL. Other `HintPath`
+  DLLs are referenced as they are.
 - OFR3001 comes from CS0234, CS0246, CS0103, CS1061, CS0117, and CS1069 (a type
   forwarded to an assembly the target does not reference). It is reported when the
   same position binds, in the recorded compilation, to a type or member from metadata.
@@ -183,7 +224,19 @@ Decisions behind the four code audits (ADR 0021).
     chain contains it, and at calls to methods whose signatures contain it (the method
     is a candidate that failed overload resolution). The type is reported where the code
     names it or reaches its members.
+  - An API the target has by documentation ID is not a finding either, unless its
+    signature names a type the target lacks: inside a class whose missing base derives
+    from a type the target has, the members inherited from that type
+    (`Component.DesignMode`) cannot be looked up, but exist.
   - The finding carries the assembly and its `rules/framework-assemblies.yml` mapping.
+  - An extension method declared in another assembly (the solution's own) whose
+    receiver type the target does not have (`request.IsHttps()` over
+    `System.Web.HttpRequestBase`) is attributed to the receiver's assembly and
+    namespace; `details.extensionAssembly` names the assembly that declares it.
+- OFR3003 on a `-windows` target also comes from the target compilation: a name that
+  binds to a symbol, or a member of a type, marked `[Obsolete]` with `DiagnosticId`
+  `WFDEV006` (the Windows Forms types .NET keeps only for binary compatibility, which
+  throw at run time).
 - OFR3002: a symbol from metadata marked `[SupportedOSPlatform("windows")]` on itself,
   a containing type, or its assembly. `OperatingSystem.IsWindows()` guards are not
   recognized; .NET Framework code has none. Desktop projects, compiled for
@@ -201,8 +254,11 @@ Decisions behind the four code audits (ADR 0021).
   including computed ones. A project that calls `Encoding.RegisterProvider` anywhere
   gets none.
 - OFR3103: a constant (or the literal parts of an interpolated string) with a backslash
-  or a drive letter passed to a `System.IO` API, plus the Windows-only
-  `Environment.SpecialFolder` members.
+  or a drive letter passed to a path parameter of a `System.IO` API (`path`, `path1`,
+  `paths`, `fileName`, `sourceFileName`, `destFileName`, `sourceDirName`, `driveName`,
+  and the like), plus the Windows-only `Environment.SpecialFolder` members. Text
+  parameters (`TextWriter.Write`'s value, `File.WriteAllText`'s contents) are not
+  paths: a backslash there is an escape.
 - OFR3104: `FindSystemTimeZoneById` with a constant ID that has no `/` (except `UTC`
   and `GMT`), or with a computed ID.
 - OFR3109: `double` or `float` `ToString` without a format string.
@@ -236,7 +292,9 @@ Decisions behind the four code audits (ADR 0021).
   - the cast applied to `Deserialize`
 - OFR3205: a `[Serializable]` class or struct that no formatter call in any audited
   project reaches. A type is reached when it is carried, or is a base type or the type
-  of a non-`[NonSerialized]` field of a reached type.
+  of a non-`[NonSerialized]` field of a reached type, or when it derives from or
+  implements a type a reached value is declared as (a carried type, a field's type):
+  a serialized `ISession` can be a `SessionImpl`. `object` does not count.
 
 **`audit native`.**
 - Every `[DllImport]` declared in the project is inventoried (OFR3301), with library,
@@ -263,8 +321,9 @@ offramp audit dead-code [--scope public|all] [--min-confidence high|medium|low] 
   candidate.
 - Confidence: `high` when the symbol is `internal`/`private` or the assembly
   has no `InternalsVisibleTo` and is not packed; `medium` for `public` symbols
-  in assemblies that other repositories might consume (packable, or listed in
-  `deadCode.externalConsumers`); `low` when any of: the symbol name appears in
+  in assemblies that other repositories might consume (listed in
+  `deadCode.externalConsumers`, packable, packed from a `.nuspec`, or a library
+  no application in the solution uses; ADR 0041); `low` when any of: the symbol name appears in
   a string literal or resource anywhere in the solution, the type matches a DI
   convention pattern (`services.Scan`, `RegisterAssemblyTypes`, MediatR
   handlers, controllers, `[Export]`), the type has `[Serializable]`/data
@@ -317,20 +376,46 @@ Decisions behind the two commands (ADR 0022).
 - **Confidence.** The base level is:
   - `high` for `private` and `internal` symbols, unless `InternalsVisibleTo` names an
     assembly outside the solution (`medium`)
-  - `high` for public symbols, unless the project is packable (`IsPackable`, true by
-    default for SDK-style libraries) or listed in `deadCode.externalConsumers`
-    (`medium`)
+  - `high` for public symbols, unless the project is shipped (`medium`, ADR 0041). The
+    first of these that holds is the evidence:
+    - it is listed in `deadCode.externalConsumers` (by name, assembly name, or path)
+    - it is packable (`IsPackable`, true by default for SDK-style libraries)
+    - a `.nuspec` anywhere in the repository packs its DLL (a `<file src>` whose file
+      name is the assembly's, without wildcards), or, for a library, a `.nuspec` or
+      `.nuspec.template` sits in its folder (`bin`, `obj`, `packages`, and dot folders
+      are not searched). A `.nuspec` that packs an `.exe` packs an application (a Squirrel
+      or Chocolatey installer) and ships nothing
+    - it is a library (`kind: library`, or a `test` project whose output is a library)
+      that no application (`web`, `winforms`, `wpf`, `service`, `console`) depends on,
+      directly or through other projects
+  - `medium` at most for a public instance method of a type that derives from `Controller`,
+    `ControllerBase`, or `ApiController` (not `[NonAction]`): an action, which MVC reaches by
+    name from a request's route
 - **`low` overrides the base level** when any of these holds:
   - the name appears as a word in a string literal, or in a `.resx`, `.config`, `.xaml`,
-    `.xml`, or `.json` file, an ASP.NET markup file, or another XML file (one that starts
-    with `<` and parses, such as a plugin manifest) in a project folder. `bin`, `obj`,
+    `.xml`, `.json`, `.htm`, `.html`, or `.js` file (not a minified `.min.js`), an ASP.NET
+    markup file, or another XML file (one that starts with `<` and parses, such as a plugin
+    manifest) in a project folder. `bin`, `obj`,
     `node_modules`, and `packages` folders are not read, in any letter case, and a file
-    that cannot be read is listed in `skipped`
+    that cannot be read is listed in `skipped`. A controller action's name matches in any
+    letter case, as MVC matches it
   - it is a `Page_` method of a page or control (`AutoEventWireup` calls it by name), or an
     `Application_` or `Session_` method of an `HttpApplication`
   - the type derives from or implements a type the solution finds types by with
-    reflection: `typeof(X).IsAssignableFrom(t)`, `t.IsSubclassOf(typeof(X))`, or
-    `t.IsAssignableTo(typeof(X))`, the way plugin hosts discover implementations
+    reflection (ADR 0041), the way plugin hosts, type finders, and model builders discover
+    implementations:
+    - `typeof(X).IsAssignableFrom(t)`, `t.IsSubclassOf(typeof(X))`, or
+      `t.IsAssignableTo(typeof(X))`
+    - a call that passes `X` to a discovery method: one that makes such a check on its own
+      type parameter (`typeof(T)`) or `Type` parameter, or passes one of them on to another
+      discovery method (followed four calls deep, through the interface members and base
+      methods it implements), so `FindClassesOfType<X>()` or `FindClassesOfType(typeof(X))`
+      finds `X`
+    - `x.GetGenericTypeDefinition() == typeof(G<>)` (or `!=`, directly or through a local or
+      a query's `let`) for a `G` outside the base class library
+    - EF6 `modelBuilder.Configurations.AddFromAssembly(...)` (`EntityTypeConfiguration<T>`,
+      `ComplexTypeConfiguration<T>`) and EF Core `modelBuilder.ApplyConfigurationsFromAssembly(...)`
+      (`IEntityTypeConfiguration<T>`)
   - the type implements an interface declared in the solution, and the solution calls a
     convention registration (`Scan`, `RegisterAssemblyTypes`, `AddMediatR`,
     `AddControllers`, `AddMvc`, `AddClasses`, `FromAssemblyOf`, ...)
@@ -341,6 +426,13 @@ Decisions behind the two commands (ADR 0022).
     serialization attribute, or any attribute outside `System.Diagnostics`,
     `System.Runtime.CompilerServices`, `Obsolete`, `EditorBrowsable`, and `CLSCompliant`
   - it is `Main`, a type with a static `Main`, or `Program`
+  - the type or a type it derives from has a method with a test framework's attribute (from
+    `NUnit.Framework`, `Xunit`, `Microsoft.VisualStudio.TestTools.UnitTesting`,
+    `MbUnit.Framework`, or `TUnit.Core`): the runner finds the class by it (NUnit 2.5 and later
+    need no `[TestFixture]`)
+  - it is public and COM-visible: the nearest `[ComVisible]` on it, a type containing it, or
+    its assembly says `true`. COM clients, and scripts through `ObjectForScripting` and
+    `window.external`, call it by name. `[ComVisible]` itself is not a reflection attribute
   - it is a public property or field (serializers, ORMs, and data binding use them)
 - Every candidate lists this evidence.
 - **Lines.** Each declaration counts from its documentation comment (plain `///` comments
@@ -359,9 +451,16 @@ Decisions behind the two commands (ADR 0022).
     one), the working tree is built for each.
   - With `--baseline REF`, the revision is checked out in a scratch work tree and built
     for the project's newest target, and the working tree is built for the same target.
-- Builds are `dotnet build -c Release -f TFM -p:OutDir=...` into
-  `.offramp/cache/api-compat/`, removed afterwards. Building the working tree updates the
-  project's `obj/` folder, as any build does.
+- Builds are `dotnet build -c <verify.configuration> -f TFM <verify.properties> -p:OutDir=...`
+  (with `RestorePackages=false` outside Windows, as every Offramp build) into
+  `.offramp/cache/api-compat/`, removed afterwards: a Release-only step such as ILRepack is not
+  part of the public API (ADR 0058). Building the working tree updates the project's `obj/`
+  folder, as any build does.
+- **The baseline's work tree** gets what the working tree's build has and no revision holds:
+  the compile-only sections of the root `Directory.Build.props` that it lacks, when the working
+  tree's has Offramp's compile-only block, and the git-ignored files that the working tree
+  compiles for the project and the projects it references (a generated shared AssemblyInfo),
+  named by OFR3505 (info).
 - **ApiCompat** (`Microsoft.DotNet.ApiCompat.Tool`) is installed under
   `.offramp/tools/apicompat/` at the SDK's version (`dotnet --version`), else the newest.
   It runs in strict mode, which reports what either side lacks.
@@ -403,6 +502,7 @@ offramp ifdef strip --symbol NETFRAMEWORK [--keep true|false] [--apply]
   project's C# compile items, active or not, from disk. Totals count a shared file
   once. Trending in the ledger is not in v1.
 - `wrap` reads the `--format json` result (or the `--json` envelope) of `audit api`.
+  Info findings are left out: they name code that works on the target (`OFR3014`).
   - Each finding must still name its symbol at its position, parsed with the owning
     project's .NET Framework preprocessor symbols; one that does not is stale (OFR3602).
     Findings already inside a branch with the same condition are counted and left.

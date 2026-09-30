@@ -20,7 +20,8 @@ public sealed class CompileOnlyConditionalTests : IDisposable
 
         Assert.StartsWith("<Project>\n  <!-- keep me -->\n  <PropertyGroup>\n    <LangVersion>latest</LangVersion>\n  </PropertyGroup>\n", updated, StringComparison.Ordinal);
         Assert.Contains("    <OfframpCompileOnly>true</OfframpCompileOnly>\n  </PropertyGroup>\n", updated, StringComparison.Ordinal);
-        Assert.EndsWith("    </PropertyGroup>\n  </Target>\n</Project>\n", updated, StringComparison.Ordinal);
+        Assert.EndsWith("    <PackageReference Include=\"MSBuild.Microsoft.VisualStudio.Web.targets\" Version=\"14.0.0.3\" IsImplicitlyDefined=\"true\" PrivateAssets=\"all\" />\n  </ItemGroup>\n</Project>\n", updated, StringComparison.Ordinal);
+        Assert.DoesNotContain(CompileOnlyConditional.PackagesConfigMarker, updated, StringComparison.Ordinal);
         AssertValidProject(updated);
     }
 
@@ -33,7 +34,7 @@ public sealed class CompileOnlyConditionalTests : IDisposable
 
         Assert.StartsWith(earlier[..^"</Project>\n".Length], updated, StringComparison.Ordinal);
         Assert.Single(XDocument.Parse(updated).Descendants("OfframpCompileOnly"));
-        Assert.Single(XDocument.Parse(updated).Descendants("MvcBuildViews"));
+        Assert.Equal(2, XDocument.Parse(updated).Descendants("MvcBuildViews").Count()); // the web and dotnet build sections
         Assert.Single(XDocument.Parse(updated).Descendants("OfframpLegacyPackages"));
         Assert.False(CompileOnlyConditional.IsPresent(earlier));
         Assert.True(CompileOnlyConditional.IsPresent(updated));
@@ -42,18 +43,70 @@ public sealed class CompileOnlyConditionalTests : IDisposable
     }
 
     [Fact]
-    public void A_file_from_before_the_legacy_section_gains_only_that_section()
+    public void A_file_from_before_the_legacy_section_gains_it_and_the_later_ones()
     {
         var earlier = "<Project>\n" + string.Concat(CompileOnlyConditional.CompileOnlyLines.Concat(CompileOnlyConditional.WebTargetsLines).Select(l => "  " + l + "\n")) + "</Project>\n";
 
         var updated = CompileOnlyConditional.Apply(earlier)!;
 
         Assert.StartsWith(earlier[..^"</Project>\n".Length], updated, StringComparison.Ordinal);
-        Assert.Single(XDocument.Parse(updated).Descendants("MvcBuildViews"));
+        Assert.Equal(2, XDocument.Parse(updated).Descendants("MvcBuildViews").Count()); // the web and dotnet build sections
         Assert.Single(XDocument.Parse(updated).Descendants("OfframpLegacyPackages"));
         Assert.False(CompileOnlyConditional.HasLegacySection(earlier));
         Assert.True(CompileOnlyConditional.HasLegacySection(updated));
         Assert.Null(CompileOnlyConditional.Apply(updated));
+    }
+
+    [Fact]
+    public void A_file_with_the_first_three_sections_gains_only_the_microsoft_bcl_build_one_and_the_later_one()
+    {
+        var earlier = "<Project>\n" + string.Concat(CompileOnlyConditional.CompileOnlyLines.Concat(CompileOnlyConditional.WebTargetsLines).Concat(CompileOnlyConditional.LegacyLines).Select(l => "  " + l + "\n")) + "</Project>\n";
+
+        var updated = CompileOnlyConditional.Apply(earlier)!;
+
+        Assert.Equal(earlier[..^"</Project>\n".Length] + string.Concat(CompileOnlyConditional.BclBuildLines.Concat(CompileOnlyConditional.DotnetBuildLines).Select(l => "  " + l + "\n")) + "</Project>\n", updated);
+        Assert.False(CompileOnlyConditional.IsPresent(earlier));
+        Assert.True(CompileOnlyConditional.IsPresent(updated));
+        AssertValidProject(updated);
+    }
+
+    /// <summary>
+    /// A block from before the dotnet build section gains it alone. It sets <c>SkipEnsureBindingRedirects</c> and names
+    /// the web targets package too, which the other sections' markers must not mistake for theirs.
+    /// </summary>
+    [Fact]
+    public void A_file_with_the_first_four_sections_gains_only_the_dotnet_build_one()
+    {
+        var four = CompileOnlyConditional.CompileOnlyLines.Concat(CompileOnlyConditional.WebTargetsLines).Concat(CompileOnlyConditional.LegacyLines).Concat(CompileOnlyConditional.BclBuildLines);
+        var earlier = "<Project>\n" + string.Concat(four.Select(l => "  " + l + "\n")) + "</Project>\n";
+
+        var updated = CompileOnlyConditional.Apply(earlier)!;
+
+        Assert.Equal(earlier[..^"</Project>\n".Length] + string.Concat(CompileOnlyConditional.DotnetBuildLines.Select(l => "  " + l + "\n")) + "</Project>\n", updated);
+        Assert.Null(CompileOnlyConditional.Apply(updated));
+
+        // Without the Microsoft.Bcl.Build or web section, the dotnet build section's lines do not stand in for them.
+        var dotnetOnly = "<Project>\n" + string.Concat(CompileOnlyConditional.CompileOnlyLines.Concat(CompileOnlyConditional.LegacyLines).Concat(CompileOnlyConditional.DotnetBuildLines).Select(l => "  " + l + "\n")) + "</Project>\n";
+        var completed = CompileOnlyConditional.Apply(dotnetOnly)!;
+        Assert.Equal(2, XDocument.Parse(completed).Descendants("SkipEnsureBindingRedirects").Count());
+        Assert.Equal(2, XDocument.Parse(completed).Descendants("MvcBuildViews").Count());
+        AssertValidProject(completed);
+    }
+
+    [Fact]
+    public void The_packages_config_section_comes_only_with_packages_config_projects()
+    {
+        var block = CompileOnlyConditional.Apply(null)!;
+
+        var withRestore = CompileOnlyConditional.Apply(block, packagesConfig: true)!;
+
+        Assert.False(CompileOnlyConditional.HasPackagesConfigSection(block));
+        Assert.True(CompileOnlyConditional.IsPresent(block));
+        Assert.False(CompileOnlyConditional.IsPresent(block, packagesConfig: true));
+        Assert.Equal(block[..^"</Project>\n".Length] + string.Concat(CompileOnlyConditional.PackagesConfigLines.Select(l => "  " + l + "\n")) + "</Project>\n", withRestore);
+        Assert.Null(CompileOnlyConditional.Apply(withRestore, packagesConfig: true));
+        Assert.Null(CompileOnlyConditional.Apply(withRestore));
+        AssertValidProject(withRestore);
     }
 
     [Fact]
@@ -63,12 +116,12 @@ public sealed class CompileOnlyConditionalTests : IDisposable
         const string current = "<Project>\n  <ItemGroup>\n    <PackageReference Include=\"MSBuild.Microsoft.VisualStudio.Web.targets\" Version=\"14.0.0.3\" />\n  </ItemGroup>\n</Project>\n";
         var withCompileOnly = CompileOnlyConditional.Apply(current)!;
 
-        Assert.DoesNotContain("<MvcBuildViews>", withCompileOnly, StringComparison.Ordinal);
+        Assert.DoesNotContain(CompileOnlyConditional.WebTargetsLines[0], withCompileOnly, StringComparison.Ordinal);
         Assert.Contains(CompileOnlyConditional.LegacyMarker, withCompileOnly, StringComparison.Ordinal);
         Assert.Null(CompileOnlyConditional.Apply(withCompileOnly));
 
         var legacyOnly = "<Project>\n" + string.Concat(CompileOnlyConditional.CompileOnlyLines.Concat(CompileOnlyConditional.LegacyLines).Select(l => "  " + l + "\n")) + "</Project>\n";
-        Assert.Contains("<MvcBuildViews>", CompileOnlyConditional.Apply(legacyOnly), StringComparison.Ordinal);
+        Assert.Contains(CompileOnlyConditional.WebTargetsLines[0], CompileOnlyConditional.Apply(legacyOnly), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -134,7 +187,7 @@ public sealed class CompileOnlyConditionalTests : IDisposable
     }
 
     [Fact]
-    public async Task MSBuild_sets_the_properties_only_off_windows()
+    public async Task MSBuild_sets_the_properties_off_windows_and_for_dotnet_build_on_windows()
     {
         _repo.Write("Directory.Build.props", "<Project>\n</Project>\n");
         _repo.Write("A/A.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>");
@@ -146,6 +199,15 @@ public sealed class CompileOnlyConditionalTests : IDisposable
 
         Assert.True(result.Succeeded, result.StandardOutput + result.StandardError);
         Assert.Equal(OperatingSystem.IsWindows() ? "" : "true", result.StandardOutput.Trim());
+
+        // dotnet msbuild is .NET's MSBuild on every OS: it has no Microsoft.Bcl.Build task, and no sgen.
+        foreach (var (property, expected) in new[] { ("SkipEnsureBindingRedirects", "true"), ("MvcBuildViews", "false"), ("OfframpWindowsDotnetBuild", OperatingSystem.IsWindows() ? "true" : "") })
+        {
+            var value = await Offramp.Core.Processes.ProcessRunner.Instance.RunAsync(
+                new Offramp.Core.Processes.ProcessSpec("dotnet", ["msbuild", "A/A.csproj", "-getProperty:" + property, "-nologo"]) { WorkingDirectory = _repo.Path },
+                TestContext.Current.CancellationToken);
+            Assert.Equal(expected, value.StandardOutput.Trim());
+        }
     }
 
     private static void AssertValidProject(string content)

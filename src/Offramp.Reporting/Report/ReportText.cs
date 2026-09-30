@@ -23,6 +23,10 @@ public static class ReportText
         };
     }
 
+    /// <summary>" (hosts 13)" for an application that hosts projects (its plugins, areas, modules), else "".</summary>
+    public static string Hosts(ReportApplication application) =>
+        application.Hosted.Count == 0 ? "" : " (hosts " + application.Hosted.Count.ToString(CultureInfo.InvariantCulture) + ")";
+
     /// <summary>The summary paragraph without a model: the headline numbers in one sentence.</summary>
     public static string Summary(ReportData report)
     {
@@ -30,7 +34,22 @@ public static class ReportText
         return report.Title + ": " + h.PortablePercent.ToString("0.#", CultureInfo.InvariantCulture) + "% of " + Count(h.Loc, "line")
             + " is portable, " + Count(h.FrameworkLoc, "framework-only line") + " remain" + (h.FrameworkLoc == 1 ? "s" : "") + " in "
             + Count(h.FrameworkProjects, "project") + Change(report) + ", " + Count(h.Ready, "project") + (h.Ready == 1 ? " is" : " are")
-            + " ready to port today, and " + Fraction(h.ApplicationsDone, h.Applications) + " applications are done.";
+            + " ready to port today, and " + Done(report) + ".";
+    }
+
+    /// <summary>
+    /// True when the report talks about libraries: the repository has no application but has libraries other code
+    /// uses (NHibernate), where "0 of 0 applications" says nothing.
+    /// </summary>
+    public static bool AboutLibraries(ReportData report) => report.Headline.Applications == 0 && report.Headline.Libraries > 0;
+
+    /// <summary>"1 of 3 applications are done", or for a repository of libraries "0 of 1 libraries are done".</summary>
+    public static string Done(ReportData report)
+    {
+        var h = report.Headline;
+        return AboutLibraries(report)
+            ? Fraction(h.LibrariesDone, h.Libraries) + " libraries are done"
+            : Fraction(h.ApplicationsDone, h.Applications) + " applications are done";
     }
 
     public static string Fraction(int part, int whole) =>

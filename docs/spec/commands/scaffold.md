@@ -119,15 +119,37 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   project's files: controllers are classes deriving from `System.Web.Mvc.Controller` or
   `System.Web.Http.ApiController`; actions are their public instance methods without
   `[NonAction]`. Verbs come from attributes, and for Web API also from the name's prefix.
-  Attribute routes are combined with the controller's `[RoutePrefix]`; areas come from
-  `AreaRegistration` classes and the `Areas/NAME/` folders.
-- Convention routes are the literal arguments of `MapRoute`, `MapHttpRoute`, an area
-  registration's `context.MapRoute`, and `IgnoreRoute`; defaults are listed as
-  `name = value`, `UrlParameter.Optional` and `RouteParameter.Optional` as `?`.
+  Attribute routes are combined with the controller's `[RoutePrefix]`; a controller's area
+  comes from its `Areas/NAME/` folder. `areas` lists the `AreaRegistration` classes and the
+  areas the routes name.
+- Registrations (routes, filters, bundles) are read from the application's sources and
+  those of the C# libraries it references, directly or through other libraries (not
+  referenced web applications or test projects; ADR 0059). Convention routes
+  are the calls of `MapRoute`, `MapHttpRoute`, an area registration's `context.MapRoute`,
+  `IgnoreRoute`, `RouteCollection.Add` with a `Route`, and `MapODataServiceRoute` (kind
+  `odata`), also through the codebase's own helpers: when a route's name, template,
+  defaults, or area come from the parameters of the method (or local function) that
+  registers it, each call of that method is a route, with the call's arguments in place of
+  the parameters, up to five calls away; `helper` names the method called. Values are
+  literals, constants, concatenations, locals assigned once, and static properties and
+  fields that return a literal; a template computed at run time is `(computed)`, with the C#
+  that computes it in `computed` (a computed name is `(computed)`). A route's area is its
+  `AreaRegistration`'s, a `DataTokens["area"]` set on it, or its `area` default. Defaults
+  are listed as `name = value`, `UrlParameter.Optional` and `RouteParameter.Optional` as
+  `?`. Routes are in file and line order.
+- `globalFilters` are the filters `GlobalFilters.Filters.Add` (and Web API's
+  `Filters.Add`) create; `containerFilters` are Autofac's `As*FilterFor<TController>`
+  registrations (MVC and Web API): the filter class, its kind (`action`, `result`,
+  `exception`, `authorization`, `authentication`, with ` override`), and the controller
+  (often a base class) and action it applies to. `bundles` are the virtual paths
+  `BundleCollection.Add` adds, also of a bundle built in a local.
 - Modules and handlers are the classes implementing `IHttpModule` and `IHttpHandler`
   (not pages, not the `HttpApplication`), joined with their `system.web` and
   `system.webServer` registrations; a registration whose class is not in the project is
   listed with `file: null`.
+- A hosted project (`02-workspace-model.md#hosted-projects`) runs inside its host's
+  application: `hostedBy` names the host, `url` is the host's IIS URL, and `OFR0204`
+  (info) says so.
 - `--format json` writes the result alone; `markdown` a document for a migration plan;
   `table` (the default) the terminal view. The envelope (`--json`) carries the same
   result. Schema: `schemas/v1/web-inventory.json`.
@@ -163,8 +185,10 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
 - **Porting.** An action is copied as text, keeping its formatting, when it does not
   render a view (`View`, `PartialView`) and uses no System.Web API beyond the ones with
   an ASP.NET Core counterpart of the same shape (`Ok`, `NotFound`, `Json`, `Content`,
-  `Redirect*`, `Created`, `StatusCode`, `ModelState`, ...). Mapped names are replaced:
+  `Redirect*`, `Created`, `StatusCode`, `ModelState`, `ViewBag`, `ViewData`, `TempData`,
+  `Url`, `EmptyResult`, `RedirectResult`, ...; ADR 0059). Mapped names are replaced:
   `IHttpActionResult` → `IActionResult`, `HttpNotFound()` → `NotFound()`,
+  `HttpUnauthorizedResult` → `UnauthorizedResult`, `FormCollection` → `IFormCollection`,
   `InternalServerError()` → `StatusCode(500)`, `new HttpStatusCodeResult(x)` →
   `StatusCode((int)(x))`, `Json(x, JsonRequestBehavior.*)` → `Json(x)` (MVC) and
   `Json(x)` → `new JsonResult(x)` (Web API); `[RoutePrefix]` → `[Route]`,
@@ -181,7 +205,10 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   written).
 - **Routes.** MVC convention routes become `MapControllerRoute` (defaults inline as
   `{name=value}` and `{name?}`), an area's only when one of its controllers is ported;
-  attribute routes come with the controllers (`MapControllers`).
+  attribute routes come with the controllers (`MapControllers`). A route whose template is
+  computed at run time cannot be written as a pattern: it is left out, and the proxy keeps
+  sending its requests to the legacy application (`OFR4205`, with the code that computes
+  it).
 - **Proxy.** `yarp` (default): `AddReverseProxy` from `appsettings.json`, with a
   catch-all route of the lowest priority (`Order` = `int.MaxValue`) to `--legacy-url`
   (default: the project's IIS URL), so anything the new application does not map goes to
@@ -197,6 +224,10 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   endpoint stub answering 501 with the original under `#if OFFRAMP_HTTPHANDLER`, and a
   commented `MapMethods` line: until it is ported, the proxy keeps sending its path to the
   legacy application (`OFR4202`). Web Forms files are `OFR4201`, one per page or control.
+- **Hosted projects.** A plugin, area, or module serves nothing by itself: `hostedBy`
+  names its host, `--legacy-url` defaults to the host's IIS URL, and `OFR0205`
+  (warning) says that only the hosted project's actions are ported and that scaffolding
+  the host puts the whole application behind the new one (ADR 0055).
 - A dry run until `--apply`, which writes through a journal. Schema:
   `schemas/v1/web-scaffold.json`.
 
@@ -241,31 +272,84 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
     With a single target framework the result sets `AppendTargetFrameworkToOutputPath` to
     `false`, so the output stays in the folder the legacy project wrote it to (build steps
     and `HintPath`s into it keep working).
+  - The converted project compiles against what the legacy one did (ADR 0043). When a
+    referenced project has project references of its own (or is not in the model), it sets
+    `DisableTransitiveProjectReferences` to `true`: an SDK-style project would also compile
+    against its references' references. NuGet 2's restore import (`.nuget\NuGet.targets`)
+    goes with `RestorePackages`, since `PackageReference` restore replaces it; `SolutionDir`
+    is dropped too, unless something the conversion keeps (a build event, an import) still
+    uses `$(SolutionDir)`: then its definition, with its fallback for builds outside the
+    solution, stays.
   - `Compile`, `.resx` `EmbeddedResource`, and `None` items become the SDK's globs when
     those give the same files; otherwise the Compile list stays with
-    `EnableDefaultCompileItems` false (`OFR4301`). `Link`, `DependentUpon`, `Generator`,
+    `EnableDefaultCompileItems` false (`OFR4301`), and the `.resx` list stays after
+    `<EmbeddedResource Remove="**\*.resx" />`, so the glob embeds no file the project does not
+    list. `Link`, `DependentUpon`, `Generator`,
     and resource names are kept as `Update` items. Every item keeps its `Condition` and its
     metadata, whether written as child elements or as attributes; a `ProjectReference` drops
     only `Project` and `Name` (a source generator's `OutputItemType="Analyzer"` stays).
   - `packages.config` becomes `PackageReference` items (development dependencies with
     `PrivateAssets="all"`; versions omitted under central package management); `HintPath`
-    references into `packages/` are dropped with it. Framework `Reference` items stay.
-  - `PreBuildEvent`/`PostBuildEvent` and `BeforeBuild`/`AfterBuild` become targets hooked
-    at the same point (`OFR4302`).
+    references into `packages/` are dropped with it. Framework `Reference` items stay; when a
+    target framework is not .NET Framework (`--tfm "net48;net10.0-windows"`), they go in an
+    item group conditioned on `'$(TargetFrameworkIdentifier)' == '.NETFramework'`, and a
+    `-windows` target gets `UseWindowsForms` (a `System.Windows.Forms` reference) or `UseWPF`
+    (`PresentationFramework`, `PresentationCore`, `WindowsBase`, `System.Xaml`). A package
+    that a project in the ProjectReference closure passes on at a higher version (converted in
+    the same run, or restoring the `PackageReference` way already) raises the project's own
+    version to it, since the lower one would be a package downgrade (NU1605): `OFR4307`.
+  - `BeforeBuild`/`AfterBuild` become targets hooked at the same point (`OFR4302`).
+    `PreBuildEvent`/`PostBuildEvent` stay where the legacy project defines them, and a
+    `SetBuildEvents` target that runs before `BeforeBuild` sets each one that is set again,
+    with the same text and its conditions: in the project body the SDK has not defined
+    `$(TargetPath)` and the other macros yet, in the target they have their values. The SDK's
+    own `PreBuildEvent`/`PostBuildEvent` targets run them as the legacy build did (from the
+    output folder, by `RunPostBuildEvent`'s rule), and under `-p:PostBuildEvent=` the property
+    stays empty, the target does not set it, and the event does not run (`OFR4302`; ADR 0061).
+  - `OFR4308` names what the SDK overrides without a word: a target in the body with the name
+    of a common target (`AfterCompile`, `_CopyFilesMarkedCopyLocal`, ...), which the SDK's
+    targets, imported after the body, replace; and an imported file in the repository that sets
+    `TargetFrameworkVersion`, `OutputPath`, `IntermediateOutputPath`, `MSBuildExtensionsPath`,
+    or the like without a condition.
   - ASP.NET web application projects and non-C# projects are not converted (`OFR4304`).
+    `--all` takes every project of the model, so each one it does not convert is named.
   - AssemblyInfo attributes the SDK generates are removed with the `assemblyinfo` codemod
-    (the SDK generates them from properties instead).
+    (the SDK generates them from properties instead), from the project's own files only. A file
+    outside the project's folder, compiled by another project, ignored by git, added to the
+    compilation by a build target, or generated code keeps its attributes, and the converted
+    project sets the matching `GenerateAssembly<Name>Attribute` properties to `false` instead
+    (`OFR4306`; ADR 0039). This holds for a single `--project` and for `--all` alike.
 - SDK-style projects only get `--tfm` and `--nullable` when asked.
 - **Verification always runs**, dry run included: the change set is applied in a scratch
   copy, the changed projects are built with a binary log, and each target's compiler
   inputs (source files, references by file name, embedded resources by manifest name)
-  are compared with the scan's build of the original. References the conversion adds only
-  transitively (a package's dependency now flowing through `PackageReference`) are
-  reported and allowed. A difference or a failed build is `OFR4303`; `--apply` then
-  refuses unless `--accept-diff`. A build that fails only on NuGet audit (NU1901–NU1904,
+  are compared with the scan's build of the original. Reference changes the SDK and
+  `PackageReference` make by themselves are allowed and reported with their evidence in
+  `explanations` (ADR 0061): the SDK's implicit framework references; the compile assemblies
+  of a package the converted project's restore resolved (`transitiveReferencesAdded`: a
+  package's other assemblies, packages flowing from referenced projects); framework assemblies
+  that restored packages declare in their nuspec (`frameworkReferencesAdded`); and the .NET
+  Standard facades the legacy build added from the framework's `Facades` folder or
+  `Microsoft.NET.Build.Extensions` (`facadesRemoved`). Any other added or removed reference is
+  a difference. Sources the build generates are not compared: those under `obj/` and in the
+  folder the compiler writes the assembly to (the intermediate output path, wherever the project
+  puts it). The scratch copy holds the committed tree plus, from the working tree, the model's
+  inputs (imported files in dot-directories and untracked ones included) and every file inside the
+  repository that the scan's build read, as its binary log records it: imports (restored packages'
+  build files included), the files its items name, reference hint paths, the sources of copies it
+  made, and the assemblies its tasks were loaded from with the files beside them; never a file in
+  `bin` or `obj`, and from `packages/` only the files read (ADR 0062). A file is copied when the
+  commit lacks it or has other content. When the scratch copy took files the commit does not have
+  (untracked or ignored by git), `OFR4309` (info) names them, and counts those of restored
+  packages. A difference or a failed build is `OFR4303`; `--apply` then refuses unless
+  `--accept-diff`. A build that fails only on NuGet audit (NU1901–NU1904,
   known vulnerabilities, which `PackageReference` restore reports and
   `TreatWarningsAsErrors` makes errors) is not the conversion's fault: it is reported as
-  `OFR4305` and the verification build runs again with `NuGetAudit=false`. Schema:
+  `OFR4305` and the verification build runs again with `NuGetAudit=false`. A failed build is
+  reported in full: `verification.built` is false, `buildErrorCount` counts its distinct
+  errors, `buildErrorCodes` gives the count per code (most frequent first, then by code), and
+  `buildErrors` holds the first 10, with paths relative to the repository; `OFR4303`'s message
+  gives the count by code, and the terminal view says the project does not build. Schema:
   `schemas/v1/csproj-modernize.json`.
 
 ## `config convert`
@@ -308,10 +392,17 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   their JSON type; nested elements become objects; an element collection, a custom
   `TypeConverter`, or a value that does not parse is `OFR4401` and left out. Each section
   gets an options class (`NameOptions`, a class with setters so it binds on every target).
-- `system.serviceModel` is `OFR4402`, `system.web`/`system.webServer` `OFR4403`;
-  `runtime`, `startup`, and `system.diagnostics` are dropped with a note; any other
-  section not declared in `configSections`, or whose class is not in the solution, is
-  `OFR4401`.
+- `system.serviceModel` is `OFR4402`, `system.web`/`system.webServer`/`system.web.extensions`
+  `OFR4403`; `runtime`, `startup`, and `system.diagnostics` are dropped with a note. A
+  section group is converted section by section under nested keys (`bundleTransformer/core`
+  → `BundleTransformer:Core`), and `--sections` takes a group's name (ADR 0060); elements
+  are matched by local name, so a section's `xmlns` does not hide them. The
+  sections machine.config declares are known without a declaration: the ones whose settings
+  .NET makes in code (`system.net`, `system.data`, `system.transactions`,
+  `system.runtime.caching`, ...) are `OFR4407`, with the code that replaces them; the ones
+  .NET has nothing for (`system.codedom`, `system.xml.serialization`, `uri`, ...) are dropped
+  with a note. Any other section not declared in `configSections`, or whose class is not in
+  the solution, is `OFR4401`.
 - Transforms: `SetAttributes`, `Replace`, and `Insert` of `appSettings` and
   `connectionStrings` entries located by key or name, and `SetAttributes`/`Replace` on a
   converted custom section, become overrides in `appsettings.{Environment}.json`; the

@@ -1,9 +1,14 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Offramp.Core.Caching;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
+using Offramp.Core.Model;
 using Offramp.Fixtures;
 using Offramp.Refactoring.Moves;
+using Offramp.Workspace.Scanning;
 using Offramp.Workspace.Store;
+using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 
 namespace Offramp.Refactoring.Tests;
 
@@ -189,6 +194,171 @@ public sealed class MovePlannerTests
         Assert.Equal("Code staying in src/Legacy/Legacy.csproj uses its internal members, and src/Core/Core.csproj does not generate its assembly info (GenerateAssemblyInfo=false), so an InternalsVisibleTo item would have no effect.", rounding.Message);
         Assert.DoesNotContain(internals.ProjectEdits, e => e.Kind == ProjectEditKind.AddInternalsVisibleTo);
     }
+
+    [Fact]
+    [ProducesDiagnostic("OFR2113")]
+    public async Task Co_moves_stay_when_the_file_they_were_for_stays()
+    {
+        // As in SmartStoreNET: a requested file that does not compile in the destination had
+        // brought along what it needs, and what that needs; none of it moves on its own.
+        var fixture = await Extended.Value;
+        var diagnostics = new DiagnosticBag();
+
+        var alone = Plan(fixture, ["src/Legacy/Chain/Alpha.cs"], diagnostics)!.Plan;
+        var shared = Plan(fixture, ["src/Legacy/Chain/Alpha.cs", "src/Legacy/Chain/Zeta.cs"], new DiagnosticBag())!.Plan;
+
+        Assert.Empty(alone.Moves);
+        Assert.Equal(
+            [("src/Legacy/Chain/Alpha.cs", "OFR2103"), ("src/Legacy/Chain/Title.cs", "OFR2113"), ("src/Legacy/Chain/Trim.cs", "OFR2113")],
+            alone.Excluded.Select(e => (e.File, e.Code)));
+        Assert.Equal("Co-moved for src/Legacy/Chain/Alpha.cs, which stays.", alone.Excluded[1].Message);
+        Assert.Equal(["src/Legacy/Chain/Title.cs"], alone.Excluded[2].Details);
+        Assert.Equal(2, diagnostics.ToSortedList().Count(d => d.Code == "OFR2113"));
+        Assert.DoesNotContain(alone.ProjectEdits, e => e.Kind == ProjectEditKind.AddProjectReference);
+
+        // A co-move another moving file still needs stays in the plan, attributed to that file.
+        Assert.Equal(
+            [("src/Legacy/Chain/Title.cs", "src/Legacy/Chain/Zeta.cs"), ("src/Legacy/Chain/Trim.cs", "src/Legacy/Chain/Title.cs"), ("src/Legacy/Chain/Zeta.cs", null)],
+            shared.Moves.Select(m => (m.File, m.CoMoveOf)));
+        Assert.Equal(("src/Legacy/Chain/Alpha.cs", "OFR2103"), (Assert.Single(shared.Excluded).File, shared.Excluded[0].Code));
+
+        // A file whose co-move --namespace-mismatch block keeps stays too.
+        var blocked = Plan(fixture, ["src/Legacy/Chain/Banner.cs"], new DiagnosticBag(), namespaces: "block")!.Plan;
+        Assert.Empty(blocked.Moves);
+        Assert.Equal(
+            [("src/Legacy/Chain/Banner.cs", "OFR2101"), ("src/Legacy/Chain/Title.cs", "OFR2120"), ("src/Legacy/Chain/Trim.cs", "OFR2120")],
+            blocked.Excluded.Select(e => (e.File, e.Code)));
+    }
+
+    [Theory]
+    [InlineData("Framework")]
+    [InlineData("Framework48")]
+    public async Task A_framework_source_gets_the_standard_facades_a_build_adds(string name)
+    {
+        // As in Open Live Writer: the source (net461, or net48) references no .NET Standard
+        // assembly yet, so its recorded compilation has no netstandard.dll. The build adds it
+        // (and the System.* facades) once the source references the .NET Standard destination.
+        var fixture = await Extended.Value;
+        var project = $"src/{name}/{name}.csproj";
+
+        var plan = Plan(fixture, [$"src/{name}/Clock.cs"], new DiagnosticBag(), from: project, to: "src/Contracts/Contracts.csproj")!.Plan;
+
+        Assert.Empty(plan.Excluded);
+        Assert.Equal([$"src/{name}/Clock.cs"], plan.Moves.Select(m => m.File));
+        Assert.Contains(plan.ProjectEdits, e => e.Project == project && e.Kind == ProjectEditKind.AddProjectReference && e.Value == "src/Contracts/Contracts.csproj");
+    }
+
+    [Fact]
+    public async Task A_framework_destination_gets_the_standard_facades_for_a_reference_the_move_adds()
+    {
+        // OrderMapper uses Contracts (netstandard2.0), which Framework (net461) does not reference yet.
+        var fixture = await Extended.Value;
+
+        var plan = Plan(fixture, ["src/Legacy/Orders/OrderMapper.cs"], new DiagnosticBag(), to: "src/Framework/Framework.csproj")!.Plan;
+
+        Assert.Empty(plan.Excluded);
+        Assert.Equal(["src/Legacy/Clean/Money.cs", "src/Legacy/Orders/OrderMapper.cs"], plan.Moves.Select(m => m.File));
+        Assert.Contains(plan.ProjectEdits, e => e.Project == "src/Framework/Framework.csproj" && e.Kind == ProjectEditKind.AddProjectReference && e.Value == "src/Contracts/Contracts.csproj");
+    }
+
+    [Fact]
+    public void A_source_that_breaks_without_the_moved_files_is_reported_once()
+    {
+        // As in DotNetNuke 9.13 (--all: 98 x OFR2104) and NHibernate 4.1.2: the source keeps a generated half of a
+        // partial type whose other half moves, so it no longer compiles. Every file stays, each with the reason; the
+        // failure is the project's, so it is one diagnostic, and the partial sibling that stays with its part adds none.
+        using var root = new ScratchDirectory("source-breaks");
+        string Tree(string path) => root.Combine([.. path.Split('/')]);
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText("namespace Lib { public partial class Widget { public int Size => 1; } }", path: Tree("src/Lib/Widget.cs")),
+            CSharpSyntaxTree.ParseText("namespace Lib { public partial class Widget { public int Twice => Size * 2; } }", path: Tree("src/Lib/obj/Widget.g.cs")),
+            CSharpSyntaxTree.ParseText("namespace Lib { public static class Clock { public static int Now() => 0; } }", path: Tree("src/Lib/Clock.cs")),
+            CSharpSyntaxTree.ParseText("namespace Lib { public partial class Order { public int Id => 1; } }", path: Tree("src/Lib/Parts/Order.cs")),
+            CSharpSyntaxTree.ParseText("namespace Lib { public partial class Order { public int Lines => 2; } }", path: Tree("src/Lib/Parts/Order.Lines.cs")),
+            CSharpSyntaxTree.ParseText("namespace Lib { public static class User { public static int Get() => new Widget().Twice + Clock.Now() + new Order().Lines; } }", path: Tree("src/Lib/User.cs")),
+        };
+        MetadataReference[] corlib = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
+        var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var compilations = new Compilations(CSharpCompilation.Create("Lib", trees, corlib, options));
+        var source = new ProjectInfo
+        {
+            Id = "src/Lib/Lib.csproj", Name = "Lib", SdkStyle = true, TargetFrameworks = ["netstandard2.0"],
+            Compile = ["src/Lib/Clock.cs", "src/Lib/Parts/Order.Lines.cs", "src/Lib/Parts/Order.cs", "src/Lib/User.cs", "src/Lib/Widget.cs"],
+            CompilerCalls = new(StringComparer.Ordinal) { ["netstandard2.0"] = new CompilerCallRef(".offramp/build.complog", "src/Lib/Lib.csproj", "netstandard2.0") },
+        };
+        var created = new ProjectInfo { Id = "src/Lib.Core/Lib.Core.csproj", Name = "Lib.Core", SdkStyle = true, TargetFrameworks = ["netstandard2.0"] };
+        var model = new WorkspaceModel
+        {
+            CreatedAt = "2026-09-30T00:00:00Z", RepositoryRoot = root.Path, Projects = [source, created],
+            Source = new WorkspaceSource(WorkspaceSourceKind.Build, ".offramp/msbuild.binlog", new string('0', 64)), Sdk = new SdkInfo("10.0.100", "linux-x64"),
+        };
+        var diagnostics = new DiagnosticBag();
+
+        var plan = MovePlanner.Plan(new MovePlanRequest
+        {
+            RepositoryRoot = root.Path, Model = model, Config = new OfframpConfig(), WorkspaceHash = "", From = source.Id, To = created.Id,
+            Files = ["src/Lib/Clock.cs", "src/Lib/Parts/Order.cs", "src/Lib/Widget.cs"], CoMove = "closure", NamespaceMismatch = "allow", Diagnostics = diagnostics,
+            Create = new NewProject(created, "<Project Sdk=\"Microsoft.NET.Sdk\" />"u8.ToArray(), [("netstandard2.0", CSharpCompilation.Create("Lib.Core", [], corlib, options))]),
+            Compilations = compilations,
+        })!.Plan;
+
+        Assert.Empty(plan.Moves);
+        Assert.Equal(["src/Lib/Clock.cs", "src/Lib/Parts/Order.Lines.cs", "src/Lib/Parts/Order.cs", "src/Lib/Widget.cs"], plan.Excluded.Select(e => e.File));
+        Assert.All(plan.Excluded, e => Assert.Equal("OFR2104", e.Code));
+        var failure = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR2104");
+        Assert.Equal((source.Id, null), (failure.Project, failure.File));
+        Assert.StartsWith("Lib does not compile without the 4 files the move would take (CS0103: ", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The recorded compilation of the one source project, and no analyzers.</summary>
+    private sealed class Compilations(Compilation source) : Offramp.Analysis.Compilations.ICompilationSource
+    {
+        public Compilation? LoadForProject(ProjectInfo project, string targetFramework) => project.Id == "src/Lib/Lib.csproj" ? source : null;
+
+        public (System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.Diagnostics.DiagnosticAnalyzer> Analyzers, Microsoft.CodeAnalysis.Diagnostics.AnalyzerOptions Options)? LoadAnalyzers(ProjectInfo project, string targetFramework) => null;
+    }
+
+    /// <summary>
+    /// move-cases plus a chain of files in Legacy (Alpha, which uses System.Web's HttpContext, Zeta,
+    /// and Banner, in Core's root namespace, need Title, which needs Trim), and two .NET Framework
+    /// projects that reference no .NET Standard assembly: Framework (net461) and Framework48 (net48),
+    /// where Timer uses Clock.
+    /// </summary>
+    private static readonly Lazy<Task<ScannedFixture>> Extended = new(async () =>
+    {
+        var fixture = await ScannedFixtures.ScanAsync("move-cases", Extend);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => fixture.Repository.Dispose();
+        return fixture;
+    });
+
+    private static ScanRequest Extend(string root, ScanRequest request)
+    {
+        static void Write(string root, string path, string text)
+        {
+            var absolute = Path.Combine(root, path);
+            Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+            File.WriteAllText(absolute, text);
+        }
+
+        Write(root, "src/Legacy/Chain/Alpha.cs", "namespace Legacy.Chain\n{\n    public static class Alpha\n    {\n        public static string Render(string text) => (System.Web.HttpContext.Current?.Request.RawUrl ?? \"/\") + Title.Of(text);\n    }\n}\n");
+        Write(root, "src/Legacy/Chain/Zeta.cs", "namespace Legacy.Chain\n{\n    public static class Zeta\n    {\n        public static string Heading(string text) => \"# \" + Title.Of(text);\n    }\n}\n");
+        Write(root, "src/Legacy/Chain/Banner.cs", "namespace Core.Chain\n{\n    public static class Banner\n    {\n        public static string Of(string text) => Legacy.Chain.Title.Of(text);\n    }\n}\n");
+        Write(root, "src/Legacy/Chain/Title.cs", "namespace Legacy.Chain\n{\n    public static class Title\n    {\n        public static string Of(string text) => Trim.Text(text).ToUpperInvariant();\n    }\n}\n");
+        Write(root, "src/Legacy/Chain/Trim.cs", "namespace Legacy.Chain\n{\n    public static class Trim\n    {\n        public static string Text(string text) => text.Trim();\n    }\n}\n");
+        foreach (var (name, tfm) in new[] { ("Framework", "net461"), ("Framework48", "net48") })
+        {
+            Write(root, $"src/{name}/{name}.csproj", $"<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>{tfm}</TargetFramework>\n    <LangVersion>latest</LangVersion>\n  </PropertyGroup>\n</Project>\n");
+            Write(root, $"src/{name}/Clock.cs", $"namespace {name}\n{{\n    public static class Clock\n    {{\n        public static System.DateTime Now() => System.DateTime.UtcNow;\n    }}\n}}\n");
+            Write(root, $"src/{name}/Timer.cs", $"namespace {name}\n{{\n    public static class Timer\n    {{\n        public static long Ticks() => Clock.Now().Ticks;\n    }}\n}}\n");
+        }
+
+        var solution = Path.Combine(root, "MoveCases.slnx");
+        File.WriteAllText(solution, File.ReadAllText(solution).Replace(
+            "</Folder>", "  <Project Path=\"src/Framework/Framework.csproj\" />\n    <Project Path=\"src/Framework48/Framework48.csproj\" />\n  </Folder>", StringComparison.Ordinal));
+        return request;
+    }
+
 
     private static MovePlanResult? Plan(
         ScannedFixture fixture, IReadOnlyList<string> files, DiagnosticBag diagnostics, string coMove = "closure", string namespaces = "allow",

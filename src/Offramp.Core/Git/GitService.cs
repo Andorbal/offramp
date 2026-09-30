@@ -36,6 +36,12 @@ public interface IGitService
 
     Task<IReadOnlyList<GitStatusEntry>> StatusAsync(string repositoryRoot, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The repository-relative <paramref name="paths"/> that git ignores (<c>git check-ignore</c>; a
+    /// tracked file is never ignored), sorted; empty outside a repository or when git cannot run.
+    /// </summary>
+    Task<IReadOnlyList<string>> IgnoredAsync(string repositoryRoot, IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
+
     /// <summary>Checks out <c>HEAD</c> into a new detached work tree at <paramref name="path"/> (<c>git worktree add --detach</c>).</summary>
     Task AddWorktreeAsync(string repositoryRoot, string path, CancellationToken cancellationToken = default) =>
         AddWorktreeAsync(repositoryRoot, path, "HEAD", cancellationToken);
@@ -149,6 +155,23 @@ public sealed class GitService(IProcessRunner runner) : IGitService
         }
 
         return ParsePorcelainZ(result.StandardOutput);
+    }
+
+    public async Task<IReadOnlyList<string>> IgnoredAsync(string repositoryRoot, IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+    {
+        if (paths.Count == 0)
+        {
+            return [];
+        }
+
+        // Exit code 0: some paths are ignored; 1: none; 128: not a repository. (-z needs --stdin.)
+        var result = await runner.RunAsync(
+            new ProcessSpec("git", ["-c", "core.quotepath=off", "check-ignore", "--", .. paths]) { WorkingDirectory = repositoryRoot, Timeout = QuickTimeout },
+            cancellationToken);
+        var asked = paths.ToHashSet(StringComparer.Ordinal);
+        return result.Succeeded
+            ? [.. result.StandardOutput.Split('\n').Select(p => p.TrimEnd('\r').Replace('\\', '/')).Where(asked.Contains).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)]
+            : [];
     }
 
     public async Task AddWorktreeAsync(string repositoryRoot, string path, string revision, CancellationToken cancellationToken = default)

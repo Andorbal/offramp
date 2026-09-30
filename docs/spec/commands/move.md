@@ -35,7 +35,11 @@ frameworks:
    - **Declared in the same project.** If declared in files also being moved,
      fine. Otherwise, with `--co-move closure` the declaring files are added to
      the candidate set (transitively) and reported as co-moves; with `none` the
-     file is excluded (`OFR2101 needs co-move`). Files that the *rest of the
+     file is excluded (`OFR2101 needs co-move`). A co-move stays only while a
+     moving file needs it: when the file it was added for is excluded, it and
+     its own co-moves stay too, unless another moving file needs them (then
+     `coMoveOf` names that file). `excluded` lists each dropped co-move with
+     `OFR2113` (info), naming the file it was co-moved for (ADR 0051). Files that the *rest of the
      source project* still needs after moving are allowed to move only if
      `SRC` will reference `DEST` (checked for cycles: `OFR2001 would create
      cycle`, `OFR2002 self reference`).
@@ -62,7 +66,9 @@ frameworks:
    `OFR2112`, with the warnings. Then take `SRC`'s Compilation, remove the trees,
    and read diagnostics for the remaining trees: new errors mean the source
    still needs the code → resolved by `SRC → DEST` reference if acyclic, else
-   `OFR2104 source still depends on moved code`.
+   `OFR2104 source still depends on moved code`: every candidate is in
+   `excluded` with the reason and the errors, and one `OFR2104` diagnostic for
+   the project names the file count and the first error.
 4. **Platform analyzers.** When a `DEST` target is non-Windows modern, run
    CA1416 (platform compatibility) over the added trees; warnings become
    `OFR2105` (warning; the file still moves unless `--fail-on warning`).
@@ -133,7 +139,13 @@ hollowed out into a destination in one overnight run.
 - **Trial compilation** runs for every `DEST` target framework against its
   recorded compilation. The source check references the nearest `DEST` target
   and adds `InternalsVisibleTo(SRC)` to `DEST` when remaining source code uses
-  moved internals.
+  moved internals. A .NET Framework 4.6.1+ compilation that gains a reference
+  to a .NET Standard assembly (`SRC` referencing `DEST`, or `DEST` a project or
+  package the moved files need) also gets the facades a build adds
+  (`netstandard.dll` and the `System.*` facades: the SDK's
+  `Microsoft.NET.Build.Extensions` for net461 to net471, then the reference
+  assemblies' `Facades` folder), which a recorded compilation that referenced no
+  .NET Standard assembly lacks (ADR 0052).
 - **Dependents.** A project referencing `SRC` that uses moved types must still
   see them. SDK-style dependents see them through `SRC`'s new reference to
   `DEST`. Other dependents, and every dependent when `DEST` already depends on
@@ -235,8 +247,11 @@ Detection (semantic, C# only; another language is `OFR2205`):
   compilations of every project that depends on it). A candidate is a non-test
   file with test-support evidence: it uses a test framework, assertion, or
   mocking library (`xunit.assert`, Moq, NSubstitute, FakeItEasy, AutoFixture,
-  Bogus, FluentAssertions, Shouldly), a declared type's name contains `Builder`,
-  `Fake`, `Stub`, `Mock`, `Fixture`, `TestData`, or `Harness`, or it lives under
+  Bogus, FluentAssertions, Shouldly), a declared type's name has `Builder`,
+  `Fake`, `Stub`, `Mock`, `Fixture`, `TestData`, or `Harness` as a whole word
+  (`OrderBuilder`, `FakesRegistry`; not `Stubborn`) and the type is not public or
+  lives in a test namespace (a segment from the folder list below, or ending in
+  `Tests`), or it lives under
   a `Tests`, `Test`, `Testing`, `TestSupport`, `TestData`, `TestHelpers`,
   `Fakes`, or `Mocks` folder. A candidate is a helper when every user of what
   it declares is a test or another helper (or the destination project) and a
@@ -244,7 +259,14 @@ Detection (semantic, C# only; another language is `OFR2205`):
   evidence is the code under test and stays
   (`docs/decisions/0018-move-tests.md`).
 - Used by nothing at all: `medium` with evidence (listed for review as
-  `candidates`), `low` without (unused code, not listed). A helper whose type
+  `candidates`), `low` without (unused code, not listed).
+- **Public API of a shipped library** (ADR 0045): when the source project is
+  shipped (the rule of ADR 0041: listed in `deadCode.externalConsumers`,
+  packable, packed from a `.nuspec`, or a library no application uses), a file
+  that declares a public type and has test-support evidence is never a helper:
+  it is listed in `candidates` at `low` with the reason ("public API of a
+  shipped library (…): other repositories may use X, so it is never moved"),
+  and `--include-helpers` never moves it. Test files still move. A helper whose type
   name appears in a string literal (`Type.GetType("...")`) is never above
   `medium`.
 - Files used by production code, or by a project other than the destination,
@@ -252,10 +274,15 @@ Detection (semantic, C# only; another language is `OFR2205`):
 - `--include-helpers` (default `move.tests.helperMinConfidence`, `high`) moves
   helpers at or above that confidence; `none` moves tests only.
 
-Target selection: `--to`, else a project whose name equals `SRC` name +
+Target selection (ADR 0045): `--to`, else a project whose name equals `SRC` name +
 `move.tests.targetSuffix` anywhere in the solution (`OFR2202` if several),
 else with `--create` a new project next to `SRC` (`src/Bar` gets
-`src/Bar.Tests/Bar.Tests.csproj`) named `<Name>.Tests`, else `OFR2203`. The
+`src/Bar.Tests/Bar.Tests.csproj`) named `<Name>.Tests`, which names the C# test
+projects that already reference `SRC` (`OFR2208`, info), else the C# test
+project (`IsTestProject` or kind `test`) that references `SRC` directly, or of
+several the one named `SRC` + `.Test`, `.Tests`, `.UnitTest`, or `.UnitTests`
+(`OFR2207`, info, naming the choice; `OFR2202` when several remain), else
+`OFR2203`. The
 destination may not be the source (`OFR2002`). A created project is SDK-style,
 targets `SRC`'s target frameworks, copies its `LangVersion`, `Nullable`,
 `ImplicitUsings`, and .NET Framework `Reference` items, references `SRC`, and
@@ -280,8 +307,9 @@ Then the `move plan` machinery:
   .NET Framework references are never added to an existing destination, so a
   file needing one stays.
 - **Source check**: `SRC` minus the moved files must compile with no new
-  errors; otherwise nothing moves (`OFR2104`), since `SRC` cannot reference its
-  test project.
+  errors; otherwise nothing moves, since `SRC` cannot reference its test
+  project: every file is in `skipped` with `OFR2104`, and one `OFR2104`
+  diagnostic for the project names the file count and the first errors.
 - **Project edits**: the destination gets `ProjectReference` to `SRC` if
   missing, `PackageReference`s for needed packages (the direct package of
   `SRC` that supplies each assembly, at `SRC`'s version; versionless under
@@ -347,16 +375,26 @@ unless that would be circular, then runs `move plan` + `move apply` into it.
   `NAME.csproj`; the folder must not exist or be empty (`OFR2007`). The template:
   `Microsoft.NET.Sdk`, `--tfm` (default: `SRC`'s target frameworks), `SRC`'s root
   namespace (moved files keep their namespaces), `LangVersion`, `Nullable`, and
-  `ImplicitUsings` when `SRC` sets them, `SRC`'s analyzer packages (`PrivateAssets="all"`,
+  `ImplicitUsings` when `SRC` sets them, `SRC`'s strong naming (`SignAssembly`,
+  `AssemblyOriginatorKeyFile` relative to the new folder, `DelaySign`, `PublicSign`: a
+  strong-named assembly loads only strong-named ones on .NET Framework), `SRC`'s analyzer packages (`PrivateAssets="all"`,
   versions omitted under central package management), and `SRC`'s .NET Framework
-  `Reference` items for .NET Framework targets. It is added to the workspace's solution.
+  `Reference` items for .NET Framework targets. It is added to the workspace's solution: in a
+  `.sln`, the lines the solution serializer writes for the project (its `Project` block, its
+  configurations, its solution folder) are inserted and every other line stays as it was
+  (format version, sections the serializer does not model, line endings, byte order mark). A
+  `.sln` that cannot be edited that way is rewritten by the serializer, with `OFR2115`
+  (warning) naming the lines that are gone or changed.
 - **Planning** is `move plan` with the new project as destination. It does not exist
   yet, so its compilation per target is built in memory: `SRC`'s recorded compilation's
   framework references for a target `SRC` compiles for, else the target's reference
   assemblies resolved by the SDK (`OFR2008` when they do not resolve). The plan adds
   the package and project references the moved files need, `SRC`'s reference to the new
   project, and the rest of `move plan`'s rules (exclusions, internals, resources).
-  Its `projectEdits` start with `createProject` and `addToSolution`.
+  Its `projectEdits` start with `createProject` and `addToSolution`. When the new project
+  is signed, its `addInternalsVisibleTo` for `SRC` carries `SRC`'s public key
+  (`Name, PublicKey=...`), and when `SRC` grants its internals to friend assemblies by
+  public key, `OFR2114` (info) names them: the new project does not grant them.
 - **Applying** (`--apply`, when anything can move) is `move apply` of that plan: one
   journal creates the project file (with the plan's edits), edits the solution and
   `SRC`, and renames the files, then verifies (`--verify`, default `move.verify`); a
@@ -436,6 +474,9 @@ offramp forwarders --from SRC.csproj --to DEST.csproj [--since GIT_REF] [--apply
 | OFR2110 | partial type co-moved |
 | OFR2111 | destination excludes the file's path |
 | OFR2112 | file compiles but breaks the destination's warning policy |
+| OFR2113 | co-move no longer needed: the file it was co-moved for stays |
+| OFR2114 | `move extract`: the source's friend assemblies are not granted by the new project |
+| OFR2115 | a `.sln` could not be edited in place and was rewritten by the solution serializer |
 | OFR2120 | namespace differs from destination root namespace |
 | OFR2150 | file changed since plan |
 | OFR2151 | file changed since the move; rollback stopped |

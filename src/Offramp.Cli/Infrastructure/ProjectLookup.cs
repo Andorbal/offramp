@@ -26,4 +26,21 @@ public static class ProjectLookup
         var byName = model.Projects.Where(p => string.Equals(p.Name, value, StringComparison.OrdinalIgnoreCase)).ToList();
         return byName.Count == 1 ? byName[0].Id : null;
     }
+
+    /// <summary>
+    /// Says that a project is hosted by another web project (<c>OFR0204</c>): it is part of the host's application
+    /// (docs/decisions/0055-hosted-projects-belong-to-their-host.md). <paramref name="consequence"/> ends the sentence.
+    /// </summary>
+    public static void ReportHosted(ProjectInfo project, CommandContext context, string consequence)
+    {
+        if (project.HostedBy is not { } host)
+        {
+            return;
+        }
+
+        context.Diagnostics.Report(Offramp.Core.Diagnostics.DiagnosticCatalog.OFR0204,
+            $"{project.Id} is hosted by {host.Project} ({string.Join("; ", host.Evidence)}): {consequence}",
+            new Offramp.Core.Diagnostics.DiagnosticLocation(project.Id),
+            [KeyValuePair.Create<string, System.Text.Json.Nodes.JsonNode?>("host", host.Project)]);
+    }
 }

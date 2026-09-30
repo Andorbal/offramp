@@ -29,6 +29,9 @@ internal sealed class PortedControllerSource
 
     public HashSet<string> Dropped { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Namespaces the rewritten members need beyond Microsoft.AspNetCore.Mvc (IFormCollection's).</summary>
+    public SortedSet<string> ExtraUsings { get; } = new(StringComparer.Ordinal);
+
     public IEnumerable<string> Ported => Members.Where(m => m.Action is not null && !Dropped.Contains(m.Action)).Select(m => m.Action!).Distinct(StringComparer.Ordinal);
 
     /// <summary>Whether a ported action needs an authenticated user ([Authorize] on it or the class).</summary>
@@ -42,7 +45,8 @@ internal sealed class PortedControllerSource
 /// (docs/spec/commands/scaffold.md#web-scaffold): actions that render views or use
 /// System.Web beyond what maps one to one stay with the legacy application; the rest are
 /// copied as text with the mapped names replaced (IHttpActionResult, HttpNotFound,
-/// Json(x, JsonRequestBehavior), RoutePrefix, OutputCache), so their code keeps its
+/// HttpUnauthorizedResult, FormCollection, Json(x, JsonRequestBehavior), RoutePrefix,
+/// OutputCache), so their code keeps its
 /// formatting. The compiler has the last word: <see cref="WebScaffolder"/> compiles the
 /// result and leaves the actions it rejects to the legacy application too.
 /// </summary>
@@ -53,6 +57,7 @@ internal static class WebPorter
     {
         "Ok", "NotFound", "BadRequest", "Json", "Content", "Redirect", "RedirectToAction", "RedirectToRoute", "Created",
         "HttpNotFound", "StatusCode", "Conflict", "InternalServerError", "Unauthorized", "ModelState", "File",
+        "ViewBag", "ViewData", "TempData", "Url",
     };
 
     private static readonly HashSet<string> MappedTypes = new(StringComparer.Ordinal)
@@ -61,6 +66,23 @@ internal static class WebPorter
         "System.Web.Mvc.ContentResult", "System.Web.Http.IHttpActionResult", "System.Web.Mvc.HttpStatusCodeResult",
         "System.Web.Mvc.JsonRequestBehavior", "System.Web.Mvc.ModelStateDictionary", "System.Web.Http.ModelBinding.ModelStateDictionary",
         "System.Web.Mvc.ControllerBase",
+    };
+
+    /// <summary>
+    /// Types whose ASP.NET Core counterpart has the same name and members (the compiler
+    /// rejects the few that differ): any use of them ports.
+    /// </summary>
+    private static readonly HashSet<string> SameTypes = new(StringComparer.Ordinal)
+    {
+        "System.Web.Mvc.EmptyResult", "System.Web.Mvc.RedirectResult", "System.Web.Mvc.ModelStateDictionary", "System.Web.Http.ModelBinding.ModelStateDictionary",
+        "System.Web.Mvc.TempDataDictionary", "System.Web.Mvc.ViewDataDictionary", "System.Web.Mvc.UrlHelper",
+    };
+
+    /// <summary>Types whose ASP.NET Core counterpart has another name: the new name and its namespace.</summary>
+    private static readonly Dictionary<string, (string Name, string Namespace)> RenamedTypes = new(StringComparer.Ordinal)
+    {
+        ["System.Web.Mvc.HttpUnauthorizedResult"] = ("UnauthorizedResult", "Microsoft.AspNetCore.Mvc"),
+        ["System.Web.Mvc.FormCollection"] = ("IFormCollection", "Microsoft.AspNetCore.Http"),
     };
 
     /// <summary>Attribute → its ASP.NET Core name, or null to leave it out.</summary>
@@ -129,7 +151,7 @@ internal static class WebPorter
                 continue;
             }
 
-            var text = Rewrite(model, member, kind);
+            var text = Rewrite(model, member, kind, result.ExtraUsings);
             if (kind == "webapi" && member is MethodDeclarationSyntax apiAction && action is not null)
             {
                 text = WebApiVerb(apiAction, text, conventional);
@@ -147,7 +169,7 @@ internal static class WebPorter
         actionSpans = new Dictionary<string, TextSpan>(StringComparer.Ordinal);
         var builder = new StringBuilder();
         builder.Append(header);
-        var usings = controller.Usings.Append("Microsoft.AspNetCore.Mvc");
+        var usings = controller.Usings.Append("Microsoft.AspNetCore.Mvc").Concat(controller.ExtraUsings);
         if (controller.ClassAttributes.Any(a => a.StartsWith("Authorize", StringComparison.Ordinal) || a.StartsWith("AllowAnonymous", StringComparison.Ordinal))
             || controller.Members.Any(m => m.Text.Contains("[Authorize", StringComparison.Ordinal) || m.Text.Contains("[AllowAnonymous", StringComparison.Ordinal)))
         {
@@ -218,6 +240,12 @@ internal static class WebPorter
             }
 
             var definition = type!.OriginalDefinition.ToDisplayString();
+            if (SameTypes.Contains(definition) || RenamedTypes.ContainsKey(definition))
+            {
+                // The type, its constructors, and its members have counterparts; the compiler checks the members.
+                continue;
+            }
+
             if (symbol is INamedTypeSymbol && (MappedTypes.Contains(definition) || name.Parent is MemberAccessExpressionSyntax access && access.Expression == name))
             {
                 // A type in front of a member access: the member says more (HttpContext.Current).
@@ -247,7 +275,7 @@ internal static class WebPorter
     }
 
     /// <summary>The member's text with the mapped names replaced.</summary>
-    private static string Rewrite(SemanticModel model, MemberDeclarationSyntax member, string kind)
+    private static string Rewrite(SemanticModel model, MemberDeclarationSyntax member, string kind, SortedSet<string> usings)
     {
         var edits = new List<TextChange>();
         foreach (var attribute in member.DescendantNodes().OfType<AttributeListSyntax>().Where(l => l.Parent == member || l.Parent is ParameterSyntax).SelectMany(l => l.Attributes))
@@ -273,6 +301,17 @@ internal static class WebPorter
             {
                 case IdentifierNameSyntax { Identifier.ValueText: "IHttpActionResult" } identifier when model.GetSymbolInfo(identifier).Symbol is INamedTypeSymbol:
                     edits.Add(new TextChange(identifier.Span, "IActionResult"));
+                    break;
+                case IdentifierNameSyntax identifier when RenamedType(model, identifier) is var (renamed, ns):
+                    // The whole name, qualified or not: System.Web.Mvc.FormCollection → IFormCollection.
+                    SyntaxNode name = identifier;
+                    while (name.Parent is QualifiedNameSyntax qualified && qualified.Right == name)
+                    {
+                        name = qualified;
+                    }
+
+                    edits.Add(new TextChange(name.Span, renamed));
+                    usings.Add(ns);
                     break;
                 case InvocationExpressionSyntax invocation when model.GetSymbolInfo(invocation).Symbol is IMethodSymbol method && Namespace(method).StartsWith("System.Web", StringComparison.Ordinal):
                     var target = invocation.Expression is MemberAccessExpressionSyntax access ? access.Name : invocation.Expression as SimpleNameSyntax;
@@ -317,6 +356,14 @@ internal static class WebPorter
             })
             .Select(e => new TextChange(new TextSpan(e.Span.Start - offset, e.Span.Length), e.NewText!));
         return Reindent(text.WithChanges(local).ToString());
+    }
+
+    /// <summary>The ASP.NET Core name and namespace of the renamed type an identifier names (as a type or its constructor), else null.</summary>
+    private static (string Name, string Namespace)? RenamedType(SemanticModel model, IdentifierNameSyntax identifier)
+    {
+        var symbol = model.GetSymbolInfo(identifier).Symbol;
+        var type = symbol as INamedTypeSymbol ?? (symbol as IMethodSymbol is { MethodKind: MethodKind.Constructor } constructor ? constructor.ContainingType : null);
+        return type is not null && RenamedTypes.TryGetValue(type.OriginalDefinition.ToDisplayString(), out var renamed) ? renamed : null;
     }
 
     private static readonly string[] ConventionVerbs = ["Get", "Post", "Put", "Delete", "Patch", "Head", "Options"];

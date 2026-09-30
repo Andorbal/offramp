@@ -13,6 +13,12 @@ public sealed record ProcessSpec(string FileName, IReadOnlyList<string> Argument
 
     public TimeSpan? Timeout { get; init; }
 
+    /// <summary>
+    /// Called with each line of standard output as it arrives, on a background thread, for progress
+    /// (a build's finished projects). The whole output is in the result all the same.
+    /// </summary>
+    public Action<string>? OnOutputLine { get; init; }
+
     public override string ToString() => FileName + " " + string.Join(' ', Arguments.Select(Quote));
 
     private static string Quote(string arg) => arg.Contains(' ', StringComparison.Ordinal) ? "\"" + arg + "\"" : arg;
@@ -87,7 +93,14 @@ public sealed class ProcessRunner : IProcessRunner
         var outputClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var errorClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        process.OutputDataReceived += (_, e) => Collect(stdout, outputClosed, e.Data);
+        process.OutputDataReceived += (_, e) =>
+        {
+            Collect(stdout, outputClosed, e.Data);
+            if (e.Data is not null)
+            {
+                spec.OnOutputLine?.Invoke(e.Data);
+            }
+        };
         process.ErrorDataReceived += (_, e) => Collect(stderr, errorClosed, e.Data);
         process.Exited += (_, _) => exited.TrySetResult();
 

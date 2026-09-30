@@ -32,6 +32,7 @@ public sealed record AuditMatchContext
     /// <summary>The active rules of this audit.</summary>
     public required IReadOnlyList<AuditRule> Rules { get; init; }
 
+    /// <summary>The .NET major version the code runs on (<see cref="Offramp.Core.Configuration.ModernTarget.RuntimeMajor"/>).</summary>
     public required int TargetMajor { get; init; }
 
     /// <summary><c>audit api</c>: the same sources compiled against the target, or null when it could not be built.</summary>
@@ -48,6 +49,14 @@ public sealed class AuditRunState
 {
     /// <summary>Documentation IDs of the types some serializer in the solution receives.</summary>
     public HashSet<string> SerializedTypes { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The subset of <see cref="SerializedTypes"/> that a serialized value is declared as (the
+    /// argument's type, a field's type), so the object can be any type deriving from it or
+    /// implementing it. A base type reached only as a base is not one: its other subclasses are
+    /// not serialized through it.
+    /// </summary>
+    public HashSet<string> DeclaredSerializedTypes { get; } = new(StringComparer.Ordinal);
 }
 
 /// <summary>A named matcher (<c>matcher:</c> in a rule pack) over a whole compilation.</summary>
@@ -79,13 +88,36 @@ public static class AuditEngine
         }
 
         // One per rule and line, the first column kept.
-        return [.. findings
+        return [.. WithoutMissingWhereRemoved(findings)
             .GroupBy(f => (f.Rule.Id, Line(f)))
             .Select(g => g.OrderBy(f => f.Location.SourceSpan.Start).First())];
     }
 
+    /// <summary>The category of the rules for technologies modern .NET does not have.</summary>
+    public const string RemovedTechnology = "removed-technology";
+
     private static (string File, int Line) Line(RawFinding finding) =>
         finding.FileLocation ?? (finding.Location.GetLineSpan().Path, finding.Location.GetLineSpan().StartLinePosition.Line);
+
+    /// <summary>
+    /// A removed technology's finding (Remoting, Web Forms, <c>CallContext</c>) says what to do
+    /// instead; <c>OFR3001</c> ("does not exist on the target") at the same place says less, so it
+    /// is left out: at the same name, or on the same line for the same symbol (a base type or an
+    /// attribute is reported at its declaration).
+    /// </summary>
+    private static IEnumerable<RawFinding> WithoutMissingWhereRemoved(List<RawFinding> findings)
+    {
+        var removed = findings.Where(f => f.Rule.Category == RemovedTechnology && f.FileLocation is null).ToList();
+        if (removed.Count == 0)
+        {
+            return findings;
+        }
+
+        var names = removed.Select(f => (f.Location.SourceTree, f.Location.SourceSpan.Start)).ToHashSet();
+        var symbols = removed.Select(f => (Line(f), f.Symbol)).ToHashSet();
+        return findings.Where(f => !(f.Rule.Id == "OFR3001" && f.FileLocation is null
+            && (names.Contains((f.Location.SourceTree, f.Location.SourceSpan.Start)) || symbols.Contains((Line(f), f.Symbol)))));
+    }
 
     /// <summary>The source files audited: generated files under obj/ and bin/ are left out.</summary>
     public static IReadOnlyList<SyntaxTree> Sources(Compilation compilation) =>
@@ -143,7 +175,8 @@ public static class AuditEngine
                         // Namespaces are not uses: the types and members used from them are.
                         if (Bound(model, name) is { } symbol and not INamespaceSymbol)
                         {
-                            foreach (var rule in Lookup(bySymbol, Keys(symbol)))
+                            var keys = Keys(symbol).ToList();
+                            foreach (var rule in Lookup(bySymbol, keys).Where(r => !r.Exclude.Any(keys.Contains)))
                             {
                                 yield return new RawFinding(rule, name.GetLocation(), Name(symbol)) { Namespace = NamespaceOf(symbol) };
                             }

@@ -45,7 +45,7 @@ Each run writes to `artifacts/corpus-output/<name>/` (cleared at the start of th
 - `NN-<command>.json`: the command's envelope, exactly as printed.
 - `NN-<command>.stderr.txt`: its progress events and errors.
 - `summary.md`: one row per command with exit code, time, and diagnostics by code.
-- `model-scan.json` and `model-rescan.json`: only when the determinism check failed.
+- `model-scan.json` and `model-rescan.json`: only when a determinism check failed.
 
 In CI: Actions, **Corpus**, *Run workflow*, with `all` or a comma-separated list of names. Each
 codebase is its own job, with its own time limit, so one failure or timeout never hides another.
@@ -64,6 +64,7 @@ the restored packages), and network access to the repository and the codebase's 
 | `doctor --fix --apply --yes` | Adds the compile-only block, as a user following `doctor` would. |
 | `scan` | Builds the solution. A failed build is fine (exit 1); a crash is not. |
 | `scan --no-build` | Its model must match `scan`'s apart from `createdAt`: Offramp's determinism rule, on real code. |
+| `scan`, again | When both builds succeed, its model must match too: a second build finishes its compilations in another order, which `scan --no-build` cannot show. A failed parallel build gets further in one run than in another, so its log is not the same input twice. |
 | `graph --format json`, `plan`, `report --format json` | |
 | `deps audit`, `deps resolve-dlls`, `redirects sync --prune` | All dry runs. |
 | `audit api`, `audit behavior`, `audit dead-code`, `csproj modernize --all` | Optional: `SweepAsync("csproj modernize")` leaves that one out. `csproj modernize` is a dry run that builds each conversion. |
