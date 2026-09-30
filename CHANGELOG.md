@@ -211,6 +211,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `csproj modernize` keeps the `.resx` files a legacy project does not embed out of the converted
+  project. When the `.resx` files on disk were not the ones the project lists, the conversion kept the
+  list but left the SDK's `**/*.resx` glob on, which embedded the others too: 9 of Open Live Writer
+  0.6.3's 28 conversions failed verification with "resources added" (69 unlisted files in
+  `OpenLiveWriter.ApplicationFramework`, 124 in `OpenLiveWriter.PostEditor`). The converted project now
+  removes the glob's `.resx` files (`<EmbeddedResource Remove="**\*.resx" />`) before it lists its
+  own, also when it lists none. With the two fixes below, all 28 Open Live Writer conversions pass.
 - `csproj modernize` verifies in a scratch copy that has what the scan's build read from the working
   tree (ADR 0062). The copy was `HEAD` plus the model's inputs, compile items, hint paths, and the
   converted projects' folders, and it lacked what the legacy projects a conversion references read

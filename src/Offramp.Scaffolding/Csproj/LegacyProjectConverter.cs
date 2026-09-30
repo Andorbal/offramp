@@ -393,8 +393,8 @@ public static class LegacyProjectConverter
                     break;
                 case "Compile":
                     break;
-                case "EmbeddedResource" when include.EndsWith(".resx", StringComparison.OrdinalIgnoreCase) && resourcesGlobbed:
-                    break;
+                case "EmbeddedResource" when include.EndsWith(".resx", StringComparison.OrdinalIgnoreCase):
+                    break; // The SDK's glob gives it, or the list is kept below.
                 case "None" when string.Equals(Path.GetFileName(include), "packages.config", StringComparison.OrdinalIgnoreCase):
                     context.Drop("None packages.config");
                     break;
@@ -424,13 +424,14 @@ public static class LegacyProjectConverter
             }
         }
 
-        if (!resourcesGlobbed && resources.Count > 0)
+        if (!resourcesGlobbed)
         {
+            // The SDK's glob would also embed the .resx files on disk that the project does not list.
             others.AddFirst(new XComment(" Kept as listed: the .resx files on disk are not the ones the project embeds. "));
+            others.Add(new XElement("EmbeddedResource", new XAttribute("Remove", @"**\*.resx")));
             foreach (var item in items.Where(i => i.Name.LocalName == "EmbeddedResource" && Include(i).EndsWith(".resx", StringComparison.OrdinalIgnoreCase)))
             {
-                others.Add(new XElement("EmbeddedResource", new XAttribute("Remove", Include(item))));
-                others.Add(new XElement("EmbeddedResource", new XAttribute("Include", Include(item)), item.Elements().Select(Strip)));
+                others.Add(Strip(item));
             }
         }
 

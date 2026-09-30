@@ -393,6 +393,29 @@ public sealed class CsprojModernizeCommandTests
         Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
     }
 
+    /// <summary>
+    /// Open Live Writer 0.6.3 (corpus): projects with .resx files on disk that they do not embed kept their list,
+    /// but the SDK's glob embedded the others as well, and 9 of 28 conversions failed with "resources added".
+    /// </summary>
+    [Fact]
+    public async Task Resx_files_the_legacy_project_does_not_embed_stay_out_of_the_conversion()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-csproj", (root, request) =>
+        {
+            File.Copy(Path.Combine(root, "src/Billing/Strings.resx"), Path.Combine(root, "src/Billing/Unused.resx"));
+            return request;
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Billing", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        var project = Assert.Single(JsonNode.Parse(run.Out)!["result"]!["projects"]!.AsArray())!;
+        Assert.True(project["verification"]!["passed"]!.GetValue<bool>(), run.Out);
+        Assert.Contains("<EmbeddedResource Remove=\"**\\*.resx\" />", JsonNode.Parse(run.Out)!["result"]!["preview"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
     private static List<JsonNode> Diagnostics(string envelope, string code) =>
         [.. JsonNode.Parse(envelope)!["diagnostics"]!.AsArray().OfType<JsonNode>().Where(d => d["code"]!.GetValue<string>() == code)];
 

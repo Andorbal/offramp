@@ -282,7 +282,9 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
     solution, stays.
   - `Compile`, `.resx` `EmbeddedResource`, and `None` items become the SDK's globs when
     those give the same files; otherwise the Compile list stays with
-    `EnableDefaultCompileItems` false (`OFR4301`). `Link`, `DependentUpon`, `Generator`,
+    `EnableDefaultCompileItems` false (`OFR4301`), and the `.resx` list stays after
+    `<EmbeddedResource Remove="**\*.resx" />`, so the glob embeds no file the project does not
+    list. `Link`, `DependentUpon`, `Generator`,
     and resource names are kept as `Update` items. Every item keeps its `Condition` and its
     metadata, whether written as child elements or as attributes; a `ProjectReference` drops
     only `Project` and `Name` (a source generator's `OutputItemType="Analyzer"` stays).

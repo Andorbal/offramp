@@ -217,6 +217,27 @@ public sealed class LegacyProjectConverterTests : IDisposable
         Assert.Equal("OnOutputUpdated", project.Elements("PropertyGroup").Descendants("RunPostBuildEvent").Single().Value);
     }
 
+    /// <summary>
+    /// Open Live Writer 0.6.3 (corpus): 9 projects have .resx files on disk that they do not embed (69 in
+    /// OpenLiveWriter.ApplicationFramework). The conversion kept the listed ones, but the SDK's glob embedded the
+    /// others too, and verification failed with "resources added".
+    /// </summary>
+    [Fact]
+    public void Resx_files_on_disk_that_the_project_does_not_embed_stay_out()
+    {
+        _repo.Write("src/Library/Listed.resx", "<root />");
+        _repo.Write("src/Library/Forms/Orphan.resx", "<root />");
+
+        var (listed, _) = Convert(Project.Replace("<Compile Include=\"Class1.cs\" />",
+            "<Compile Include=\"Class1.cs\" />\n    <EmbeddedResource Include=\"Listed.resx\" Condition=\"'$(Configuration)' != ''\" />", StringComparison.Ordinal), []);
+        var (none, _) = Convert(Project, []);
+
+        static List<string> Resources(XElement project) =>
+            [.. project.Descendants("EmbeddedResource").Select(e => $"{(string?)e.Attribute("Remove")}|{(string?)e.Attribute("Include")}|{(string?)e.Attribute("Condition")}")];
+        Assert.Equal([@"**\*.resx||", "|Listed.resx|'$(Configuration)' != ''"], Resources(listed));
+        Assert.Equal([@"**\*.resx||"], Resources(none));
+    }
+
     private (XElement Project, ConversionOutput Output) Convert(string project, string[] frameworks, bool disableTransitiveProjectReferences = false)
     {
         var output = LegacyProjectConverter.Convert(new ConversionInput
