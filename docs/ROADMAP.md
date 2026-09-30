@@ -237,3 +237,9 @@ Acceptance: as for M16, in Rider.
 - Editor integration after M17 (`commands/ide.md#later`): portability regressions, SARIF for pull
   requests, codemod quick fixes, member-level moves, the rest of the CLI in the editor, and a
   project-scoped scan.
+- Letter case (`OFR0117`) on every OS: the check asks whether a path exists as spelled, which the
+  default file systems of macOS and Windows always answer yes, so only a scan on Linux names a
+  mismatch. Compare against the directory's exact names instead, and list every site (file, line,
+  spelling, spelling on disk) in `doctor`'s "Builds without Offramp" check, as `OFR0019` does.
+  Report only, never rewrite: an item's spelling names embedded resources and copied files, on
+  Windows too.
