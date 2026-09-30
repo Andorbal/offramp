@@ -126,6 +126,7 @@
     "proxy": "yarp",
     "adapters": false,
     "legacyUrl": "http://localhost:51234/",
+    "hostedBy": null,
     "controllers": [
       {
         "type": "Shop.Web.Areas.Admin.Controllers.DashboardController",

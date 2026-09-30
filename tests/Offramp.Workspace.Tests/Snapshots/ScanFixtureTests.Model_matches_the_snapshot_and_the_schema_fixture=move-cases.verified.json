@@ -30,6 +30,7 @@
       ],
       "frameworkClass": "standard",
       "outputType": "Library",
+      "outputPath": "src/Contracts/bin/Debug/netstandard2.0",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -98,6 +99,7 @@
       ],
       "frameworkClass": "standard",
       "outputType": "Library",
+      "outputPath": "src/Core/bin/Debug/netstandard2.0",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -167,6 +169,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Legacy/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -295,6 +298,7 @@
       ],
       "frameworkClass": "modern",
       "outputType": "Library",
+      "outputPath": "src/Modern/bin/Debug/net10.0",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -370,6 +374,7 @@
       ],
       "frameworkClass": "standard",
       "outputType": "Library",
+      "outputPath": "src/Reports/bin/Debug/netstandard2.0",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",

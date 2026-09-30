@@ -267,4 +267,12 @@ public static partial class DiagnosticCatalog
         "A build that fails outside Windows (letter case, Windows-only steps), or a missing package.",
         "Fix the build errors `scan` reported (`OFR0130` and the step diagnostics), run `offramp scan` again, then `offramp redirects sync`.",
         DependenciesArea);
+
+    public static readonly DiagnosticDescriptor OFR1507 = new(
+        "OFR1507", Severity.Info,
+        "hosted project's configuration left alone",
+        "The project is hosted by another web project (it builds into the host's folder and is loaded by the host's application), so the runtime reads the host's `web.config`, never the project's. `redirects sync` leaves the project's configuration file alone and computes the host's redirects with the hosted project's packages.",
+        "A plugin, module, or area project with a `web.config` of its own, as Visual Studio's templates create.",
+        "Nothing to do; run `redirects sync` for the host. The hosted project's binding redirects can be deleted by hand.",
+        DependenciesArea);
 }

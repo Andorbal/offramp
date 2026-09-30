@@ -22,6 +22,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   taint from `audit api` only, so Open Live Writer's MSHTML interop never counted; on
   `OpenLiveWriter.Interop.Mshtml` (`net10.0`) its 121 `[ComImport]` interfaces are now what is
   tainted. On a `-windows` target interop works and taints nothing.
+- The workspace model records each project's output folder (`outputPath`: `OutDir` of the .NET Framework
+  target, repository-relative) and, for a plugin, area, or module, the web project that hosts it
+  (`hostedBy`, with the evidence): a web or library project whose assembly lands in a web project's
+  folder, outside its own (its output folder, or a copy its own build makes), and that has no
+  `Global.asax` (ADR 0055). New fixture `plugin-host`.
+- `OFR0204` (info): a hosted project is part of its host's application (`report`, `plan --for`,
+  `web inventory`). `OFR0205` (warning): `web scaffold` of a hosted project proxies to its host.
+  `OFR1507` (info): `redirects sync` leaves a hosted project's configuration file alone.
 - `OFR3013` (error): `CallContext` (and `LogicalCallContext`), which modern .NET does not have,
   with `AsyncLocal<T>` as the replacement. It was reported as .NET Remoting (`OFR3007`, "use gRPC,
   HTTP, or named pipes") and as missing (`OFR3001`) at the same place.
@@ -129,6 +137,9 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `OFR0017` (MSBuild not found): `--msbuild` found no MSBuild.exe, or could not start it; scan exits 3.
 
 ### Changed
+- `report`'s applications leave out hosted projects and list them under the host (`applications[].hosted`,
+  also shown as "(hosts N)"); an application's `closure` includes them. `web inventory` and `web
+  scaffold` results gain `hostedBy`, and a hosted project's `url`/`legacyUrl` is its host's (ADR 0055).
 - `audit api` reports an API of a removed technology once, under that technology's rule (ADR
   0044): `OFR3001` is no longer repeated where Web Forms, ASMX, WCF hosting, Remoting, WF, COM+ or
   `CallContext` (`OFR3004`–`OFR3009`, `OFR3013`) matched. `OFR3001` counts drop on such code;
@@ -198,6 +209,17 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   that file, and each dropped co-move is listed in `excluded` with the new `OFR2113` (info),
   naming the file it was co-moved for. With `--namespace-mismatch block`, a file that needs a
   blocked file is now excluded too (`OFR2101`) instead of moving without it.
+- `report`, `plan --for`, `redirects sync`, `web inventory`, and `web scaffold` know what a plugin host
+  is. On SmartStoreNET 4.2.0, one site whose admin area builds into its `bin/` and whose 12 plugins
+  build into its `Plugins/` folder, `report` counted 16 applications (every web project and two tools),
+  `plan --for SmartStore.Web` listed 5 projects and left out the 13 (104,877 lines) the site loads,
+  `redirects sync` rewrote 13 plugin `web.config` files the runtime never reads and computed the site's
+  redirects without the plugins' packages, and `web scaffold` on a plugin proxied to the plugin's own
+  Visual Studio URL, which serves nothing. DotNetNuke's modules, which copy their assembly into the
+  site's `bin/` after building, made 20 applications of one site. Now only a project that no web
+  project hosts is an application, a host's closure includes what it hosts, the host's redirects take
+  its hosted projects' packages and their configuration files are left alone, and `web inventory`/`web
+  scaffold` name the host and use its URL. Rescan to record `outputPath` and `hostedBy`.
 - `csproj modernize` reports what its verification found in full. A converted build that failed
   showed its first 10 errors and nothing else (NHibernate 4.1.2's `netstandard2.0` conversion had
   71): the result's `verification` now has `built`, `buildErrorCount`, and `buildErrorCodes` (the

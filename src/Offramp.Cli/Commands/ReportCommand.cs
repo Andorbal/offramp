@@ -103,6 +103,11 @@ public sealed class ReportCommand : ICommandHandler<ReportOptions, ReportResult>
                 data: [KeyValuePair.Create<string, JsonNode?>("solutions", new JsonArray([.. otherSolutions.Select(s => (JsonNode?)s)])), KeyValuePair.Create<string, JsonNode?>("snapshots", left)]);
         }
 
+        foreach (var hosted in model.Projects.Where(p => p.HostedBy is not null && p.Kind == Core.Model.ProjectKind.Web))
+        {
+            ProjectLookup.ReportHosted(hosted, context, "it is counted in that application, not as one of its own.");
+        }
+
         var title = options.Title ?? config.Report.Title ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(root));
         var report = ReportBuilder.Build(model, ledger.Snapshots, title, options.Since);
         string? graphHtml = null;
@@ -182,7 +187,7 @@ public sealed class ReportCommand : ICommandHandler<ReportOptions, ReportResult>
             foreach (var app in report.Applications)
             {
                 table.AddRow(
-                    new Markup(Markup.Escape(app.Name)),
+                    new Markup(Markup.Escape(app.Name) + (app.Hosted.Count > 0 ? string.Create(CultureInfo.InvariantCulture, $" [dim](hosts {app.Hosted.Count})[/]") : "")),
                     new Markup(Status(app.Status)),
                     new Markup(string.Create(CultureInfo.InvariantCulture, $"{app.Remaining} of {app.Closure}")),
                     new Markup(app.RemainingLoc.ToString("N0", CultureInfo.InvariantCulture)),

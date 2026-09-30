@@ -52,7 +52,7 @@ public static class MarkdownReportWriter
             Table(md, ["Application", "Kind", "Status", "Projects left", "Lines left", "Port next"], [false, false, false, true, true, false],
                 report.Applications.Select(a => (IReadOnlyList<string>)
                 [
-                    Code(a.Project), ReportText.Wire(a.Kind), ReportText.Wire(a.Status),
+                    Code(a.Project) + ReportText.Hosts(a), ReportText.Wire(a.Kind), ReportText.Wire(a.Status),
                     ReportText.Fraction(a.Remaining, a.Closure), N(a.RemainingLoc), string.Join(", ", a.Next.Select(Code)),
                 ]));
         }

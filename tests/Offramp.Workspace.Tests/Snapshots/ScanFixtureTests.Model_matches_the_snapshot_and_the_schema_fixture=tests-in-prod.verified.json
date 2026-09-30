@@ -30,6 +30,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Bar/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -122,6 +123,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Foo.Tests/bin/Debug/net48",
       "isTestProject": true,
       "properties": {
         "IsPackable": "false",
@@ -358,6 +360,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Foo/bin/Debug/net48",
       "isTestProject": true,
       "properties": {
         "IsPackable": "false",

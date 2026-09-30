@@ -9,6 +9,7 @@ using Offramp.Core.Json;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using Offramp.Refactoring.ChangeSets;
+using Offramp.Workspace.Model;
 
 namespace Offramp.Refactoring.Dependencies.Redirects;
 
@@ -115,6 +116,15 @@ public static class RedirectPlanner
             .OrderBy(p => p.Id, StringComparer.Ordinal);
         foreach (var project in projects)
         {
+            // The runtime reads the host's configuration only: a hosted project's is left alone (ADR 0055).
+            if (project.HostedBy is { } host)
+            {
+                var hosted = $"it is hosted by {host.Project}, whose configuration file the runtime reads; that application's redirects include its packages";
+                request.Diagnostics.Report(DiagnosticCatalog.OFR1507, $"{project.Id} is skipped: {hosted}.", new DiagnosticLocation(project.Id));
+                apps.Add(new AppRedirects { Project = project.Id, TargetFramework = project.TargetFrameworks.First(IsFramework), Redirects = [], Skipped = hosted });
+                continue;
+            }
+
             if (PartialIn(request.Model, project) is { } partial)
             {
                 var reason = partial == project.Id
@@ -277,15 +287,16 @@ public static class RedirectPlanner
     /// The packages whose assemblies land in the application's output: its restored graph, and
     /// the packages its packages.config and those of the projects it references list (copy-local
     /// brings them along, and no restored graph has them). An application without a restored graph
-    /// also gets the restored packages of the projects it references.
+    /// also gets the restored packages of the projects it references. The projects the application hosts count as
+    /// its own.
     /// </summary>
-    /// <summary>The first partial project among <paramref name="project"/> and everything it references (projects and HintPaths), or null.</summary>
+    /// <summary>The first partial project among <paramref name="project"/>, the projects it hosts, and everything they reference (projects and HintPaths), or null.</summary>
     private static string? PartialIn(WorkspaceModel model, ProjectInfo project)
     {
         var byId = model.Projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
         var references = model.Graph.Edges.ToLookup(e => e.From, e => e.To, StringComparer.Ordinal);
         var seen = new SortedSet<string>(StringComparer.Ordinal);
-        var pending = new Stack<string>([project.Id]);
+        var pending = new Stack<string>([project.Id, .. Hosting.HostedProjects(model, project.Id)]);
         while (pending.TryPop(out var id))
         {
             if (seen.Add(id))
@@ -307,8 +318,19 @@ public static class RedirectPlanner
         var restored = project.Resolved.GetValueOrDefault(tfm)?.Packages;
         var packages = (restored ?? []).Select(p => (p.Id, p.Version)).ToList();
         var byId = model.Projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        var hosted = Hosting.HostedProjects(model, project.Id);
+
+        // A hosted project deploys its own packages into the application (ADR 0055).
+        foreach (var id in hosted)
+        {
+            if (byId.TryGetValue(id, out var guest) && CompilationFramework(guest) is { } framework)
+            {
+                packages.AddRange((guest.Resolved.GetValueOrDefault(framework)?.Packages ?? []).Select(p => (p.Id, p.Version)));
+            }
+        }
+
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var pending = new Queue<string>([project.Id]);
+        var pending = new Queue<string>([project.Id, .. hosted]);
         while (pending.TryDequeue(out var id))
         {
             if (!seen.Add(id) || !byId.TryGetValue(id, out var current))

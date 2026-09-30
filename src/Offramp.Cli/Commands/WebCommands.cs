@@ -68,6 +68,8 @@ public sealed class WebInventoryCommand(string format) : ICommandHandler<WebInve
         }
 
         var project = model.Projects.Single(p => p.Id == id);
+        ProjectLookup.ReportHosted(project, context,
+            $"its controllers, routes, and filters run inside that application, at its URL; `web inventory --project {project.HostedBy?.Project}` shows the application.");
         using var loader = new CompilationLoader(root);
         if (loader.LoadForProject(project) is not { } compilation)
         {
@@ -89,7 +91,7 @@ public sealed class WebInventoryCommand(string format) : ICommandHandler<WebInve
     {
         var actions = result.Controllers.Sum(c => c.Actions.Count);
         output.Headline(string.Create(CultureInfo.InvariantCulture,
-            $"{result.Project} ({result.Kind}): {result.Controllers.Count} controllers, {actions} actions, {result.Routes.Count} convention routes, {result.Modules.Count} modules, {result.Handlers.Count} handlers, {result.WebForms.Count} Web Forms files."),
+            $"{result.Project} ({result.Kind}{(result.HostedBy is { } host ? ", hosted by " + host : "")}): {result.Controllers.Count} controllers, {actions} actions, {result.Routes.Count} convention routes, {result.Modules.Count} modules, {result.Handlers.Count} handlers, {result.WebForms.Count} Web Forms files."),
             Theme.ReadyStyle);
         var table = new Table().Border(TableBorder.Simple);
         table.AddColumn("Controller");

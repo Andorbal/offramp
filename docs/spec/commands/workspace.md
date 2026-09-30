@@ -226,8 +226,12 @@ offramp plan [--frontier] [--for PROJECT] [--waves] [--exclude-kind test,...]
   or `dual`, i.e. portable today (`readiness: ready`, wave 1).
 - `--for PROJECT`: the framework-only projects in `PROJECT`'s closure (itself
   included), in order: the minimal set to port for it to run on the target.
-  `report`'s application numbers use the same rule. An unknown project is
-  `OFR0021`.
+  The closure is the project, the projects it hosts (plugins, areas, and modules
+  that land in its folder; `02-workspace-model.md#hosted-projects`), and
+  everything they depend on; a project reached through a reference brings its
+  dependencies, not the projects its own host loads. `report`'s application
+  numbers use the same rule. Naming a hosted project is `OFR0204` (info: it runs
+  in its host's application). An unknown project is `OFR0021`.
 - `--waves`: groups the human view by wave; the JSON always carries `wave`.
 - `--exclude-kind`: leaves projects of those kinds out of the listing; blast
   radius, blockers, and readiness still come from the whole model.
@@ -336,11 +340,13 @@ offramp report [--format html|json|markdown] [--out PATH] [--since DATE] [--titl
   `asOf` is the model's `createdAt` (`docs/decisions/0016-report.md`).
 - Areas: projects and lines by framework class per directory holding project
   folders (the `graph --cluster directory` rule).
-- Applications (console, service, web, winforms, wpf): the application and
-  everything it depends on; status `done` when nothing in that closure is
-  framework-only, `ready` when only the application is, `blocked` otherwise;
-  `next` lists the framework-only projects in the closure that can be ported
-  today. `plan --for` must agree with these numbers.
+- Applications (console, service, web, winforms, wpf, except hosted projects):
+  the application, the projects it hosts (`hosted`), and everything they depend
+  on; status `done` when nothing in that closure is framework-only, `ready` when
+  only the application is, `blocked` otherwise; `next` lists the framework-only
+  projects in the closure that can be ported today. `plan --for` must agree with
+  these numbers. Each hosted web project is `OFR0204` (info), naming its host
+  (`docs/decisions/0055-hosted-projects-belong-to-their-host.md`).
 - Frontier: framework-only projects whose dependencies are all portable
   (`ready`), most dependents first.
 - HTML: single self-contained file with no scripts; sections: headline numbers,

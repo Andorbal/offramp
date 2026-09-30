@@ -83,6 +83,9 @@ From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
   factory only .NET Framework's MSBuild has (`inline-task`, `OFR0118`),
   non-string resources, and an `Exec` command written for cmd.exe
   (`build-event`, `OFR0115`).
+- The output folder (`OutDir`, which defaults to `OutputPath`) and the files a
+  project's own build copied its assembly to (`Copy` tasks), for hosted projects
+  (below).
 - `project.assets.json` path per project → parsed with `NuGet.ProjectModel`
   for the resolved transitive package graph per target framework.
 
@@ -121,6 +124,20 @@ Evaluated in order; first match wins; the evidence is recorded.
 
 Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
 
+## Hosted projects
+
+A web or library project is **hosted** by a web project when its assembly lands
+inside that project's folder and outside its own: its output folder is there
+(SmartStoreNET's plugins build into `SmartStore.Web/Plugins/<Name>/`, its admin
+area into `SmartStore.Web/bin/`), or its own build copies its assembly there
+(DotNetNuke's modules copy theirs into `Website/bin/` after building). The host is
+the deepest such web project. A web project with its own `Global.asax` is never
+hosted. `scan` records the host and the evidence in `hostedBy`. A hosted project is
+part of its host's application, not an application of its own: `report` and `plan
+--for` put it in the host's closure, `redirects sync` manages the host's
+configuration with its packages, and `web inventory`/`web scaffold` name the host
+(`docs/decisions/0055-hosted-projects-belong-to-their-host.md`).
+
 ## Schema (v1)
 
 ```jsonc
@@ -143,11 +160,14 @@ Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
       "language": "csharp",                       // csharp | vb | fsharp, from the extension (other: never written by scan)
       "kind": "library",
       "kindEvidence": "OutputType=Library",
+      "hostedBy": { "project": "src/Site/Site.csproj",   // absent unless hosted (see Hosted projects)
+                    "evidence": ["builds into src/Site/Plugins/Foo, inside src/Site", "has no Global.asax", "no project references it"] },
       "sdkStyle": true,
       "sdk": "Microsoft.NET.Sdk",
       "targetFrameworks": ["net48", "net10.0"],
       "frameworkClass": "dual",
       "outputType": "Library",
+      "outputPath": "src/Foo/bin/Debug/net48",   // OutDir of the net4x target (else the first), repo-relative; absent outside the repo
       "isTestProject": false,
       "properties": { "LangVersion": "latest", "Nullable": "disable", "GenerateSerializationAssemblies": "On" },
       "defineConstants": { "net48": ["TRACE", "DEBUG", "NETFRAMEWORK", "NET48", "NET48_OR_GREATER"] },  // what the compiler saw

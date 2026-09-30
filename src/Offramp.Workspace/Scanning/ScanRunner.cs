@@ -510,6 +510,7 @@ public static class ScanRunner
         }
 
         projects.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+        projects = Hosting.Detect(projects, root, Hosting.CopiedTo(data.AssemblyCopies, mapper));
         var notLoaded = FindNotLoaded(request, data, mapper, projects, listed);
 
         // Projects that are not C#, Visual Basic, or F# are named once, evaluated or not, and never loaded.

@@ -115,6 +115,7 @@ public static class ProjectModelBuilder
             TargetFrameworks = tfms,
             FrameworkClass = Tfm.Classify(tfms),
             OutputType = first.Property("OutputType") ?? "Library",
+            OutputPath = OutputFolder(all, projectDirectory, context),
             IsTestProject = facts.IsTestProject,
             Properties = Properties(all, context),
             DefineConstants = DefineConstants(projectId, inner, context),
@@ -390,6 +391,18 @@ public static class ProjectModelBuilder
                 .Where(v => v != "/" && !project.StartsWith(v, StringComparison.OrdinalIgnoreCase))
                 .Distinct(StringComparer.OrdinalIgnoreCase),
         ];
+    }
+
+    /// <summary>
+    /// The folder the build writes the assembly to, repository-relative: <c>OutDir</c> (which defaults to
+    /// <c>OutputPath</c>) of the .NET Framework target when there is one, since that is the build a System.Web host
+    /// loads, else of the first target; null when it is outside the repository (ADR 0055).
+    /// </summary>
+    private static string? OutputFolder(List<EvaluatedProject> evaluations, string projectDirectory, ProjectBuildContext context)
+    {
+        var evaluation = evaluations.FirstOrDefault(e => e.TargetFramework is { } tfm && Tfm.Classify([tfm]) == FrameworkClass.Framework) ?? evaluations[0];
+        var value = evaluation.Property("OutDir") ?? evaluation.Property("OutputPath");
+        return value is null ? null : context.Paths.ToRelative(projectDirectory, value)?.TrimEnd('/');
     }
 
     /// <summary>

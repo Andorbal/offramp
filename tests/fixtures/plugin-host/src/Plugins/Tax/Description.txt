@@ -1,0 +1,3 @@
+FriendlyName: Tax
+SystemName: Plugins.Tax
+Version: 1.0

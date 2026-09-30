@@ -116,6 +116,13 @@ public sealed record ProjectInfo
 
     public string? KindEvidence { get; init; }
 
+    /// <summary>
+    /// The web project whose application loads this one at run time, with the evidence; null for a project that
+    /// runs on its own or is only referenced (docs/decisions/0055-hosted-projects-belong-to-their-host.md).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProjectHost? HostedBy { get; init; }
+
     public bool SdkStyle { get; init; }
 
     public string? Sdk { get; init; }
@@ -125,6 +132,14 @@ public sealed record ProjectInfo
     public FrameworkClass FrameworkClass { get; init; }
 
     public string? OutputType { get; init; }
+
+    /// <summary>
+    /// The folder the build writes the project's assembly to (evaluated <c>OutDir</c>, else <c>OutputPath</c>),
+    /// repository-relative without a trailing slash, for its .NET Framework target when it has one and else its first;
+    /// null when the folder is outside the repository or the model came from a compiler log alone.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OutputPath { get; init; }
 
     public bool IsTestProject { get; init; }
 
@@ -200,6 +215,16 @@ public sealed record ProjectInfo
 
         return null;
     }
+}
+
+/// <summary>A hosted project's host: the web project whose folder its output lies in, and why Offramp says so.</summary>
+public sealed record ProjectHost
+{
+    /// <summary>The host project's id.</summary>
+    public required string Project { get; init; }
+
+    /// <summary>What the relation rests on, output folder first.</summary>
+    public IReadOnlyList<string> Evidence { get; init; } = [];
 }
 
 public sealed record PackageReferenceInfo

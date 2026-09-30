@@ -72,7 +72,8 @@
           "closure": { "type": "integer", "minimum": 1 },
           "remaining": { "type": "integer", "minimum": 0 },
           "remainingLoc": { "type": "integer", "minimum": 0 },
-          "next": { "$ref": "workspace.json#/$defs/pathList" }
+          "next": { "$ref": "workspace.json#/$defs/pathList" },
+          "hosted": { "$ref": "workspace.json#/$defs/pathList", "description": "The projects the application hosts (plugins, areas, modules that build into its folder); they are in its closure." }
         }
       }
     },

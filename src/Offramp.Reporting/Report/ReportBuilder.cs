@@ -111,15 +111,14 @@ public static class ReportBuilder
     private static List<ReportApplication> Applications(WorkspaceModel model, IReadOnlyDictionary<string, ProjectStanding> standings)
     {
         var byId = model.Projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
-        var dependencies = model.Graph.Edges.ToLookup(e => e.From, e => e.To, StringComparer.Ordinal);
         return
         [
             .. model.Projects
-                .Where(p => ApplicationKinds.Contains(p.Kind))
+                .Where(p => ApplicationKinds.Contains(p.Kind) && !Hosting.IsHosted(p))
                 .OrderBy(p => p.Id, StringComparer.Ordinal)
                 .Select(p =>
                 {
-                    var closure = Closure(p.Id, dependencies);
+                    var closure = Hosting.ApplicationClosure(model, p.Id);
                     var remaining = closure
                         .Where(id => byId.TryGetValue(id, out var d) && d.FrameworkClass == FrameworkClass.Framework)
                         .Order(StringComparer.Ordinal)
@@ -135,6 +134,7 @@ public static class ReportBuilder
                         Remaining = remaining.Count,
                         RemainingLoc = remaining.Sum(id => byId[id].Loc),
                         Next = [.. remaining.Where(id => standings[id].Readiness == ProjectReadiness.Ready)],
+                        Hosted = Hosting.HostedProjects(model, p.Id),
                     };
                 }),
         ];
@@ -146,25 +146,6 @@ public static class ReportBuilder
         [var only] when only == application => ProjectReadiness.Ready,
         _ => ProjectReadiness.Blocked,
     };
-
-    private static HashSet<string> Closure(string start, ILookup<string, string> dependencies)
-    {
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var pending = new Stack<string>([start]);
-        while (pending.Count > 0)
-        {
-            var id = pending.Pop();
-            if (seen.Add(id))
-            {
-                foreach (var next in dependencies[id])
-                {
-                    pending.Push(next);
-                }
-            }
-        }
-
-        return seen;
-    }
 
     private static SortedDictionary<string, ClassTotals> Complete(SortedDictionary<string, ClassTotals> totals)
     {

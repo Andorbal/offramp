@@ -30,6 +30,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Exe",
+      "outputPath": "src/Legacy.App/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -123,6 +124,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Legacy.Core/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",

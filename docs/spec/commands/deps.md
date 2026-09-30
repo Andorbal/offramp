@@ -415,10 +415,16 @@ offramp redirects sync [--app PATH ...] [--apply] [--prune]
   project (its build failed during `scan`), is skipped with the reason
   (`OFR1506`): its references are not known, so redirects computed from them
   would be wrong and `--prune` would remove live ones.
+- A hosted project (a plugin, area, or module that lands in a web project's
+  folder; `02-workspace-model.md#hosted-projects`) is skipped with the reason
+  (`OFR1507`): the runtime reads its host's configuration, never its own. The
+  host's graph includes the packages of the projects it hosts, and a partial
+  hosted project makes the host partial too (ADR 0055).
 - Diagnostics: `OFR1501` redirect added, `OFR1502` redirect changed,
   `OFR1503` redirect pruned, `OFR1504` redirect points at a version not in the
   graph (stale), `OFR1505` deployed version older than a reference,
-  `OFR1506` application skipped (partial model).
+  `OFR1506` application skipped (partial model), `OFR1507` hosted project's
+  configuration left alone.
 - After `deps consolidate`, `redirects sync` typically deletes most redirects;
   the summary says how many.
 
@@ -433,7 +439,9 @@ Details (M6, ADR 0020):
   System.Reflection.Metadata. The packages are the application's restored ones
   and those its `packages.config` and the `packages.config` of every project it
   references list (copy-local deploys them; ADR 0035); an application without a
-  restored graph also takes its referenced projects' restored packages. A
+  restored graph also takes its referenced projects' restored packages. The
+  projects an application hosts count as its own: their restored packages and
+  `packages.config` packages, and those of the projects they reference. A
   `packages.config` package is read from `packages/<Id>.<Version>/` beside the
   solution or at the repository root before the global packages folder.
 - **Needing a redirect.** A signed assembly needs one when a reference names

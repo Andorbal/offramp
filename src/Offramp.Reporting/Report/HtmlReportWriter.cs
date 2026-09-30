@@ -94,7 +94,7 @@ public static class HtmlReportWriter
         foreach (var app in report.Applications)
         {
             var status = ReportText.Wire(app.Status);
-            body.Append("<tr><td title=\"").Append(Encode(app.Project)).Append("\">").Append(Encode(app.Name)).Append("</td><td>")
+            body.Append("<tr><td title=\"").Append(Encode(app.Project)).Append("\">").Append(Encode(app.Name + ReportText.Hosts(app))).Append("</td><td>")
                 .Append(ReportText.Wire(app.Kind)).Append("</td><td><span class=\"status ").Append(status).Append("\">").Append(status).Append("</span></td>")
                 .Append("<td class=\"num\">").Append(ReportText.Fraction(app.Remaining, app.Closure)).Append("</td><td class=\"num\">")
                 .Append(app.RemainingLoc.ToString("N0", CultureInfo.InvariantCulture)).Append("</td><td>")

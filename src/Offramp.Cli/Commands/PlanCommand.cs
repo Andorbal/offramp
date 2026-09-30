@@ -67,6 +67,10 @@ public sealed class PlanCommand(bool waves = false) : ICommandHandler<PlanOption
                     data: [KeyValuePair.Create<string, JsonNode?>("project", options.For)]);
                 return Task.FromResult(CommandOutcome<PlanResult>.Usage());
             }
+
+            var project = model.Projects.Single(p => p.Id == target);
+            ProjectLookup.ReportHosted(project, context,
+                $"the list is what it needs to build; `plan --for {project.HostedBy?.Project}` lists the application it runs in.");
         }
 
         return Task.FromResult(CommandOutcome<PlanResult>.Completed(MigrationPlanner.Plan(model, target, options.Frontier, options.ExcludeKinds)));

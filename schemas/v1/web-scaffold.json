@@ -13,6 +13,7 @@
     "proxy": { "enum": ["yarp", "none"] },
     "adapters": { "type": "boolean" },
     "legacyUrl": { "type": ["string", "null"], "description": "The legacy application's URL the proxy forwards to." },
+    "hostedBy": { "type": ["string", "null"], "description": "The web project whose application loads this one (ADR 0055), else null; the proxy then forwards to its URL." },
     "controllers": {
       "type": "array",
       "items": {

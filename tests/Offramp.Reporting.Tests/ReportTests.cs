@@ -114,6 +114,29 @@ public sealed partial class ReportTests
         Assert.Empty(web.Next);
     }
 
+    /// <summary>
+    /// SmartStoreNET P1 #5: plugins that build into the site are part of the site's application, not 12 more
+    /// applications, and what they need is left for the site.
+    /// </summary>
+    [Fact]
+    public void Hosted_web_projects_are_in_their_host_closure_and_not_applications()
+    {
+        var host = new ProjectHost { Project = "src/Web/Web.csproj", Evidence = ["builds into src/Web/Plugins/Tax, inside src/Web"] };
+        var model = ModelOf(
+            [.. Model.Projects,
+            Project("src/Plugins/Tax/Tax.csproj", ProjectKind.Web, FrameworkClass.Framework, "src/Core/Core.csproj") with { Loc = 700, HostedBy = host },
+            Project("src/Plugins/Geo/Geo.csproj", ProjectKind.Web, FrameworkClass.Framework) with { Loc = 300, HostedBy = host }]);
+
+        var report = ReportBuilder.Build(model, [], "Monolith", null);
+
+        Assert.Equal(3, report.Headline.Applications);
+        var web = report.Applications.Single(a => a.Name == "Web");
+        Assert.Equal((ProjectReadiness.Blocked, 5, 3, 6400), (web.Status, web.Closure, web.Remaining, web.RemainingLoc));
+        Assert.Equal(["src/Plugins/Geo/Geo.csproj", "src/Plugins/Tax/Tax.csproj"], web.Hosted);
+        Assert.Equal(["src/Core/Core.csproj", "src/Plugins/Geo/Geo.csproj"], web.Next);
+        Assert.Contains("`src/Web/Web.csproj` (hosts 2)", ReportRenderer.Render(report, ReportFormat.Markdown, null, null), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Frontier_is_ready_projects_most_depended_on_first_and_cycles_never_are()
     {

@@ -25,7 +25,16 @@ public sealed record BinlogData
     /// but what the compiler saw does not compile.
     /// </summary>
     public IReadOnlyList<FailedCompilation> FailedCompilations { get; init; } = [];
+
+    /// <summary>
+    /// Files a project's own build copied its assembly to (an <c>AfterBuild</c> copy into a site's <c>bin</c>, as
+    /// DotNetNuke's modules do), as captured, sorted; the copy to its own output folder included.
+    /// </summary>
+    public IReadOnlyList<AssemblyCopy> AssemblyCopies { get; init; } = [];
 }
+
+/// <summary>A project's build copying its own assembly to <paramref name="Destination"/> (a file path, as captured).</summary>
+public sealed record AssemblyCopy(string ProjectFile, string Destination);
 
 /// <summary>A project and target framework (null when none is known) whose compiler task logged an error.</summary>
 public sealed record FailedCompilation(string ProjectFile, string? TargetFramework);
@@ -52,6 +61,7 @@ public static class BinlogReader
         "MicrosoftCommonPropsHasBeenImported", "ImportDirectoryBuildProps", "DirectoryBuildPropsPath",
         "SignAssembly", "AssemblyOriginatorKeyFile", "DelaySign", "PublicSign",
         "NuGetPackageRoot",
+        "OutDir",
     };
 
     /// <summary>Item types copied from each evaluation.</summary>
@@ -122,8 +132,37 @@ public static class BinlogReader
             SdkVersion = any?.Property("NETCoreSdkVersion"),
             RuntimeIdentifier = any?.Property("NETCoreSdkRuntimeIdentifier"),
             FailedCompilations = FailedCompilations(errors, tfmByEvaluation),
+            AssemblyCopies = AssemblyCopies(build, chosen.Values),
         };
     }
+
+    /// <summary>Copies, by a project's own targets, of a file named after its assembly (<c>Name.dll</c>, <c>Name.exe</c>).</summary>
+    private static List<AssemblyCopy> AssemblyCopies(Build build, IEnumerable<EvaluatedProject> evaluations)
+    {
+        var names = evaluations
+            .Where(e => e.Property("AssemblyName") is not null)
+            .GroupBy(e => e.ProjectFile, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Select(e => e.Property("AssemblyName")!).ToHashSet(StringComparer.OrdinalIgnoreCase), StringComparer.Ordinal);
+        var copies = new List<CopyTask>();
+        build.VisitAllChildren<CopyTask>(copies.Add);
+        return
+        [
+            .. copies
+                .Select(c => (Project: c.GetNearestParent<LoggedProject>()?.ProjectFile, Task: c))
+                .Where(c => c.Project is not null && names.ContainsKey(c.Project))
+                .SelectMany(c => c.Task.FileCopyOperations
+                    .Where(o => o.Destination is not null && IsAssemblyOf(o.Source, names[c.Project!]))
+                    .Select(o => new AssemblyCopy(c.Project!, o.Destination)))
+                .Distinct()
+                .OrderBy(c => c.ProjectFile, StringComparer.Ordinal)
+                .ThenBy(c => c.Destination, StringComparer.Ordinal),
+        ];
+    }
+
+    private static bool IsAssemblyOf(string? file, HashSet<string> assemblyNames) =>
+        file is not null
+        && Path.GetExtension(file).ToLowerInvariant() is ".dll" or ".exe"
+        && assemblyNames.Contains(Path.GetFileNameWithoutExtension(file.Replace('\\', '/')));
 
     private static readonly HashSet<string> CompilerTasks = new(StringComparer.OrdinalIgnoreCase) { "Csc", "Vbc", "Fsc" };
 

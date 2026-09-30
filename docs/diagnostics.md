@@ -89,6 +89,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0201](#ofr0201) | info | graph/report | graph too large for Mermaid |
 | [OFR0202](#ofr0202) | warning | graph/report | ledger file is not a snapshot |
 | [OFR0203](#ofr0203) | info | graph/report | ledger snapshots of another solution left out |
+| [OFR0204](#ofr0204) | info | graph/report | hosted project is part of its host's application |
+| [OFR0205](#ofr0205) | warning | web | web scaffold of a hosted project |
 | [OFR1001](#ofr1001) | error | deps | no package version supports the target |
 | [OFR1002](#ofr1002) | warning | deps | in-use version does not support the target |
 | [OFR1003](#ofr1003) | warning | deps | package deprecated |
@@ -122,6 +124,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR1504](#ofr1504) | warning | deps | stale binding redirect |
 | [OFR1505](#ofr1505) | warning | deps | deployed assembly older than a reference to it |
 | [OFR1506](#ofr1506) | warning | deps | application skipped: partial model |
+| [OFR1507](#ofr1507) | info | deps | hosted project's configuration left alone |
 | [OFR2001](#ofr2001) | warning | move | move would create a project reference cycle |
 | [OFR2002](#ofr2002) | error | move | destination equals source |
 | [OFR2003](#ofr2003) | error | move | project is frozen |
@@ -831,6 +834,24 @@ The ledger holds snapshots of scans of another solution or solution filter than 
 - **Typical cause:** Scanning a solution filter or another solution of the repository (`scan --solution`, or a changed `solution:`), then scanning the main one.
 - **Fix:** Nothing to do; the snapshots stay in the ledger for a report on that solution. Delete them from `report.ledger` if that scan was a one-off.
 
+### OFR0204
+
+**hosted project is part of its host's application** · info · graph/report
+
+The project builds into another web project's folder (its `bin/` or a folder such as `Plugins/<Name>/`) and has no `Global.asax` of its own: the host's application loads it at run time. `report` counts it in the host's application instead of as an application, `plan --for` the host lists it, and `web inventory` names the host.
+
+- **Typical cause:** Plugins, modules, and MVC areas in projects of their own that build into the site: SmartStoreNET's and nopCommerce's plugins, DotNetNuke's modules.
+- **Fix:** Nothing to do. Run `plan --for` or `web scaffold` on the host for the application; set the project's `kind` in `offramp.yml` if it really is an application of its own.
+
+### OFR0205
+
+**web scaffold of a hosted project** · warning · web
+
+The project is hosted by another web project: on its own it serves nothing, so the new application's proxy forwards to the host's URL instead of the project's, and the actions it ports are the hosted project's only.
+
+- **Typical cause:** `web scaffold --project` naming a plugin, module, or area project instead of the site that loads it.
+- **Fix:** Scaffold the host (`web scaffold --project HOST`) to put the whole application behind the new one, or keep this scaffold for the hosted project's routes and check `--legacy-url`.
+
 ### OFR1001
 
 **no package version supports the target** · error · deps
@@ -1127,6 +1148,15 @@ The application, or a project it references, is partial in the workspace model: 
 
 - **Typical cause:** A build that fails outside Windows (letter case, Windows-only steps), or a missing package.
 - **Fix:** Fix the build errors `scan` reported (`OFR0130` and the step diagnostics), run `offramp scan` again, then `offramp redirects sync`.
+
+### OFR1507
+
+**hosted project's configuration left alone** · info · deps
+
+The project is hosted by another web project (it builds into the host's folder and is loaded by the host's application), so the runtime reads the host's `web.config`, never the project's. `redirects sync` leaves the project's configuration file alone and computes the host's redirects with the hosted project's packages.
+
+- **Typical cause:** A plugin, module, or area project with a `web.config` of its own, as Visual Studio's templates create.
+- **Fix:** Nothing to do; run `redirects sync` for the host. The hosted project's binding redirects can be deleted by hand.
 
 ### OFR2001
 

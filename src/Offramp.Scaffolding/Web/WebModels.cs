@@ -119,8 +119,11 @@ public sealed record WebInventoryResult
     /// <summary><c>mvc</c>, <c>webapi</c>, <c>webforms</c>, a combination joined with <c>+</c>, or <c>none</c>.</summary>
     public required string Kind { get; init; }
 
-    /// <summary>The application's URL from the project's IIS settings, else null.</summary>
+    /// <summary>The application's URL from the project's IIS settings (its host's, for a hosted project), else null.</summary>
     public string? Url { get; init; }
+
+    /// <summary>The web project whose application loads this one (ADR 0055), else null.</summary>
+    public string? HostedBy { get; init; }
 
     public IReadOnlyList<WebController> Controllers { get; init; } = [];
 
@@ -192,6 +195,9 @@ public sealed record WebScaffoldResult
 
     /// <summary>The legacy application's URL the proxy forwards to.</summary>
     public string? LegacyUrl { get; init; }
+
+    /// <summary>The web project whose application loads this one (ADR 0055), else null; the proxy forwards to its URL.</summary>
+    public string? HostedBy { get; init; }
 
     public IReadOnlyList<WebPortedController> Controllers { get; init; } = [];
 

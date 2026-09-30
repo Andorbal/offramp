@@ -128,6 +128,9 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   (not pages, not the `HttpApplication`), joined with their `system.web` and
   `system.webServer` registrations; a registration whose class is not in the project is
   listed with `file: null`.
+- A hosted project (`02-workspace-model.md#hosted-projects`) runs inside its host's
+  application: `hostedBy` names the host, `url` is the host's IIS URL, and `OFR0204`
+  (info) says so.
 - `--format json` writes the result alone; `markdown` a document for a migration plan;
   `table` (the default) the terminal view. The envelope (`--json`) carries the same
   result. Schema: `schemas/v1/web-inventory.json`.
@@ -197,6 +200,10 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   endpoint stub answering 501 with the original under `#if OFFRAMP_HTTPHANDLER`, and a
   commented `MapMethods` line: until it is ported, the proxy keeps sending its path to the
   legacy application (`OFR4202`). Web Forms files are `OFR4201`, one per page or control.
+- **Hosted projects.** A plugin, area, or module serves nothing by itself: `hostedBy`
+  names its host, `--legacy-url` defaults to the host's IIS URL, and `OFR0205`
+  (warning) says that only the hosted project's actions are ported and that scaffolding
+  the host puts the whole application behind the new one (ADR 0055).
 - A dry run until `--apply`, which writes through a journal. Schema:
   `schemas/v1/web-scaffold.json`.
 

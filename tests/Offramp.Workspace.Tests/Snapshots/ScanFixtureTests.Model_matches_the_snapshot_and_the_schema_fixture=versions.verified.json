@@ -30,6 +30,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Billing/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -225,6 +226,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Customer.Api/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -354,6 +356,7 @@
       ],
       "frameworkClass": "modern",
       "outputType": "Exe",
+      "outputPath": "src/Modern.App/bin/Debug/net10.0",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -501,6 +504,7 @@
       ],
       "frameworkClass": "framework",
       "outputType": "Library",
+      "outputPath": "src/Reporting/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -734,6 +738,7 @@
       ],
       "frameworkClass": "standard",
       "outputType": "Library",
+      "outputPath": "src/Shared/bin/Debug/netstandard2.0",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",

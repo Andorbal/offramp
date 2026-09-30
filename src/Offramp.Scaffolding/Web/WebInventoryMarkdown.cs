@@ -11,7 +11,7 @@ public static class WebInventoryMarkdown
         var culture = CultureInfo.InvariantCulture;
         var builder = new StringBuilder();
         builder.Append(culture, $"# Web inventory: {result.Project}\n\n");
-        builder.Append(culture, $"Kind: {result.Kind}. URL: {result.Url ?? "unknown"}.\n\n");
+        builder.Append(culture, $"Kind: {result.Kind}. URL: {result.Url ?? "unknown"}.{(result.HostedBy is { } host ? $" Hosted by {host}: it runs inside that application." : "")}\n\n");
 
         builder.Append("## Controllers\n\n| Controller | Kind | Action | Methods | Routes | Filters |\n|---|---|---|---|---|---|\n");
         foreach (var controller in result.Controllers)

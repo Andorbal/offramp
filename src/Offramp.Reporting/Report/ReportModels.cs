@@ -47,7 +47,7 @@ public sealed record ReportApplication
     /// <summary>done: nothing framework-only in its closure; ready: only the application itself remains; blocked: otherwise.</summary>
     public required ProjectReadiness Status { get; init; }
 
-    /// <summary>The application and every project it depends on.</summary>
+    /// <summary>The application, the projects it hosts, and every project they depend on.</summary>
     public required int Closure { get; init; }
 
     /// <summary>Framework-only projects in the closure, the application included.</summary>
@@ -57,6 +57,9 @@ public sealed record ReportApplication
 
     /// <summary>Framework-only projects in the closure that can be ported today, sorted.</summary>
     public required IReadOnlyList<string> Next { get; init; }
+
+    /// <summary>The projects the application hosts (its plugins, areas, and modules), sorted (ADR 0055).</summary>
+    public IReadOnlyList<string> Hosted { get; init; } = [];
 }
 
 /// <summary>A framework-only project that can be ported today, and how many projects depend on it.</summary>

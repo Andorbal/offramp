@@ -123,6 +123,7 @@
     "project": "src/Shop.Web/Shop.Web.csproj",
     "kind": "mvc+webapi+webforms",
     "url": "http://localhost:51234/",
+    "hostedBy": null,
     "controllers": [
       {
         "name": "DashboardController",

@@ -23,6 +23,10 @@ public static class ReportText
         };
     }
 
+    /// <summary>" (hosts 13)" for an application that hosts projects (its plugins, areas, modules), else "".</summary>
+    public static string Hosts(ReportApplication application) =>
+        application.Hosted.Count == 0 ? "" : " (hosts " + application.Hosted.Count.ToString(CultureInfo.InvariantCulture) + ")";
+
     /// <summary>The summary paragraph without a model: the headline numbers in one sentence.</summary>
     public static string Summary(ReportData report)
     {

@@ -90,11 +90,22 @@
         "language": { "enum": ["csharp", "vb", "fsharp", "other"] },
         "kind": { "$ref": "#/$defs/kind" },
         "kindEvidence": { "type": ["string", "null"] },
+        "hostedBy": {
+          "description": "The web project whose application loads this one at run time: its output folder lies inside that project's folder, outside its own (docs/decisions/0055-hosted-projects-belong-to-their-host.md). Absent when none.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["project", "evidence"],
+          "properties": {
+            "project": { "$ref": "#/$defs/relativePath" },
+            "evidence": { "type": "array", "items": { "type": "string" } }
+          }
+        },
         "sdkStyle": { "type": "boolean" },
         "sdk": { "type": ["string", "null"] },
         "targetFrameworks": { "type": "array", "items": { "type": "string" } },
         "frameworkClass": { "$ref": "#/$defs/frameworkClass" },
         "outputType": { "type": ["string", "null"] },
+        "outputPath": { "$ref": "#/$defs/relativePath", "description": "The folder the build writes the assembly to (OutDir), repository-relative without a trailing slash, for the .NET Framework target when there is one; absent when outside the repository or unknown." },
         "isTestProject": { "type": "boolean" },
         "properties": { "type": "object", "additionalProperties": { "type": "string" } },
         "defineConstants": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },

@@ -63,7 +63,9 @@ public static class WebInventory
         {
             Project = project.Id,
             Kind = kinds.Count == 0 ? "none" : string.Join('+', kinds),
-            Url = IisUrl(root, project.Id),
+            // A hosted project serves nothing by itself: its URL is its host's (ADR 0055).
+            Url = IisUrl(root, project.HostedBy?.Project ?? project.Id),
+            HostedBy = project.HostedBy?.Project,
             Controllers = controllers,
             Routes = routes,
             AttributeRouting = attributeRouting,

@@ -30,6 +30,7 @@
       ],
       "frameworkClass": "standard",
       "outputType": "Library",
+      "outputPath": "src/Contracts/bin/Debug/netstandard2.0",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -100,6 +101,7 @@
       ],
       "frameworkClass": "dual",
       "outputType": "Library",
+      "outputPath": "src/Shared/bin/Debug/net48",
       "isTestProject": false,
       "properties": {
         "IsPackable": "true",
@@ -241,6 +243,7 @@
       ],
       "frameworkClass": "modern",
       "outputType": "Exe",
+      "outputPath": "src/Tool/bin/Debug/net10.0",
       "isTestProject": false,
       "properties": {
         "ImplicitUsings": "enable",

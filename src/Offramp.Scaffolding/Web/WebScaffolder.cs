@@ -76,6 +76,7 @@ public static class WebScaffolder
             Proxy = request.Proxy,
             Adapters = request.Adapters,
             LegacyUrl = legacyUrl,
+            HostedBy = inventory.HostedBy,
         };
 
         var target = RepoPaths.ToAbsolute(root, directory);
@@ -83,6 +84,13 @@ public static class WebScaffolder
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR4204, $"{directory} already has files; nothing was generated.", new DiagnosticLocation(project.Id, directory));
             return null;
+        }
+
+        if (inventory.HostedBy is { } host)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR0205,
+                $"{project.Id} is hosted by {host} and serves nothing by itself: the proxy forwards to {legacyUrl}, and only its own actions are ported; `web scaffold --project {host}` puts the whole application behind the new one.",
+                new DiagnosticLocation(project.Id));
         }
 
         var systemWebFiles = inventory.SystemWeb.Select(s => s.File).ToHashSet(StringComparer.Ordinal);

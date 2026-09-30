@@ -9,7 +9,8 @@
   "properties": {
     "project": { "$ref": "workspace.json#/$defs/relativePath" },
     "kind": { "type": "string", "pattern": "^(none|(mvc|webapi|webforms)(\\+(mvc|webapi|webforms))*)$", "description": "mvc, webapi, webforms, a combination joined with +, or none." },
-    "url": { "type": ["string", "null"], "description": "The application's URL from the project's IIS settings." },
+    "url": { "type": ["string", "null"], "description": "The application's URL from the project's IIS settings (its host's, for a hosted project)." },
+    "hostedBy": { "type": ["string", "null"], "description": "The web project whose application loads this one (ADR 0055), else null." },
     "controllers": {
       "type": "array",
       "items": {
