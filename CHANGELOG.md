@@ -36,6 +36,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   NHibernate.DomainModel waiting on it.
 - `OFR3505` (info): `audit api-compat --baseline` copied git-ignored files the working tree
   compiles, which no revision has, into the baseline's work tree.
+- `OFR4407` (warning): `config convert` knows the sections .NET Framework's `machine.config`
+  declares, which a configuration file uses without declaring them, and names the code that
+  replaces each on .NET (ADR 0060): `system.net` (the HttpClient handler's connection limit and
+  proxy, SmtpClient), `system.data` (`DbProviderFactories.RegisterFactory`), `system.transactions`,
+  `system.runtime.caching`, and others. The ones .NET has nothing for (`system.codedom`, `uri`, ...)
+  are dropped with a note, and `system.web.extensions` is `OFR4403` like `system.web`.
 - `OFR4031` (warning): `seams` proposes no extraction when it would take more than a quarter of
   the project's types (and more than 10), and lists the types that use unportable APIs themselves,
   to fence instead (ADR 0053). `OFR4032` (info): an API `audit api` reports missing (`OFR3001`)
@@ -206,6 +212,15 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   does, and the baseline gets Offramp's compile-only sections and the git-ignored files the working
   tree compiles, named by `OFR3505` (ADR 0058). On NHibernate `--baseline 4.1.1.GA` now exits 0 in
   46 s (no public API difference), with `OFR3505` naming `src/SharedAssemblyInfo.cs`.
+- `config convert` said "bundleTransformer is left out: it is not declared in configSections"
+  (`OFR4401`) on SmartStoreNET 4.2's `Web.config`, where `bundleTransformer` is a `<sectionGroup>`:
+  the declared sections were keyed by their own names and looked up by the group's. A group's
+  element is now converted section by section under the group's key (`BundleTransformer:Core`,
+  `--sections` takes the group's name), and a section's elements are found also when the section
+  sets an `xmlns` (for the editor's schema, as `bundleTransformer` does). On SmartStoreNET the four
+  BundleTransformer sections convert (33 values; their 8 element collections are `OFR4401`).
+  `system.net`, `system.data` and `system.codedom` got the same "not declared" message: they are
+  machine.config sections, now `OFR4407` (the first two) and dropped with a note.
 - `seams` on NHibernate 4.1.2 tainted 1,445 of 2,355 types and proposed moving them all to
   `NHibernate.Windows`, with 13 seams unrelated to the unportable APIs, in 14.6 MB of JSON. The
   cycles that move together were the components of every reference, calls included, which put 7

@@ -259,6 +259,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4404](#ofr4404) | warning | config convert | config transform not expressible as overrides |
 | [OFR4405](#ofr4405) | error | config convert | no configuration file |
 | [OFR4406](#ofr4406) | error | config convert | output file exists |
+| [OFR4407](#ofr4407) | warning | config convert | framework setting made in code on .NET |
 | [OFR4501](#ofr4501) | info | codemod | codemod site skipped |
 | [OFR4502](#ofr4502) | error | codemod | unknown codemod |
 | [OFR4503](#ofr4503) | error | codemod | codemod is experimental |
@@ -2365,6 +2366,15 @@ A file `config convert` would write (appsettings.json, an environment file, the 
 
 - **Typical cause:** A second run, or a project that already has appsettings.json.
 - **Fix:** Write to another folder with --out, or move the existing file aside and merge by hand.
+
+### OFR4407
+
+**framework setting made in code on .NET** · warning · config convert
+
+The section is one that .NET Framework declares in machine.config and reads for itself (`system.net`, `system.data`, `system.transactions`, `system.runtime.caching`, ...). .NET reads none of them from a configuration file: the same settings are properties and registration calls. The section is left out of appsettings.json, and the message names the code that replaces it.
+
+- **Typical cause:** Connection limits and proxies (`system.net`), ADO.NET provider registrations (`system.data` DbProviderFactories), transaction timeouts, Windows Identity Foundation.
+- **Fix:** Make the setting in code at startup, as the message says; keep the values in appsettings.json and read them there if they differ between environments.
 
 ### OFR4501
 

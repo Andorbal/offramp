@@ -76,7 +76,8 @@ public static class ConfigConverter
         }
 
         var document = XDocument.Load(RepoPaths.ToAbsolute(root, source));
-        var context = new Context(request, source, SectionTypes(document.Root!));
+        var (sectionTypes, sectionGroups) = Declared(document.Root!);
+        var context = new Context(request, source, sectionTypes, sectionGroups);
         var json = new JsonObject();
         foreach (var element in document.Root!.Elements())
         {
@@ -146,6 +147,12 @@ public static class ConfigConverter
     private static void Convert(Context context, XElement element, JsonObject json)
     {
         var name = element.Name.LocalName;
+        if (context.SectionGroups.Contains(name))
+        {
+            Group(context, element, name, json, context.Includes("custom") || context.Includes(name));
+            return;
+        }
+
         switch (name)
         {
             case "configSections":
@@ -174,7 +181,7 @@ public static class ConfigConverter
                 context.Request.Diagnostics.Report(DiagnosticCatalog.OFR4402, $"{context.Source}: system.serviceModel is not converted; configure WCF clients in code and move services to CoreWCF.", new DiagnosticLocation(context.Request.Project.Id, context.Source));
                 context.Sections.Add(new ConvertedSection { Name = name, Kind = "unsupported", Notes = ["WCF configuration (OFR4402)."] });
                 return;
-            case "system.web" or "system.webServer":
+            case "system.web" or "system.webServer" or "system.web.extensions":
                 context.Request.Diagnostics.Report(DiagnosticCatalog.OFR4403, $"{context.Source}: {name} belongs to the web migration (`offramp web scaffold`).", new DiagnosticLocation(context.Request.Project.Id, context.Source));
                 context.Sections.Add(new ConvertedSection { Name = name, Kind = "dropped", Notes = ["ASP.NET and IIS settings (OFR4403)."] });
                 return;
@@ -185,6 +192,12 @@ public static class ConfigConverter
 
         if (!context.SectionTypes.TryGetValue(name, out var type))
         {
+            if (MachineSections.Find(name) is { } framework)
+            {
+                FrameworkSection(context, name, framework);
+                return;
+            }
+
             context.Sections.Add(new ConvertedSection { Name = name, Kind = "unsupported", Notes = ["Not declared in configSections."] });
             Unsupported(context, name, "it is not declared in configSections");
             return;
@@ -195,7 +208,49 @@ public static class ConfigConverter
             return;
         }
 
-        CustomSection(context, element, type, json);
+        CustomSection(context, element, name, Templates.Pascal(name), type, json);
+    }
+
+    /// <summary>
+    /// A section group's element: each section in it is converted under the group's key
+    /// (<c>bundleTransformer/core</c> → <c>BundleTransformer:Core</c>), nested groups likewise.
+    /// </summary>
+    private static void Group(Context context, XElement element, string path, JsonObject json, bool included)
+    {
+        var values = new JsonObject();
+        var key = JsonPath(path);
+        foreach (var child in element.Elements())
+        {
+            var name = path + "/" + child.Name.LocalName;
+            if (context.SectionGroups.Contains(name))
+            {
+                Group(context, child, name, values, included || context.Includes(name));
+            }
+            else if (!context.SectionTypes.TryGetValue(name, out var type))
+            {
+                context.Sections.Add(new ConvertedSection { Name = name, Kind = "unsupported", Notes = [$"Not declared in the {path} section group."] });
+                Unsupported(context, name, $"it is not declared in the {path} section group");
+            }
+            else if (included || context.Includes(name))
+            {
+                CustomSection(context, child, name, key + ":" + Templates.Pascal(child.Name.LocalName), type, values);
+            }
+        }
+
+        if (values.Count > 0)
+        {
+            json[Templates.Pascal(element.Name.LocalName)] = values;
+        }
+    }
+
+    /// <summary>A section .NET Framework declares in machine.config: dropped, or configured in code on .NET (OFR4407).</summary>
+    private static void FrameworkSection(Context context, string name, MachineSection section)
+    {
+        context.Sections.Add(new ConvertedSection { Name = name, Kind = section.InCode ? "unsupported" : "dropped", Notes = [section.Note] });
+        if (section.InCode)
+        {
+            context.Request.Diagnostics.Report(DiagnosticCatalog.OFR4407, $"{context.Source}: {name} is not converted: {section.Note}", new DiagnosticLocation(context.Request.Project.Id, context.Source));
+        }
     }
 
     private static void AppSettings(Context context, XElement element, JsonObject json)
@@ -253,17 +308,16 @@ public static class ConfigConverter
         context.Sections.Add(new ConvertedSection { Name = "connectionStrings", Kind = "connectionStrings", JsonKey = "ConnectionStrings", Values = strings.Count, Notes = notes });
     }
 
-    private static void CustomSection(Context context, XElement element, string type, JsonObject json)
+    /// <summary>A declared section: <paramref name="name"/> is its path in the file, <paramref name="key"/> its configuration key (<c>Group:Section</c>).</summary>
+    private static void CustomSection(Context context, XElement element, string name, string key, string type, JsonObject json)
     {
-        var name = element.Name.LocalName;
-        var key = Templates.Pascal(name);
         var typeName = type.Split(',')[0].Trim();
         if (DictionaryHandlers.TryGetValue(typeName, out var shape))
         {
             var values = new JsonObject();
             if (shape == "add")
             {
-                foreach (var add in element.Elements("add"))
+                foreach (var add in element.Elements().Where(e => e.Name.LocalName == "add"))
                 {
                     if (add.Attribute("key")?.Value is { Length: > 0 } itemKey)
                     {
@@ -279,7 +333,7 @@ public static class ConfigConverter
                 }
             }
 
-            json[key] = values;
+            json[key.Split(':')[^1]] = values;
             context.Sections.Add(new ConvertedSection { Name = name, Kind = "custom", JsonKey = key, Values = values.Count, Notes = [$"{typeName}: a dictionary; read it with GetSection(\"{key}\")."] });
             return;
         }
@@ -294,7 +348,7 @@ public static class ConfigConverter
         var schema = SectionSchema.From(symbol);
         var notes = new List<string>();
         var value = Element(context, name, element, schema, notes);
-        json[key] = value;
+        json[key.Split(':')[^1]] = value;
         context.Schemas.Add((key, schema));
         context.SectionSchemas[name] = (key, schema);
         context.Sections.Add(new ConvertedSection { Name = name, Kind = "custom", JsonKey = key, Options = schema.OptionsName, Values = Count(value), Notes = notes });
@@ -321,10 +375,10 @@ public static class ConfigConverter
                     }
 
                     break;
-                case SettingKind.Element when element.Element(property.XmlName) is { } child:
+                case SettingKind.Element when Child(element, property.XmlName) is { } child:
                     result[property.Name] = Element(context, where, child, property.Element!, notes);
                     break;
-                case SettingKind.Unsupported when element.Attribute(property.XmlName) is not null || element.Element(property.XmlName) is not null:
+                case SettingKind.Unsupported when element.Attribute(property.XmlName) is not null || Child(element, property.XmlName) is not null:
                     notes.Add($"{where}: {property.Reason}");
                     Unsupported(context, where, property.Reason!.TrimEnd('.'));
                     break;
@@ -333,6 +387,13 @@ public static class ConfigConverter
 
         return result;
     }
+
+    /// <summary>
+    /// A child element by its local name: a section's <c>xmlns</c> (there for the editor's schema,
+    /// as in <c>&lt;bundleTransformer xmlns="..."&gt;</c>) puts its elements in a namespace that
+    /// .NET's configuration system ignores.
+    /// </summary>
+    private static XElement? Child(XElement element, string name) => element.Elements().FirstOrDefault(e => e.Name.LocalName == name);
 
     /// <summary>A parsed setting as a JSON value.</summary>
     public static JsonValue Value(object parsed) => parsed switch
@@ -401,33 +462,64 @@ public static class ConfigConverter
             .FirstOrDefault();
     }
 
-    /// <summary>Section name → type, from configSections (sections in groups by their element name).</summary>
-    private static Dictionary<string, string> SectionTypes(XElement configuration)
+    /// <summary>
+    /// What configSections declares: section path → type, and the section groups' paths. A
+    /// section in a group is keyed by its path (<c>bundleTransformer/core</c>), as its element
+    /// is found under the group's element.
+    /// </summary>
+    private static (Dictionary<string, string> Sections, HashSet<string> Groups) Declared(XElement configuration)
     {
-        var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var section in configuration.Element("configSections")?.Descendants("section") ?? [])
+        var sections = new Dictionary<string, string>(StringComparer.Ordinal);
+        var groups = new HashSet<string>(StringComparer.Ordinal);
+        if (configuration.Element("configSections") is { } declarations)
         {
-            if (section.Attribute("name")?.Value is { Length: > 0 } name && section.Attribute("type")?.Value is { Length: > 0 } type)
-            {
-                result[name] = type;
-            }
+            Declared(declarations, "", sections, groups);
         }
 
-        return result;
+        return (sections, groups);
     }
+
+    private static void Declared(XElement parent, string prefix, Dictionary<string, string> sections, HashSet<string> groups)
+    {
+        foreach (var child in parent.Elements())
+        {
+            if (child.Attribute("name")?.Value is not { Length: > 0 } name)
+            {
+                continue;
+            }
+
+            var path = prefix + name;
+            if (child.Name.LocalName == "section" && child.Attribute("type")?.Value is { Length: > 0 } type)
+            {
+                sections[path] = type;
+            }
+            else if (child.Name.LocalName == "sectionGroup")
+            {
+                groups.Add(path);
+                Declared(child, path + "/", sections, groups);
+            }
+        }
+    }
+
+    /// <summary>A section or group path as a configuration key: <c>bundleTransformer/core</c> → <c>BundleTransformer:Core</c>.</summary>
+    private static string JsonPath(string path) => string.Join(':', path.Split('/').Select(Templates.Pascal));
 
     private static int Count(JsonObject value) => value.Sum(p => p.Value is JsonObject nested ? Count(nested) : 1);
 
     private static string Join(string directory, string file) => directory.Length == 0 ? file : directory + "/" + file;
 
     /// <summary>Per-run state.</summary>
-    public sealed class Context(ConfigConvertRequest request, string source, Dictionary<string, string> sectionTypes)
+    public sealed class Context(ConfigConvertRequest request, string source, Dictionary<string, string> sectionTypes, HashSet<string> sectionGroups)
     {
         public ConfigConvertRequest Request { get; } = request;
 
         public string Source { get; } = source;
 
+        /// <summary>Declared sections by path (<c>group/section</c> for a section in a group).</summary>
         public Dictionary<string, string> SectionTypes { get; } = sectionTypes;
+
+        /// <summary>Declared section groups by path.</summary>
+        public HashSet<string> SectionGroups { get; } = sectionGroups;
 
         public List<ConvertedSection> Sections { get; } = [];
 

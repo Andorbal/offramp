@@ -345,10 +345,17 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   their JSON type; nested elements become objects; an element collection, a custom
   `TypeConverter`, or a value that does not parse is `OFR4401` and left out. Each section
   gets an options class (`NameOptions`, a class with setters so it binds on every target).
-- `system.serviceModel` is `OFR4402`, `system.web`/`system.webServer` `OFR4403`;
-  `runtime`, `startup`, and `system.diagnostics` are dropped with a note; any other
-  section not declared in `configSections`, or whose class is not in the solution, is
-  `OFR4401`.
+- `system.serviceModel` is `OFR4402`, `system.web`/`system.webServer`/`system.web.extensions`
+  `OFR4403`; `runtime`, `startup`, and `system.diagnostics` are dropped with a note. A
+  section group is converted section by section under nested keys (`bundleTransformer/core`
+  → `BundleTransformer:Core`), and `--sections` takes a group's name (ADR 0060); elements
+  are matched by local name, so a section's `xmlns` does not hide them. The
+  sections machine.config declares are known without a declaration: the ones whose settings
+  .NET makes in code (`system.net`, `system.data`, `system.transactions`,
+  `system.runtime.caching`, ...) are `OFR4407`, with the code that replaces them; the ones
+  .NET has nothing for (`system.codedom`, `system.xml.serialization`, `uri`, ...) are dropped
+  with a note. Any other section not declared in `configSections`, or whose class is not in
+  the solution, is `OFR4401`.
 - Transforms: `SetAttributes`, `Replace`, and `Insert` of `appSettings` and
   `connectionStrings` entries located by key or name, and `SetAttributes`/`Replace` on a
   converted custom section, become overrides in `appsettings.{Environment}.json`; the

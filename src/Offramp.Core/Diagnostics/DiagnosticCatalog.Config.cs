@@ -51,4 +51,12 @@ public static partial class DiagnosticCatalog
         "A second run, or a project that already has appsettings.json.",
         "Write to another folder with --out, or move the existing file aside and merge by hand.",
         ConfigConvertArea);
+
+    public static readonly DiagnosticDescriptor OFR4407 = new(
+        "OFR4407", Severity.Warning,
+        "framework setting made in code on .NET",
+        "The section is one that .NET Framework declares in machine.config and reads for itself (`system.net`, `system.data`, `system.transactions`, `system.runtime.caching`, ...). .NET reads none of them from a configuration file: the same settings are properties and registration calls. The section is left out of appsettings.json, and the message names the code that replaces it.",
+        "Connection limits and proxies (`system.net`), ADO.NET provider registrations (`system.data` DbProviderFactories), transaction timeouts, Windows Identity Foundation.",
+        "Make the setting in code at startup, as the message says; keep the values in appsettings.json and read them there if they differ between environments.",
+        ConfigConvertArea);
 }
