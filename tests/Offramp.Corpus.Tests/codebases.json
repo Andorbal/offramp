@@ -8,5 +8,35 @@
     "solution": "DNN_Platform.sln",
     "timeoutMinutes": 120,
     "fieldTest": "docs/field-tests/2026-09-dnn-platform-9.13.10.md"
+  },
+  {
+    "name": "nhibernate",
+    "title": "NHibernate 4.1.2",
+    "repository": "https://github.com/nhibernate/nhibernate-core.git",
+    "commit": "4847062e1ecf729c610f1aa5bf14f39f9b4125f7",
+    "ref": "4.1.2.GA",
+    "solution": "src/NHibernate.sln",
+    "timeoutMinutes": 60,
+    "fieldTest": "docs/field-tests/2026-09-nhibernate-4.1.2.md"
+  },
+  {
+    "name": "smartstore",
+    "title": "SmartStoreNET 4.2.0",
+    "repository": "https://github.com/smartstore/SmartStoreNET.git",
+    "commit": "626ce90f4d3d5f0828be8eb781eec3d39273cd75",
+    "ref": "4.2.0",
+    "solution": "src/SmartStoreNET.sln",
+    "timeoutMinutes": 80,
+    "fieldTest": "docs/field-tests/2026-09-smartstorenet-4.2.0.md"
+  },
+  {
+    "name": "olw",
+    "title": "Open Live Writer 0.6.3 (master)",
+    "repository": "https://github.com/OpenLiveWriter/OpenLiveWriter.git",
+    "commit": "1f7fbca359d9cfa5502466b360b016cc8b8b9d80",
+    "ref": "master (0.6.3.0)",
+    "solution": "src/managed/writer.sln",
+    "timeoutMinutes": 80,
+    "fieldTest": "docs/field-tests/2026-09-open-live-writer-0.6.3.md"
   }
 ]
