@@ -57,20 +57,28 @@ public static class TargetSupport
             return evidence;
         }
 
-        return WindowsNativeOnly(package) is { } native ? $"{native}: native code for Windows only" : null;
+        return WindowsRuntimeOnly(package) is { } file
+            ? $"{file}: {(PackageInspector.IsNativeAsset(file) ? "native code" : "code")} for Windows only"
+            : null;
     }
 
     /// <summary>
-    /// The first native asset of a package without managed assemblies whose native assets are all
-    /// for Windows runtime identifiers (<c>win</c>, <c>win-x64</c>, <c>win10-arm64</c>, ...); null otherwise.
+    /// For a package with nothing portable (no <c>lib/</c> or <c>ref/</c> assemblies) whose
+    /// runtime-specific files (<c>runtimes/&lt;rid&gt;/native/</c> and <c>runtimes/&lt;rid&gt;/lib/</c>) are all
+    /// for Windows runtime identifiers (<c>win</c>, <c>win-x64</c>, <c>win10-arm64</c>, ...): the first of
+    /// them, native code first. Null otherwise.
     /// </summary>
-    public static string? WindowsNativeOnly(PackageInspection package) =>
-        !HasAssemblies(package) && package.NativeAssets.Count > 0 && package.NativeAssets.All(IsWindowsRuntime)
-            ? package.NativeAssets.Order(StringComparer.Ordinal).First()
-            : null;
+    public static string? WindowsRuntimeOnly(PackageInspection package)
+    {
+        var portable = package.Assemblies.Any(a => a.Path.StartsWith("lib/", StringComparison.OrdinalIgnoreCase) || a.Path.StartsWith("ref/", StringComparison.OrdinalIgnoreCase));
+        var runtime = package.NativeAssets.Order(StringComparer.Ordinal)
+            .Concat(package.Assemblies.Where(a => a.Path.StartsWith("runtimes/", StringComparison.OrdinalIgnoreCase)).Select(a => a.Path).Order(StringComparer.Ordinal))
+            .ToList();
+        return !portable && runtime.Count > 0 && runtime.All(IsWindowsRuntime) ? runtime[0] : null;
+    }
 
-    private static bool IsWindowsRuntime(string nativeAsset) =>
-        nativeAsset.Split('/') is [_, var rid, ..] && rid.StartsWith("win", StringComparison.OrdinalIgnoreCase);
+    private static bool IsWindowsRuntime(string runtimeAsset) =>
+        runtimeAsset.Split('/') is [_, var rid, ..] && rid.StartsWith("win", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The dependencies NuGet would use for <paramref name="target"/>: the nearest group's, or none.</summary>
     public static IReadOnlyList<InspectedDependency> Dependencies(PackageInspection package, NuGetFramework target)

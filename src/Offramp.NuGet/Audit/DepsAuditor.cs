@@ -197,7 +197,7 @@ public static class DepsAuditor
         // Build or tools scripts only (Microsoft.Bcl.Build): "ok" only because there is nothing to judge; the package map knows better.
         var emptyReplaced = inUseHasNothing && replacement is not null;
         var status = emptyReplaced && available.Found ? PackageStatus.Replace : Status(available, supportsInUse, newestSupporting, replacement);
-        var forOtherSystems = windowsEvidence is not null && inspections.Values.Any(i => i is not null && TargetSupport.WindowsNativeOnly(i) is not null)
+        var forOtherSystems = windowsEvidence is not null && inspections.Values.Any(i => i is not null && TargetSupport.WindowsRuntimeOnly(i) is not null)
             ? await OtherSystemsPackageAsync(request, id, cancellationToken)
             : null;
 

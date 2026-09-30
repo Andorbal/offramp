@@ -441,7 +441,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   to do about it, and `System.Web.Services` used only as a SOAP client maps to a WCF client
   (`System.ServiceModel.Http`, dotnet-svcutil).
 - `deps audit` finds Windows-only packages by what their code calls (ADR 0046): a P/Invoke into a
-  library only Windows has, or a `[ComImport]` type, is `OFR1004` evidence. On Open Live Writer,
+  library only Windows has, or a `[ComImport]` class, is `OFR1004` evidence. On Open Live Writer,
   DeltaCompressionDotNet 2.0.1 (its netstandard2.0 DLL calls msdelta.dll and mspatcha.dll) and
   PlatformSpellCheck 1.1.0 (a Windows COM API) were not Windows-only. A package whose versions in
   use have nothing for any framework is `replace` when the package map names a successor (new
@@ -489,7 +489,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   the result has `match` and the DLL's `fileVersion`. An exact unlisted version counts (log4net
   1.2.10), an unsigned DLL is matched only by its file, not by the package id alone (`OFR1403`),
   and `--apply` keeps a `Reference`'s condition and its item group's: NHibernate's Debug-only
-  Antlr3.Runtime and Remotion.Linq references became unconditional.
+  Antlr3.Runtime and Remotion.Linq references became unconditional. A file or informational
+  version that only repeats the assembly version (a default such as `1.0.0.0`) is no evidence.
+  On NHibernate's 15 references: 12 are now the same file as a package's (Iesi.Collections
+  4.0.1.4000, log4net 1.2.10, NUnit 2.6.1, Antlr 3.5.0.2, ...), FirebirdSql.Data.FirebirdClient
+  2.6.5 an upgrade, System.Data.SqlServerCe the closest build, and the unsigned
+  System.Linq.Dynamic is no longer taken for the package of that name (it is a .NET Framework
+  blocker, `OFR1404`).
 - `deps audit` no longer proposes a version without assemblies, or an older one, as an upgrade
   (ADR 0046). On SmartStoreNET 4.2 it told the user to "upgrade" EntityFramework.SqlServerCompact
   6.4.4 to 4.3.1, a release with only content transforms and an install script; the package is

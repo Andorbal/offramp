@@ -290,7 +290,11 @@ public sealed class DllResolverTests
         Dll(Log4Net1210);
         Dll(new RecordedAssembly { Name = "Antlr3.Runtime", Version = "3.5.0.2", PublicKey = AntlrKey, FileVersion = "3.5.0.2" });
         Dll(new RecordedAssembly { Name = "FirebirdSql.Data.FirebirdClient", Version = "2.5.2.0", PublicKey = FirebirdKey, FileVersion = "2.5.2.0" });
-        Dll(new RecordedAssembly { Name = "System.Linq.Dynamic", Version = "1.0.0.0" });
+        // Unsigned, with the default file version, which the package's DLL has too: that is no evidence.
+        Dll(new RecordedAssembly
+        {
+            Name = "System.Linq.Dynamic", Version = "1.0.0.0", FileVersion = "1.0.0.0", References = [new RecordedAssemblyReference("System.Core", "4.0.0.0", "b77a5c561934e089")],
+        });
         repository.Write("src/Lib/Lib.csproj", """
             <?xml version="1.0" encoding="utf-8"?>
             <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">

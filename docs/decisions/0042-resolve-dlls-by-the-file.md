@@ -24,7 +24,10 @@ versions that ship the same assembly version, nor what to do with conditions.
   facts. Candidates rank `identical` (same SHA-256), `fileVersion`, `informationalVersion`,
   `assemblyVersion` (today's rule, worded "the closest build"), then `newer` ("an
   upgrade"). A listed version beats an unlisted one within a rank, then the lower version.
-  The result's `match` and `OFR1402`'s wording carry the rank.
+  The result's `match` and `OFR1402`'s wording carry the rank. A file or informational version
+  that only repeats the assembly version (the compiler's defaults, `1.0.0.0`, or `4.0` for
+  4.0.0.0) is no evidence: on NHibernate it would have matched the unsigned System.Linq.Dynamic
+  by a default file version, and System.Data.SqlServerCe by the informational version "4.0".
 - **Unlisted versions** are candidates when they ship the referenced assembly version, never
   as an upgrade: a checked-in DLL is often of a version its authors unlisted later, and
   restore accepts an exact unlisted version.

@@ -24,13 +24,14 @@ public static class PackageInspector
 
     /// <summary>
     /// Native libraries that exist only on Windows and that portable code does not call behind an
-    /// operating-system check the way it calls kernel32, ntdll, advapi32, or the C runtime: calling
-    /// one by P/Invoke makes an assembly Windows-only (DeltaCompressionDotNet calls msdelta.dll).
+    /// operating-system check the way it calls kernel32, ntdll, advapi32, the COM runtime (ole32,
+    /// oleaut32; ClearScript), or the C runtime: calling one by P/Invoke makes an assembly
+    /// Windows-only (DeltaCompressionDotNet calls msdelta.dll).
     /// </summary>
     public static readonly IReadOnlySet<string> WindowsOnlyLibraries = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "comctl32", "comdlg32", "credui", "cfgmgr32", "dwmapi", "gdi32", "gdiplus", "hid", "imm32", "mpr", "msdelta", "msi",
-        "mspatcha", "netapi32", "odbc32", "ole32", "oleacc", "oleaut32", "powrprof", "setupapi", "shell32", "shlwapi",
+        "mspatcha", "netapi32", "odbc32", "oleacc", "powrprof", "setupapi", "shell32", "shlwapi",
         "urlmon", "user32", "uxtheme", "wevtapi", "winhttp", "wininet", "winmm", "winscard", "winspool.drv", "wintrust",
         "wlanapi", "wtsapi32",
     };
@@ -194,7 +195,7 @@ public static class PackageInspector
                 return $"calls {library}{(library.Contains('.', StringComparison.Ordinal) ? "" : ".dll")} (P/Invoke)";
             }
 
-            return ComImportTypes(metadata).FirstOrDefault() is { } com ? $"declares COM type {com} ([ComImport])" : null;
+            return ComClasses(metadata).FirstOrDefault() is { } com ? $"creates the COM class {com} ([ComImport])" : null;
         }
         catch (BadImageFormatException)
         {
@@ -227,11 +228,15 @@ public static class PackageInspector
         return [.. libraries];
     }
 
-    /// <summary>The full names of the types the assembly declares with <c>[ComImport]</c>, sorted.</summary>
-    private static List<string> ComImportTypes(MetadataReader metadata) =>
+    /// <summary>
+    /// The full names of the classes the assembly declares with <c>[ComImport]</c> (coclasses, which
+    /// create a registered Windows component), sorted. A <c>[ComImport]</c> interface alone is not
+    /// evidence: portable libraries declare them for code they guard (EPPlus's IEnumSTATSTG).
+    /// </summary>
+    private static List<string> ComClasses(MetadataReader metadata) =>
         [.. metadata.TypeDefinitions
             .Select(metadata.GetTypeDefinition)
-            .Where(t => (t.Attributes & System.Reflection.TypeAttributes.Import) != 0)
+            .Where(t => (t.Attributes & System.Reflection.TypeAttributes.Import) != 0 && (t.Attributes & System.Reflection.TypeAttributes.Interface) == 0)
             .Select(t => (metadata.GetString(t.Namespace) is { Length: > 0 } ns ? ns + "." : "") + metadata.GetString(t.Name))
             .Order(StringComparer.Ordinal)];
 

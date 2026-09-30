@@ -38,14 +38,16 @@ For a package version and a target framework:
    `windowsOnly: true`. `Microsoft.Win32.Registry` does not: it ships with .NET
    on every OS, and libraries reference it for code they guard. A P/Invoke into
    a library that exists only on Windows marks the version too (`user32`, `gdi32`,
-   `ole32`, `shell32`, `msdelta`, ...; not `kernel32`, `ntdll`, `advapi32`, or the
-   C runtime, which portable code calls behind an OS check), and so does a type
-   declared `[ComImport]`. Only the assets NuGet would pick for
+   `shell32`, `msdelta`, ...; not `kernel32`, `ntdll`, `advapi32`, the COM runtime
+   `ole32`/`oleaut32`, or the C runtime, which portable code calls behind an OS
+   check), and so does a class declared `[ComImport]`, which creates a Windows
+   component (a `[ComImport]` interface alone does not). Only the assets NuGet would pick for
    the target count (the nearest `lib/` folder, else `ref/`): System.Drawing.Common
    8.0 is Windows-only for `net10.0` but not for `netstandard2.0` consumers. A
-   package with no managed assemblies whose native code (`runtimes/<rid>/native/`)
-   is all for Windows runtime identifiers (`win`, `win-x64`, `win10-arm64`, ...)
-   is Windows-only for every target, such as LibSassHost.Native.win-x64; when its id
+   package with nothing in `lib/` or `ref/` whose runtime-specific files
+   (`runtimes/<rid>/native/` and `runtimes/<rid>/lib/`) are all for Windows runtime
+   identifiers (`win`, `win-x64`, `win10-arm64`, ...) is Windows-only for every
+   target, such as LibSassHost.Native.win-x64; when its id
    ends in the runtime identifier and a feed has the same id for `linux-x64`, the
    message names it. This is a warning (`OFR1004`), not a fail.
 5. **Deprecated/unlisted**: read from the registration index; deprecation
@@ -298,7 +300,10 @@ Details (M6, ADR 0020):
     `assemblyVersion` (the closest build: the lowest package version shipping
     the assembly version), then `newer` (the lowest package version with a
     higher assembly version: an upgrade). Within a rank a listed version wins
-    over an unlisted one, then the lower version.
+    over an unlisted one, then the lower version. A file or informational
+    version that only repeats the assembly version (`1.0.0.0` for 1.0.0.0, `4.0`
+    for 4.0.0.0, the defaults) does not count: it says nothing the assembly
+    version does not.
   - Unlisted versions are candidates when they ship the referenced assembly
     version (log4net 1.2.10 is unlisted on nuget.org), never as an upgrade.
   - An unsigned DLL is matched only by its file (`identical`, `fileVersion`,

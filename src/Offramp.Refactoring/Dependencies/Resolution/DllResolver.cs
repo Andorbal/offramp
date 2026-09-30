@@ -286,7 +286,8 @@ public static class DllResolver
 
         if (dll.TargetFramework?.StartsWith(".NETFramework", StringComparison.OrdinalIgnoreCase) == true)
         {
-            request.Diagnostics.Report(DiagnosticCatalog.OFR1404, $"{reference.HintPath} ({described}) is built for .NET Framework and nothing replaces it; it blocks the move to the target.", location,
+            var candidate = found is null ? "" : $" (package {found.Package} ships an assembly of that name, but this DLL is unsigned and not its file or file version)";
+            request.Diagnostics.Report(DiagnosticCatalog.OFR1404, $"{reference.HintPath} ({described}) is built for .NET Framework and nothing replaces it{candidate}; it blocks the move to the target.", location,
                 [KeyValuePair.Create<string, JsonNode?>("assembly", reference.Name)]);
             return dll with { Resolution = none, Blocker = true };
         }
@@ -427,7 +428,7 @@ public static class DllResolver
             }
 
             exactSeen |= exact.Count > 0;
-            var candidate = Candidate(id, info, shipped, exact, facts);
+            var candidate = Candidate(id, info, shipped, exact, facts, referenced);
             if (candidate is not null && candidate.Beats(best))
             {
                 best = candidate;
@@ -442,13 +443,19 @@ public static class DllResolver
         return best;
     }
 
-    /// <summary>How one package version's assets match the DLL; null for an unlisted version that is only an upgrade.</summary>
-    private static PackageCandidate? Candidate(string id, PackageVersionInfo info, List<InspectedAssembly> shipped, List<InspectedAssembly> exact, AssemblyFacts? facts)
+    /// <summary>
+    /// How one package version's assets match the DLL; null for an unlisted version that is only an
+    /// upgrade. A file or informational version that only repeats the assembly version ("1.0.0.0",
+    /// "4.0" for 4.0.0.0, the defaults) says nothing the assembly version does not, so it does not count.
+    /// </summary>
+    private static PackageCandidate? Candidate(string id, PackageVersionInfo info, List<InspectedAssembly> shipped, List<InspectedAssembly> exact, AssemblyFacts? facts, Version referenced)
     {
+        var assemblyVersion = referenced.ToString();
+        bool Telling(string version) => version != assemblyVersion && !assemblyVersion.StartsWith(version + ".", StringComparison.Ordinal);
         var match = exact.Count == 0 ? DllMatch.Newer
             : facts is not null && shipped.Any(a => string.Equals(a.Sha256, facts.Sha256, StringComparison.Ordinal)) ? DllMatch.Identical
-            : facts?.FileVersion is { } file && exact.Any(a => a.FileVersion == file) ? DllMatch.FileVersion
-            : facts?.InformationalVersion is { } informational && exact.Any(a => a.InformationalVersion == informational) ? DllMatch.InformationalVersion
+            : facts?.FileVersion is { } file && Telling(file) && exact.Any(a => a.FileVersion == file) ? DllMatch.FileVersion
+            : facts?.InformationalVersion is { } informational && Telling(informational) && exact.Any(a => a.InformationalVersion == informational) ? DllMatch.InformationalVersion
             : DllMatch.AssemblyVersion;
         if (match == DllMatch.Newer && !info.Listed)
         {

@@ -862,7 +862,7 @@ The feed marks the package, or the version in use, as deprecated; the message ca
 
 **package assets are Windows-only** · warning · deps
 
-The assets NuGet would pick for the target are marked [SupportedOSPlatform("windows")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, directory services), call a library only Windows has by P/Invoke (user32, ole32, msdelta, ...; not kernel32, ntdll, or advapi32, which portable code guards), or declare `[ComImport]` types; or the package has no managed assemblies and its native code (`runtimes/<rid>/native/`) is for Windows only. The message names the package for `linux-x64` when the id ends in a Windows runtime identifier and the feed has one.
+The assets NuGet would pick for the target are marked [SupportedOSPlatform("windows")] or reference Windows-only assemblies (Windows Forms, WPF, System.Web, System.Drawing, directory services), call a library only Windows has by P/Invoke (user32, shell32, msdelta, ...; not kernel32, ntdll, advapi32, or ole32, which portable code guards), or declare a `[ComImport]` class; or the package has nothing in lib/ or ref/ and its runtime-specific code (`runtimes/<rid>/`) is for Windows only. The message names the package for `linux-x64` when the id ends in a Windows runtime identifier and the feed has one.
 
 - **Typical cause:** A package that wraps Windows APIs, such as System.Drawing.Common on .NET 6 and later, or a native package such as LibSassHost.Native.win-x64.
 - **Fix:** Fine if the application stays on Windows; otherwise choose a cross-platform alternative, or add the native package for the other operating systems, before containerizing.

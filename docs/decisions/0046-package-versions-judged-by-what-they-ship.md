@@ -27,9 +27,10 @@ LibSassHost.Native.win-x64 and JavaScriptEngineSwitcher.V8.Native.win-x64, whose
   every in-use version that does not support the target. When only older versions support
   it, the package is `replace` or `blocked` and `OFR1007` (error) names the versions;
   `newestSupporting` and `lowestSupporting` keep reporting the facts of the feed.
-- **Native code for Windows is Windows-only.** A package with no managed assemblies whose
-  native files (`runtimes/<rid>/native/`) are all for Windows runtime identifiers (`win`,
-  `win-x64`, `win10-arm64`, ...) is `windowsOnly` with the first such file as evidence
+- **Native code for Windows is Windows-only.** A package with nothing in `lib/` or `ref/` whose
+  runtime-specific files (`runtimes/<rid>/native/`, and `runtimes/<rid>/lib/` for a mixed-mode
+  assembly such as JavaScriptEngineSwitcher.V8.Native.win-x64's) are all for Windows runtime
+  identifiers (`win`, `win-x64`, `win10-arm64`, ...) is `windowsOnly` with the first such file as evidence
   (`OFR1004`). When the id ends in a Windows runtime identifier and a feed has the same id
   for `linux-x64`, the message names it. The status still says only whether the target
   framework is supported, as for System.Drawing.Common.
@@ -38,10 +39,13 @@ LibSassHost.Native.win-x64 and JavaScriptEngineSwitcher.V8.Native.win-x64, whose
   recomputed.
 
 - **P/Invoke and COM are Windows-only evidence** (Open Live Writer). A managed assembly that
-  calls a library only Windows has (`user32`, `ole32`, `msdelta`, ...) or declares a
-  `[ComImport]` type is Windows-only, like one that references Windows Forms. `kernel32`,
-  `ntdll`, `advapi32`, and the C runtime are not evidence, for the reason
-  `Microsoft.Win32.Registry` is not: portable libraries call them behind an OS check.
+  calls a library only Windows has (`user32`, `shell32`, `msdelta`, ...) or declares a
+  `[ComImport]` class (a coclass, which creates a registered Windows component) is
+  Windows-only, like one that references Windows Forms. `kernel32`, `ntdll`, `advapi32`, the
+  COM runtime (`ole32`, `oleaut32`), the C runtime, and `[ComImport]` interfaces alone are not
+  evidence, for the reason `Microsoft.Win32.Registry` is not: portable libraries use them behind
+  an OS check. Measured on SmartStoreNET, counting them made EPPlus 4.5 (its `IEnumSTATSTG`
+  interface) and ClearScript (`ole32`) Windows-only.
 - **Nothing to judge is not `ok`.** A version with no assemblies, no framework-specific assets,
   no dependency groups, and no native code "supports" every target vacuously. When the package
   map names a successor for such a package (Microsoft.Bcl.Build: built in on modern .NET), it is

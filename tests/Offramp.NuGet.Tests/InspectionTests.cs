@@ -96,12 +96,24 @@ public sealed class InspectionTests
         }));
 
         var windows = Package("runtimes/win-x86/native/contoso.dll", "runtimes/win-x64/native/contoso.dll");
+        // JavaScriptEngineSwitcher.V8.Native.win-x64: a mixed-mode assembly under runtimes/win-x64/lib as well.
+        var mixed = PackageInspector.Inspect(FeedMaterializer.Nupkg(new RecordedPackage
+        {
+            Id = "Contoso.Engine.win-x64",
+            Version = "1.0.0",
+            Files =
+            [
+                new RecordedFile { Path = "runtimes/win-x64/native/engine-x64.dll" },
+                new RecordedFile { Path = "runtimes/win-x64/lib/netcoreapp3.1/Engine-64.dll", Assembly = new RecordedAssembly { Name = "Engine-64", Version = "1.0.0.0" } },
+            ],
+        }));
         var everywhere = Package("runtimes/win-x64/native/contoso.dll", "runtimes/linux-x64/native/libcontoso.so");
 
         Assert.Equal(["runtimes/win-x64/native/contoso.dll", "runtimes/win-x86/native/contoso.dll"], windows.NativeAssets);
         Assert.False(TargetSupport.HasAssemblies(windows));
         Assert.Equal("runtimes/win-x64/native/contoso.dll: native code for Windows only", TargetSupport.WindowsOnly(windows, NuGetFramework.Parse("net10.0")));
         Assert.Null(TargetSupport.WindowsOnly(everywhere, NuGetFramework.Parse("net10.0")));
+        Assert.Equal("runtimes/win-x64/native/engine-x64.dll: native code for Windows only", TargetSupport.WindowsOnly(mixed, NuGetFramework.Parse("net10.0")));
         Assert.True(TargetSupport.HasAssemblies(Inspect("Newtonsoft.Json", "13.0.3")));
     }
 
@@ -114,20 +126,33 @@ public sealed class InspectionTests
     [InlineData("[System.Runtime.InteropServices.DllImport(\"msdelta.dll\")] static extern int ApplyDeltaB(int a);", "calls msdelta.dll (P/Invoke)")]
     [InlineData("[System.Runtime.InteropServices.DllImport(\"User32\")] static extern int GetDpiForWindow(System.IntPtr w);", "calls user32.dll (P/Invoke)")]
     [InlineData("[System.Runtime.InteropServices.DllImport(\"kernel32.dll\")] static extern int GetCurrentThreadId();", null)]
+    [InlineData("[System.Runtime.InteropServices.DllImport(\"ole32.dll\")] static extern void CoTaskMemFree(System.IntPtr p);", null)]
     [InlineData("static int Portable() => 1;", null)]
     public void Native_calls_into_windows_libraries_are_windows_only(string member, string? expected) =>
         Assert.Equal(expected, PackageInspector.WindowsEvidence(Compile($"public static class Native {{ {member} }}")));
 
     [Fact]
-    public void Com_types_are_windows_only() =>
-        Assert.Equal("declares COM type Contoso.Spelling.ISpellChecker ([ComImport])", PackageInspector.WindowsEvidence(Compile("""
+    public void A_com_class_is_windows_only_and_a_com_interface_alone_is_not()
+    {
+        const string Interface = """
             namespace Contoso.Spelling
             {
                 [System.Runtime.InteropServices.ComImport, System.Runtime.InteropServices.Guid("b7c82d61-fbe8-4b47-9b27-6c0d2e0de0a3"),
                  System.Runtime.InteropServices.InterfaceType(System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown)]
-                public interface ISpellChecker { }
+                public interface ISpellCheckerFactory { }
             }
-            """)));
+            """;
+        const string Class = """
+            namespace Contoso.Spelling
+            {
+                [System.Runtime.InteropServices.ComImport, System.Runtime.InteropServices.Guid("7ab36653-1796-484b-bdfa-e74f1db7c1dc")]
+                internal class SpellCheckerFactoryClass { }
+            }
+            """;
+
+        Assert.Null(PackageInspector.WindowsEvidence(Compile(Interface)));
+        Assert.Equal("creates the COM class Contoso.Spelling.SpellCheckerFactoryClass ([ComImport])", PackageInspector.WindowsEvidence(Compile(Interface + Class)));
+    }
 
     private static byte[] Compile(string source)
     {
