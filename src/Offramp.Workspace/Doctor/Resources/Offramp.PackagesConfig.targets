@@ -168,13 +168,22 @@
                 return FromProject(project, packages) ?? RepositoryPath(Path.GetDirectoryName(project));
             }
 
+            /// <summary>
+            /// An MSBuild property reference as a project file writes it, built so that this code never spells one: MSBuild
+            /// expands them in an inline task's code too.
+            /// </summary>
+            private static string Property(string name)
+            {
+                return "$" + "(" + name + (name.Length > 0 ? ")" : "");
+            }
+
             private static string FromProject(string project, List<Tuple<string, string>> packages)
             {
                 var directory = Path.GetDirectoryName(project);
                 var paths = XDocument.Load(project).Descendants()
                     .Select(e => e.Name.LocalName == "HintPath" ? e.Value : e.Name.LocalName == "Import" ? (string)e.Attribute("Project") : null)
                     .Where(p => p != null)
-                    .Select(p => p.Trim().Replace('\\', '/').Replace("$(MSBuildThisFileDirectory)", directory + "/").Replace("$(MSBuildProjectDirectory)", directory));
+                    .Select(p => p.Trim().Replace('\\', '/').Replace(Property("MSBuildThisFileDirectory"), directory + "/").Replace(Property("MSBuildProjectDirectory"), directory));
                 foreach (var path in paths)
                 {
                     foreach (var package in packages)
@@ -183,7 +192,7 @@
                         {
                             var at = path.IndexOf("/" + name + "/", StringComparison.OrdinalIgnoreCase);
                             var prefix = at < 0 ? null : path.Substring(0, at);
-                            if (prefix != null && !prefix.Contains("$("))
+                            if (prefix != null && !prefix.Contains(Property("")))
                             {
                                 return Path.GetFullPath(Path.Combine(directory, prefix));
                             }

@@ -20,7 +20,9 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   solution then builds with a plain `dotnet build` on any OS, without Offramp: on the mvc5 fixture
   it fails without the file (CS0246) and succeeds with it, and legacy-shared's two versions of
   Newtonsoft.Json restore from an empty NuGet cache. `doctor`'s plain-build check counts
-  `packages.config` as handled once the files are in place.
+  `packages.config` as handled once the files are in place. The inline task's code never spells an
+  MSBuild property reference, which MSBuild would expand in it (on Windows, into a path that broke
+  the compile).
 - The compile-only block has a section for `dotnet build` on Windows (ADR 0064): .NET's MSBuild
   has no `SGen`, `AspNetCompiler`, or `Microsoft.Bcl.Build` task there either, and no Visual
   Studio web targets, so it gets what macOS and Linux get. An `MSBuild.SDK.SystemWeb` site, which

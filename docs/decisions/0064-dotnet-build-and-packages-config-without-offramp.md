@@ -92,7 +92,11 @@ file is current and both imports are in place.
   for fixture scans: it restored one version of a package listed twice, which
   failed on a CI runner with an empty cache.
 - The repository carries a targets file with inline C#. It is Offramp's, marked
-  so, and small; `doctor` rewrites it rather than merging edits.
+  so, and small; `doctor` rewrites it rather than merging edits. MSBuild expands
+  `$(...)`, `@(...)`, and `%(...)` in that code as it reads it, so the code
+  builds the property references it compares against instead of spelling them
+  (spelled, they broke the compile on Windows and matched nothing elsewhere); a
+  test checks the code has none.
 - `offramp scan` still restores `packages.config` itself first (it reports
   `OFR0105`/`OFR0106`), so its build finds the folder filled; the targets file
   is exercised by plain builds and by the fixture tests.

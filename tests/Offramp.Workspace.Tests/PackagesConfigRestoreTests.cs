@@ -38,6 +38,22 @@ public sealed class PackagesConfigRestoreTests : IDisposable
         XDocument.Parse(PackagesConfigRestore.TargetsContent);
     }
 
+    /// <summary>
+    /// MSBuild expands <c>$(...)</c>, <c>@(...)</c>, and <c>%(...)</c> in an inline task's code as it reads the file: on
+    /// Windows a path with backslashes broke the compile (CS1009), elsewhere the code silently compared the wrong text.
+    /// </summary>
+    [Fact]
+    public void The_inline_task_code_spells_nothing_msbuild_would_expand()
+    {
+        var content = PackagesConfigRestore.TargetsContent;
+        var start = content.IndexOf("<![CDATA[", StringComparison.Ordinal);
+        var code = content[start..content.IndexOf("]]>", start, StringComparison.Ordinal)];
+
+        Assert.DoesNotContain("$(", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("@(", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("%(", code, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_solution_file_the_repository_has_gains_only_the_import()
     {
@@ -134,6 +150,30 @@ public sealed class PackagesConfigRestoreTests : IDisposable
     public async Task A_project_built_on_its_own_finds_its_packages_folder_from_its_hint_paths()
     {
         using var repository = await FixtureRepository.CreateAsync("mvc5");
+        DoctorRunner.ApplyFix(repository.Path, packagesConfig: true);
+
+        var build = await ProcessRunner.Instance.RunAsync(new ProcessSpec("dotnet", ["build", "src/Shop.Web/Shop.Web.csproj", "-nologo", "-v:minimal", "-nodeReuse:false"])
+        {
+            WorkingDirectory = repository.Path,
+            Timeout = TimeSpan.FromMinutes(10),
+            Environment = new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" },
+        });
+
+        Assert.True(build.Succeeded, build.StandardOutput + build.StandardError);
+        Assert.True(Directory.Exists(Path.Combine(repository.Path, "packages", "Microsoft.AspNet.Mvc.5.2.9")));
+    }
+
+    /// <summary>
+    /// HintPaths written from <c>$(MSBuildThisFileDirectory)</c>, as some projects write them: the task reads the
+    /// project file as text, so it resolves that property itself. MSBuild expands <c>$(...)</c> in an inline task's
+    /// code too, so the code must not spell it (on Windows the expansion broke the compile; elsewhere it matched nothing).
+    /// </summary>
+    [Fact]
+    public async Task A_project_built_on_its_own_resolves_hint_paths_written_from_its_own_folder()
+    {
+        using var repository = await FixtureRepository.CreateAsync("mvc5");
+        var project = Path.Combine(repository.Path, "src", "Shop.Web", "Shop.Web.csproj");
+        File.WriteAllText(project, File.ReadAllText(project).Replace("<HintPath>..\\..\\packages\\", "<HintPath>$(MSBuildThisFileDirectory)..\\..\\packages\\", StringComparison.Ordinal));
         DoctorRunner.ApplyFix(repository.Path, packagesConfig: true);
 
         var build = await ProcessRunner.Instance.RunAsync(new ProcessSpec("dotnet", ["build", "src/Shop.Web/Shop.Web.csproj", "-nologo", "-v:minimal", "-nodeReuse:false"])
