@@ -20,15 +20,20 @@ public sealed class SmartStoreNetTests
     {
         await using var corpus = await CorpusRun.OpenAsync("smartstore");
 
-        // A fresh checkout, after doctor --fix: Offramp restores packages.config and names SmartStoreNET's own
-        // problems outside Windows, all in one scan (P1 #7: the letter-case problems took four scans).
-        await corpus.RunAsync("doctor", "doctor", "--fix", "--apply", "--yes");
+        // A fresh checkout. doctor --fix conditions what the project files run through cmd.exe, which the compile-only
+        // block cannot reach from Directory.Build.props: the plugins' NuGet 2 restore and two post-build events
+        // (the harness passed PostBuildEvent="" to Offramp's builds before, which a plain dotnet build never got).
+        var doctor = await corpus.RunAsync("doctor", "doctor", "--fix", "--apply", "--yes");
+        var guards = Guards(doctor);
+        Assert.Contains("src/Plugins/SmartStore.DevTools/SmartStore.DevTools.csproj PostBuildEvent", guards);
+        Assert.Contains("src/Tests/SmartStore.Data.Tests/SmartStore.Data.Tests.csproj PostBuildEvent", guards);
+        Assert.True(guards.Count(g => g.EndsWith(" RestorePackages", StringComparison.Ordinal)) >= 20, string.Join("\n", guards));
+
+        // Offramp restores packages.config and names SmartStoreNET's own problems outside Windows, all in one scan
+        // (P1 #7: the letter-case problems took four scans); the guarded post-build event is no longer one of them.
         var fresh = await corpus.RunAsync("scan", "scan");
         Assert.Contains("OFR0106", fresh.Codes);
-        if (!OperatingSystem.IsWindows())
-        {
-            Assert.Contains(fresh.Diagnostics("OFR0115"), d => Project(d).EndsWith("SmartStore.DevTools.csproj", StringComparison.Ordinal));
-        }
+        Assert.DoesNotContain(fresh.Diagnostics("OFR0115"), d => Project(d).EndsWith("SmartStore.DevTools.csproj", StringComparison.Ordinal));
 
         if (OperatingSystem.IsLinux())
         {
@@ -36,11 +41,10 @@ public sealed class SmartStoreNetTests
             Assert.True(importers >= 19, $"{importers} of the 19 projects importing .nuget/nuget.targets were named.");
         }
 
-        // Harness adjustments, each the fix a diagnostic above prescribes: links for the paths in the wrong letter
-        // case (OFR0117, Linux only), and no cmd.exe post-build events (OFR0115).
+        // Harness adjustment, the fix a diagnostic above prescribes: links for the paths in the wrong letter case
+        // (OFR0117, Linux only).
         var linked = CaseLinks.Apply(fresh, corpus.Repository.Path);
         Assert.True(!OperatingSystem.IsLinux() || linked.Count >= 14, $"{linked.Count} paths linked.");
-        corpus.Repository.Write("offramp.yml", corpus.Repository.Read("offramp.yml") + "  properties:\n    PostBuildEvent: \"\"\n");
 
         var sweep = await corpus.SweepAsync();
 
@@ -105,6 +109,11 @@ public sealed class SmartStoreNetTests
         // The eleventh, SmartStore.Web.MVC.Tests, hits a satellite folder's letter case on Linux (still open).
         Assert.All(sweep.Modernize.Diagnostics("OFR4303"), d => Assert.EndsWith("SmartStore.Web.MVC.Tests.csproj", Project(d), StringComparison.Ordinal));
     }
+
+    /// <summary>"file setting" for each condition <c>doctor --fix</c> planned or wrote.</summary>
+    private static List<string> Guards(OfframpRun doctor) =>
+        [.. doctor.Result["fix"]!["projectFiles"]!.AsArray()
+            .SelectMany(f => f!["guards"]!.AsArray().Select(g => $"{f["file"]!.GetValue<string>()} {g!["setting"]!.GetValue<string>()}"))];
 
     private static JsonNode Package(JsonArray packages, string id) =>
         packages.Single(p => string.Equals(p!["id"]!.GetValue<string>(), id, StringComparison.OrdinalIgnoreCase))!;

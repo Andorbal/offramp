@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 using Offramp.Corpus.Tests.Harness;
 
 namespace Offramp.Corpus.Tests.Codebases;
@@ -7,8 +6,9 @@ namespace Offramp.Corpus.Tests.Codebases;
 /// <summary>
 /// Open Live Writer 0.6.3 (<c>docs/field-tests/2026-09-open-live-writer-0.6.3.md</c>): a WinForms desktop application
 /// with heavy COM and P/Invoke interop, 28 legacy net461 C# projects and a native C++ project in one solution. Its own
-/// build keeps most of it from compiling outside Windows, so the test asserts what Offramp names on the checkout as
-/// shipped, applies the fixes those diagnostics prescribe, and then runs the sweep and pins the field test's findings.
+/// build keeps most of it from compiling outside Windows, so the test asserts what <c>doctor --fix</c> conditions and
+/// what Offramp names after it, applies the fixes those diagnostics prescribe, and then runs the sweep and pins the
+/// field test's findings.
 /// </summary>
 [Trait("Category", "Corpus")]
 [Trait("Codebase", "olw")]
@@ -26,30 +26,27 @@ public sealed class OpenLiveWriterTests
         // from a CDN host some networks block; v3 is the endpoint nuget.org documents.
         repository.Write("NuGet.config", repository.Read("NuGet.config").Replace("https://nuget.org/api/v2/", "https://api.nuget.org/v3/index.json", StringComparison.Ordinal));
 
-        // As shipped, after doctor --fix: writer.build.settings sets MSBuildExtensionsPath, so no project imports
-        // Directory.Build.props and the compile-only block reaches none of them. Offramp says so, per project, and
-        // counts the errors per project (P1 #5: "2 error(s)" and silence before).
-        await corpus.RunAsync("doctor", "doctor", "--fix", "--apply", "--yes");
-        var shipped = await corpus.RunAsync("scan", "scan");
-        var unreached = shipped.Diagnostics("OFR0122").ToList();
-        if (!OperatingSystem.IsWindows())
-        {
-            Assert.True(unreached.Count >= 20, $"{unreached.Count} projects named as not reached by the compile-only block.");
-            Assert.All(unreached, d => Assert.Contains("writer.build.settings", Message(d), StringComparison.Ordinal));
-            Assert.True(Assert.Single(shipped.Diagnostics("OFR0130"))["data"]!["errorCount"]!.GetValue<int>() >= 25);
-        }
+        // doctor --fix conditions what the build files set for Windows only, where the compile-only block cannot reach
+        // it: writer.build.settings points MSBuildExtensionsPath into the build tools "to prevent accidental pickup of
+        // local-machine scripts", so no project imported Microsoft.Common.props, or Directory.Build.props with it (the
+        // shipped checkout had OFR0122 in all 28 projects); an Exec runs MarketXmlGenerator.exe, which the solution
+        // builds; and the installer's post-build event is written for cmd.exe.
+        var doctor = await corpus.RunAsync("doctor", "doctor", "--fix", "--apply", "--yes");
+        var guards = doctor.Result["fix"]!["projectFiles"]!.AsArray()
+            .SelectMany(f => f!["guards"]!.AsArray().Select(g => $"{f["file"]!.GetValue<string>()} {g!["setting"]!.GetValue<string>()}"))
+            .ToList();
+        Assert.Contains("writer.build.settings MSBuildExtensionsPath", guards);
+        Assert.Contains("writer.build.settings MSBuildExtensionsPath32", guards);
+        Assert.Contains($"{Managed}/OpenLiveWriter.CoreServices/OpenLiveWriter.CoreServices.csproj Exec in target GenerateMarketXmlImpl", guards);
+        Assert.Contains($"{Managed}/PostBuild.CreateInstaller/PostBuild.CreateInstaller.csproj PostBuildEvent", guards);
 
-        // P1 #8: the native project is named once and is not a .NET Framework library in the model.
-        Assert.Contains(shipped.Diagnostics("OFR0024"), d => Project(d).EndsWith("OpenLiveWriter.Ribbon.vcxproj", StringComparison.Ordinal));
-
-        // Harness adjustment, the fix OFR0122 names: set MSBuildExtensionsPath on Windows only.
-        repository.Write("writer.build.settings", Regex.Replace(repository.Read("writer.build.settings"),
-            "<(MSBuildExtensionsPath(?:32)?)>", "<$1 Condition=\"'$(OS)' == 'Windows_NT'\">", RegexOptions.None, TimeSpan.FromSeconds(1)));
-
-        // With the block in reach, one scan names the rest (P1 #6: each of these took another scan before).
+        // With the block in reach of every project, one scan names the rest (P1 #6: each of these took another scan
+        // before), and counts the errors per project (P1 #5: "2 error(s)" and silence before).
         var reached = await corpus.RunAsync("scan", "scan");
         if (!OperatingSystem.IsWindows())
         {
+            Assert.Empty(reached.Diagnostics("OFR0122"));
+            Assert.True(Assert.Single(reached.Diagnostics("OFR0130"))["data"]!["errorCount"]!.GetValue<int>() > 0);
             Assert.True(reached.Diagnostics("OFR0119").Count() >= 10, "Non-string resources were not named for every project.");
             Assert.Contains(reached.Diagnostics("OFR0125"), d => Project(d).EndsWith("OpenLiveWriter.UnitTest.csproj", StringComparison.Ordinal));
 
@@ -57,12 +54,14 @@ public sealed class OpenLiveWriterTests
             Assert.DoesNotContain(reached.Diagnostics("OFR0101"), d => Message(d).Contains("solution configuration", StringComparison.Ordinal));
         }
 
+        // P1 #8: the native project is named once and is not a .NET Framework library in the model.
+        Assert.Contains(reached.Diagnostics("OFR0024"), d => Project(d).EndsWith("OpenLiveWriter.Ribbon.vcxproj", StringComparison.Ordinal));
+
         // Harness adjustments, each the fix a diagnostic above prescribes or docs/compiling-on-macos.md gives for it:
         // - OFR0117: links for the paths in the wrong letter case (Linux only);
         // - OFR0119 and OFR0125: the documented Directory.Build.props sections for legacy projects;
-        // - OFR0115 (a generator the solution builds): guard the target and supply its output, which the compile
-        //   needs as an embedded resource (the generator itself runs on .NET Framework);
-        // - OFR0115 (the installer's post-build event): no post-build events in compile-only builds;
+        // - OFR0115 (a generator the solution builds, whose Exec doctor --fix conditioned): supply its output, which
+        //   the compile needs as an embedded resource (the generator itself runs on .NET Framework);
         // - OFR0101 (P1 #7): the native project is not built in Debug, so the application it depends on is (the
         //   regular suite pins that OFR0101 names the native project).
         CaseLinks.Apply(reached, repository.Path);
@@ -72,11 +71,7 @@ public sealed class OpenLiveWriterTests
             repository.Write("Directory.Build.props", repository.Read("Directory.Build.props").Replace("</Project>", LegacySections(mstest) + "</Project>", StringComparison.Ordinal));
         }
 
-        var coreServices = $"{Managed}/OpenLiveWriter.CoreServices/OpenLiveWriter.CoreServices.csproj";
-        repository.Write(coreServices, repository.Read(coreServices).Replace(
-            "<Target Name=\"GenerateMarketXmlImpl\"", "<Target Name=\"GenerateMarketXmlImpl\" Condition=\"'$(OfframpCompileOnly)' != 'true'\"", StringComparison.Ordinal));
         repository.Write($"{Managed}/OpenLiveWriter.CoreServices/Marketization/Markets.xml", "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<features />\n");
-        repository.Write("offramp.yml", repository.Read("offramp.yml") + "  properties:\n    PostBuildEvent: \"\"\n");
         repository.Write($"{Managed}/writer.sln", string.Join('\n', repository.Read($"{Managed}/writer.sln").Split('\n')
             .Where(l => !l.Contains("{195A60BF-7A4D-42E6-B5F4-FEBC679E19F0}.Debug|Any CPU.Build.0", StringComparison.Ordinal))));
 
@@ -141,7 +136,7 @@ public sealed class OpenLiveWriterTests
         Assert.Empty(one.Diagnostics("OFR4303"));
 
         // P1 #10: the first move out of a .NET Framework project into a new netstandard2.0 project plans moves.
-        var extract = await corpus.RunAsync("move-extract", "move", "extract", "--from", coreServices,
+        var extract = await corpus.RunAsync("move-extract", "move", "extract", "--from", $"{Managed}/OpenLiveWriter.CoreServices/OpenLiveWriter.CoreServices.csproj",
             "--new", "OpenLiveWriter.CoreServices.Portable", "--tfm", "netstandard2.0", "--files", $"{Managed}/OpenLiveWriter.CoreServices/Progress/*.cs");
         Assert.True(extract.Result["plan"]!["moves"]!.AsArray().Count >= 5, extract.Result["plan"]!["excluded"]?.ToJsonString());
     }

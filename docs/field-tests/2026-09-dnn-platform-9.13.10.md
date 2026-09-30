@@ -67,6 +67,11 @@ report. The numbers are from the same codebase after the fixes.
 | P1 #12 the corpus job cannot fail | this branch | `tests/Offramp.Corpus.Tests` runs this codebase |
 | P2 polish | this branch | `doctor`'s global.json remedy and CPM noise, `OFR0101`'s reason, `OFR0130` counts per code, no ledger snapshot from a failed build, `OFR3012` for unaudited projects, one codemod notice per reason, relative paths in step evidence, `OFR1004`/`OFR1404` false positives, `audit dead-code` on unreadable files |
 
+Since this report, `doctor --fix` also conditions the Windows-only settings the project files set
+themselves (ADR 0063): the `PostBuild` targets' `XCOPY` commands and every `PostBuildEvent`, on
+`'$(OS)' == 'Windows_NT'`, wherever the project defines them, including after the targets import,
+which this report said only `-p:PostBuildEvent=` could reach.
+
 Still open: the source-generator partials that make `move plan --all` plan nothing (P1 #11), the
 build phase's missing heartbeat, `report` counting every web project as an application, and the
 `move tests` naming and `Builder` heuristics (P2). The first two are general; the last two are

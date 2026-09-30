@@ -22,8 +22,14 @@ public sealed class NHibernateTests
         // A fresh checkout: the NAnt build writes src/SharedAssemblyInfo.cs, which is git-ignored and linked by
         // every project. Offramp names the missing file and why before the build fails on it (P1 #14), and marks
         // the library partial, since its compiler call failed.
-        await corpus.RunAsync("doctor", "doctor", "--fix", "--apply", "--yes");
+        var doctor = await corpus.RunAsync("doctor", "doctor", "--fix", "--apply", "--yes");
         var fresh = await corpus.RunAsync("scan", "scan");
+
+        // doctor --fix conditions the Release build's ILRepack merge (ilrepack.exe) on Windows, so a plain Release
+        // build elsewhere compiles NHibernate.dll without merging Remotion.Linq and Antlr3 into it.
+        var guard = Assert.Single(doctor.Result["fix"]!["projectFiles"]!.AsArray())!;
+        Assert.Equal(Library, guard["file"]!.GetValue<string>());
+        Assert.Equal("Exec in target AfterBuild", Assert.Single(guard["guards"]!.AsArray())!["setting"]!.GetValue<string>());
         var missing = fresh.Diagnostics("OFR0123").Where(d => Data(d, "file") == "src/SharedAssemblyInfo.cs").ToList();
         Assert.True(missing.Count >= 4, $"{missing.Count} projects named the missing src/SharedAssemblyInfo.cs.");
         Assert.All(missing, d => Assert.Contains("src/SharedAssemblyInfo.cs", Strings(d["data"]!["gitIgnored"])));

@@ -76,6 +76,14 @@ pins them.
 | P1 #11 `web inventory` routes, areas, filters | `7354f7a` | route helpers followed through up to 5 calls, areas from `DataTokens` and defaults, the application's libraries read, Autofac filter registrations listed: SmartStore.Web has 71 routes (was 8; the site's 68, 2 `MapHttpRoute`, 1 OData), 5 container filters, 8 of 8 bundles, and the Admin and plugin areas |
 | P2 polish | see the commits | `web scaffold` ports `EmptyResult`, `ModelState`, `ViewBag`, `HttpUnauthorizedResult` and `FormCollection` (`f02e54d`); `config convert` reads section groups and machine.config's sections (`f5bbbae`, `OFR4407`); `OFR3103` looks at path parameters only (`9f1044a`, 13 → 7); evidence made relative before it is shortened (`248d794`, `fbd2695`); `doctor` says the post-build events are overridden and checks legacy projects before the first scan (`377dca9`); `init` chooses `src/SmartStoreNET.sln` (`82a861b`); a build heartbeat (`546318a`); the terminal view of a failed conversion (`9dadcbe`); the `Builder` name heuristic (`ec0d6d5`) |
 
+Since this report, `doctor --fix` also conditions the Windows-only settings the project files set
+themselves (ADR 0063), where the compile-only block cannot reach them: the 24 NuGet 2
+`RestorePackages` and the two cmd.exe post-build events (DevTools, Data.Tests). A plain `dotnet
+build` now does what `scan` does, the corpus test no longer passes `PostBuildEvent=""` through
+`verify.properties`, and `doctor` no longer says "No project needs Windows to build" while
+`verify.properties` hides a step: its "Builds without Offramp" check names what is left, the 24
+`packages.config` projects that `dotnet restore` skips.
+
 Still open: the eleventh conversion, SmartStore.Web.MVC.Tests, fails verification with `--all` only (alone it passes): the converted libraries bring `ru-RU` satellite folders and the legacy site `ru-ru` ones, and MSBuild's Copy task, which remembers the folders it created without regard to letter case, never creates the second on Linux (MSB3021/MSB3027). It is another letter-case problem of the codebase, which `OFR0117` does not name yet. `redirects sync --prune` removes the site's `System.Net.Http` redirect, as it does any redirect of an assembly no package provides; a framework assembly's unifying redirect deserves a closer look. `web scaffold` ports none of the site's 270 actions yet: 151 render Razor views, and 66
 derive from controllers in SmartStore.Web.Framework, which the new project does not reference.
 Route conditions such as `if (add)` are not evaluated. `report`'s area names still place the nested

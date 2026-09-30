@@ -163,7 +163,7 @@ public sealed class CorpusRun : IAsyncDisposable
     /// The standard sweep: <c>doctor --fix --apply</c>, <c>scan</c> (and <c>scan --no-build</c> and a second <c>scan</c>, whose models must match),
     /// <c>graph</c>, <c>plan</c>, <c>report</c>, <c>deps audit</c>, <c>deps resolve-dlls</c>, <c>redirects sync</c>
     /// (dry run), and the <see cref="OptionalSteps"/> not in <paramref name="skip"/>. Nothing in it writes to the
-    /// codebase except the compile-only block, scan's restore, and the build.
+    /// codebase except <c>doctor --fix</c> (the compile-only block and the Windows conditions), scan's restore, and the build.
     /// </summary>
     public async Task<CorpusSweep> SweepAsync(params string[] skip)
     {

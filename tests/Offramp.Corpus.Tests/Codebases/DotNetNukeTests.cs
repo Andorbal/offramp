@@ -24,17 +24,22 @@ public sealed class DotNetNukeTests
         // doctor: no central package management, so no OFR1303 for the 64 packages.config projects.
         Assert.DoesNotContain("OFR1303", sweep.Doctor.Codes);
 
+        // doctor --fix conditions the projects' XCOPY post-build targets on Windows (they copy each assembly into the
+        // website's bin folder), which stopped the build outside Windows before (OFR0115).
+        var guarded = sweep.Doctor.Result["fix"]!["projectFiles"]!.AsArray()
+            .Where(f => f!["guards"]!.AsArray().Any(g => g!["setting"]!.GetValue<string>() == "Exec in target PostBuild"))
+            .Select(f => f!["file"]!.GetValue<string>())
+            .ToList();
+        Assert.Contains(guarded, f => f.EndsWith("/DotNetNuke.Abstractions.csproj", StringComparison.Ordinal));
+
         // scan: Offramp supplies reference assemblies, web targets, and packages.config packages. The build still
-        // stops at DotNetNuke's own problems outside Windows (XCOPY targets, and on Linux letter case), each named,
-        // and projects MSBuild then skips name the reference that failed.
+        // stops at DotNetNuke's own problems outside Windows (on Linux, letter case), each named, and projects
+        // MSBuild then skips name the reference that failed.
         var notLoaded = sweep.Scan.Result["notLoaded"]!.AsArray();
         Assert.Equal(71, sweep.Scan.Result["projects"]!.GetValue<int>() + notLoaded.Count);
         Assert.All(notLoaded, n => Assert.DoesNotContain("no evaluation", n!["reason"]!.GetValue<string>(), StringComparison.Ordinal));
         Assert.Contains("OFR0106", sweep.Scan.Codes);
-        if (!OperatingSystem.IsWindows())
-        {
-            Assert.Contains(sweep.Scan.Diagnostics("OFR0115"), d => Project(d).EndsWith("DotNetNuke.Abstractions.csproj", StringComparison.Ordinal));
-        }
+        Assert.DoesNotContain(sweep.Scan.Diagnostics("OFR0115"), d => Project(d).EndsWith("DotNetNuke.Abstractions.csproj", StringComparison.Ordinal));
 
         if (OperatingSystem.IsLinux())
         {

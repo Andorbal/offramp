@@ -87,6 +87,14 @@ pins them.
 | P1 #10 `move extract` to `netstandard2.0` plans nothing | `e9dba4c`, `66e7a51` | trial compilations get the .NET Standard facades a build adds: `Progress/*.cs` into a new `netstandard2.0` project plans 12 moves (was 0), and `--apply` passed verification on 19 projects. A source that breaks is one `OFR2104` |
 | P2 polish | see the commits | `init` chooses `src/managed/writer.sln` (`82a861b`); paths relative and normalized (`248d794`, `e3c6c9a`); `deps audit` gives up on a silent feed after 60 s and reads the packages `scan` restored (`a6aa501`); P/Invoke and COM make a package Windows-only, DeltaCompressionDotNet and PlatformSpellCheck included, and Microsoft.Bcl.Build follows the package map (`9e72ddb`); `deps gac` judges System.Web and System.Web.Services by what the project uses (`ba028e6`); a checked-in COM interop DLL is `OFR1405` (`c898f40`); a failed compilation marks its project partial (`e1d4fdf`); `seams` counts `[ComImport]` and Windows P/Invoke off `-windows` (`4d5a264`); `doctor` probes net461 and net472 (`377dca9`); a build heartbeat, the restore included (`546318a`) |
 
+Since this report, `doctor --fix` also conditions the Windows-only settings the build files set
+themselves (ADR 0063): `writer.build.settings`' `MSBuildExtensionsPath` and `MSBuildExtensionsPath32`,
+the `Exec` that runs `MarketXmlGenerator.exe`, and the installer's post-build event. The compile-only
+block reaches all 28 projects from the first scan (no `OFR0122`), and the corpus test no longer
+edits `writer.build.settings` or `OpenLiveWriter.CoreServices.csproj`, or passes
+`PostBuildEvent=""`; it still writes the generator's output, `Markets.xml`, which the compile
+embeds.
+
 Still open: `csproj modernize` keeps the MSTest v1 reference of a test project it converts, which then has no test framework outside Windows; it could move the project to `MSTest.TestFramework`, which has the same namespace and is the step `docs/compiling-on-macos.md` recommends. `scan` still asks MSBuild to build the native project, so the solution's dependency on it
 keeps the application from building until its `Build.0` line is removed (the corpus test does that);
 Offramp could leave native projects out of the build as it does Web Site projects. `deps audit`

@@ -88,6 +88,10 @@ The numbers are from NHibernate after the fixes, measured on copies of the check
 | P1 #14 a generated file is not named | `e3c6c9a`, `e1d4fdf`, `a9ba37c` | a fresh checkout's scan names the missing, git-ignored `src/SharedAssemblyInfo.cs` in every project that links it (`OFR0123` ×5); NHibernate is partial; audits name the failed build (`OFR3012`, `OFR3016`) |
 | P2 polish | see the commits | the VB project in `csproj modernize --all` (`9dadcbe`, `OFR4304`); the `sqlclient` codemod checks frameworks (`a7ba68d`, `OFR4511` ×3, nothing added to net40 projects); `OFR3205` counts implementations of serialized types (`e8459cf`, 753 → 580); `deps audit` points to `resolve-dlls` (`a6aa501`, `OFR1008`); unlisted versions, `OFR1404` from `mscorlib`, unsigned DLLs by file (`c898f40`); `move tests` finds `NHibernate.Test` (`5efc0f4`, `OFR2207`) and reports a broken source once (`5efc0f4`, `66e7a51`); the `.sln` keeps its format (`cb385f1`); `report`'s trend keeps to one solution (`aeb639e`); `doctor` probes net40 (`377dca9`); relative paths (`248d794`, `fb99a66`); defines split as csc does (`e1d4fdf`); a build heartbeat (`546318a`); two scans write the same model (`8a4ef3e`); `init` chooses `src/NHibernate.sln` (`82a861b`) |
 
+Since this report, `doctor --fix` also conditions the Release build's `AfterBuild` `Exec` of
+`ilrepack.exe` on Windows (ADR 0063), so a Release build elsewhere compiles `NHibernate.dll`
+without merging Remotion.Linq and Antlr3 into it, and `doctor` lists that as a step it skips.
+
 Still open: no `audit behavior` rule for distributed transactions; `OFR3205` still counts a library's
 public types as never serialized, although users may serialize them; `move extract` reports friend
 assemblies instead of granting them. NHibernate's own generated file stays a harness adjustment in
