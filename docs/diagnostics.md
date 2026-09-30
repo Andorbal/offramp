@@ -134,6 +134,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR2112](#ofr2112) | warning | move | file breaks the destination's warning policy |
 | [OFR2113](#ofr2113) | info | move | co-move no longer needed |
 | [OFR2114](#ofr2114) | info | move | source's friend assemblies not granted by the new project |
+| [OFR2115](#ofr2115) | warning | move | solution rewritten by the serializer |
 | [OFR2120](#ofr2120) | warning | move | namespace differs from destination root namespace |
 | [OFR2150](#ofr2150) | warning | move | file changed since plan |
 | [OFR2151](#ofr2151) | error | move | file changed since the move; rollback stopped |
@@ -1225,6 +1226,15 @@ The file was added to the move as a co-move (a file that a moving file needs), b
 
 - **Typical cause:** A strong-named library whose test project uses its internals, as NHibernate's does.
 - **Fix:** If a friend uses internal members of the moved code, add `<InternalsVisibleTo Include="Friend" Key="..." />` to the new project (the move's verification build shows it), or keep those files in the source.
+
+### OFR2115
+
+**solution rewritten by the serializer** · warning · move
+
+Adding a project to a `.sln` inserts the lines for the project and leaves every other line as it was. This solution could not be edited that way (no `Global` section, or a layout the check did not read back), so the solution serializer rewrote it whole: in its own format (`Format Version 12.00`) and without what it does not model, such as `TestCaseManagementSettings` or comments. The message and data name the lines that are gone or changed.
+
+- **Typical cause:** A hand-edited or unusual `.sln` file.
+- **Fix:** Review the solution's diff before committing; restore the lines you need, or add the project with Visual Studio or `dotnet sln add` instead.
 
 ### OFR2120
 

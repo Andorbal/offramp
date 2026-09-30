@@ -189,7 +189,7 @@ public static class MoveExtractor
 
         var created = new Dictionary<string, byte[]>(StringComparer.Ordinal) { [projectPath] = bytes };
         var changeSet = MoveChangeSet.Build(request.RepositoryRoot, planned.Plan, new HashSet<string>(StringComparer.Ordinal), out _, model, created);
-        await MoveApplier.AddToSolutionsAsync(request.RepositoryRoot, planned.Plan, changeSet, cancellationToken).ConfigureAwait(false);
+        await MoveApplier.AddToSolutionsAsync(request.RepositoryRoot, planned.Plan, changeSet, cancellationToken, bag).ConfigureAwait(false);
         var result = new MoveExtractResult
         {
             From = source.Id,

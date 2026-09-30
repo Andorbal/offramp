@@ -149,6 +149,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   tainted type (partition N)`) instead of listing its members, which made one reason 42,036
   characters long. Now: 11 tainted types (SqlClient, ODBC, OLE DB, CodeDom, `CallContext`,
   `SecurityManager`, `DefineDynamicAssembly`), 7 seams, 2.7 MB (ADR 0053).
+- `move extract` (and `move tests --create`) add the new project to a `.sln` without rewriting the
+  rest of it. The solution serializer's round trip changed NHibernate 4.1.2's `src/NHibernate.sln`
+  from "Format Version 11.00" to "12.00" and dropped its `TestCaseManagementSettings` section. The
+  lines the serializer writes for the project (its `Project` block, configurations, and solution
+  folder) are now inserted into the file as it is, keeping its line endings and byte order mark. A
+  `.sln` that cannot be edited that way (no `Global` section) is still rewritten, with the new
+  `OFR2115` (warning) naming the lines that are gone or changed.
 - `move extract` creates a strong-named project next to a strong-named one. The template copied
   only `LangVersion`, `Nullable` and `ImplicitUsings`, so NHibernate 4.1.2's extracted
   `NHibernate.DynamicProxy` was unsigned while the signed `NHibernate.dll` referenced it, which

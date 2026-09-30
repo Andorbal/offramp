@@ -377,7 +377,12 @@ unless that would be circular, then runs `move plan` + `move apply` into it.
   `AssemblyOriginatorKeyFile` relative to the new folder, `DelaySign`, `PublicSign`: a
   strong-named assembly loads only strong-named ones on .NET Framework), `SRC`'s analyzer packages (`PrivateAssets="all"`,
   versions omitted under central package management), and `SRC`'s .NET Framework
-  `Reference` items for .NET Framework targets. It is added to the workspace's solution.
+  `Reference` items for .NET Framework targets. It is added to the workspace's solution: in a
+  `.sln`, the lines the solution serializer writes for the project (its `Project` block, its
+  configurations, its solution folder) are inserted and every other line stays as it was
+  (format version, sections the serializer does not model, line endings, byte order mark). A
+  `.sln` that cannot be edited that way is rewritten by the serializer, with `OFR2115`
+  (warning) naming the lines that are gone or changed.
 - **Planning** is `move plan` with the new project as destination. It does not exist
   yet, so its compilation per target is built in memory: `SRC`'s recorded compilation's
   framework references for a target `SRC` compiles for, else the target's reference
@@ -469,6 +474,7 @@ offramp forwarders --from SRC.csproj --to DEST.csproj [--since GIT_REF] [--apply
 | OFR2112 | file compiles but breaks the destination's warning policy |
 | OFR2113 | co-move no longer needed: the file it was co-moved for stays |
 | OFR2114 | `move extract`: the source's friend assemblies are not granted by the new project |
+| OFR2115 | a `.sln` could not be edited in place and was rewritten by the solution serializer |
 | OFR2120 | namespace differs from destination root namespace |
 | OFR2150 | file changed since plan |
 | OFR2151 | file changed since the move; rollback stopped |

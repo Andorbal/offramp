@@ -236,6 +236,14 @@ public static partial class DiagnosticCatalog
         "If a friend uses internal members of the moved code, add `<InternalsVisibleTo Include=\"Friend\" Key=\"...\" />` to the new project (the move's verification build shows it), or keep those files in the source.",
         MovesArea);
 
+    public static readonly DiagnosticDescriptor OFR2115 = new(
+        "OFR2115", Severity.Warning,
+        "solution rewritten by the serializer",
+        "Adding a project to a `.sln` inserts the lines for the project and leaves every other line as it was. This solution could not be edited that way (no `Global` section, or a layout the check did not read back), so the solution serializer rewrote it whole: in its own format (`Format Version 12.00`) and without what it does not model, such as `TestCaseManagementSettings` or comments. The message and data name the lines that are gone or changed.",
+        "A hand-edited or unusual `.sln` file.",
+        "Review the solution's diff before committing; restore the lines you need, or add the project with Visual Studio or `dotnet sln add` instead.",
+        MovesArea);
+
     public static readonly DiagnosticDescriptor OFR2120 = new(
         "OFR2120", Severity.Warning,
         "namespace differs from destination root namespace",

@@ -115,7 +115,7 @@ public static class MoveApplier
         }
 
         var changeSet = MoveChangeSet.Build(request.RepositoryRoot, plan, skipped, out var edited, request.Model, request.Created);
-        await AddToSolutionsAsync(request.RepositoryRoot, plan, changeSet, cancellationToken);
+        await AddToSolutionsAsync(request.RepositoryRoot, plan, changeSet, cancellationToken, request.Diagnostics);
         edited = [.. changeSet.Edits.Select(e => e.Path).Order(StringComparer.Ordinal)];
         var batches = Batches(moves, BatchSize(request.VerifyPolicy));
         var order = batches.SelectMany(b => b).Select((m, i) => (m.File, i)).ToDictionary(x => x.File, x => x.i, StringComparer.Ordinal);
@@ -290,11 +290,11 @@ public static class MoveApplier
             : null;
 
     /// <summary>The plan's <c>addToSolution</c> edits (a project it creates), as edits of the solution files.</summary>
-    public static async Task AddToSolutionsAsync(string root, MovePlanDocument plan, ChangeSet changeSet, CancellationToken cancellationToken)
+    public static async Task AddToSolutionsAsync(string root, MovePlanDocument plan, ChangeSet changeSet, CancellationToken cancellationToken, DiagnosticBag? diagnostics = null)
     {
         foreach (var edit in plan.ProjectEdits.Where(e => e.Kind == ProjectEditKind.AddToSolution))
         {
-            foreach (var (path, before, after) in await SolutionEditor.AddProjectAsync(root, edit.Project, edit.Value!, cancellationToken))
+            foreach (var (path, before, after) in await SolutionEditor.AddProjectAsync(root, edit.Project, edit.Value!, cancellationToken, diagnostics))
             {
                 if (!before.AsSpan().SequenceEqual(after))
                 {
