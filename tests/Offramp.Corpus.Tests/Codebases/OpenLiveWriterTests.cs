@@ -53,14 +53,8 @@ public sealed class OpenLiveWriterTests
             Assert.True(reached.Diagnostics("OFR0119").Count() >= 10, "Non-string resources were not named for every project.");
             Assert.Contains(reached.Diagnostics("OFR0125"), d => Project(d).EndsWith("OpenLiveWriter.UnitTest.csproj", StringComparison.Ordinal));
 
-            // P1 #7: the application is not built because the solution makes it depend on the native project.
-            Assert.Contains(reached.Diagnostics("OFR0101"), d => Project(d).EndsWith("OpenLiveWriter/OpenLiveWriter.csproj", StringComparison.Ordinal)
-                && Message(d).Contains("OpenLiveWriter.Ribbon.vcxproj", StringComparison.Ordinal));
-        }
-
-        if (OperatingSystem.IsLinux())
-        {
-            Assert.Contains(reached.Diagnostics("OFR0117"), d => Strings(d["data"]?["paths"]).Any(p => p.EndsWith("intl/markets/Master.xml", StringComparison.Ordinal)));
+            // P1 #7: a project MSBuild skipped names the reference that failed, not "the solution configuration".
+            Assert.DoesNotContain(reached.Diagnostics("OFR0101"), d => Message(d).Contains("solution configuration", StringComparison.Ordinal));
         }
 
         // Harness adjustments, each the fix a diagnostic above prescribes or docs/compiling-on-macos.md gives for it:
@@ -69,13 +63,15 @@ public sealed class OpenLiveWriterTests
         // - OFR0115 (a generator the solution builds): guard the target and supply its output, which the compile
         //   needs as an embedded resource (the generator itself runs on .NET Framework);
         // - OFR0115 (the installer's post-build event): no post-build events in compile-only builds;
-        // - OFR0101 (P1 #7): the native project is not built in Debug, so the application it depends on is.
+        // - OFR0101 (P1 #7): the native project is not built in Debug, so the application it depends on is (the
+        //   regular suite pins that OFR0101 names the native project).
         CaseLinks.Apply(reached, repository.Path);
         if (!OperatingSystem.IsWindows())
         {
             var mstest = reached.Diagnostics("OFR0125").Select(d => Path.GetFileNameWithoutExtension(Project(d))).Order(StringComparer.Ordinal).ToList();
             repository.Write("Directory.Build.props", repository.Read("Directory.Build.props").Replace("</Project>", LegacySections(mstest) + "</Project>", StringComparison.Ordinal));
         }
+
         var coreServices = $"{Managed}/OpenLiveWriter.CoreServices/OpenLiveWriter.CoreServices.csproj";
         repository.Write(coreServices, repository.Read(coreServices).Replace(
             "<Target Name=\"GenerateMarketXmlImpl\"", "<Target Name=\"GenerateMarketXmlImpl\" Condition=\"'$(OfframpCompileOnly)' != 'true'\"", StringComparison.Ordinal));
@@ -83,6 +79,15 @@ public sealed class OpenLiveWriterTests
         repository.Write("offramp.yml", repository.Read("offramp.yml") + "  properties:\n    PostBuildEvent: \"\"\n");
         repository.Write($"{Managed}/writer.sln", string.Join('\n', repository.Read($"{Managed}/writer.sln").Split('\n')
             .Where(l => !l.Contains("{195A60BF-7A4D-42E6-B5F4-FEBC679E19F0}.Debug|Any CPU.Build.0", StringComparison.Ordinal))));
+
+        // Now the build reaches OpenLiveWriter.CoreServices, whose target copies intl/markets/Master.xml in another
+        // letter case (a path only the build's error shows); link it as OFR0117 says, as a user would after this scan.
+        var building = await corpus.RunAsync("scan", "scan");
+        if (OperatingSystem.IsLinux())
+        {
+            Assert.Contains(building.Diagnostics("OFR0117"), d => Strings(d["data"]?["paths"]).Any(p => p.EndsWith("intl/markets/Master.xml", StringComparison.Ordinal)));
+            CaseLinks.Apply(building, repository.Path);
+        }
 
         var sweep = await corpus.SweepAsync();
 
