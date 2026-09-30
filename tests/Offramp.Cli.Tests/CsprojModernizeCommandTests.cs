@@ -267,6 +267,34 @@ public sealed class CsprojModernizeCommandTests
         Assert.True(JsonNode.Parse(run.Out)!["result"]!["projects"]![0]!["verification"]!["passed"]!.GetValue<bool>(), run.Out);
     }
 
+    /// <summary>
+    /// Open Live Writer 0.6.3 (corpus): <c>writer.build.settings</c> puts each project's intermediate files in
+    /// <c>src/managed/obj/&lt;Configuration&gt;/&lt;Project&gt;/</c>, outside the project's folder, and verification took
+    /// the AssemblyInfo.cs the SDK generates there for an added source (8 of 28 conversions).
+    /// </summary>
+    [Fact]
+    public async Task Files_the_build_generates_in_an_intermediate_folder_outside_the_project_are_not_sources()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared", (root, request) =>
+        {
+            var data = Path.Combine(root, "src/Layers.Data/Layers.Data.csproj");
+            File.WriteAllText(data, File.ReadAllText(data).Replace("<OutputType>Library</OutputType>",
+                "<OutputType>Library</OutputType>\n    <IntermediateOutputPath>..\\..\\obj\\$(Configuration)\\$(MSBuildProjectName)\\</IntermediateOutputPath>", StringComparison.Ordinal));
+            return request;
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+        Assert.True(Directory.Exists(repository.Directory.Combine("obj", "Debug", "Layers.Data")), "The legacy build writes its intermediate files outside the project's folder.");
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Layers.Data", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        var project = Assert.Single(JsonNode.Parse(run.Out)!["result"]!["projects"]!.AsArray())!;
+        Assert.Contains("<IntermediateOutputPath>", JsonNode.Parse(run.Out)!["result"]!["preview"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.True(project["verification"]!["passed"]!.GetValue<bool>(), run.Out);
+        Assert.Empty(project["verification"]!["targets"]![0]!["sourcesAdded"]!.AsArray());
+    }
+
     private static List<JsonNode> Diagnostics(string envelope, string code) =>
         [.. JsonNode.Parse(envelope)!["diagnostics"]!.AsArray().OfType<JsonNode>().Where(d => d["code"]!.GetValue<string>() == code)];
 

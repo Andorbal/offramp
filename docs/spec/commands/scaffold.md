@@ -329,7 +329,9 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
   that restored packages declare in their nuspec (`frameworkReferencesAdded`); and the .NET
   Standard facades the legacy build added from the framework's `Facades` folder or
   `Microsoft.NET.Build.Extensions` (`facadesRemoved`). Any other added or removed reference is
-  a difference. The scratch copy holds the committed tree plus the model's inputs from the
+  a difference. Sources the build generates are not compared: those under `obj/` and in the
+  folder the compiler writes the assembly to (the intermediate output path, wherever the project
+  puts it). The scratch copy holds the committed tree plus the model's inputs from the
   working tree, imported files in dot-directories and untracked ones included. A
   difference or a failed build is `OFR4303`; `--apply` then refuses unless `--accept-diff`. A build that fails only on NuGet audit (NU1901–NU1904,
   known vulnerabilities, which `PackageReference` restore reports and

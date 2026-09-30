@@ -211,6 +211,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `csproj modernize` no longer takes the files a build generates in an intermediate folder outside the
+  project for sources the conversion added. Open Live Writer 0.6.3's `writer.build.settings` puts every
+  project's intermediate files in `src/managed/obj/<Configuration>/<Project>/`, and 8 of its 28
+  conversions failed verification (`OFR4303`) with "sources added:
+  `../obj/Debug/<Project>/<Project>.AssemblyInfo.cs`", the attributes the SDK generates. A source in the
+  folder the compiler writes the assembly to (the intermediate output path, wherever the project puts
+  it) is now the build's own, like one under `obj/`; those 8 conversions pass.
 - `csproj modernize` verifies a conversion against what the legacy build really compiled (ADR 0061).
   On SmartStoreNET 4.2.0, 10 of 11 conversions still failed verification (`OFR4303`) for reasons
   that were not the conversion's; now 10 of 11 pass:

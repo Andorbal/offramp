@@ -151,7 +151,9 @@ public static class CompileSets
     /// <summary>
     /// The compile sets, by target framework, of the regular C# compiler calls for a project
     /// file in a log. Sources outside the repository (the temporary target-framework attribute
-    /// file) and under <c>obj/</c> are the build's own and are left out.
+    /// file), under <c>obj/</c>, and in the folder the compiler writes the assembly to (the
+    /// intermediate output path, wherever the project puts it: the SDK's <c>AssemblyInfo</c>,
+    /// <c>AssemblyAttributes</c>, and <c>GlobalUsings</c> files) are the build's own and are left out.
     /// </summary>
     /// <param name="logPath">A binary log or compiler log.</param>
     /// <param name="projectFile">The project, absolute.</param>
@@ -174,11 +176,13 @@ public static class CompileSets
             var raw = reader.ReadArguments(call);
             var arguments = CSharpCommandLineParser.Default.Parse(raw, directory, sdkDirectory: null);
             var target = string.IsNullOrEmpty(call.TargetFramework) ? defaultTargetFramework : call.TargetFramework;
+            var generated = GeneratedFolder(arguments.OutputDirectory, directory);
             result[target] = new CompileSet
             {
                 TargetFramework = target,
                 Sources = arguments.SourceFiles
                     .Where(s => Normalize(s.Path).StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                    .Where(s => generated is null || !Normalize(s.Path).StartsWith(generated, StringComparison.OrdinalIgnoreCase))
                     .Select(s => Path.GetRelativePath(directory, s.Path).Replace('\\', '/'))
                     .Where(s => !s.StartsWith("obj/", StringComparison.OrdinalIgnoreCase))
                     .ToHashSet(StringComparer.Ordinal),
@@ -193,6 +197,23 @@ public static class CompileSets
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// The folder the compiler writes the assembly to (<c>/out:</c>, the build's intermediate output path) with a
+    /// trailing slash, where the build writes the sources it generates; null when it is the project's folder or
+    /// one above it, which hold the project's own sources.
+    /// </summary>
+    private static string? GeneratedFolder(string? outputDirectory, string projectDirectory)
+    {
+        if (string.IsNullOrEmpty(outputDirectory))
+        {
+            return null;
+        }
+
+        var folder = Normalize(outputDirectory).TrimEnd('/') + "/";
+        var project = Normalize(projectDirectory).TrimEnd('/') + "/";
+        return project.StartsWith(folder, StringComparison.OrdinalIgnoreCase) ? null : folder;
     }
 
     /// <summary>
