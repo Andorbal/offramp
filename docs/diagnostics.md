@@ -216,6 +216,8 @@ where a command reports a code at another severity, the entry says so.
 | [OFR4021](#ofr4021) | error | seams | generated project directory exists |
 | [OFR4022](#ofr4022) | info | seams | host falls back to net48 |
 | [OFR4023](#ofr4023) | error | seams | remote interface not found |
+| [OFR4031](#ofr4031) | warning | seams | extraction too large for a seam |
+| [OFR4032](#ofr4032) | info | seams | unportable API supplied by a package |
 | [OFR4101](#ofr4101) | warning | service | pause, continue, or custom commands differ |
 | [OFR4102](#ofr4102) | warning | service | code left in compatibility region |
 | [OFR4103](#ofr4103) | info | service | multiple services in one executable |
@@ -1959,6 +1961,24 @@ The implementation and the files it uses did not compile for net10.0-windows wit
 
 - **Typical cause:** A type from another project, several classes implementing the interface, a typo.
 - **Fix:** Pass --project, and --implementation when more than one class implements the interface.
+
+### OFR4031
+
+**extraction too large for a seam** · warning · seams
+
+The unportable code and what must move with it (types that inherit from it, expose it in their signatures, or share a structural cycle with it) are more than a quarter of the project's types, so `seams` proposes no extraction; the message and `data.directlyTainted` list the types that use unportable APIs themselves.
+
+- **Typical cause:** A central class (configuration, a service locator, a session) that uses one unportable API and that most of the project's types depend on in their signatures.
+- **Fix:** Fence the listed types instead of moving them: replace or wrap the unportable call inside each (a package, an `#if`, an interface over just that API), then run `seams` again.
+
+### OFR4032
+
+**unportable API supplied by a package** · info · seams
+
+`audit api` reports an API missing on the target (OFR3001) that a package supplies there (`System.Configuration.ConfigurationManager` for `ConfigurationManager`), so `seams` does not count the types that use it as unportable. A Windows-only package counts only on a `-windows` target.
+
+- **Typical cause:** Configuration, caching, and other framework assemblies that moved to NuGet packages.
+- **Fix:** Nothing for `seams`; reference the named package when the project moves to the target.
 
 ### OFR4101
 

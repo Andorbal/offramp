@@ -12,6 +12,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- `OFR4031` (warning): `seams` proposes no extraction when it would take more than a quarter of
+  the project's types (and more than 10), and lists the types that use unportable APIs themselves,
+  to fence instead (ADR 0053). `OFR4032` (info): an API `audit api` reports missing (`OFR3001`)
+  that a package supplies on the target, which `seams` no longer counts as unportable.
 - `OFR3013` (error): `CallContext` (and `LogicalCallContext`), which modern .NET does not have,
   with `AsyncLocal<T>` as the replacement. It was reported as .NET Remoting (`OFR3007`, "use gRPC,
   HTTP, or named pipes") and as missing (`OFR3001`) at the same place.
@@ -129,6 +133,16 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `seams` on NHibernate 4.1.2 tainted 1,445 of 2,355 types and proposed moving them all to
+  `NHibernate.Windows`, with 13 seams unrelated to the unportable APIs, in 14.6 MB of JSON. The
+  cycles that move together were the components of every reference, calls included, which put 7
+  directly tainted types in one component of 979; they are now built from structure only (base
+  types, and the types in non-private signatures), so calls stay places to cut, and taint spreads
+  to a fixed point. An API a package supplies on the target (`ConfigurationManager`) no longer
+  taints. A type tainted by its cycle names the cycle's partition (`in a structural cycle with a
+  tainted type (partition N)`) instead of listing its members, which made one reason 42,036
+  characters long. Now: 11 tainted types (SqlClient, ODBC, OLE DB, CodeDom, `CallContext`,
+  `SecurityManager`, `DefineDynamicAssembly`), 7 seams, 2.7 MB (ADR 0053).
 - `csproj modernize` reports what its verification found in full. A converted build that failed
   showed its first 10 errors and nothing else (NHibernate 4.1.2's `netstandard2.0` conversion had
   71): the result's `verification` now has `built`, `buildErrorCount`, and `buildErrorCodes` (the

@@ -23,9 +23,6 @@ public sealed record SeamsOptions(string Project, string? UnportableFrom, IReadO
 /// <summary><c>offramp seams</c> (docs/spec/commands/seams.md).</summary>
 public sealed class SeamsCommand(string format) : ICommandHandler<SeamsOptions, SeamsResult>, IRawOutput<SeamsResult>
 {
-    /// <summary>The audit rules whose findings make code unportable (OFR3002 too when the target is not -windows).</summary>
-    private static readonly HashSet<string> UnportableRules = new(StringComparer.Ordinal) { "OFR3001", "OFR3002", "OFR3004", "OFR3005", "OFR3006", "OFR3007", "OFR3008", "OFR3009", "OFR3013" };
-
     private string? _written;
 
     public string CommandPath => "seams";
@@ -94,7 +91,7 @@ public sealed class SeamsCommand(string format) : ICommandHandler<SeamsOptions, 
         }
 
         var source = options.UnportableFrom ?? (config.Seams.UnportableSources.Contains("audit", StringComparer.Ordinal) ? "audit" : "list");
-        var uses = new List<UnportableUse>();
+        IReadOnlyList<AuditFinding> findings = [];
         if (source == "audit")
         {
             var audit = await AuditRunner.RunAsync(new AuditRequest
@@ -109,9 +106,7 @@ public sealed class SeamsCommand(string format) : ICommandHandler<SeamsOptions, 
                 Progress = context.Progress,
                 References = new TargetReferenceResolver(root, context.Host.Processes, CommandRunner.Cache(context)),
             }, cancellationToken);
-            uses.AddRange(audit.Findings
-                .Where(f => UnportableRules.Contains(f.Rule) && (f.Rule == "OFR3002" || f.Severity == Severity.Error))
-                .Select(f => new UnportableUse(f.File, f.Line, f.Symbol)));
+            findings = audit.Findings;
         }
 
         var result = SeamsAnalyzer.Analyze(new SeamsRequest
@@ -120,7 +115,7 @@ public sealed class SeamsCommand(string format) : ICommandHandler<SeamsOptions, 
             Project = project,
             UnportableFrom = source,
             Symbols = [.. config.Seams.UnportableSymbols.Concat(options.Symbols).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
-            Uses = uses,
+            Findings = findings,
             MaxCut = options.MaxCut,
             Diagnostics = context.Diagnostics,
         }, compilation)!;
@@ -152,7 +147,7 @@ public sealed class SeamsCommand(string format) : ICommandHandler<SeamsOptions, 
 
     public void Render(SeamsResult result, CommandContext context, HumanOutput output)
     {
-        var loc = result.Extraction?.EstimatedLoc ?? 0;
+        var loc = result.Tainted.Sum(t => t.Loc);
         if (_written is not null)
         {
             output.Headline($"Wrote {_written}: {result.Seams.Count} seam{(result.Seams.Count == 1 ? "" : "s")}.", Theme.ReadyStyle);

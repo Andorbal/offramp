@@ -1,16 +1,15 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Offramp.Analysis.Audits;
 using Offramp.Core.Diagnostics;
+using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 
 namespace Offramp.Analysis.Seams;
-
-/// <summary>An unportable use found by <c>audit api</c>: the file and line, and the symbol.</summary>
-public sealed record UnportableUse(string File, int Line, string Symbol);
 
 public sealed record SeamsRequest
 {
@@ -18,14 +17,14 @@ public sealed record SeamsRequest
 
     public required ProjectInfo Project { get; init; }
 
-    /// <summary><c>audit</c> (the uses <c>audit api</c> found, in <see cref="Uses"/>) or <c>list</c> (<see cref="Symbols"/> only).</summary>
+    /// <summary><c>audit</c> (what <c>audit api</c> found, in <see cref="Findings"/>) or <c>list</c> (<see cref="Symbols"/> only).</summary>
     public required string UnportableFrom { get; init; }
 
     /// <summary>Namespaces or types (prefixes of fully qualified names) that cannot port.</summary>
     public IReadOnlyList<string> Symbols { get; init; } = [];
 
-    /// <summary>The unportable uses <c>audit api</c> found in the project.</summary>
-    public IReadOnlyList<UnportableUse> Uses { get; init; } = [];
+    /// <summary>What <c>audit api</c> found in the project; the analyzer takes the unportable findings from it.</summary>
+    public IReadOnlyList<AuditFinding> Findings { get; init; } = [];
 
     /// <summary>Report no seam when the minimum cut has more edges than this.</summary>
     public int? MaxCut { get; init; }
@@ -34,14 +33,16 @@ public sealed record SeamsRequest
 }
 
 /// <summary>
-/// <c>seams</c>: the smallest boundary around the code that cannot port.
+/// <c>seams</c>: the smallest boundary around the code that cannot port (ADRs 0023, 0053).
 /// <list type="number">
 /// <item>The type reference graph of the project: an edge A → B when members of A reference
 /// B (weight: how many members of A do).</item>
-/// <item>Taint: types that use unportable symbols, then types that inherit from a tainted type
-/// or expose one in a public or protected signature (constructor parameters aside: that is
-/// where <c>extract interface</c> puts the interface). Calls never taint.</item>
-/// <item>Strongly connected components with a tainted type are tainted whole.</item>
+/// <item>Taint starts at types that use an unportable API (not one a package supplies on the
+/// target). It spreads to types that inherit from a tainted type or expose one in a
+/// public or protected signature (constructor parameters aside: that is where <c>extract
+/// interface</c> puts the interface). Calls never taint.</item>
+/// <item>Strongly connected components of the structural graph (base types, and the types in
+/// non-private signatures) with a tainted type are tainted whole; calls stay places to cut.</item>
 /// <item>The minimum cut between clean entry points (clean types nothing in the project
 /// references) and the tainted set, closest to the taint among minimum cuts, over the
 /// component DAG. Cut edges grouped by their tainted type are the seams.</item>
@@ -51,24 +52,36 @@ public sealed record SeamsRequest
 /// </summary>
 public static class SeamsAnalyzer
 {
+    /// <summary>The <c>audit api</c> rules whose findings make code unportable (error level; <c>OFR3002</c> at any level, reported only off <c>-windows</c>).</summary>
+    private static readonly HashSet<string> UnportableRules = new(StringComparer.Ordinal) { "OFR3001", "OFR3002", "OFR3004", "OFR3005", "OFR3006", "OFR3007", "OFR3008", "OFR3009", "OFR3013" };
+
+    /// <summary>An extraction larger than this share of the project's types is not a seam (OFR4031).</summary>
+    private const double MaxExtractionShare = 0.25;
+
+    /// <summary>An extraction of at most this many types is proposed whatever its share of a small project.</summary>
+    private const int SmallExtraction = 10;
+
     public static SeamsResult? Analyze(SeamsRequest request, Compilation compilation)
     {
         var graph = TypeGraph.Build(request.RepositoryRoot, compilation);
-        var tainted = Taint(request, graph, compilation);
+        var windows = WindowsDesktop.Uses(request.Project);
+        var direct = Sources(request, graph, compilation, windows);
+        var components = Components(graph.Types.Keys, StructuralEdges(graph));
+        var tainted = Propagate(graph, direct, components);
         if (tainted.Count == 0)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR4001, $"Nothing in {request.Project.Id} uses the unportable symbols, so there is no seam to find.", new DiagnosticLocation(request.Project.Id));
-            return Result(request, graph, tainted, [], [], []);
+            return Result(request, graph, tainted, components, [], [], extract: false);
         }
 
-        var components = Components(graph, tainted);
+        var extract = !Oversized(request, graph, direct, tainted);
         var cut = MinimumCut(graph, tainted);
         if (cut.Count == 0)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR4001,
                 $"No clean entry point of {request.Project.Id} reaches the unportable code through a type the project could put an interface on: the taint reaches the project's entry points directly.",
                 new DiagnosticLocation(request.Project.Id));
-            return Result(request, graph, tainted, components, [], cut);
+            return Result(request, graph, tainted, components, [], cut, extract);
         }
 
         if (request.MaxCut is { } max && cut.Count > max)
@@ -76,11 +89,39 @@ public static class SeamsAnalyzer
             request.Diagnostics.Report(DiagnosticCatalog.OFR4001,
                 $"The smallest boundary around the unportable code in {request.Project.Id} crosses {cut.Count} references, more than --max-cut {max}.",
                 new DiagnosticLocation(request.Project.Id));
-            return Result(request, graph, tainted, components, [], cut);
+            return Result(request, graph, tainted, components, [], cut, extract);
         }
 
         var seams = Seams(request, graph, compilation, tainted, cut);
-        return Result(request, graph, tainted, components, seams, cut);
+        return Result(request, graph, tainted, components, seams, cut, extract);
+    }
+
+    /// <summary>
+    /// OFR4031: the taint spread to more than a quarter of the project (and more than a handful of
+    /// types), so moving it is a split, not a seam. The types that use unportable APIs themselves
+    /// are what to fence.
+    /// </summary>
+    private static bool Oversized(SeamsRequest request, TypeGraph graph, SortedDictionary<string, List<string>> direct, SortedDictionary<string, List<string>> tainted)
+    {
+        if (tainted.Count <= SmallExtraction || tainted.Count <= graph.Types.Count * MaxExtractionShare)
+        {
+            return false;
+        }
+
+        var target = (request.Project.AssemblyName ?? request.Project.Name) + ".Windows";
+        var share = (double)tainted.Count / graph.Types.Count;
+        const int Named = 20;
+        var names = string.Join(", ", direct.Keys.Take(Named)) + (direct.Count > Named ? $", and {direct.Count - Named} more" : "");
+        request.Diagnostics.Report(DiagnosticCatalog.OFR4031,
+            string.Create(CultureInfo.InvariantCulture,
+                $"Moving the unportable code of {request.Project.Id} to {target} would take {tainted.Count} of its {graph.Types.Count} types ({share * 100:0}%), carried there by inheritance, signatures, and structural cycles from the {direct.Count} type{(direct.Count == 1 ? "" : "s")} that use unportable APIs themselves; that is a split, not a seam, so no extraction is proposed. Fence {(direct.Count == 1 ? "that type" : "those types")} instead: {names}."),
+            new DiagnosticLocation(request.Project.Id),
+            [
+                KeyValuePair.Create<string, JsonNode?>("directlyTainted", new JsonArray([.. direct.Keys.Select(t => (JsonNode?)t)])),
+                KeyValuePair.Create<string, JsonNode?>("tainted", tainted.Count),
+                KeyValuePair.Create<string, JsonNode?>("types", graph.Types.Count),
+            ]);
+        return true;
     }
 
     // ----- the type graph -----
@@ -181,25 +222,32 @@ public static class SeamsAnalyzer
 
     // ----- taint -----
 
-    private static SortedDictionary<string, List<string>> Taint(SeamsRequest request, TypeGraph graph, Compilation compilation)
+    /// <summary>
+    /// The types that use something unportable themselves, with what they use: the unportable
+    /// <c>audit api</c> findings (not the APIs a package supplies on the target, OFR4032), the
+    /// listed symbols.
+    /// </summary>
+    private static SortedDictionary<string, List<string>> Sources(SeamsRequest request, TypeGraph graph, Compilation compilation, bool windows)
     {
         var tainted = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
-        void Add(string type, string reason)
-        {
-            var reasons = tainted.TryGetValue(type, out var list) ? list : tainted[type] = [];
-            if (!reasons.Contains(reason, StringComparer.Ordinal))
-            {
-                reasons.Add(reason);
-            }
-        }
+        void Add(string type, string reason) => AddReason(tainted, type, reason);
 
         // Audit findings and listed symbols both taint (seams.unportableSymbols applies to either source).
-        foreach (var use in request.Uses)
+        var supplied = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+        foreach (var finding in request.Findings.Where(IsUnportable))
         {
-            if (TypeAt(request.RepositoryRoot, compilation, use.File, use.Line) is { } type && graph.Types.ContainsKey(type))
+            if (TypeAt(request.RepositoryRoot, compilation, finding.File, finding.Line) is not { } type || !graph.Types.ContainsKey(type))
             {
-                Add(type, use.Symbol);
+                continue;
             }
+
+            if (SuppliedBy(finding, windows) is { } package)
+            {
+                (supplied.TryGetValue(package, out var types) ? types : supplied[package] = new(StringComparer.Ordinal)).Add(type);
+                continue;
+            }
+
+            Add(type, finding.Symbol);
         }
 
         foreach (var (type, uses) in graph.Uses)
@@ -214,7 +262,96 @@ public static class SeamsAnalyzer
             }
         }
 
-        // Structural taint, to a fixed point: inheritance and exposure in public signatures.
+        foreach (var (package, types) in supplied)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR4032,
+                $"{package} supplies on the target the APIs that {string.Join(", ", types)} use{(types.Count == 1 ? "s" : "")} (OFR3001), so {(types.Count == 1 ? "it does" : "they do")} not count as unportable; reference the package when the project moves.",
+                new DiagnosticLocation(request.Project.Id),
+                [
+                    KeyValuePair.Create<string, JsonNode?>("package", package),
+                    KeyValuePair.Create<string, JsonNode?>("types", new JsonArray([.. types.Select(t => (JsonNode?)t)])),
+                ]);
+        }
+
+        return tainted;
+    }
+
+    private static void AddReason(SortedDictionary<string, List<string>> tainted, string type, string reason)
+    {
+        var reasons = tainted.TryGetValue(type, out var list) ? list : tainted[type] = [];
+        if (!reasons.Contains(reason, StringComparer.Ordinal))
+        {
+            reasons.Add(reason);
+        }
+    }
+
+    private static bool IsUnportable(AuditFinding finding) =>
+        UnportableRules.Contains(finding.Rule) && (finding.Rule == "OFR3002" || finding.Severity == Severity.Error);
+
+    /// <summary>
+    /// The package that supplies an API <c>OFR3001</c> reports missing, when one does on the target:
+    /// the finding's mapping is a package (or the Windows compatibility pack), and the package works
+    /// there (it is not Windows-only, or the target is <c>-windows</c>).
+    /// </summary>
+    internal static string? SuppliedBy(AuditFinding finding, bool windows)
+    {
+        if (finding.Rule != "OFR3001" || finding.Details.GetValueOrDefault("mapping") is not ("package" or "compat-pack"))
+        {
+            return null;
+        }
+
+        if (!windows && finding.Details.GetValueOrDefault("windowsOnly") == "true")
+        {
+            return null;
+        }
+
+        return finding.Details.GetValueOrDefault("package") ?? "Microsoft.Windows.Compatibility";
+    }
+
+    /// <summary>
+    /// Spreads the taint to a fixed point: types that inherit from a tainted type or expose one in
+    /// a public or protected signature, and every type of a structural cycle with a tainted type.
+    /// A type tainted by its cycle names the cycle's partition instead of its members.
+    /// </summary>
+    private static SortedDictionary<string, List<string>> Propagate(TypeGraph graph, SortedDictionary<string, List<string>> direct, List<List<string>> components)
+    {
+        var tainted = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var (type, reasons) in direct)
+        {
+            tainted[type] = [.. reasons];
+        }
+
+        var cycles = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        bool changed;
+        do
+        {
+            changed = Structural(graph, tainted);
+            foreach (var component in components.Where(c => c.Count > 1 && c.Any(tainted.ContainsKey)))
+            {
+                foreach (var type in component.Where(t => !tainted.ContainsKey(t)))
+                {
+                    tainted[type] = [];
+                    cycles[type] = component;
+                    changed = true;
+                }
+            }
+        }
+        while (changed);
+
+        var partitions = Partitions(components, tainted);
+        foreach (var (type, component) in cycles)
+        {
+            var id = partitions.FindIndex(p => ReferenceEquals(p, component)) + 1;
+            tainted[type].Add(string.Create(CultureInfo.InvariantCulture, $"in a structural cycle with a tainted type (partition {id})"));
+        }
+
+        return tainted;
+    }
+
+    /// <summary>Inheritance and exposure in public signatures, to a fixed point; true when anything was tainted.</summary>
+    private static bool Structural(TypeGraph graph, SortedDictionary<string, List<string>> tainted)
+    {
+        var any = false;
         bool changed;
         do
         {
@@ -228,27 +365,33 @@ public static class SeamsAnalyzer
 
                 if (type.BaseType is { } baseType && tainted.ContainsKey(Name(baseType)))
                 {
-                    Add(name, $"inherits {Name(baseType)}");
+                    AddReason(tainted, name, $"inherits {Name(baseType)}");
                     changed = true;
                     continue;
                 }
 
                 if (Exposed(type).FirstOrDefault(e => tainted.ContainsKey(e.Type)) is { Type: not null } exposed)
                 {
-                    Add(name, $"exposes {exposed.Type} in {exposed.Member}");
+                    AddReason(tainted, name, $"exposes {exposed.Type} in {exposed.Member}");
                     changed = true;
                 }
             }
+
+            any |= changed;
         }
         while (changed);
 
-        return tainted;
+        return any;
     }
 
     /// <summary>Types in the public or protected signatures of a type (fields, properties, method parameters and returns; not constructors).</summary>
-    private static IEnumerable<(string Type, string Member)> Exposed(INamedTypeSymbol type)
+    private static IEnumerable<(string Type, string Member)> Exposed(INamedTypeSymbol type) =>
+        Signatures(type, a => a is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal);
+
+    /// <summary>Types in the signatures of a type's members with the given accessibility (fields, properties, events, method parameters and returns; not constructors).</summary>
+    private static IEnumerable<(string Type, string Member)> Signatures(INamedTypeSymbol type, Func<Accessibility, bool> accessible)
     {
-        foreach (var member in type.GetMembers().Where(m => !m.IsImplicitlyDeclared && m.DeclaredAccessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal))
+        foreach (var member in type.GetMembers().Where(m => !m.IsImplicitlyDeclared && accessible(m.DeclaredAccessibility)))
         {
             IEnumerable<ITypeSymbol> types = member switch
             {
@@ -263,6 +406,34 @@ public static class SeamsAnalyzer
                 yield return (Name(mentioned), member.Name);
             }
         }
+    }
+
+    /// <summary>
+    /// The structural graph (ADR 0053): A → B when B is a base type or interface of A, or appears in
+    /// the type of a non-private field, property, event, or method parameter or return of A
+    /// (constructors aside). Calls and bodies make no edge here: they are where a seam can go.
+    /// </summary>
+    private static SortedDictionary<string, SortedSet<string>> StructuralEdges(TypeGraph graph)
+    {
+        var edges = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+        foreach (var (name, type) in graph.Types)
+        {
+            var targets = new SortedSet<string>(StringComparer.Ordinal);
+            IEnumerable<ITypeSymbol> bases = type.BaseType is { } baseType ? [baseType, .. type.Interfaces] : type.Interfaces;
+            var mentioned = bases.SelectMany(Mentioned).Select(Name)
+                .Concat(Signatures(type, a => a != Accessibility.Private).Select(s => s.Type));
+            foreach (var target in mentioned)
+            {
+                if (target != name && graph.Types.ContainsKey(target))
+                {
+                    targets.Add(target);
+                }
+            }
+
+            edges[name] = targets;
+        }
+
+        return edges;
     }
 
     private static IEnumerable<INamedTypeSymbol> Mentioned(ITypeSymbol type)
@@ -312,8 +483,8 @@ public static class SeamsAnalyzer
 
     // ----- components and the cut -----
 
-    /// <summary>Strongly connected components (Tarjan, in name order); a component with a tainted type is tainted whole.</summary>
-    private static List<List<string>> Components(TypeGraph graph, SortedDictionary<string, List<string>> tainted)
+    /// <summary>Strongly connected components of a graph (Tarjan, in name order), each sorted by name.</summary>
+    private static List<List<string>> Components(IEnumerable<string> nodes, SortedDictionary<string, SortedSet<string>> edges)
     {
         var index = 0;
         var indices = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -327,7 +498,7 @@ public static class SeamsAnalyzer
             indices[node] = low[node] = index++;
             stack.Push(node);
             onStack.Add(node);
-            foreach (var next in graph.Targets(node))
+            foreach (var next in edges.GetValueOrDefault(node) ?? [])
             {
                 if (!indices.TryGetValue(next, out var seen))
                 {
@@ -356,7 +527,7 @@ public static class SeamsAnalyzer
             }
         }
 
-        foreach (var node in graph.Types.Keys)
+        foreach (var node in nodes)
         {
             if (!indices.ContainsKey(node))
             {
@@ -364,17 +535,12 @@ public static class SeamsAnalyzer
             }
         }
 
-        foreach (var component in components.Where(c => c.Count > 1 && c.Any(tainted.ContainsKey)))
-        {
-            var reason = $"in a reference cycle with {string.Join(", ", component.Where(tainted.ContainsKey))}";
-            foreach (var type in component.Where(t => !tainted.ContainsKey(t)))
-            {
-                tainted[type] = [reason];
-            }
-        }
-
         return components;
     }
+
+    /// <summary>The components with a tainted type, by their first type's name: partition <c>i + 1</c>.</summary>
+    private static List<List<string>> Partitions(List<List<string>> components, SortedDictionary<string, List<string>> tainted) =>
+        [.. components.Where(c => c.Any(tainted.ContainsKey)).OrderBy(c => c[0], StringComparer.Ordinal)];
 
     /// <summary>
     /// The minimum cut between clean entry points and the tainted set (Edmonds–Karp over type
@@ -602,15 +768,14 @@ public static class SeamsAnalyzer
         SortedDictionary<string, List<string>> tainted,
         List<List<string>> components,
         List<Seam> seams,
-        List<(string From, string To)> cut)
+        List<(string From, string To)> cut,
+        bool extract)
     {
-        var partitions = components
-            .Where(c => c.Any(tainted.ContainsKey))
-            .OrderBy(c => c[0], StringComparer.Ordinal)
+        var partitions = Partitions(components, tainted)
             .Select((c, i) => new SeamPartition(i + 1, c, c.Sum(t => graph.Loc.GetValueOrDefault(t))))
             .ToList();
         var cutSet = cut.ToHashSet();
-        var extraction = tainted.Count == 0 ? null : new SeamExtraction(
+        var extraction = tainted.Count == 0 || !extract ? null : new SeamExtraction(
             (request.Project.AssemblyName ?? request.Project.Name) + ".Windows",
             [.. tainted.Keys],
             tainted.Keys.Sum(t => graph.Loc.GetValueOrDefault(t)));
