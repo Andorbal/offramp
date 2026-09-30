@@ -95,10 +95,10 @@ public sealed class SmartStoreNetTests
         Assert.DoesNotContain("SmartStore.Data.Mapping.Catalog.ProductMap", high);
         Assert.DoesNotContain(high, s => s.StartsWith("SmartStore.Web.Controllers.BoardsController.ActiveDiscussionsRss", StringComparison.Ordinal));
 
-        // P0 #1 and P1 #6: csproj modernize leaves the shared assembly-info files alone and drops the NuGet 2
-        // restore import it used to keep.
+        // P0 #1 and P1 #6: csproj modernize leaves the shared assembly-info files alone, and no converted project
+        // keeps the NuGet 2 restore import after dropping SolutionDir (MSB4019 on "/.nuget/nuget.targets" in 10 of 11).
         Assert.DoesNotContain(sweep.Modernize!.Result["projects"]!.AsArray().SelectMany(p => Strings(p!["files"])), f => f is "src/AssemblyVersionInfo.cs" or "src/AssemblySharedInfo.cs");
-        Assert.DoesNotContain(sweep.Modernize.Diagnostics("OFR4303"), d => d["message"]!.GetValue<string>().Contains("nuget.targets", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(sweep.Modernize.Diagnostics("OFR4303"), d => d["message"]!.GetValue<string>().Contains("\"/.nuget/nuget.targets\"", StringComparison.OrdinalIgnoreCase));
     }
 
     private static JsonNode Package(JsonArray packages, string id) =>
