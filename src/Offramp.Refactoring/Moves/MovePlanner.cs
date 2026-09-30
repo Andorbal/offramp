@@ -650,7 +650,8 @@ public static class MovePlanner
                 var (tfm, compilation) = NearestDestination(sourceTarget);
                 var trial = DestinationTrial(tfm, compilation, candidates, needs[tfm], out _)
                     .AddSyntaxTrees(CSharpSyntaxTree.ParseText($"[assembly: System.Runtime.CompilerServices.InternalsVisibleTo(\"{sourceCompilation.AssemblyName}\")]", Options(compilation)));
-                remaining = remaining.AddReferences(trial.ToMetadataReference());
+                var reference = trial.ToMetadataReference();
+                remaining = NetStandardFacades.Add(remaining.AddReferences(reference), sourceTarget, [reference]);
             }
 
             static string Key(RoslynDiagnostic d) => d.Id + " " + d.Location.GetLineSpan() + " " + d.GetMessage(CultureInfo.InvariantCulture);
@@ -1062,7 +1063,8 @@ public static class MovePlanner
                 references = [.. references.Where(r => (compilation.GetAssemblyOrModuleSymbol(r) as IAssemblySymbol)?.Identity.Name != sourceCompilation.AssemblyName), trimmed.ToMetadataReference()];
             }
 
-            return compilation.WithReferences([.. references, .. needs.Select(n => n.Reference)]).AddSyntaxTrees(moved.Values);
+            var added = needs.Select(n => n.Reference).ToList();
+            return NetStandardFacades.Add(compilation.WithReferences([.. references, .. added]), tfm, added).AddSyntaxTrees(moved.Values);
         }
 
         // ----- helpers -----

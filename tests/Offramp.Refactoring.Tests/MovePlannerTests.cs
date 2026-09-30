@@ -226,6 +226,37 @@ public sealed class MovePlannerTests
             blocked.Excluded.Select(e => (e.File, e.Code)));
     }
 
+    [Theory]
+    [InlineData("Framework")]
+    [InlineData("Framework48")]
+    public async Task A_framework_source_gets_the_standard_facades_a_build_adds(string name)
+    {
+        // As in Open Live Writer: the source (net461, or net48) references no .NET Standard
+        // assembly yet, so its recorded compilation has no netstandard.dll. The build adds it
+        // (and the System.* facades) once the source references the .NET Standard destination.
+        var fixture = await Extended.Value;
+        var project = $"src/{name}/{name}.csproj";
+
+        var plan = Plan(fixture, [$"src/{name}/Clock.cs"], new DiagnosticBag(), from: project, to: "src/Contracts/Contracts.csproj")!.Plan;
+
+        Assert.Empty(plan.Excluded);
+        Assert.Equal([$"src/{name}/Clock.cs"], plan.Moves.Select(m => m.File));
+        Assert.Contains(plan.ProjectEdits, e => e.Project == project && e.Kind == ProjectEditKind.AddProjectReference && e.Value == "src/Contracts/Contracts.csproj");
+    }
+
+    [Fact]
+    public async Task A_framework_destination_gets_the_standard_facades_for_a_reference_the_move_adds()
+    {
+        // OrderMapper uses Contracts (netstandard2.0), which Framework (net461) does not reference yet.
+        var fixture = await Extended.Value;
+
+        var plan = Plan(fixture, ["src/Legacy/Orders/OrderMapper.cs"], new DiagnosticBag(), to: "src/Framework/Framework.csproj")!.Plan;
+
+        Assert.Empty(plan.Excluded);
+        Assert.Equal(["src/Legacy/Clean/Money.cs", "src/Legacy/Orders/OrderMapper.cs"], plan.Moves.Select(m => m.File));
+        Assert.Contains(plan.ProjectEdits, e => e.Project == "src/Framework/Framework.csproj" && e.Kind == ProjectEditKind.AddProjectReference && e.Value == "src/Contracts/Contracts.csproj");
+    }
+
     /// <summary>
     /// move-cases plus a chain of files in Legacy (Alpha, which uses System.Web's HttpContext, Zeta,
     /// and Banner, in Core's root namespace, need Title, which needs Trim), and two .NET Framework

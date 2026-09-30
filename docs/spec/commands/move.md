@@ -137,7 +137,13 @@ hollowed out into a destination in one overnight run.
 - **Trial compilation** runs for every `DEST` target framework against its
   recorded compilation. The source check references the nearest `DEST` target
   and adds `InternalsVisibleTo(SRC)` to `DEST` when remaining source code uses
-  moved internals.
+  moved internals. A .NET Framework 4.6.1+ compilation that gains a reference
+  to a .NET Standard assembly (`SRC` referencing `DEST`, or `DEST` a project or
+  package the moved files need) also gets the facades a build adds
+  (`netstandard.dll` and the `System.*` facades: the SDK's
+  `Microsoft.NET.Build.Extensions` for net461 to net471, then the reference
+  assemblies' `Facades` folder), which a recorded compilation that referenced no
+  .NET Standard assembly lacks (ADR 0052).
 - **Dependents.** A project referencing `SRC` that uses moved types must still
   see them. SDK-style dependents see them through `SRC`'s new reference to
   `DEST`. Other dependents, and every dependent when `DEST` already depends on

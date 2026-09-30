@@ -149,6 +149,17 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   tainted type (partition N)`) instead of listing its members, which made one reason 42,036
   characters long. Now: 11 tainted types (SqlClient, ODBC, OLE DB, CodeDom, `CallContext`,
   `SecurityManager`, `DefineDynamicAssembly`), 7 seams, 2.7 MB (ADR 0053).
+- `move plan` and `move extract` move code out of a .NET Framework project that references no
+  .NET Standard assembly yet. The source check added the .NET Standard destination to the recorded
+  compilation without the facades a build adds with it (`netstandard.dll` and the `System.*`
+  facades), so every first move out of such a project failed: Open Live Writer 0.6.3's
+  `Progress/*.cs` from the net461 `OpenLiveWriter.CoreServices` into a new `netstandard2.0` project
+  planned 0 moves (11 × `OFR2104`, CS0012 "The type 'Exception' is defined in an assembly that is
+  not referenced ... 'netstandard'"). Trial compilations of .NET Framework 4.6.1+ targets that gain
+  a .NET Standard reference (the source's, or the destination's for a project the moved files need)
+  now get the facades MSBuild would add, from the SDK's `Microsoft.NET.Build.Extensions` (net461 to
+  net471) and the reference assemblies' `Facades` folder (ADR 0052). The same extraction now plans
+  12 moves, and applying it passes verification.
 - `move plan` and `move extract` no longer move co-moves whose reason stays. When a requested
   file was excluded, only the files co-moved directly for it were removed from the plan, silently,
   and theirs stayed: moving SmartStoreNET 4.2.0's `SmartStore.Core/Collections` (10 files) into a
