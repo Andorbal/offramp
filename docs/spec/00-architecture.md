@@ -116,8 +116,13 @@ Offramp.Refactoring ──► Offramp.Analyzers.CodeFixes ──► Offramp.Anal
 
 ## Target framework handling
 
-Commands take `--target N` (integer). `N` maps to `netN.0`. Additional
-suffixes come from the destination project when relevant (`net10.0-windows`).
+Commands take `--target N|TFM`: a .NET major version (`10`, shorthand for
+`net10.0`), a .NET target framework (`net8.0`, or `net10.0-windows` for code
+that stays on Windows), or .NET Standard (`netstandard2.0`, `netstandard2.1`)
+for libraries that serve .NET Framework and modern .NET from one build. What a
+project moves to depends on it: WinForms and WPF projects get the `-windows`
+form of a .NET target, and under .NET Standard applications and test projects,
+which need a runtime, get `net10.0` (`docs/decisions/0057-a-target-is-a-framework.md`).
 Compatibility questions are answered by `NuGet.Frameworks`
 (`DefaultCompatibilityProvider.Instance.IsCompatible(target, candidate)`),
 never by string comparison. Classes used throughout the model:

@@ -196,4 +196,16 @@ namespace Behavior.Rules
             return AppDomain.CurrentDomain.DefineDynamicAssembly(new System.Reflection.AssemblyName("Dynamic"), System.Reflection.Emit.AssemblyBuilderAccess.Run);
         }
     }
+
+    /// <summary>
+    /// Reflection.Emit: .NET Framework and .NET have it, .NET Standard 2.0 does not, so only
+    /// `audit api --target netstandard2.0` reports it (NHibernate's proxies; ADR 0057).
+    /// </summary>
+    internal static class StandardGaps
+    {
+        public static void EmitReturn(System.Reflection.Emit.ILGenerator generator)
+        {
+            generator.Emit(System.Reflection.Emit.OpCodes.Ret);
+        }
+    }
 }

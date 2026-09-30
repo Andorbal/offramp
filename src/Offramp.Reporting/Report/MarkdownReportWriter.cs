@@ -31,7 +31,9 @@ public static class MarkdownReportWriter
             .Append(ReportText.Count(h.Loc, "line")).Append(" are in standard, modern, or dual projects.\n");
         md.Append("- **Framework-only:** ").Append(ReportText.Count(h.FrameworkLoc, "line")).Append(" in ")
             .Append(ReportText.Count(h.FrameworkProjects, "project")).Append(ReportText.Change(report)).Append(".\n");
-        md.Append("- **Applications done:** ").Append(ReportText.Fraction(h.ApplicationsDone, h.Applications)).Append(".\n");
+        md.Append(ReportText.AboutLibraries(report)
+            ? "- **Libraries done:** " + ReportText.Fraction(h.LibrariesDone, h.Libraries) + " of the libraries other code uses.\n"
+            : "- **Applications done:** " + ReportText.Fraction(h.ApplicationsDone, h.Applications) + ".\n");
         md.Append("- **Ready to port today:** ").Append(ReportText.Count(h.Ready, "project")).Append(".\n");
 
         md.Append("\n## Burn-down\n\n");
@@ -42,19 +44,19 @@ public static class MarkdownReportWriter
         Table(md, ["Area", "projects", .. ReportBuilder.Classes, "total"], [false, true, true, true, true, true, true],
             report.Areas.Select(a => (IReadOnlyList<string>)[Code(a.Area), N(a.Projects), .. ReportBuilder.Classes.Select(c => N(a.ByFrameworkClass[c].Loc)), N(a.Loc)]));
 
-        md.Append("\n## Applications\n\n");
-        if (report.Applications.Count == 0)
+        if (ReportText.AboutLibraries(report))
         {
-            md.Append("No console, service, web, or desktop applications in the workspace.\n");
+            md.Append("\n## Libraries\n\nNo console, service, web, or desktop applications in the workspace; these libraries are used by other code.\n\n");
+            Table(md, ["Library", "Used because", "Status", "Projects left", "Lines left", "Port next"], [false, false, false, true, true, false],
+                report.Libraries.Select(l => (IReadOnlyList<string>)
+                [
+                    Code(l.Project), Cell(l.Shipped), ReportText.Wire(l.Status),
+                    ReportText.Fraction(l.Remaining, l.Closure), N(l.RemainingLoc), string.Join(", ", l.Next.Select(Code)),
+                ]));
         }
         else
         {
-            Table(md, ["Application", "Kind", "Status", "Projects left", "Lines left", "Port next"], [false, false, false, true, true, false],
-                report.Applications.Select(a => (IReadOnlyList<string>)
-                [
-                    Code(a.Project) + ReportText.Hosts(a), ReportText.Wire(a.Kind), ReportText.Wire(a.Status),
-                    ReportText.Fraction(a.Remaining, a.Closure), N(a.RemainingLoc), string.Join(", ", a.Next.Select(Code)),
-                ]));
+            Applications(md, report);
         }
 
         md.Append("\n## Ready to port today\n\n");
@@ -69,6 +71,23 @@ public static class MarkdownReportWriter
         }
 
         return md.ToString();
+    }
+
+    private static void Applications(StringBuilder md, ReportData report)
+    {
+        md.Append("\n## Applications\n\n");
+        if (report.Applications.Count == 0)
+        {
+            md.Append("No console, service, web, or desktop applications in the workspace.\n");
+            return;
+        }
+
+        Table(md, ["Application", "Kind", "Status", "Projects left", "Lines left", "Port next"], [false, false, false, true, true, false],
+            report.Applications.Select(a => (IReadOnlyList<string>)
+            [
+                Code(a.Project) + ReportText.Hosts(a), ReportText.Wire(a.Kind), ReportText.Wire(a.Status),
+                ReportText.Fraction(a.Remaining, a.Closure), N(a.RemainingLoc), string.Join(", ", a.Next.Select(Code)),
+            ]));
     }
 
     private static void Table(StringBuilder md, IReadOnlyList<string> headers, IReadOnlyList<bool> numeric, IEnumerable<IReadOnlyList<string>> rows)

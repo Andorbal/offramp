@@ -26,7 +26,6 @@ public static class DoctorRunner
     {
         var checks = new List<DoctorCheck>();
         var target = context.Config.Config.Target;
-        var targetMoniker = OfframpConfig.TargetMoniker(target);
 
         DotnetSdkState sdk;
         using (context.Progress.BeginPhase("Checking .NET SDKs", 1, PhaseCount))
@@ -37,7 +36,7 @@ public static class DoctorRunner
         var globalJson = GlobalJsonReader.Find(context.Repository.Path);
         checks.Add(CheckSdkInstalled(context, sdk));
         checks.Add(CheckSdkSelection(context, sdk, globalJson));
-        checks.Add(CheckTarget(context, sdk, target, targetMoniker));
+        checks.Add(CheckTarget(context, sdk, target));
 
         var model = TryReadModel(context);
         using (context.Progress.BeginPhase("Checking .NET Framework reference assemblies", 2, PhaseCount))
@@ -76,7 +75,7 @@ public static class DoctorRunner
                         globalJson.RollForward),
                 Git = new GitInfo(gitVersion, context.Repository.Source == RepositoryRootSource.Git),
                 Os = context.Os,
-                Target = targetMoniker,
+                Target = target.Moniker,
             },
             Summary = new DoctorSummary(
                 checks.Count(c => c.Status == CheckStatus.Pass),
@@ -160,9 +159,10 @@ public static class DoctorRunner
         static Version? Numeric(string version) => Version.TryParse(version.Split('-')[0], out var parsed) ? parsed : null;
     }
 
-    private static DoctorCheck CheckTarget(DoctorContext context, DotnetSdkState sdk, int target, string moniker)
+    private static DoctorCheck CheckTarget(DoctorContext context, DotnetSdkState sdk, ModernTarget modern)
     {
         const string id = "target";
+        var moniker = modern.Moniker;
         var title = $"SDK can target {moniker}";
         var major = DotnetProbe.Major(sdk.Selected);
         if (major is null)
@@ -170,9 +170,13 @@ public static class DoctorRunner
             return Skip(id, title, "Skipped: no SDK selected.");
         }
 
+        // Every SDK builds .NET Standard 2.x; applications and tests move to .NET 10 under it (ADR 0057).
+        var target = modern.RuntimeMajor;
         if (major < target)
         {
-            var message = $"SDK {sdk.Selected} cannot build {moniker}; it targets up to net{major}.0.";
+            var message = modern.IsStandard
+                ? $"SDK {sdk.Selected} cannot build net{target}.0, which applications and tests move to under {moniker}; it targets up to net{major}.0."
+                : $"SDK {sdk.Selected} cannot build {moniker}; it targets up to net{major}.0.";
             Report(context, DiagnosticCatalog.OFR0012, message, data:
             [
                 KeyValuePair.Create<string, JsonNode?>("selected", sdk.Selected),

@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Offramp.Analysis.Audits.Matchers;
 using Offramp.Analysis.Compilations;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Core.Progress;
@@ -20,7 +21,8 @@ public sealed record AuditRequest
 
     public required AuditKind Audit { get; init; }
 
-    public required int TargetMajor { get; init; }
+    /// <summary>The target (ADR 0057); each project compiles against what it moves to under it (<see cref="ModernTarget.For"/>).</summary>
+    public required ModernTarget Target { get; init; }
 
     /// <summary>Project ids or names; empty for every C# project.</summary>
     public IReadOnlyList<string> Projects { get; init; } = [];
@@ -66,13 +68,13 @@ public static class AuditRunner
     {
         var rules = ActiveRules(request);
         var (projects, skipped) = Select(request);
-        var target = $"net{request.TargetMajor}.0";
+        var target = request.Target.Moniker;
         var run = new AuditRunState();
         var raw = new List<(ProjectInfo Project, RawFinding Finding)>();
         var files = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
         using var loader = new CompilationLoader(request.RepositoryRoot);
-        var targets = new TargetCompilationBuilder(request.RepositoryRoot, request.Model, request.TargetMajor, request.References, request.Diagnostics, loader);
+        var targets = new TargetCompilationBuilder(request.RepositoryRoot, request.Model, request.Target, request.References, request.Diagnostics, loader);
         var contexts = new List<AuditMatchContext>();
         using (var phase = request.Progress.BeginPhase("audit " + Wire(request.Audit), 1, 1))
         {
@@ -108,7 +110,7 @@ public static class AuditRunner
                     Compilation = compilation,
                     Trees = trees,
                     Rules = rules,
-                    TargetMajor = request.TargetMajor,
+                    TargetMajor = request.Target.RuntimeMajor,
                     Target = trial,
                     Run = run,
                 };
@@ -208,7 +210,7 @@ public static class AuditRunner
 
     private static AuditFinding? ToFinding(AuditRequest request, ProjectInfo project, RawFinding raw)
     {
-        var severity = raw.Rule.SeverityFor(request.TargetMajor);
+        var severity = raw.Rule.SeverityFor(request.Target.RuntimeMajor);
         var overridden = false;
         if (request.Overrides.TryGetValue(raw.Rule.Id, out var o))
         {

@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Offramp.Analysis.Audits;
 using Offramp.Core.Caching;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Core.Processes;
@@ -314,6 +315,60 @@ public sealed class AuditRunnerTests
         Assert.Contains(result.Skipped, s => s.StartsWith("src/Legacy.Core/Legacy.Core.csproj: not compiled against net10.0", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// NHibernate P1 #7: about 50 of the 71 errors of NHibernate's netstandard2.0 build are Reflection.Emit, which
+    /// net10.0 has, so an audit against net10.0 reported none of them. Against netstandard2.0 the library compiles
+    /// against .NET Standard's reference assemblies, and the .NET Standard symbols replace .NET Framework's.
+    /// </summary>
+    [Fact]
+    public async Task A_standard_target_reports_what_net_has_and_the_standard_lacks()
+    {
+        var fixture = await ScannedFixtures.GetAsync("behavior");
+        var bag = new DiagnosticBag();
+
+        var standard = await AuditRunner.RunAsync(Request(fixture, AuditKind.Api, bag) with { Target = ModernTarget.Parse("netstandard2.0"), Projects = [Legacy] });
+        var (net, _) = await RunAsync("behavior", AuditKind.Api);
+
+        static bool Emit(AuditFinding f) => f.Rule == "OFR3001" && f.Symbol == "System.Reflection.Emit.ILGenerator";
+        Assert.Equal("netstandard2.0", standard.Target);
+        var finding = Assert.Single(standard.Findings, Emit);
+        Assert.Equal("src/Behavior.Legacy/Rules/Api.cs", finding.File);
+        Assert.DoesNotContain(net.Findings, Emit);
+        Assert.Contains(standard.Findings, f => f.Rule == "OFR3001" && f.Symbol == "System.Web.HttpContext");
+        Assert.DoesNotContain(bag.ToSortedList(), d => d.Code is "OFR3010" or "OFR3017");
+    }
+
+    /// <summary>Under a .NET Standard target a project that runs is compiled against .NET 10, and says so (ADR 0057).</summary>
+    [Fact]
+    [ProducesDiagnostic("OFR3017")]
+    public async Task Under_a_standard_target_an_application_is_compiled_against_net()
+    {
+        var fixture = await ScannedFixtures.GetAsync("netfx-only");
+        var bag = new DiagnosticBag();
+
+        var result = await AuditRunner.RunAsync(Request(fixture, AuditKind.Api, bag) with { Target = ModernTarget.Parse("netstandard2.0") });
+
+        var diagnostic = Assert.Single(bag.ToSortedList(), d => d.Code == "OFR3017");
+        Assert.Equal("src/Legacy.App/Legacy.App.csproj", diagnostic.Project);
+        Assert.Equal("src/Legacy.App/Legacy.App.csproj is a console project, which needs a .NET to run on and netstandard2.0 is not one, so it was compiled against net10.0.", diagnostic.Message);
+        Assert.Contains(result.Findings, f => f.Project == "src/Legacy.Core/Legacy.Core.csproj" && f.Rule == "OFR3001" && f.Symbol.StartsWith("System.Web.", StringComparison.Ordinal));
+        Assert.DoesNotContain(bag.ToSortedList(), d => d.Code == "OFR3010");
+    }
+
+    [Fact]
+    public void Standard_symbols_replace_the_framework_ones()
+    {
+        var recorded = new CSharpParseOptions(preprocessorSymbols: ["NETFRAMEWORK", "NET48", "NET472_OR_GREATER", "TRACE", "DEBUG"]);
+
+        Assert.Equal(
+            ["DEBUG", "NETSTANDARD", "NETSTANDARD1_0_OR_GREATER", "NETSTANDARD1_1_OR_GREATER", "NETSTANDARD1_2_OR_GREATER", "NETSTANDARD1_3_OR_GREATER",
+                "NETSTANDARD1_4_OR_GREATER", "NETSTANDARD1_5_OR_GREATER", "NETSTANDARD1_6_OR_GREATER", "NETSTANDARD2_0", "NETSTANDARD2_0_OR_GREATER", "TRACE"],
+            TargetCompilation.Options(recorded, TargetCompilation.SymbolsFor("netstandard2.0")).PreprocessorSymbolNames);
+        Assert.Contains("NET8_0", TargetCompilation.SymbolsFor("net8.0-windows"));
+        Assert.Contains("WINDOWS", TargetCompilation.SymbolsFor("net8.0-windows"));
+        Assert.Contains("NETSTANDARD2_1_OR_GREATER", TargetCompilation.SymbolsFor("netstandard2.1"));
+    }
+
     [Fact]
     public async Task Overrides_change_severity_and_none_disables_a_rule()
     {
@@ -436,7 +491,7 @@ public sealed class AuditRunnerTests
         RepositoryRoot = fixture.Root,
         Model = WorkspaceStore.Read(fixture.WorkspacePath),
         Audit = audit,
-        TargetMajor = 10,
+        Target = ModernTarget.Default,
         Diagnostics = bag,
         References = new TargetReferenceResolver(fixture.Root, ProcessRunner.Instance, new FileCache(Path.Combine(fixture.Root, ".offramp", "cache"))),
     };

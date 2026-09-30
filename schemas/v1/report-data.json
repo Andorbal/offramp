@@ -5,7 +5,7 @@
   "description": "`offramp report --format json`: the numbers behind every rendering of the report. See docs/spec/commands/workspace.md#report.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["title", "asOf", "since", "headline", "series", "areas", "applications", "frontier"],
+  "required": ["title", "asOf", "since", "headline", "series", "areas", "applications", "libraries", "frontier"],
   "properties": {
     "title": { "type": "string" },
     "asOf": { "type": "string", "description": "When the workspace model was built." },
@@ -13,7 +13,7 @@
     "headline": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["projects", "loc", "frameworkProjects", "frameworkLoc", "portablePercent", "frameworkLocChange", "applications", "applicationsDone", "ready"],
+      "required": ["projects", "loc", "frameworkProjects", "frameworkLoc", "portablePercent", "frameworkLocChange", "applications", "applicationsDone", "libraries", "librariesDone", "ready"],
       "properties": {
         "projects": { "type": "integer", "minimum": 0 },
         "loc": { "type": "integer", "minimum": 0 },
@@ -23,6 +23,8 @@
         "frameworkLocChange": { "type": "integer", "description": "Framework-only lines now minus at the first point of the series; negative is progress." },
         "applications": { "type": "integer", "minimum": 0 },
         "applicationsDone": { "type": "integer", "minimum": 0 },
+        "libraries": { "type": "integer", "minimum": 0, "description": "Libraries other code uses (the `libraries` list)." },
+        "librariesDone": { "type": "integer", "minimum": 0 },
         "ready": { "type": "integer", "minimum": 0, "description": "Framework-only projects that can be ported today." }
       }
     },
@@ -74,6 +76,26 @@
           "remainingLoc": { "type": "integer", "minimum": 0 },
           "next": { "$ref": "workspace.json#/$defs/pathList" },
           "hosted": { "$ref": "workspace.json#/$defs/pathList", "description": "The projects the application hosts (plugins, areas, modules that build into its folder); they are in its closure." }
+        }
+      }
+    },
+    "libraries": {
+      "type": "array",
+      "description": "Libraries (kind library) whose public API other code uses (ADR 0041's shipped rule), sorted by project. The renderings talk about them instead of applications when the workspace has none (ADR 0057).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "name", "frameworkClass", "shipped", "status", "closure", "remaining", "remainingLoc", "next"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "name": { "type": "string" },
+          "frameworkClass": { "$ref": "workspace.json#/$defs/frameworkClass" },
+          "shipped": { "type": "string", "description": "The evidence that other code uses it." },
+          "status": { "enum": ["done", "ready", "blocked"] },
+          "closure": { "type": "integer", "minimum": 1 },
+          "remaining": { "type": "integer", "minimum": 0 },
+          "remainingLoc": { "type": "integer", "minimum": 0 },
+          "next": { "$ref": "workspace.json#/$defs/pathList" }
         }
       }
     },

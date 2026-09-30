@@ -176,6 +176,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3014](#ofr3014) | info | audit | security transparency attribute without effect |
 | [OFR3015](#ofr3015) | info | audit | package not found for the target compilation |
 | [OFR3016](#ofr3016) | warning | audit | project audited from a failed build |
+| [OFR3017](#ofr3017) | info | audit | project that runs compiled against .NET, not .NET Standard |
 | [OFR3101](#ofr3101) | warning | audit | culture-sensitive string operation |
 | [OFR3102](#ofr3102) | warning | audit | non-Unicode code page |
 | [OFR3103](#ofr3103) | warning | audit | path assumes Windows separators or folders |
@@ -1616,6 +1617,15 @@ The model marks the project partial: its build failed during `scan`. The audit r
 
 - **Typical cause:** A generated source file the repository's own build writes first (a shared AssemblyInfo), or a compile error.
 - **Fix:** Fix the build errors `scan` reported (OFR0130), run `offramp scan` again, then the audit.
+
+### OFR3017
+
+**project that runs compiled against .NET, not .NET Standard** · info · audit
+
+Under a .NET Standard target, an application or a test project cannot move to .NET Standard, which runs nowhere by itself. `audit api` compiled it against .NET 10 instead (`net10.0-windows` with Windows Forms or WPF), the framework the guide ports it to (ADR 0057).
+
+- **Typical cause:** `--target netstandard2.0` (or `target: netstandard2.0`) and a console, service, web, desktop, or test project in the audit.
+- **Fix:** Nothing to do: its findings are against .NET 10. To audit it against another .NET, pass that target (`--target 8`).
 
 ### OFR3101
 

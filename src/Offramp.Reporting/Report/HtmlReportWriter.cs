@@ -6,7 +6,8 @@ namespace Offramp.Reporting.Report;
 
 /// <summary>
 /// The report as one self-contained, script-free HTML page: headline numbers, the
-/// burn-down, framework class by area, applications, and the frontier. With a graph
+/// burn-down, framework class by area, applications (or, without any, the libraries other code uses), and the
+/// frontier. With a graph
 /// page, it is embedded in a sandboxed <c>iframe srcdoc</c> so its scripts stay its own.
 /// </summary>
 public static class HtmlReportWriter
@@ -18,7 +19,15 @@ public static class HtmlReportWriter
         Headline(body, report);
         BurnDown(body, report);
         Areas(body, report);
-        Applications(body, report);
+        if (ReportText.AboutLibraries(report))
+        {
+            Libraries(body, report);
+        }
+        else
+        {
+            Applications(body, report);
+        }
+
         Frontier(body, report);
         if (graphHtml is not null)
         {
@@ -55,7 +64,15 @@ public static class HtmlReportWriter
             "of " + ReportText.Count(h.Loc, "line") + " in portable projects (standard, modern, dual)");
         Tile(body, h.FrameworkLoc.ToString("N0", CultureInfo.InvariantCulture),
             "framework-only lines in " + ReportText.Count(h.FrameworkProjects, "project") + ReportText.Change(report));
-        Tile(body, ReportText.Fraction(h.ApplicationsDone, h.Applications), "applications with nothing left to port");
+        if (ReportText.AboutLibraries(report))
+        {
+            Tile(body, ReportText.Fraction(h.LibrariesDone, h.Libraries), "libraries with nothing left to port");
+        }
+        else
+        {
+            Tile(body, ReportText.Fraction(h.ApplicationsDone, h.Applications), "applications with nothing left to port");
+        }
+
         Tile(body, h.Ready.ToString(CultureInfo.InvariantCulture), (h.Ready == 1 ? "project" : "projects") + " ready to port today");
         body.Append("</section>\n");
     }
@@ -102,6 +119,25 @@ public static class HtmlReportWriter
         }
 
         body.Append("</tbody>\n</table>\n<p class=\"note\">Projects left: framework-only projects among the application and everything it depends on.</p>\n</section>\n");
+    }
+
+    /// <summary>For a repository without applications: the libraries other code uses, and what each still needs.</summary>
+    private static void Libraries(StringBuilder body, ReportData report)
+    {
+        body.Append("<section>\n<h2>Libraries</h2>\n<p class=\"note\">No console, service, web, or desktop applications in the workspace; these libraries are used by other code.</p>\n")
+            .Append("<table>\n<thead><tr><th>Library</th><th>Used because</th><th>Status</th><th class=\"num\">Projects left</th>")
+            .Append("<th class=\"num\">Lines left</th><th>Port next</th></tr></thead>\n<tbody>\n");
+        foreach (var library in report.Libraries)
+        {
+            var status = ReportText.Wire(library.Status);
+            body.Append("<tr><td title=\"").Append(Encode(library.Project)).Append("\">").Append(Encode(library.Name)).Append("</td><td>")
+                .Append(Encode(library.Shipped)).Append("</td><td><span class=\"status ").Append(status).Append("\">").Append(status).Append("</span></td>")
+                .Append("<td class=\"num\">").Append(ReportText.Fraction(library.Remaining, library.Closure)).Append("</td><td class=\"num\">")
+                .Append(library.RemainingLoc.ToString("N0", CultureInfo.InvariantCulture)).Append("</td><td>")
+                .Append(string.Join(", ", library.Next.Select(n => "<code>" + Encode(n) + "</code>"))).Append("</td></tr>\n");
+        }
+
+        body.Append("</tbody>\n</table>\n<p class=\"note\">Projects left: framework-only projects among the library and everything it depends on.</p>\n</section>\n");
     }
 
     private static void Frontier(StringBuilder body, ReportData report)

@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Offramp.Cli.Infrastructure;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
+using Offramp.Analysis.DeadCode;
 using Offramp.Core.Model;
 using Offramp.Workspace.Guide;
 using Offramp.Workspace.Store;
@@ -65,7 +66,7 @@ internal sealed class GuideSession(CommandContext context, string statePath, Gui
     /// <summary>How the command ends after <see cref="TryResolveProject"/> or <see cref="SoleOpenProject"/> failed.</summary>
     public OutcomeKind ProjectFailure { get; private set; } = OutcomeKind.UsageFailure;
 
-    private int Target => _facts?.Target ?? context.Config.Config.Target;
+    private GuideFacts CurrentFacts => _facts ??= Facts();
 
     public GuideStatus Evaluate()
     {
@@ -151,7 +152,7 @@ internal sealed class GuideSession(CommandContext context, string statePath, Gui
     public async Task<GuideRun> RunAsync(GuideStep step, ProjectInfo? project, bool apply, bool confirmed, CancellationToken cancellationToken)
     {
         var applied = apply && step.Writes == GuideWrites.Repository;
-        var arguments = GuideCatalog.Arguments(step, project, Target).ToList();
+        var arguments = GuideCatalog.Arguments(step, project, CurrentFacts).ToList();
         if (applied)
         {
             arguments.Add("--apply");
@@ -269,7 +270,7 @@ internal sealed class GuideSession(CommandContext context, string statePath, Gui
         }
 
         answers.AddRange(single ? [GuideAnswer.Quit] : [GuideAnswer.Back, GuideAnswer.Quit]);
-        var command = GuideCatalog.Display(GuideCatalog.Arguments(step, project, Target));
+        var command = GuideCatalog.Display(GuideCatalog.Arguments(step, project, CurrentFacts));
         switch (prompter.PickAction(report, project?.Id, command, answers))
         {
             case GuideAnswer.Run:
@@ -331,7 +332,7 @@ internal sealed class GuideSession(CommandContext context, string statePath, Gui
     }
 
     private string Welcome() =>
-        $"Welcome to the Offramp guide. It walks through moving this repository to net{Target}.0 one step at a time: "
+        $"Welcome to the Offramp guide. It walks through moving this repository to {CurrentFacts.Target.Moniker} one step at a time: "
         + "it explains why each step matters, runs Offramp's commands for you, and asks whenever there is a choice. "
         + $"Progress is kept in {Offramp.Core.Paths.RepoPaths.ToRepositoryRelative(context.Repository.Path, statePath)}, so you can stop at any point and pick up later. "
         + "Steps that change your code show a dry run unless you start the guide with --apply.\n\n"
@@ -356,7 +357,7 @@ internal sealed class GuideSession(CommandContext context, string statePath, Gui
         if (settings.Target is { } target)
         {
             yield return "--target";
-            yield return target.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            yield return target;
         }
 
         foreach (var (name, value) in new[] { ("--solution", settings.Solution), ("--config", settings.Config), ("--workspace", settings.Workspace) })
@@ -403,8 +404,19 @@ internal sealed class GuideSession(CommandContext context, string statePath, Gui
             ExplicitPath = CommandRunner.ResolveConfigPath(context.Settings, context.Host),
             Environment = context.Host.Environment,
         });
-        var target = context.Settings.Target ?? (config.IsValid ? config.Config.Target : context.Config.Config.Target);
-        return GuideFacts.Gather(root, target, config.File is not null, context.WorkspacePath, WorkspaceStore.StateDirectory(root, context.Config.Config));
+        var target = context.Settings.Target is { } given && ModernTarget.TryParse(given, out var flag) ? flag
+            : config.IsValid ? config.Config.Target : context.Config.Config.Target;
+        var facts = GuideFacts.Gather(root, target, config.File is not null, context.WorkspacePath, WorkspaceStore.StateDirectory(root, context.Config.Config));
+        return facts.Model is { } model ? facts with { ShippedLibraries = ShippedLibraries(root, model, context.Config.Config) } : facts;
+    }
+
+    /// <summary>The libraries ADR 0041's rule says other code uses, with the evidence (the port step gives them netstandard2.0).</summary>
+    private static Dictionary<string, string> ShippedLibraries(string root, WorkspaceModel model, OfframpConfig config)
+    {
+        var shipped = ShippedProjects.Read(root, model, config.DeadCode.ExternalConsumers);
+        return model.Projects
+            .Where(p => p.Kind == ProjectKind.Library && shipped.Of(p) is not null)
+            .ToDictionary(p => p.Id, p => shipped.Of(p)!.Reason, StringComparer.Ordinal);
     }
 
     private WorkspaceModel? Model()

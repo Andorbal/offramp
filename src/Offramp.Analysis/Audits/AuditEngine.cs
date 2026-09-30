@@ -32,6 +32,7 @@ public sealed record AuditMatchContext
     /// <summary>The active rules of this audit.</summary>
     public required IReadOnlyList<AuditRule> Rules { get; init; }
 
+    /// <summary>The .NET major version the code runs on (<see cref="Offramp.Core.Configuration.ModernTarget.RuntimeMajor"/>).</summary>
     public required int TargetMajor { get; init; }
 
     /// <summary><c>audit api</c>: the same sources compiled against the target, or null when it could not be built.</summary>

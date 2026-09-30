@@ -5,8 +5,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Offramp.Analysis.Audits;
 using Offramp.Analysis.Audits.Matchers;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
-using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 
@@ -29,6 +29,9 @@ public sealed record SeamsRequest
 
     /// <summary>Report no seam when the minimum cut has more edges than this.</summary>
     public int? MaxCut { get; init; }
+
+    /// <summary>The target: COM and Windows P/Invoke taint nothing where the project moves to <c>-windows</c> (ADR 0057).</summary>
+    public ModernTarget Target { get; init; } = ModernTarget.Default;
 
     public required DiagnosticBag Diagnostics { get; init; }
 }
@@ -66,7 +69,7 @@ public static class SeamsAnalyzer
     public static SeamsResult? Analyze(SeamsRequest request, Compilation compilation)
     {
         var graph = TypeGraph.Build(request.RepositoryRoot, compilation);
-        var windows = WindowsDesktop.Uses(request.Project);
+        var windows = request.Target.For(request.Project).EndsWith("-windows", StringComparison.Ordinal);
         var direct = Sources(request, graph, compilation, windows);
         var components = Components(graph.Types.Keys, StructuralEdges(graph));
         var tainted = Propagate(graph, direct, components);

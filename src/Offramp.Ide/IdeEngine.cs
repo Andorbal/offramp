@@ -70,7 +70,7 @@ public sealed class IdeEngine : IDisposable
             RepositoryRoot = options.RepositoryRoot,
             Model = options.Model,
             Audit = AuditKind.Api,
-            TargetMajor = options.Config.Target,
+            Target = options.Config.Target,
             DisabledPacks = options.Config.Rules.Packs.Disable,
             Overrides = options.Config.SeverityOverrides(),
             Diagnostics = diagnostics,
@@ -399,7 +399,7 @@ public sealed class IdeEngine : IDisposable
             Compilation = compilation,
             Trees = [tree],
             Rules = _rules,
-            TargetMajor = Config.Target,
+            TargetMajor = Config.Target.RuntimeMajor,
             Target = target,
         };
         var overrides = Config.SeverityOverrides();
@@ -417,7 +417,7 @@ public sealed class IdeEngine : IDisposable
                 continue;
             }
 
-            var severity = raw.Rule.SeverityFor(Config.Target);
+            var severity = raw.Rule.SeverityFor(Config.Target.RuntimeMajor);
             if (overrides.TryGetValue(raw.Rule.Id, out var o))
             {
                 if (o.Severity is null)

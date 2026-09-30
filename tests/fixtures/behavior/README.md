@@ -12,7 +12,8 @@ numbers of existing findings (and the snapshots that show them) alone.
   only .NET Framework assets, left out of the target compilation: OFR3011).
   - `Rules/Api.cs`, `Rules/Behavior.cs`, `Rules/Serialization.cs`, `Rules/Native.cs`:
     one file per audit. `Api.cs` also has an API with a known replacement
-    (`AppDomain.DefineDynamicAssembly`); `Serialization.cs` has `[Serializable]` types
+    (`AppDomain.DefineDynamicAssembly`) and one that only .NET Standard lacks
+    (`ILGenerator`, for `audit api --target netstandard2.0`); `Serialization.cs` has `[Serializable]` types
     serialized only as the implementation of an interface-typed field (`PdfAttachment`) and
     through its field.
   - `app.config`: `<gcServer>` and `<gcConcurrent>` (OFR3116).

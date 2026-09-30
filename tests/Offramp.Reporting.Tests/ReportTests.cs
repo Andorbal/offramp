@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Offramp.Analysis.DeadCode;
 using Offramp.Core.Model;
 using Offramp.Fixtures;
 using Offramp.Reporting.Graph;
@@ -135,6 +136,47 @@ public sealed partial class ReportTests
         Assert.Equal(["src/Plugins/Geo/Geo.csproj", "src/Plugins/Tax/Tax.csproj"], web.Hosted);
         Assert.Equal(["src/Core/Core.csproj", "src/Plugins/Geo/Geo.csproj"], web.Next);
         Assert.Contains("`src/Web/Web.csproj` (hosts 2)", ReportRenderer.Render(report, ReportFormat.Markdown, null, null), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// NHibernate P1 #7: a repository of libraries said "applications 0" and nothing about the libraries. The
+    /// libraries other code uses (ADR 0041) are counted, listed with what is left in their closure, and every
+    /// rendering talks about them when there is no application.
+    /// </summary>
+    [Fact]
+    public void A_repository_without_applications_reports_the_libraries_other_code_uses()
+    {
+        var model = ModelOf(
+            Project("src/NHibernate/NHibernate.csproj", ProjectKind.Library, FrameworkClass.Framework) with { Loc = 264_000 },
+            Project("src/NHibernate.DomainModel/NHibernate.DomainModel.csproj", ProjectKind.Library, FrameworkClass.Framework, "src/NHibernate/NHibernate.csproj") with { Loc = 9_000 },
+            Project("src/NHibernate.Test/NHibernate.Test.csproj", ProjectKind.Test, FrameworkClass.Framework, "src/NHibernate/NHibernate.csproj", "src/NHibernate.DomainModel/NHibernate.DomainModel.csproj") with { Loc = 201_000 });
+        using var root = new ScratchDirectory("report");
+        root.Write("src/NHibernate/NHibernate.nuspec", "<package><files><file src=\"bin/NHibernate.dll\" target=\"lib/net40\" /></files></package>\n");
+
+        var report = ReportBuilder.Build(model, [], "NHibernate", null, ShippedProjects.Read(root.Path, model, []));
+
+        Assert.Equal((0, 0, 2, 0), (report.Headline.Applications, report.Headline.ApplicationsDone, report.Headline.Libraries, report.Headline.LibrariesDone));
+        Assert.Equal(["src/NHibernate.DomainModel/NHibernate.DomainModel.csproj", "src/NHibernate/NHibernate.csproj"], report.Libraries.Select(l => l.Project));
+        var nhibernate = report.Libraries[1];
+        Assert.Equal((ProjectReadiness.Ready, 1, 1, 264_000, "packed by src/NHibernate/NHibernate.nuspec"), (nhibernate.Status, nhibernate.Closure, nhibernate.Remaining, nhibernate.RemainingLoc, nhibernate.Shipped));
+        var domain = report.Libraries[0];
+        Assert.Equal((ProjectReadiness.Blocked, "no application in the solution uses it"), (domain.Status, domain.Shipped));
+        Assert.Equal(["src/NHibernate/NHibernate.csproj"], domain.Next);
+        Assert.EndsWith("and 0 of 2 libraries are done.", ReportText.Summary(report), StringComparison.Ordinal);
+        var markdown = ReportRenderer.Render(report, ReportFormat.Markdown);
+        Assert.Contains("- **Libraries done:** 0 of 2 of the libraries other code uses.", markdown, StringComparison.Ordinal);
+        Assert.Contains("## Libraries", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Applications", markdown, StringComparison.Ordinal);
+        var html = ReportRenderer.Render(report, ReportFormat.Html);
+        Assert.Contains("libraries with nothing left to port", html, StringComparison.Ordinal);
+        Assert.Contains("<h2>Libraries</h2>", html, StringComparison.Ordinal);
+        SchemaAssert.Valid("report-data", ReportRenderer.Render(report, ReportFormat.Json));
+
+        // With applications, the renderings stay about them: the Monolith's unused libraries are data only.
+        var monolith = ReportBuilder.Build(Model, History, "Monolith", null, ShippedProjects.Read(root.Path, Model, []));
+        Assert.Equal(["legacy/Legacy/Legacy.csproj", "legacy/Old/Old.csproj"], monolith.Libraries.Select(l => l.Project));
+        Assert.EndsWith("and 1 of 3 applications are done.", ReportText.Summary(monolith), StringComparison.Ordinal);
+        Assert.DoesNotContain("## Libraries", ReportRenderer.Render(monolith, ReportFormat.Markdown), StringComparison.Ordinal);
     }
 
     [Fact]

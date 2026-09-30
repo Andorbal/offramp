@@ -1,3 +1,4 @@
+using Offramp.Core.Configuration;
 using Offramp.Core.Model;
 using Offramp.Fixtures;
 using Offramp.Workspace.Guide;
@@ -167,6 +168,61 @@ public sealed class GuideEvaluatorTests
         Assert.Equal(["web-scaffold"], last.Next);
     }
 
+    /// <summary>
+    /// NHibernate P1 #7: the port step proposed <c>net40;net10.0</c> for a library other code uses; it proposes
+    /// <c>net40;netstandard2.0</c>, which keeps its .NET Framework consumers and serves every modern .NET, and says so.
+    /// A shipped library that uses Windows Forms keeps <c>-windows</c>; one that is not shipped keeps the target.
+    /// </summary>
+    [Fact]
+    public void Port_gives_a_library_other_code_uses_netstandard2_0()
+    {
+        var shipped = Project("src/NHibernate/NHibernate.csproj") with { TargetFrameworks = ["net40"] };
+        var controls = Project("src/Controls/Controls.csproj", kind: ProjectKind.Library) with
+        {
+            TargetFrameworks = ["net48"],
+            AssemblyReferences = [new AssemblyReferenceInfo { Name = "System.Windows.Forms", Kind = AssemblyReferenceKind.Framework }],
+        };
+        var inner = Project("src/Inner/Inner.csproj") with { TargetFrameworks = ["net48"] };
+        var facts = Facts(ModelOf(shipped, controls, inner)) with
+        {
+            ShippedLibraries = new Dictionary<string, string>
+            {
+                ["src/NHibernate/NHibernate.csproj"] = "no application in the solution uses it",
+                ["src/Controls/Controls.csproj"] = "packable (IsPackable)",
+            },
+        };
+
+        var port = GuideEvaluator.Evaluate(facts, Done([.. SetupDone, .. Understand, .. Prepare])).Step("port");
+
+        Assert.Equal(
+            [
+                "offramp csproj modernize --project src/Controls/Controls.csproj --tfm \"net48;net10.0-windows\"",
+                "offramp csproj modernize --project src/Inner/Inner.csproj --tfm \"net48;net10.0\"",
+                "offramp csproj modernize --project src/NHibernate/NHibernate.csproj --tfm \"net40;netstandard2.0\"",
+            ],
+            port.Projects.Select(p => p.Command));
+        Assert.Equal([null, null], port.Projects.Take(2).Select(p => p.Note));
+        Assert.Equal(
+            "A library other code uses (no application in the solution uses it): netstandard2.0 serves .NET Framework 4.6.1 and later and every modern .NET from one build, and its .NET Framework target stays for older consumers. `offramp audit api --project src/NHibernate/NHibernate.csproj --target netstandard2.0` lists what does not compile there.",
+            port.Projects[2].Note);
+    }
+
+    /// <summary>Under a .NET Standard target libraries get it, and projects that run get .NET 10 (ADR 0057).</summary>
+    [Fact]
+    public void A_standard_target_ports_libraries_to_it_and_what_runs_to_net10()
+    {
+        var target = ModernTarget.Parse("netstandard2.0");
+        var library = Project("src/Core/Core.csproj") with { TargetFrameworks = ["net48"] };
+
+        Assert.Equal("net48;netstandard2.0", GuideCatalog.TargetFrameworks(library, target));
+        Assert.Equal("net48;net10.0", GuideCatalog.TargetFrameworks(library with { Kind = ProjectKind.Test }, target));
+        Assert.Equal("net48;net10.0", GuideCatalog.TargetFrameworks(library with { Kind = ProjectKind.Console }, target));
+        Assert.Equal("net48;net10.0-windows", GuideCatalog.TargetFrameworks(library with { Kind = ProjectKind.Winforms }, target));
+        Assert.Equal("net48;net8.0-windows", GuideCatalog.TargetFrameworks(library, ModernTarget.Parse("net8.0-windows")));
+        Assert.Equal("net48;net8.0-windows", GuideCatalog.TargetFrameworks(library, ModernTarget.Parse("net8.0-windows"), shippedLibrary: true));
+        Assert.Equal("Add netstandard2.0 to the projects that are ready", GuideEvaluator.Evaluate(Facts(null) with { Target = target }, new GuideState()).Step("port").Title);
+    }
+
     [Fact]
     public void Port_is_blocked_with_a_reason_when_only_a_cycle_is_left()
     {
@@ -203,7 +259,7 @@ public sealed class GuideEvaluatorTests
     [Fact]
     public void Titles_and_explanations_name_the_target()
     {
-        var status = GuideEvaluator.Evaluate(Facts(model: null) with { Target = 9 }, new GuideState());
+        var status = GuideEvaluator.Evaluate(Facts(model: null) with { Target = ModernTarget.FromMajor(9) }, new GuideState());
 
         Assert.Equal("Check your NuGet packages against net9.0", status.Step("deps-audit").Title);
         Assert.DoesNotContain(status.Stages.SelectMany(s => s.Steps), s => s.Why.Contains("{target}", StringComparison.Ordinal) || s.Title.Contains("{target}", StringComparison.Ordinal));
@@ -216,10 +272,10 @@ public sealed class GuideEvaluatorTests
         var forms = library with { AssemblyReferences = [new AssemblyReferenceInfo { Name = "System.Windows.Forms", Kind = AssemblyReferenceKind.Framework }] };
         var wpf = library with { Properties = new SortedDictionary<string, string>(StringComparer.Ordinal) { ["UseWPF"] = "true" } };
 
-        Assert.Equal("net48;net10.0", GuideCatalog.TargetFrameworks(library, 10));
-        Assert.Equal("net48;net10.0-windows", GuideCatalog.TargetFrameworks(forms, 10));
-        Assert.Equal("net48;net10.0-windows", GuideCatalog.TargetFrameworks(wpf, 10));
-        Assert.Equal("net48;net10.0-windows", GuideCatalog.TargetFrameworks(library with { Kind = ProjectKind.Winforms }, 10));
+        Assert.Equal("net48;net10.0", GuideCatalog.TargetFrameworks(library, ModernTarget.Default));
+        Assert.Equal("net48;net10.0-windows", GuideCatalog.TargetFrameworks(forms, ModernTarget.Default));
+        Assert.Equal("net48;net10.0-windows", GuideCatalog.TargetFrameworks(wpf, ModernTarget.Default));
+        Assert.Equal("net48;net10.0-windows", GuideCatalog.TargetFrameworks(library with { Kind = ProjectKind.Winforms }, ModernTarget.Default));
     }
 
     [Fact]
@@ -278,7 +334,7 @@ public sealed class GuideEvaluatorTests
 
     private static GuideFacts Facts(WorkspaceModel? model, bool configExists = true) => new()
     {
-        Target = 10,
+        Target = ModernTarget.Default,
         ConfigExists = configExists,
         Model = model,
         Staleness = model is null ? null : new Staleness([], [], [], false),

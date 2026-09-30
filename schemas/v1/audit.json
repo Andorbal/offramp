@@ -8,7 +8,7 @@
   "required": ["audit", "target", "projects", "rules", "summary", "findings", "ledger", "topNamespaces", "skipped", "output"],
   "properties": {
     "audit": { "enum": ["api", "behavior", "serialization", "native"] },
-    "target": { "type": "string", "pattern": "^net[0-9]+\\.0$" },
+    "target": { "type": "string", "pattern": "^(net[0-9]+\\.0(-windows)?|netstandard2\\.[01])$" },
     "projects": { "$ref": "workspace.json#/$defs/pathList", "description": "The C# projects audited." },
     "rules": { "type": "array", "items": { "$ref": "#/$defs/ruleId" }, "description": "The rules that ran (disabled packs and rules set to none left out)." },
     "summary": {

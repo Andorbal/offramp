@@ -18,7 +18,7 @@ Groups: `deps`, `move`, `audit`, `extract`, `csproj`, `config`, `codemod`,
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--target N` / `-t N` | `config.target` (10) | integer major version of the modern target |
+| `--target N\|TFM` / `-t` | `config.target` (10) | the modern target: a .NET major version (`10` = `net10.0`), a target framework (`net8.0`, `net10.0-windows`), or `netstandard2.0`/`netstandard2.1` for libraries (ADR 0057) |
 | `--solution PATH` / `-s` | auto-detected | the `.sln`/`.slnx`/`.slnf` to work on; required when more than one exists |
 | `--workspace PATH` | `.offramp/workspace.json` | model to read; commands fail with `OFR0001` if missing and suggest `offramp scan` |
 | `--config PATH` | `offramp.yml` at repo root | config file |

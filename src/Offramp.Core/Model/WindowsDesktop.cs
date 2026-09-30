@@ -24,10 +24,6 @@ public static class WindowsDesktop
         || IsTrue(project, "UseWPF")
         || project.AssemblyReferences.Any(r => Assemblies.Contains(r.Name));
 
-    /// <summary><c>net10.0-windows</c> for a project that uses the Windows desktop stack, <c>net10.0</c> otherwise.</summary>
-    public static string TargetFramework(ProjectInfo project, int target) =>
-        Uses(project) ? $"net{target}.0-windows" : $"net{target}.0";
-
     private static bool IsTrue(ProjectInfo project, string property) =>
         project.Properties.TryGetValue(property, out var value) && string.Equals(value.Trim(), "true", StringComparison.OrdinalIgnoreCase);
 }

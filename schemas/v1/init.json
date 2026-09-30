@@ -47,8 +47,12 @@
       ],
       "properties": {
         "target": {
-          "type": "integer",
-          "minimum": 5
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 5,
+          "pattern": "^(net([5-9]|[1-9][0-9]{1,2})\\.0(-windows)?|netstandard2\\.[01])$"
         },
         "solution": {
           "type": [

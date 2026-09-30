@@ -123,7 +123,7 @@ public sealed class InitCommand : ICommandHandler<InitOptions, InitResult>, INex
         var table = new Table().Border(TableBorder.None).HideHeaders();
         table.AddColumn("Setting");
         table.AddColumn("Value");
-        table.AddRow("target", $"net{result.Values.Target}.0");
+        table.AddRow("target", result.Values.Target.Moniker);
         table.AddRow("solution", Markup.Escape(result.Values.Solution ?? "(none)"));
         table.AddRow("verify.mode", Markup.Escape(result.Values.VerifyMode));
         if (result.Values.VerifyCommand is { } command)

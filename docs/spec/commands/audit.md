@@ -10,7 +10,7 @@ overridden findings.
 Common options:
 
 ```
-offramp audit <kind> [--target N] [--project P ...] [--pack NAME ...] [--format table|json|sarif|markdown] [--group-by project|rule|namespace|file]
+offramp audit <kind> [--target N|TFM] [--project P ...] [--pack NAME ...] [--format table|json|sarif|markdown] [--group-by project|rule|namespace|file]
 ```
 
 SARIF output lets GitHub code scanning and IDEs show findings inline.
@@ -178,6 +178,14 @@ Decisions behind the four code audits (ADR 0021).
   `UIAutomationProvider`: class libraries of forms and controls included. The guide's
   `csproj modernize --tfm` suggestion uses the same rule (`WindowsDesktop` in
   `Offramp.Core`).
+- The framework each project is compiled against is the one it moves to under the target
+  (ADR 0057, `ModernTarget.For`): `netN.0`, `-windows` for Windows Forms and WPF; every project
+  `netN.0-windows` under a `-windows` target; under `netstandard2.0` or `netstandard2.1` the
+  standard for libraries, with its reference assemblies and the `NETSTANDARD` symbols, and no
+  shared framework. An application or a test project cannot run on .NET Standard: it is compiled
+  against `net10.0` (`net10.0-windows` with Windows Forms or WPF) and OFR3017 (info) says so.
+  Rules whose severity depends on the .NET version use .NET 10 under .NET Standard, whose
+  libraries run on every .NET.
 - The packages are the direct `PackageReference` packages at their resolved versions,
   and every package `packages.config` lists except development dependencies (it lists
   transitive packages too). A `HintPath` into the `packages/<Id>.<Version>/` folder of

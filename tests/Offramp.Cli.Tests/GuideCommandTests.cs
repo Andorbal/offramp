@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Offramp.Cli.Commands;
+using Offramp.Core.Configuration;
 using Offramp.Core.Model;
 using Offramp.Fixtures;
 using Offramp.Workspace.Guide;
@@ -193,7 +194,7 @@ public sealed class GuideCommandTests : IDisposable
         Assert.Equal(("codemods", (string?)null), (prompter.Actions[1].Step, prompter.Actions[1].Project));
         Assert.Equal([GuideAnswer.Run, GuideAnswer.MarkDone, GuideAnswer.Skip, GuideAnswer.Quit], prompter.Actions[1].Answers);
         Assert.Equal(("port", "src/Core/Core.csproj"), (prompter.Actions[2].Step, prompter.Actions[2].Project));
-        Assert.Equal("offramp csproj modernize --project src/Core/Core.csproj --tfm \"net48;net10.0\"", prompter.Actions[2].Command);
+        Assert.Equal("offramp csproj modernize --project src/Core/Core.csproj --tfm \"net48;netstandard2.0\"", prompter.Actions[2].Command);
 
         var records = Records();
         Assert.Contains(records, r => r is { Step: "doctor", Status: GuideRecordStatus.Done });
@@ -282,7 +283,7 @@ public sealed class GuideCommandTests : IDisposable
 
         foreach (var step in GuideCatalog.Steps)
         {
-            var parse = root.Parse([.. GuideCatalog.Arguments(step, step.PerProject ? project : null, 10)]);
+            var parse = root.Parse([.. GuideCatalog.Arguments(step, step.PerProject ? project : null, new GuideFacts { Target = ModernTarget.Default, ConfigExists = true })]);
             Assert.True(parse.Errors.Count == 0, $"{step.Id}: {string.Join("; ", parse.Errors.Select(e => e.Message))}");
             Assert.NotSame(root, parse.CommandResult.Command);
         }

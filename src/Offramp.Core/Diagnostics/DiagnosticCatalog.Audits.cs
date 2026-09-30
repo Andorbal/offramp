@@ -132,6 +132,14 @@ public static partial class DiagnosticCatalog
         "Fix the build errors `scan` reported (OFR0130), run `offramp scan` again, then the audit.",
         AuditArea);
 
+    public static readonly DiagnosticDescriptor OFR3017 = new(
+        "OFR3017", Severity.Info,
+        "project that runs compiled against .NET, not .NET Standard",
+        "Under a .NET Standard target, an application or a test project cannot move to .NET Standard, which runs nowhere by itself. `audit api` compiled it against .NET 10 instead (`net10.0-windows` with Windows Forms or WPF), the framework the guide ports it to (ADR 0057).",
+        "`--target netstandard2.0` (or `target: netstandard2.0`) and a console, service, web, desktop, or test project in the audit.",
+        "Nothing to do: its findings are against .NET 10. To audit it against another .NET, pass that target (`--target 8`).",
+        AuditArea);
+
     public static readonly DiagnosticDescriptor OFR3101 = new(
         "OFR3101", Severity.Warning,
         "culture-sensitive string operation",

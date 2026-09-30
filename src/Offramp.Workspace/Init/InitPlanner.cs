@@ -226,8 +226,9 @@ public static partial class InitPlanner
         b.Append("# Reference: https://github.com/Andorbal/offramp/blob/main/docs/spec/03-configuration.md\n");
         b.Append("# Precedence: built-in defaults < this file < OFFRAMP_* environment variables < command-line flags.\n");
         b.Append("version: 1\n\n");
-        b.Append("# Integer major version of the modern target (10 = net10.0). --target overrides.\n");
-        b.Append("target: ").Append(values.Target.ToString(CultureInfo.InvariantCulture)).Append("\n\n");
+        b.Append("# The modern target: a .NET major version (10 = net10.0), a target framework (net8.0, net10.0-windows),\n");
+        b.Append("# or netstandard2.0 for libraries that also serve .NET Framework. --target overrides.\n");
+        b.Append("target: ").Append(values.Target.Written).Append("\n\n");
         b.Append("# The solution (.sln, .slnx, or .slnf) Offramp works on.\n");
         b.Append("solution: ").Append(values.Solution is null ? "null" : Scalar(values.Solution)).Append("\n\n");
         b.Append("paths:\n");

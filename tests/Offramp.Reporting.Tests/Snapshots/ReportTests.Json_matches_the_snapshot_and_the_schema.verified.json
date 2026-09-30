@@ -11,6 +11,8 @@
     "frameworkLocChange": -4100,
     "applications": 3,
     "applicationsDone": 1,
+    "libraries": 0,
+    "librariesDone": 0,
     "ready": 2
   },
   "series": [
@@ -260,6 +262,7 @@
       "hosted": []
     }
   ],
+  "libraries": [],
   "frontier": [
     {
       "project": "src/Core/Core.csproj",

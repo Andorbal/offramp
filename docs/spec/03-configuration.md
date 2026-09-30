@@ -12,7 +12,8 @@ merged result is echoed in every JSON envelope as `effectiveConfig`.
 # offramp.yml
 version: 1
 
-target: 10                     # integer; --target overrides
+target: 10                     # .NET major version (10 = net10.0), or a target framework: net8.0,
+                               # net10.0-windows, netstandard2.0 (libraries; ADR 0057); --target overrides
 solution: src/Monolith.sln     # optional: see `init` for how one is chosen
 
 paths:
@@ -190,7 +191,7 @@ refuse answers that are not one. `init --defaults` writes without asking. It als
 
 | Variable | Purpose |
 |---|---|
-| `OFFRAMP_TARGET` | default target |
+| `OFFRAMP_TARGET` | default target (`10`, `net8.0`, `netstandard2.0`) |
 | `OFFRAMP_CONFIG` | config path |
 | `OFFRAMP_STATE` | state directory |
 | `OFFRAMP_LLM_PROVIDER`, `OFFRAMP_LLM_URL`, `OFFRAMP_LLM_MODEL`, `OFFRAMP_LLM_API_KEY` | LLM |
@@ -201,5 +202,6 @@ refuse answers that are not one. `init --defaults` writes without asking. It als
 In general `OFFRAMP_A__B_C` sets `a.bC`: `__` separates levels and each
 `UPPER_SNAKE` segment becomes camelCase (`OFFRAMP_MOVE__TESTS__TARGET_SUFFIX` sets
 `move.tests.targetSuffix`). Values are typed by the setting: integers, booleans
-(`true`/`false`/`1`/`0`/`yes`/`no`), and lists separated by `;` or `,`. Names
-that match no setting are ignored.
+(`true`/`false`/`1`/`0`/`yes`/`no`), and lists separated by `;` or `,`; `target`
+takes an integer or a target framework, as in the file. Names that match no
+setting are ignored.

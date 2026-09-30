@@ -185,7 +185,7 @@ public sealed class WebScaffoldCommand : ICommandHandler<WebScaffoldOptions, Web
             RepositoryRoot = root,
             Project = project,
             NewDirectory = options.New,
-            TargetMajor = config.Target,
+            TargetMajor = config.Target.RuntimeMajor,
             Proxy = options.Proxy,
             Adapters = options.Adapters,
             LegacyUrl = options.LegacyUrl,

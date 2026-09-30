@@ -10,7 +10,7 @@
     "stateFile": { "$ref": "workspace.json#/$defs/relativePath" },
     "started": { "type": "boolean", "description": "This run created the progress file." },
     "interactive": { "type": "boolean", "description": "A session ran (a terminal without --json or action flags)." },
-    "target": { "type": "string", "pattern": "^net[0-9]+\\.0$" },
+    "target": { "type": "string", "pattern": "^(net[0-9]+\\.0(-windows)?|netstandard2\\.[01])$" },
     "ran": {
       "type": "array",
       "description": "Steps this run executed, in order.",

@@ -84,7 +84,7 @@ public sealed class InitCommandTests : IDisposable
         _cli.Repo.Write("b/B.sln", "");
         var prompter = new ScriptedPrompter(new InitValues
         {
-            Target = 9,
+            Target = ModernTarget.FromMajor(9),
             Solution = "b/B.sln",
             VerifyMode = "none",
             CpmFile = "eng/Packages.props",
@@ -98,7 +98,7 @@ public sealed class InitCommandTests : IDisposable
         Assert.Equal(["a/A.sln", "b/B.sln"], prompter.Seen!.SolutionCandidates);
         var loaded = ConfigLoader.Load(new ConfigSources { RepositoryRoot = _cli.Repo.Path });
         Assert.True(loaded.IsValid);
-        Assert.Equal(9, loaded.Config.Target);
+        Assert.Equal(9, loaded.Config.Target.Major);
         Assert.Equal("b/B.sln", loaded.Config.Solution);
         Assert.Equal("log4net", loaded.Config.Deps.Pins.Single().Package);
     }
@@ -183,7 +183,7 @@ public sealed class InitCommandTests : IDisposable
         var before = _cli.Repo.Read("Directory.Build.props");
         _cli.InputIsTerminal = true;
         _cli.OutputIsTerminal = true;
-        var prompter = new ScriptedPrompter(new InitValues { Target = 10, Solution = "WindowsOnly.sln", VerifyMode = "build" })
+        var prompter = new ScriptedPrompter(new InitValues { Target = ModernTarget.Default, Solution = "WindowsOnly.sln", VerifyMode = "build" })
         {
             AcceptCompileOnly = accept,
         };

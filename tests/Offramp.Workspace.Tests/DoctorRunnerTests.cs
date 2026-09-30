@@ -16,7 +16,10 @@ public sealed class DoctorRunnerTests : IDisposable
 
     public void Dispose() => _repo.Dispose();
 
-    private async Task<(DoctorReport Report, DiagnosticBag Diagnostics)> RunAsync(FakeMachine machine, int target = 10)
+    private Task<(DoctorReport Report, DiagnosticBag Diagnostics)> RunAsync(FakeMachine machine, int target = 10) =>
+        RunAsync(machine, (System.Text.Json.Nodes.JsonNode)target);
+
+    private async Task<(DoctorReport Report, DiagnosticBag Diagnostics)> RunAsync(FakeMachine machine, System.Text.Json.Nodes.JsonNode target)
     {
         var runner = machine.CreateRunner();
         var git = new GitService(runner);
@@ -171,6 +174,24 @@ public sealed class DoctorRunnerTests : IDisposable
 
         var (older, _) = await RunAsync(machine, target: 8);
         Assert.Equal(CheckStatus.Pass, Status(older, "target"));
+    }
+
+    /// <summary>Every SDK builds .NET Standard; what runs moves to .NET 10 under it, which needs the .NET 10 SDK (ADR 0057).</summary>
+    [Fact]
+    public async Task A_standard_target_needs_the_sdk_of_the_net_that_applications_move_to()
+    {
+        var machine = Healthy();
+        machine.SelectedSdk = "8.0.404";
+
+        var (report, _) = await RunAsync(machine, "netstandard2.0");
+
+        var check = report.Checks.Single(c => c.Id == "target");
+        Assert.Equal((CheckStatus.Fail, "SDK can target netstandard2.0"), (check.Status, check.Title));
+        Assert.Equal("SDK 8.0.404 cannot build net10.0, which applications and tests move to under netstandard2.0; it targets up to net8.0.", check.Message);
+        Assert.Equal("netstandard2.0", report.Environment.Target);
+
+        machine.SelectedSdk = "10.0.100";
+        Assert.Equal(CheckStatus.Pass, Status((await RunAsync(machine, "netstandard2.0")).Report, "target"));
     }
 
     [Fact]

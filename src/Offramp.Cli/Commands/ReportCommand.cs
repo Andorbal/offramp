@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
+using Offramp.Analysis.DeadCode;
 using Offramp.Cli.Infrastructure;
 using Offramp.Cli.Rendering;
 using Offramp.Core.Diagnostics;
@@ -109,7 +110,7 @@ public sealed class ReportCommand : ICommandHandler<ReportOptions, ReportResult>
         }
 
         var title = options.Title ?? config.Report.Title ?? Path.GetFileName(Path.TrimEndingDirectorySeparator(root));
-        var report = ReportBuilder.Build(model, ledger.Snapshots, title, options.Since);
+        var report = ReportBuilder.Build(model, ledger.Snapshots, title, options.Since, ShippedProjects.Read(root, model, config.DeadCode.ExternalConsumers));
         string? graphHtml = null;
         if (options.WithGraph)
         {
@@ -154,7 +155,7 @@ public sealed class ReportCommand : ICommandHandler<ReportOptions, ReportResult>
 
             Codebase: {report.Title}. Projects: {h.Projects}. Lines of code: {h.Loc}. Portable (standard, modern, or dual-targeted): {h.PortablePercent:0.#}%.
             Framework-only: {h.FrameworkProjects} projects, {h.FrameworkLoc} lines{ReportText.Change(report)}.
-            Applications: {h.ApplicationsDone} of {h.Applications} done. Projects ready to port today: {h.Ready}.
+            Applications: {h.ApplicationsDone} of {h.Applications} done. Libraries other code uses: {h.LibrariesDone} of {h.Libraries} done. Projects ready to port today: {h.Ready}.
             Largest areas: {string.Join(", ", report.Areas.OrderByDescending(a => a.Loc).Take(5).Select(a => a.Area))}.
             """);
         var text = await llm.AskTextAsync(new Offramp.Llm.LlmRequest { Use = LlmGate.Summarizing, Prompt = prompt, MaxTokens = 400 }, "the report summary", cancellationToken);
@@ -176,7 +177,28 @@ public sealed class ReportCommand : ICommandHandler<ReportOptions, ReportResult>
         }
 
         output.Headline(summary, h.FrameworkProjects == 0 ? Theme.ReadyStyle : Theme.DecisionStyle);
-        if (report.Applications.Count > 0)
+        if (ReportText.AboutLibraries(report))
+        {
+            var table = new Table().Border(TableBorder.Simple);
+            table.AddColumn("Library");
+            table.AddColumn("Status");
+            table.AddColumn(new TableColumn("Projects left").RightAligned());
+            table.AddColumn(new TableColumn("Lines left").RightAligned());
+            table.AddColumn("Used because");
+            foreach (var library in report.Libraries)
+            {
+                table.AddRow(
+                    new Markup(Markup.Escape(library.Name)),
+                    new Markup(Status(library.Status)),
+                    new Markup(string.Create(CultureInfo.InvariantCulture, $"{library.Remaining} of {library.Closure}")),
+                    new Markup(library.RemainingLoc.ToString("N0", CultureInfo.InvariantCulture)),
+                    new Markup(Markup.Escape(library.Shipped)));
+            }
+
+            output.MarkupLine("[dim]No applications; the libraries other code uses:[/]");
+            output.Write(table);
+        }
+        else if (report.Applications.Count > 0)
         {
             var table = new Table().Border(TableBorder.Simple);
             table.AddColumn("Application");

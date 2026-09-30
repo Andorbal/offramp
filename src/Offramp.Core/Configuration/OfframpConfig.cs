@@ -16,8 +16,11 @@ public sealed record OfframpConfig
 
     public int Version { get; init; } = CurrentVersion;
 
-    /// <summary>Integer major version of the modern target (10 → <c>net10.0</c>).</summary>
-    public int Target { get; init; } = 10;
+    /// <summary>
+    /// The modern target: a .NET major version (10 → <c>net10.0</c>), a .NET target framework (<c>net8.0</c>,
+    /// <c>net10.0-windows</c>), or .NET Standard for libraries (<c>netstandard2.0</c>); ADR 0057.
+    /// </summary>
+    public ModernTarget Target { get; init; } = ModernTarget.Default;
 
     public string? Solution { get; init; }
 
@@ -50,12 +53,9 @@ public sealed record OfframpConfig
 
     public IdeConfig Ide { get; init; } = new();
 
-    /// <summary>The target framework moniker for <see cref="Target"/>.</summary>
+    /// <summary>The target framework moniker for <see cref="Target"/> (<c>net10.0</c>, <c>netstandard2.0</c>).</summary>
     [JsonIgnore]
-    public string TargetFramework => TargetMoniker(Target);
-
-    public static string TargetMoniker(int major) =>
-        string.Create(System.Globalization.CultureInfo.InvariantCulture, $"net{major}.0");
+    public string TargetFramework => Target.Moniker;
 
     /// <summary>Severity overrides from <c>rules:</c>, keyed by code.</summary>
     public IReadOnlyDictionary<string, SeverityOverride> SeverityOverrides() => Rules.ToSeverityOverrides();

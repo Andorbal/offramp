@@ -131,7 +131,8 @@ offramp doctor [--fix [--apply]]
 
 Checks, each with pass/warn/fail and a remedy:
 - SDKs installed and which one `global.json` selects; whether it can target
-  `--target`. When no installed SDK satisfies `global.json`, the remedy names
+  `--target` (under `netstandard2.x`, whether it can build `net10.0`, which
+  applications and tests move to). When no installed SDK satisfies `global.json`, the remedy names
   the least permissive `rollForward` that selects one (`latestFeature`,
   `latestMinor`, `latestMajor`), or says none is new enough.
 - `Microsoft.NETFramework.ReferenceAssemblies.<tfm>` resolvable (offline cache,
@@ -347,12 +348,19 @@ offramp report [--format html|json|markdown] [--out PATH] [--since DATE] [--titl
   projects in the closure that can be ported today. `plan --for` must agree with
   these numbers. Each hosted web project is `OFR0204` (info), naming its host
   (`docs/decisions/0055-hosted-projects-belong-to-their-host.md`).
+- Libraries: the `library` projects other code uses (ADR 0041's shipped rule:
+  `deadCode.externalConsumers`, packable, packed by a `.nuspec`, or used by no
+  application), with the evidence (`shipped`) and, over each library's own
+  closure, the same status and `next` as applications; the headline counts them
+  (`libraries`, `librariesDone`). When the workspace has no application, the
+  renderings talk about libraries instead (tile, summary sentence, table), so a
+  repository of libraries does not read "0 of 0 applications" (ADR 0057).
 - Frontier: framework-only projects whose dependencies are all portable
   (`ready`), most dependents first.
 - HTML: single self-contained file with no scripts; sections: headline numbers,
   burn-down of lines of code by framework class over time (stacked, framework at
   the bottom and its edge drawn as the burn-down line), framework class by area
-  (stacked bars), application table, the frontier list, and with `--with-graph`
+  (stacked bars), application table (the library table without applications), the frontier list, and with `--with-graph`
   the dependency graph from `graph --format html` (tests excluded, frontier
   highlighted) in a sandboxed `iframe srcdoc`. Charts are SVG computed by
   Offramp, so the same data gives the same bytes.

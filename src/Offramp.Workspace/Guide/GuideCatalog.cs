@@ -1,3 +1,4 @@
+using Offramp.Core.Configuration;
 using Offramp.Core.Model;
 using Offramp.Workspace.Model;
 
@@ -42,6 +43,9 @@ public sealed record GuideStep
     /// <summary>For a step done per project with no candidates: why it is blocked rather than not needed, or null.</summary>
     public Func<GuideFacts, WorkspaceModel, string?>? BlockedWithoutProjects { get; init; }
 
+    /// <summary>For a step done per project: a note about one project, or null.</summary>
+    public Func<GuideFacts, ProjectInfo, string?>? ProjectNote { get; init; }
+
     public bool PerProject => Projects is not null;
 }
 
@@ -54,6 +58,9 @@ public sealed record GuideStage(string Id, string Title, IReadOnlyList<GuideStep
 /// </summary>
 public static class GuideCatalog
 {
+    /// <summary>What a library that serves .NET Framework and modern .NET targets: .NET Framework 4.6.1 and later use it.</summary>
+    public const string StandardForLibraries = "netstandard2.0";
+
     private static readonly ProjectKind[] Applications =
         [ProjectKind.Console, ProjectKind.Service, ProjectKind.Web, ProjectKind.Winforms, ProjectKind.Wpf];
 
@@ -239,6 +246,10 @@ public static class GuideCatalog
                 Writes = GuideWrites.Repository,
                 Observed = facts => facts.Model is { } model && !model.Projects.Any(p => p.FrameworkClass == FrameworkClass.Framework && !IsHostedApplication(p)),
                 Projects = (facts, model) => model.Projects.Where(p => facts.IsReady(p) && !IsHostedApplication(p)),
+                ProjectNote = (facts, project) =>
+                    facts.ShippedLibraries.TryGetValue(project.Id, out var shipped) && MovesTo(project, facts.Target, shippedLibrary: true) == StandardForLibraries
+                        ? $"A library other code uses ({shipped}): {StandardForLibraries} serves .NET Framework 4.6.1 and later and every modern .NET from one build, and its .NET Framework target stays for older consumers. `offramp audit api --project {project.Id} --target {StandardForLibraries}` lists what does not compile there."
+                        : null,
                 BlockedWithoutProjects = (_, model) =>
                 {
                     var left = model.Projects.Count(p => p.FrameworkClass == FrameworkClass.Framework && !IsHostedApplication(p));
@@ -286,12 +297,12 @@ public static class GuideCatalog
     public static GuideStage StageOf(GuideStep step) => Stages.Single(s => s.Steps.Contains(step));
 
     /// <summary>The step's arguments after <c>offramp</c>, filled in for <paramref name="project"/>.</summary>
-    public static IReadOnlyList<string> Arguments(GuideStep step, ProjectInfo? project, int target) =>
+    public static IReadOnlyList<string> Arguments(GuideStep step, ProjectInfo? project, GuideFacts facts) =>
         project is null
             ? step.Command
             : [.. step.Command.Select(a => a
                 .Replace("{project}", project.Id, StringComparison.Ordinal)
-                .Replace("{tfms}", TargetFrameworks(project, target), StringComparison.Ordinal)
+                .Replace("{tfms}", TargetFrameworks(project, facts.Target, facts.ShippedLibraries.ContainsKey(project.Id)), StringComparison.Ordinal)
                 .Replace("{new}", NewFolder(project), StringComparison.Ordinal))];
 
     /// <summary>The command as someone would type it, quoting arguments a shell would split.</summary>
@@ -299,11 +310,23 @@ public static class GuideCatalog
         "offramp " + string.Join(' ', arguments.Select(Quote));
 
     /// <summary>A text with <c>{target}</c> replaced by the target framework.</summary>
-    public static string ForTarget(string text, int target) => text.Replace("{target}", $"net{target}.0", StringComparison.Ordinal);
+    public static string ForTarget(string text, ModernTarget target) => text.Replace("{target}", target.Moniker, StringComparison.Ordinal);
 
-    /// <summary>The project's target frameworks followed by the modern target (<c>-windows</c> for projects that use Windows Forms or WPF).</summary>
-    public static string TargetFrameworks(ProjectInfo project, int target) =>
-        string.Join(';', project.TargetFrameworks.Append(WindowsDesktop.TargetFramework(project, target)).Distinct(StringComparer.OrdinalIgnoreCase));
+    /// <summary>The project's target frameworks followed by the one it moves to (<see cref="MovesTo"/>).</summary>
+    public static string TargetFrameworks(ProjectInfo project, ModernTarget target, bool shippedLibrary = false) =>
+        string.Join(';', project.TargetFrameworks.Append(MovesTo(project, target, shippedLibrary)).Distinct(StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The framework the port step adds (ADR 0057): <c>netstandard2.0</c> for a library other code uses
+    /// (<paramref name="shippedLibrary"/>) under a .NET target that is not <c>-windows</c>, unless it uses Windows
+    /// Forms or WPF, so it keeps serving .NET Framework consumers and serves every modern .NET from one build;
+    /// otherwise what the target gives the project (<see cref="ModernTarget.For"/>): <c>-windows</c> for Windows
+    /// Forms and WPF, .NET 10 for applications and tests under a .NET Standard target.
+    /// </summary>
+    public static string MovesTo(ProjectInfo project, ModernTarget target, bool shippedLibrary) =>
+        shippedLibrary && !target.IsStandard && !target.Windows && project.Kind == ProjectKind.Library && !WindowsDesktop.Uses(project)
+            ? StandardForLibraries
+            : target.For(project);
 
     /// <summary>A folder beside the project's folder, named after the project with <c>.Core</c> appended.</summary>
     public static string NewFolder(ProjectInfo project)

@@ -256,9 +256,9 @@ public static class CommandRunner
     private static JsonObject CommandLineOverlay(GlobalSettings settings, RepositoryRoot repository, CliHost host)
     {
         var overlay = new JsonObject();
-        if (settings.Target is { } target)
+        if (settings.Target is { } given && ModernTarget.TryParse(given, out var target))
         {
-            overlay["target"] = target;
+            overlay["target"] = target.WrittenAsNumber ? JsonValue.Create(target.Major!.Value) : JsonValue.Create(target.Written);
         }
 
         if (settings.Solution is { } solution)

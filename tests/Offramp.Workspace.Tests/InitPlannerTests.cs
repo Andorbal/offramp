@@ -156,8 +156,10 @@ public sealed class InitPlannerTests : IDisposable
     public static TheoryData<InitValues> ValueSets => new()
     {
         new InitValues(),
-        new InitValues { Target = 9, Solution = "src/My App/App.sln", VerifyMode = "none", CpmFile = "eng/Packages.props" },
+        new InitValues { Target = ModernTarget.FromMajor(9), Solution = "src/My App/App.sln", VerifyMode = "none", CpmFile = "eng/Packages.props" },
         new InitValues { VerifyMode = "command", VerifyCommand = "./build.sh --configuration \"Debug\"", CpmFile = "Packages.props", CpmScope = "repo" },
+        new InitValues { Target = ModernTarget.Parse("netstandard2.0") },
+        new InitValues { Target = ModernTarget.Parse("net8.0-windows") },
         new InitValues
         {
             Solution = "true",
@@ -181,6 +183,7 @@ public sealed class InitPlannerTests : IDisposable
         Assert.True(loaded.IsValid);
         Assert.Empty(loaded.Diagnostics);
         Assert.Equal(values.Target, loaded.Config.Target);
+        Assert.Equal(values.Target.Written, loaded.Config.Target.Written);
         Assert.Equal(values.Solution, loaded.Config.Solution);
         Assert.Equal(values.VerifyMode, loaded.Config.Verify.Mode);
         Assert.Equal(values.VerifyCommand, loaded.Config.Verify.Command);

@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Offramp.Analysis.Compilations;
+using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Core.Paths;
@@ -17,7 +18,7 @@ namespace Offramp.Analysis.Audits;
 /// editor's text laid over it.
 /// </summary>
 public sealed class TargetCompilationBuilder(
-    string repositoryRoot, WorkspaceModel model, int targetMajor, TargetReferenceResolver? references, DiagnosticBag diagnostics, ICompilationSource compilations)
+    string repositoryRoot, WorkspaceModel model, ModernTarget target, TargetReferenceResolver? references, DiagnosticBag diagnostics, ICompilationSource compilations)
 {
     private readonly Dictionary<string, TargetCompilation?> _built = new(StringComparer.Ordinal);
     private readonly Dictionary<string, MetadataReference> _files = new(StringComparer.Ordinal);
@@ -43,17 +44,25 @@ public sealed class TargetCompilationBuilder(
             return null;
         }
 
-        var desktop = WindowsDesktop.Uses(project);
-        var tfm = WindowsDesktop.TargetFramework(project, targetMajor);
+        var tfm = target.For(project);
+        var standard = tfm.StartsWith("netstandard", StringComparison.Ordinal);
         var frameworks = new List<string>();
-        if (project.Kind == ProjectKind.Web)
+        if (project.Kind == ProjectKind.Web && !standard)
         {
             frameworks.Add("Microsoft.AspNetCore.App");
         }
 
-        if (desktop)
+        if (WindowsDesktop.Uses(project) && !standard)
         {
             frameworks.Add("Microsoft.WindowsDesktop.App");
+        }
+
+        if (target.IsStandard && !standard)
+        {
+            diagnostics.Report(DiagnosticCatalog.OFR3017,
+                $"{project.Id} is a {Wire(project.Kind)} project, which needs a .NET to run on and {target.Moniker} is not one, so it was compiled against {tfm}.",
+                new DiagnosticLocation(project.Id),
+                [KeyValuePair.Create<string, JsonNode?>("targetFramework", tfm)]);
         }
 
         var resolved = await references.ResolveAsync(new TargetReferenceRequest
@@ -113,7 +122,7 @@ public sealed class TargetCompilationBuilder(
             }
         }
 
-        return TargetCompilation.Create(recorded, tfm, targetMajor, metadata);
+        return TargetCompilation.Create(recorded, tfm, metadata);
     }
 
     /// <summary>
@@ -154,6 +163,8 @@ public sealed class TargetCompilationBuilder(
 
         return _recorded[project.Id] = reference;
     }
+
+    private static string Wire(ProjectKind kind) => char.ToLowerInvariant(kind.ToString()[0]) + kind.ToString()[1..];
 
     private MetadataReference File(string path) =>
         _files.TryGetValue(path, out var reference) ? reference : _files[path] = MetadataReference.CreateFromFile(path);

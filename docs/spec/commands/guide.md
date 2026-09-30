@@ -66,9 +66,15 @@ which is also the suggested order. `{N}` is the target major version.
 | | `service` | `offramp service --project {project}` | repository | per project: service projects ready to port |
 | | `web-scaffold` | `offramp web scaffold --project {project} --new {new}` | repository | per project: .NET Framework web projects |
 
-- `{tfms}` is the project's target frameworks followed by `net{N}.0`
-  (`net{N}.0-windows` for WinForms and WPF projects), quoted in the command
-  (`--tfm "net48;net10.0"`). `{new}` is a folder next to the project's folder
+- `{tfms}` is the project's target frameworks followed by what it moves to
+  under the target (ADR 0057): `net{N}.0` (`net{N}.0-windows` for WinForms and
+  WPF projects, and for every project under a `-windows` target); under
+  `netstandard2.x` the standard for libraries and `net10.0` for applications and
+  test projects. A library other code uses (ADR 0041's shipped rule) gets
+  `netstandard2.0` under a .NET target that is not `-windows`, unless it uses
+  WinForms or WPF (`--tfm "net40;netstandard2.0"`), with a per-project note that
+  names `offramp audit api --project P --target netstandard2.0`. Quoted in the
+  command (`--tfm "net48;net10.0"`). `{new}` is a folder next to the project's folder
   named after the project with `.Core` appended (`src/Shop.Web/Shop.Web.csproj`
   gives `src/Shop.Web.Core`).
 - `port` relies on `csproj modernize` building the project for every target in

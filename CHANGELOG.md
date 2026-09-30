@@ -12,6 +12,23 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- `--target`, `target:`, and `OFFRAMP_TARGET` take a target framework as well as a .NET major
+  version (ADR 0057): `net8.0`, `net10.0-windows` (every project on Windows: Windows-only APIs are
+  not findings), and `netstandard2.0`/`netstandard2.1` for a library that keeps serving .NET
+  Framework; `10` stays shorthand for `net10.0` and the default. A library's target was not
+  expressible, so `audit api` on NHibernate 4.1.2 checked `net10.0`, which has Reflection.Emit,
+  and missed about 50 of the 71 errors of its `netstandard2.0` build. Against `netstandard2.0` a
+  library compiles against .NET Standard's reference assemblies with the `NETSTANDARD` symbols:
+  on NHibernate, `--target netstandard2.0` gives 114 `OFR3001` findings in 30 files, 78 of them
+  Reflection.Emit (`ILGenerator` 28, `TypeBuilder` 8, ...), where `net10.0` gives 36 in 15 files,
+  one of them Reflection.Emit. Applications and test projects, which cannot run on .NET
+  Standard, are compiled against `net10.0` and say so with `OFR3017` (info); `doctor` checks that
+  the SDK builds it.
+- `report` lists the libraries other code uses (ADR 0041's shipped rule) with what is left in
+  their closure (`libraries`, `headline.libraries`, `headline.librariesDone`), and talks about
+  them when the workspace has no application: NHibernate's report said "applications 0" and
+  nothing about the library; it now says 0 of 2 libraries are done, NHibernate ready and
+  NHibernate.DomainModel waiting on it.
 - `OFR4031` (warning): `seams` proposes no extraction when it would take more than a quarter of
   the project's types (and more than 10), and lists the types that use unportable APIs themselves,
   to fence instead (ADR 0053). `OFR4032` (info): an API `audit api` reports missing (`OFR3001`)
@@ -140,6 +157,16 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `report`'s applications leave out hosted projects and list them under the host (`applications[].hosted`,
   also shown as "(hosts N)"); an application's `closure` includes them. `web inventory` and `web
   scaffold` results gain `hostedBy`, and a hosted project's `url`/`legacyUrl` is its host's (ADR 0055).
+- `target` in `offramp.yml` and `effectiveConfig`, and `init`'s `values.target`, are an integer or a
+  target framework string, and the envelope's, `audit`'s, `guide`'s, and `doctor`'s `target` can be
+  `net10.0-windows` or `netstandard2.0` (ADR 0057). Migration: none for integer targets, which are
+  written back as integers.
+- The guide's port step proposes `<framework>;netstandard2.0` for a library other code uses
+  (listed in `deadCode.externalConsumers`, packable, packed by a `.nuspec`, or used by no
+  application), unless it uses Windows Forms or WPF, with a note naming `audit api --target
+  netstandard2.0`: NHibernate (packed by its `.nuspec.template`) was offered `net40;net10.0` and is
+  now offered `net40;netstandard2.0`. Under a .NET Standard target libraries get the standard and
+  applications and tests `net10.0`.
 - `audit api` reports an API of a removed technology once, under that technology's rule (ADR
   0044): `OFR3001` is no longer repeated where Web Forms, ASMX, WCF hosting, Remoting, WF, COM+ or
   `CallContext` (`OFR3004`–`OFR3009`, `OFR3013`) matched. `OFR3001` counts drop on such code;

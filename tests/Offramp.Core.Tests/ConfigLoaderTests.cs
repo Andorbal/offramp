@@ -30,7 +30,7 @@ public sealed class ConfigLoaderTests : IDisposable
 
         Assert.True(result.IsValid);
         Assert.Null(result.File);
-        Assert.Equal(10, result.Config.Target);
+        Assert.Equal(10, result.Config.Target.Major);
         Assert.Equal("net10.0", result.Config.TargetFramework);
         Assert.Equal("build", result.Config.Verify.Mode);
         Assert.Equal(1800, result.Config.Verify.TimeoutSeconds);
@@ -48,7 +48,7 @@ public sealed class ConfigLoaderTests : IDisposable
         _repo.Write("offramp.yml", "target: 8\nverify:\n  timeoutSeconds: 600\n  mode: none\n");
 
         var fileOnly = Load();
-        Assert.Equal(8, fileOnly.Config.Target);
+        Assert.Equal(8, fileOnly.Config.Target.Major);
         Assert.Equal(600, fileOnly.Config.Verify.TimeoutSeconds);
         Assert.Equal("Debug", fileOnly.Config.Verify.Configuration);
 
@@ -58,14 +58,50 @@ public sealed class ConfigLoaderTests : IDisposable
             ["OFFRAMP_VERIFY__TIMEOUT_SECONDS"] = "1200",
         };
         var withEnvironment = Load(environment);
-        Assert.Equal(9, withEnvironment.Config.Target);
+        Assert.Equal(9, withEnvironment.Config.Target.Major);
         Assert.Equal(1200, withEnvironment.Config.Verify.TimeoutSeconds);
         Assert.Equal("none", withEnvironment.Config.Verify.Mode);
 
         var withFlags = Load(environment, new JsonObject { ["target"] = 11 });
-        Assert.Equal(11, withFlags.Config.Target);
+        Assert.Equal(11, withFlags.Config.Target.Major);
         Assert.Equal(1200, withFlags.Config.Verify.TimeoutSeconds);
         Assert.Equal(11, withFlags.Effective["target"]!.GetValue<int>());
+    }
+
+    /// <summary>NHibernate P1 #7: a library's target, <c>netstandard2.0</c>, is a target like <c>10</c> (ADR 0057).</summary>
+    [Fact]
+    public void A_target_framework_is_a_target_in_the_file_the_environment_and_on_the_command_line()
+    {
+        _repo.Write("offramp.yml", "target: netstandard2.0\n");
+
+        var fileOnly = Load();
+        Assert.True(fileOnly.IsValid);
+        Assert.Equal(("netstandard2.0", true), (fileOnly.Config.TargetFramework, fileOnly.Config.Target.IsStandard));
+        Assert.Equal("netstandard2.0", fileOnly.Effective["target"]!.GetValue<string>());
+
+        var environment = Load(new Dictionary<string, string> { ["OFFRAMP_TARGET"] = "net8.0-windows" });
+        Assert.True(environment.IsValid);
+        Assert.Equal("net8.0-windows", environment.Config.TargetFramework);
+
+        var number = Load(new Dictionary<string, string> { ["OFFRAMP_TARGET"] = "9" }, new JsonObject { ["target"] = "net10.0" });
+        Assert.Equal("net10.0", number.Config.TargetFramework);
+        Assert.Equal("net10.0", number.Effective["target"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("target: net48\n")]
+    [InlineData("target: netstandard1.6\n")]
+    [InlineData("target: 4\n")]
+    public void A_target_that_is_not_modern_net_or_standard_2_is_an_error(string yaml)
+    {
+        _repo.Write("offramp.yml", yaml);
+
+        var result = Load();
+
+        Assert.False(result.IsValid);
+        var error = Assert.Single(result.Diagnostics, d => d.Code == "OFR0053");
+        Assert.Contains("target", error.Message, StringComparison.Ordinal);
+        Assert.Equal("net10.0", result.Config.TargetFramework);
     }
 
     [Fact]
@@ -98,6 +134,7 @@ public sealed class ConfigLoaderTests : IDisposable
 
     [Theory]
     [InlineData("OFFRAMP_TARGET", "ten")]
+    [InlineData("OFFRAMP_TARGET", "net48")]
     [InlineData("OFFRAMP_VERIFY__MODE", "compile")]
     [InlineData("OFFRAMP_VERIFY__RESTORE", "perhaps")]
     [InlineData("OFFRAMP_SCAN__BUILDER", "xbuild")]
@@ -131,7 +168,7 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.Contains(unknown, d => d.Message.Contains("'verify.timeout'", StringComparison.Ordinal) && d.Line == 5);
         Assert.Null(result.Effective["verfy"]);
         Assert.Equal("build", result.Config.Verify.Mode);
-        Assert.Equal(9, result.Config.Target);
+        Assert.Equal(9, result.Config.Target.Major);
     }
 
     [Fact]
@@ -184,7 +221,7 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.Contains("verify.mode", errors[1].Message, StringComparison.Ordinal);
         Assert.Contains("build, command, none", errors[1].Message, StringComparison.Ordinal);
         Assert.Equal(3, errors[1].Line);
-        Assert.Equal(10, result.Config.Target);
+        Assert.Equal(10, result.Config.Target.Major);
     }
 
     [Fact]
@@ -218,7 +255,7 @@ public sealed class ConfigLoaderTests : IDisposable
 
         var result = Load(new Dictionary<string, string> { ["OFFRAMP_CONFIG"] = "config/custom.yml" });
 
-        Assert.Equal(7, result.Config.Target);
+        Assert.Equal(7, result.Config.Target.Major);
         Assert.Equal("config/custom.yml", result.File);
     }
 

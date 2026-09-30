@@ -15,7 +15,7 @@
       "properties": {
         "version": { "type": "string", "minLength": 1 },
         "command": { "type": "string", "pattern": "^[a-z][a-z0-9-]*( [a-z][a-z0-9-]*)*$" },
-        "target": { "type": "string", "pattern": "^net[0-9]+\\.0$" },
+        "target": { "type": "string", "pattern": "^(net[0-9]+\\.0(-windows)?|netstandard2\\.[01])$" },
         "repositoryRoot": { "type": "string", "minLength": 1, "description": "The only absolute path in the document." },
         "solution": { "type": ["string", "null"] },
         "workspaceHash": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },

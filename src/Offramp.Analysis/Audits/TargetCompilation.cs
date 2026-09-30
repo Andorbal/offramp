@@ -11,37 +11,35 @@ namespace Offramp.Analysis.Audits;
 /// </summary>
 public sealed class TargetCompilation
 {
+    private static readonly Version[] StandardVersions = [.. new[] { "1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "2.0", "2.1" }.Select(Version.Parse)];
+
     private readonly Dictionary<string, SyntaxTree> _byPath;
 
-    private TargetCompilation(CSharpCompilation compilation, string targetFramework, int major)
+    private TargetCompilation(CSharpCompilation compilation, string targetFramework)
     {
         Compilation = compilation;
         TargetFramework = targetFramework;
-        Major = major;
         _byPath = compilation.SyntaxTrees.GroupBy(t => t.FilePath, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
     }
 
     public CSharpCompilation Compilation { get; }
 
-    /// <summary><c>net10.0</c>, or <c>net10.0-windows</c> for desktop projects.</summary>
+    /// <summary><c>net10.0</c>, <c>net10.0-windows</c> for desktop projects, or <c>netstandard2.0</c> for a library under a .NET Standard target.</summary>
     public string TargetFramework { get; }
 
     public bool Windows => TargetFramework.EndsWith("-windows", StringComparison.Ordinal);
 
-    /// <summary>The target's major version (10 for <c>net10.0</c>).</summary>
-    public int Major { get; }
-
     /// <summary>The target tree for a recorded tree, or null.</summary>
     public SyntaxTree? TreeFor(SyntaxTree recorded) => _byPath.GetValueOrDefault(recorded.FilePath);
 
-    public static TargetCompilation Create(CSharpCompilation recorded, string targetFramework, int major, IEnumerable<MetadataReference> references)
+    public static TargetCompilation Create(CSharpCompilation recorded, string targetFramework, IEnumerable<MetadataReference> references)
     {
-        var windows = targetFramework.EndsWith("-windows", StringComparison.Ordinal);
+        var symbols = SymbolsFor(targetFramework).ToList();
         var trees = recorded.SyntaxTrees
-            .Select(t => CSharpSyntaxTree.ParseText(t.GetText(), Options((CSharpParseOptions)t.Options, major, windows), t.FilePath))
+            .Select(t => CSharpSyntaxTree.ParseText(t.GetText(), Options((CSharpParseOptions)t.Options, symbols), t.FilePath))
             .ToList();
         var compilation = CSharpCompilation.Create(recorded.AssemblyName, trees, references, recorded.Options);
-        return new TargetCompilation(compilation, targetFramework, major);
+        return new TargetCompilation(compilation, targetFramework);
     }
 
     /// <summary>
@@ -51,7 +49,8 @@ public sealed class TargetCompilation
     /// </summary>
     public TargetCompilation WithSources(CSharpCompilation source)
     {
-        var options = (Func<CSharpParseOptions, CSharpParseOptions>)(o => Options(o, Major, Windows));
+        var symbols = SymbolsFor(TargetFramework).ToList();
+        var options = (Func<CSharpParseOptions, CSharpParseOptions>)(o => Options(o, symbols));
         var wanted = source.SyntaxTrees.GroupBy(t => t.FilePath, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         var compilation = Compilation;
         foreach (var (path, tree) in _byPath)
@@ -77,15 +76,45 @@ public sealed class TargetCompilation
             }
         }
 
-        return ReferenceEquals(compilation, Compilation) ? this : new TargetCompilation(compilation, TargetFramework, Major);
+        return ReferenceEquals(compilation, Compilation) ? this : new TargetCompilation(compilation, TargetFramework);
     }
 
     /// <summary>The recorded parse options with the target's framework symbols instead of .NET Framework's.</summary>
-    public static CSharpParseOptions Options(CSharpParseOptions recorded, int major, bool windows)
+    public static CSharpParseOptions Options(CSharpParseOptions recorded, int major, bool windows) =>
+        Options(recorded, TargetSymbols(major, windows));
+
+    /// <summary>The recorded parse options with <paramref name="targetSymbols"/> instead of .NET Framework's symbols.</summary>
+    public static CSharpParseOptions Options(CSharpParseOptions recorded, IEnumerable<string> targetSymbols)
     {
         var symbols = recorded.PreprocessorSymbolNames.Where(s => !IsFrameworkSymbol(s) && !IsModernSymbol(s)).ToList();
-        symbols.AddRange(TargetSymbols(major, windows));
+        symbols.AddRange(targetSymbols);
         return recorded.WithPreprocessorSymbols(symbols.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>The symbols the SDK defines for <paramref name="targetFramework"/>: <c>netN.0</c>, <c>netN.0-windows</c>, or <c>netstandardX.Y</c>.</summary>
+    public static IEnumerable<string> SymbolsFor(string targetFramework)
+    {
+        const string Standard = "netstandard";
+        if (targetFramework.StartsWith(Standard, StringComparison.Ordinal))
+        {
+            return StandardSymbols(Version.Parse(targetFramework[Standard.Length..]));
+        }
+
+        var windows = targetFramework.EndsWith("-windows", StringComparison.Ordinal);
+        var version = windows ? targetFramework[3..^"-windows".Length] : targetFramework[3..];
+        return TargetSymbols(Version.Parse(version).Major, windows);
+    }
+
+    /// <summary>The symbols the SDK defines for <c>netstandardX.Y</c>: <c>NETSTANDARD</c>, <c>NETSTANDARD2_0</c>, and the <c>_OR_GREATER</c> ones from 1.0.</summary>
+    public static IEnumerable<string> StandardSymbols(Version version)
+    {
+        yield return "NETSTANDARD";
+        foreach (var known in StandardVersions.Where(v => v <= version))
+        {
+            yield return $"NETSTANDARD{known.Major}_{known.Minor}_OR_GREATER";
+        }
+
+        yield return $"NETSTANDARD{version.Major}_{version.Minor}";
     }
 
     /// <summary>The symbols the SDK defines for <c>netN.0</c> (and <c>-windows</c>).</summary>
@@ -133,9 +162,10 @@ public sealed class TargetCompilation
         return version.Length is >= 2 and <= 3 && version.All(char.IsAsciiDigit);
     }
 
-    /// <summary>Symbols of another modern target (a dual-target project's recorded modern call).</summary>
+    /// <summary>Symbols of another modern or standard target (a dual-target project's recorded modern call).</summary>
     private static bool IsModernSymbol(string symbol) =>
-        symbol is "NET" or "NETCOREAPP" or "WINDOWS"
+        symbol is "NET" or "NETCOREAPP" or "WINDOWS" or "NETSTANDARD"
+        || symbol.StartsWith("NETSTANDARD", StringComparison.Ordinal)
         || (symbol.StartsWith("NETCOREAPP", StringComparison.Ordinal) && symbol.EndsWith("_OR_GREATER", StringComparison.Ordinal))
         || (symbol.StartsWith("WINDOWS", StringComparison.Ordinal) && symbol.EndsWith("_OR_GREATER", StringComparison.Ordinal))
         || (symbol.StartsWith("NET", StringComparison.Ordinal) && symbol.Length > 3 && char.IsAsciiDigit(symbol[3]) && symbol.Contains('_', StringComparison.Ordinal));

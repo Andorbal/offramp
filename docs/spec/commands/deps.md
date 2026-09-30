@@ -67,7 +67,7 @@ built-in table) lists Framework-era packages and their modern successors, e.g.
 ## `deps audit`
 
 ```
-offramp deps audit [--target N] [--package ID] [--project P] [--include-prerelease] [--format table|json|markdown]
+offramp deps audit [--target N|TFM] [--package ID] [--project P] [--include-prerelease] [--format table|json|markdown]
 ```
 
 It audits every package in the model's `packages` index: `PackageReference` items and the
@@ -355,7 +355,7 @@ Details (M6, ADR 0020):
 Framework assembly references → their modern equivalents.
 
 ```
-offramp deps gac [--project P] [--target N]
+offramp deps gac [--project P] [--target N|TFM]
 ```
 
 Rules table `rules/framework-assemblies.yml` maps each Framework assembly to

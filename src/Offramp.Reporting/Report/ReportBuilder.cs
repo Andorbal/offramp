@@ -1,3 +1,4 @@
+using Offramp.Analysis.DeadCode;
 using Offramp.Core.Model;
 using Offramp.Reporting.Graph;
 using Offramp.Workspace.Model;
@@ -21,11 +22,13 @@ public static class ReportBuilder
     /// <param name="snapshots">Ledger snapshots in any order; only those of the model's solution make the series.</param>
     /// <param name="title">The report's title.</param>
     /// <param name="since">Inclusive lower bound compared with each snapshot's <c>createdAt</c>: a date (<c>2026-09-01</c>) or a UTC timestamp.</param>
-    public static ReportData Build(WorkspaceModel model, IReadOnlyList<LedgerSnapshot> snapshots, string title, string? since)
+    /// <param name="shipped">Which projects other code uses (ADR 0041); without it the report lists no libraries.</param>
+    public static ReportData Build(WorkspaceModel model, IReadOnlyList<LedgerSnapshot> snapshots, string title, string? since, ShippedProjects? shipped = null)
     {
         var series = Series(model, snapshots, since);
         var standings = Readiness.Compute(model);
         var applications = Applications(model, standings);
+        var libraries = shipped is null ? [] : Libraries(model, standings, shipped);
         var frontier = model.Projects
             .Where(p => standings[p.Id].Readiness == ProjectReadiness.Ready)
             .Select(p => new ReportFrontierProject(p.Id, p.Name, p.Loc, standings[p.Id].Dependents))
@@ -49,11 +52,14 @@ public static class ReportBuilder
                 FrameworkLocChange = framework.Loc - series[0].ByFrameworkClass["framework"].Loc,
                 Applications = applications.Count,
                 ApplicationsDone = applications.Count(a => a.Status == ProjectReadiness.Done),
+                Libraries = libraries.Count,
+                LibrariesDone = libraries.Count(l => l.Status == ProjectReadiness.Done),
                 Ready = frontier.Count,
             },
             Series = series,
             Areas = Areas(model),
             Applications = applications,
+            Libraries = libraries,
             Frontier = frontier,
         };
     }
@@ -119,10 +125,7 @@ public static class ReportBuilder
                 .Select(p =>
                 {
                     var closure = Hosting.ApplicationClosure(model, p.Id);
-                    var remaining = closure
-                        .Where(id => byId.TryGetValue(id, out var d) && d.FrameworkClass == FrameworkClass.Framework)
-                        .Order(StringComparer.Ordinal)
-                        .ToList();
+                    var remaining = Remaining(closure, byId);
                     return new ReportApplication
                     {
                         Project = p.Id,
@@ -138,6 +141,64 @@ public static class ReportBuilder
                     };
                 }),
         ];
+    }
+
+    /// <summary>
+    /// The libraries (<c>kind: library</c>) other code uses, and what is left in each one's own closure. A project a
+    /// web application hosts belongs to that application (ADR 0055), not to the libraries.
+    /// </summary>
+    private static List<ReportLibrary> Libraries(WorkspaceModel model, IReadOnlyDictionary<string, ProjectStanding> standings, ShippedProjects shipped)
+    {
+        var byId = model.Projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        var dependencies = model.Graph.Edges.ToLookup(e => e.From, e => e.To, StringComparer.Ordinal);
+        return
+        [
+            .. model.Projects
+                .Where(p => p.Kind == ProjectKind.Library && !Hosting.IsHosted(p) && shipped.Of(p) is not null)
+                .OrderBy(p => p.Id, StringComparer.Ordinal)
+                .Select(p =>
+                {
+                    var closure = DependencyClosure(p.Id, dependencies);
+                    var remaining = Remaining(closure, byId);
+                    return new ReportLibrary
+                    {
+                        Project = p.Id,
+                        Name = p.Name,
+                        FrameworkClass = p.FrameworkClass,
+                        Shipped = shipped.Of(p)!.Reason,
+                        Status = Status(p.Id, remaining),
+                        Closure = closure.Count,
+                        Remaining = remaining.Count,
+                        RemainingLoc = remaining.Sum(id => byId[id].Loc),
+                        Next = [.. remaining.Where(id => standings[id].Readiness == ProjectReadiness.Ready)],
+                    };
+                }),
+        ];
+    }
+
+    /// <summary>The framework-only projects in a closure, sorted.</summary>
+    private static List<string> Remaining(HashSet<string> closure, Dictionary<string, ProjectInfo> byId) =>
+        [.. closure
+            .Where(id => byId.TryGetValue(id, out var d) && d.FrameworkClass == FrameworkClass.Framework)
+            .Order(StringComparer.Ordinal)];
+
+    /// <summary>A project and everything it depends on, directly or not.</summary>
+    private static HashSet<string> DependencyClosure(string start, ILookup<string, string> dependencies)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>([start]);
+        while (pending.TryPop(out var id))
+        {
+            if (seen.Add(id))
+            {
+                foreach (var next in dependencies[id])
+                {
+                    pending.Push(next);
+                }
+            }
+        }
+
+        return seen;
     }
 
     private static ProjectReadiness Status(string application, List<string> remaining) => remaining switch
