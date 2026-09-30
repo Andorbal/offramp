@@ -21,8 +21,8 @@ Open Live Writer. The last is not field-tested yet, so check its results with ex
 .NET Framework applications consume it. Add `net10.0` later if the library needs APIs .NET Standard
 lacks.
 - Audit against every target the library will ship: `audit api --target netstandard2.0`.
-- On NHibernate that found 114 missing APIs, 78 of them Reflection.Emit. Against `net10.0`, which
-  has Reflection.Emit, it found 36.
+- On NHibernate that found 114 `OFR3001` findings, 78 of them Reflection.Emit. Against `net10.0`,
+  which has Reflection.Emit, it found 36.
 
 **Public API is used where Offramp cannot see.**
 - **Dead code.** Offramp treats a library as shipped, and rates its public symbols at most
@@ -31,9 +31,11 @@ lacks.
   - it is packable;
   - no application in the solution uses it.
 
-  A library that other *repositories* use needs `deadCode.externalConsumers` in `offramp.yml`.
-  Before the fix, NHibernate showed what happens without this: 250 public APIs were called dead at
-  high confidence. Among them were SQL dialects that users select by name in their configuration.
+  Check that the library meets one of these rules. If it doesn't (for example, an application in
+  the repository uses it and no `.nuspec` packs it, but other repositories use it too), list it in
+  `deadCode.externalConsumers` in `offramp.yml`. Before this detection existed, NHibernate showed
+  what happens without it: 250 public APIs were called dead at high confidence. Among them were
+  SQL dialects that users select by name in their configuration.
 - **Moving tests.** `move tests` never moves a shipped project's public types. Check anyway that
   nothing public is in its plan.
 
@@ -133,7 +135,8 @@ markup, from `AutoEventWireup` handlers, and from module manifests (XML).
 - **Portable only on paper.** A `netstandard2.0` project that references a .NET Framework-only
   project is not portable (`OFR0121`). `plan` shows it as `blocked`, not `done`.
 - **`HintPath`s into other projects' `bin/` folders** (`OFR1401`). These make build order matter.
-  Replace them with project references before porting.
+  `deps resolve-dlls` replaces them with project references; review its dry run, then apply it
+  before porting.
 - **Binding redirects on a partial model.** `redirects sync` skips an application whose model is
   partial (`OFR1506`). Fix the build first.
 
@@ -142,8 +145,8 @@ markup, from `AutoEventWireup` handlers, and from module manifests (XML).
 **Target.** `net10.0-windows`.
 - **What Offramp does.** It compiles a project that references Windows Forms or WPF (or sets
   `UseWindowsForms`/`UseWPF`) for `-windows`. Check the `target` in each audit result.
-- **Before the fix.** 13,374 of 13,910 `audit api` findings (96%) were Windows Forms APIs that
-  `-windows` has.
+- **Before the fix.** 13,374 of 13,910 `OFR3001` findings (96%) were Windows Forms and
+  System.Drawing APIs that `-windows` has.
 - **A remaining gap.** `deps audit` still audits a desktop application's packages against
   `net10.0`.
 

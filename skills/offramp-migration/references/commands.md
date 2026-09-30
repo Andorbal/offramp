@@ -5,7 +5,8 @@ Every command takes these options:
 | Option | What it does |
 |---|---|
 | `--json` | the envelope on stdout, progress on stderr |
-| `--out FILE` | writes the output to a file |
+| `-q` | no progress events |
+| `--out FILE` | writes the command's document to a file: the page for `graph` and `report`. For the audits and `seams`, a `.json` file holds the result alone, without the envelope; redirect `--json` stdout instead |
 | `--target N\|TFM` | the target: `10`, `net10.0`, `net10.0-windows`, or `netstandard2.0` |
 | `--solution PATH` | which solution to use |
 | `--fail-on LEVEL` | the diagnostic level that makes the exit code 1 |
@@ -19,7 +20,8 @@ The "Writes" column says what a command may change:
 - **repo**: project files or code, and only with `--apply`.
 
 The times were measured on a 4-core Linux container, on SmartStoreNET: 25 projects and 387,000
-lines of C#. Use them to set timeouts, not as promises.
+lines of C#. Times marked * come from NHibernate (5 projects, 476,000 lines); times marked ~ are
+estimates, since no field test ran those commands. Use them to set timeouts, not as promises.
 
 ## Set up and understand
 
@@ -27,13 +29,13 @@ lines of C#. Use them to set timeouts, not as promises.
 |---|---|---|---|
 | `doctor` | nothing | 1 s | `checks[]` whose `status` is not `pass`, with their `remedy` |
 | `doctor --fix [--apply]` | repo | 1 s | `fix`: the diffs for the block, project files, and restore files |
-| `init --defaults [--solution P]` | config | <1 s | `OFR0020` when there are several solutions |
+| `init --defaults [--solution P]` | config | <1 s | `OFR0023`: the solution it chose among several, and why; `OFR0020` on a tie |
 | `scan [--if-stale]` | state | 50 s (up to several minutes when the build fails) | `buildSucceeded`, `partial[]`, `notLoaded[]`, `windowsOnlyBuildSteps[]`, diagnostics |
 | `guide [--run\|--done\|--skip STEP]` | state | 2 s | `stage`, `next`, `stages[].steps[]` with `why` |
 | `plan [--waves\|--frontier\|--for P]` | nothing | 1 s | `order[]` (`wave`, `readiness`, `blockers`, `inCycle`), `counts` |
 | `graph --format html --out graph.html` | nothing | 1 s | an interactive picture for people; `--highlight frontier` |
 | `report --format html --out report.html` | nothing | 1 s | a page for stakeholders, with the trend across scans |
-| `slice --for P` | nothing | seconds | a solution filter for building part of the solution |
+| `slice --for P` | nothing | 1 s * | a solution filter for building part of the solution |
 
 ## Dependencies
 
@@ -54,7 +56,7 @@ lines of C#. Use them to set timeouts, not as promises.
 | `audit serialization` | 1 min | persisted (`OFR3203`) vs transient (`OFR3202`) |
 | `audit native` | 1 min | P/Invoke and COM interop sites |
 | `audit dead-code` | 1.5 min | `summary` (by confidence, removable lines), `projects[].candidates[]` |
-| `audit api-compat --project P --baseline REF` | 1 min | public API differences against a release |
+| `audit api-compat --project P --baseline REF` | 46 s * | public API differences against a release |
 | `ifdef report` | seconds | existing `#if` regions by symbol |
 
 ## Change code (dry run by default)
@@ -62,15 +64,15 @@ lines of C#. Use them to set timeouts, not as promises.
 | Command | Time | What it does |
 |---|---|---|
 | `move tests --project P [--create]` | 1 min | moves tests out of a production project, as renames only |
-| `move plan --from A --to B --files GLOB\|--all`, then `move apply --plan F` | minutes | moves files in bulk, verified, rolled back on failure |
+| `move plan --from A --to B --files GLOB\|--all`, then `move apply --plan F` | minutes ~ | moves files in bulk, verified, rolled back on failure |
 | `move extract --from P --types T1,T2 --new NAME --tfm ...` | 1–2 min | moves types into a new project |
-| `forwarders --from A --to B [--since REF]` | seconds | adds `TypeForwardedTo` for moved types |
+| `forwarders --from A --to B [--since REF]` | 17 s * | adds `TypeForwardedTo` for moved types |
 | `csproj modernize --all\|--project P [--tfm "net48;net10.0"]` | 2 min for all | converts to SDK-style project files, verified in a scratch copy |
 | `codemod list`, then `codemod run --mod NAME` | 1–3 min | makes one mechanical rewrite across the solution |
 | `seams --project P` | 1 min | finds the smallest boundary around unportable code |
-| `extract interface`, `remote` | seconds | adds an interface around a seam, then an HTTP boundary for it |
+| `extract interface`, `remote` | seconds ~ | adds an interface around a seam, then an HTTP boundary for it |
 | `config convert --project P` | seconds | converts `web.config`/`app.config` to `appsettings.json` |
-| `service --project P` | seconds | turns a Windows service into a hosted worker |
+| `service --project P` | seconds ~ | turns a Windows service into a hosted worker |
 | `web inventory --project P` | 30 s | lists controllers, routes, areas, filters, bundles, and modules |
 | `web scaffold --project P --new DIR --proxy yarp` | 30 s | sets up an ASP.NET Core project in front of the old site |
 | `verify [--projects ...] [--baseline]` | a build | builds with Offramp's verification settings |

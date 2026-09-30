@@ -175,6 +175,8 @@ is the user's decision, one reviewable change at a time.
 - **`seams`.** An extraction larger than a quarter of the project is replaced by `OFR4031` and a
   list of the directly tainted types. Work from those.
 - **`web inventory`.** Compare its controller and route counts with a quick look at the code. On
-  SmartStoreNET, route helpers that wrap `MapRoute` hid 63 of 71 routes before the fix.
+  SmartStoreNET, before the fix, it found 8 of the site's 68 routes; the application's own helpers
+  that wrap `MapRoute` hid 57 of them. Its 3 Web API and OData routes, registered in a library,
+  were missing too.
 - **`report` application counts.** Check that hosted plugins and areas are not counted as
   applications of their own.

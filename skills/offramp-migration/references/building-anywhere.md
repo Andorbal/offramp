@@ -15,11 +15,11 @@ Background, and every XML snippet mentioned below, is in Offramp's
 ## The loop
 
 ```bash
-offramp doctor --json --out doctor.json
+offramp doctor --json -q > doctor.json
 offramp init --defaults --solution src/App.sln
-offramp doctor --fix --json --out fix.json      # dry run: read the diffs with the user
+offramp doctor --fix --json -q > fix.json      # dry run: read the diffs with the user
 offramp doctor --fix --apply
-offramp scan --json --out scan.json
+offramp scan --json -q > scan.json
 ```
 
 After the first `scan`:
@@ -38,7 +38,8 @@ jq -r '.projects[] | select(.partial) | .id' .offramp/workspace.json
 
 One scan names every problem it can see; Open Live Writer once took eleven scans to find them one
 build at a time. Still, expect a few rounds: after `doctor --fix`, NHibernate needed one more fix
-and SmartStoreNET needed its letter-case paths renamed.
+and SmartStoreNET needed its letter-case mismatches fixed (the field test used symbolic links; the
+real fix is renaming).
 
 ## What `doctor --fix` does for you
 
@@ -90,7 +91,7 @@ user the finding and the fix, and ask before you change anything.
 | `OFR0126` Web Site project | MSB4249; the whole solution stops | `scan` leaves it out and builds `.offramp/scan.slnf`. A plain build of the whole solution still stops: convert the site to a web application project, or build a solution filter (`offramp slice`) | NHibernate's `Everything.sln` |
 | `OFR0101` not loaded, or `OFR0024` | the reason says why: a restore failure, a failed dependency, a native project | fix the cause the reason names. For a native (C++) project that the solution builds first, leave its `Build.0` line out of the configuration you scan | Open Live Writer: the Ribbon `.vcxproj` |
 | `OFR0111`–`OFR0114` COM, EDMX, T4 or Fakes, SSDT | Windows-only tasks | the documented fix each names, or the compiler-log route below | |
-| `OFR0020` several solutions | `init` and `scan` stop | pass `--solution`: the one the build script and `CONTRIBUTING.md` use | NHibernate: 3, SmartStoreNET: 2 |
+| `OFR0023` or `OFR0020` several solutions | `OFR0023`: `init` and `scan` chose one and say why. `OFR0020`: a tie; `scan` stops | check the choice against the build script and `CONTRIBUTING.md`; pass `--solution` to change it | NHibernate has 3 solutions and SmartStoreNET 2; both are now chosen correctly |
 | `OFR0131` timeout | the build ran out of time | raise `verify.timeoutSeconds`, scan a solution filter (`offramp slice`), or scan a log built elsewhere | |
 
 ### Letter case

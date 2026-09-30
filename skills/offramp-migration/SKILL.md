@@ -35,7 +35,8 @@ Reference files, loaded when needed:
 
 1. **Nothing is written without consent.** Every Offramp command that changes the repository is a
    dry run unless it gets `--apply`. Run the dry run, show the user the diff and the counts, and
-   apply only after they agree. Offramp's own state in `.offramp/` is the exception.
+   apply only after they agree. There are two exceptions: Offramp's own state in `.offramp/`, and
+   `init`, which writes `offramp.yml` and `.gitignore` unless it gets `--dry-run`.
 2. **Never commit, push, or open a pull request unless asked.** Offramp stages its renames (`git
    mv`) and leaves everything else in the working tree for the user to review. Leave it that way.
 3. **One step, one change set.** Each applied step should be small enough to review as one pull
@@ -71,11 +72,14 @@ Reference files, loaded when needed:
   - Tools are named `offramp_<group>_<command>` (for example, `offramp_deps_audit`).
   - `offramp://workspace` is the model, and `offramp://diagnostics/<code>` is a diagnostic's
     documentation.
-- **On the command line, always pass `--json`.** The JSON envelope goes to stdout and progress to
-  stderr as one JSON object per line.
-  - For anything large, write the envelope with `--out file.json` and summarize it with `jq`.
-    Outputs of several megabytes are normal on a large solution (`audit api`, `seams`). Never paste
-    raw output into the conversation.
+- **On the command line, pass `--json -q` and redirect stdout to a file.** The JSON envelope goes
+  to stdout; `-q` keeps the progress events (one JSON object per line on stderr) out of your
+  context.
+  - Summarize the file with `jq`. Outputs of several megabytes are normal on a large solution
+    (`audit api`, `seams`). Never paste raw output into the conversation.
+  - Don't use `--out x.json` to save an envelope. For the audits and `seams`, a `.json` file
+    written with `--out` holds the result alone, without the envelope, and the envelope then goes
+    to stdout. Use `--out` for pages people read (`graph`, `report`).
 - **Exit codes:**
   - `0`: success.
   - `1`: finished with findings. That is the point of an audit, not a failure.
@@ -104,8 +108,12 @@ Reference files, loaded when needed:
 Before any command writes anything, find out:
 
 - **Which solution is the real one?** Look at `CONTRIBUTING.md`, the build scripts, and the CI
-  configuration. When there are several solutions, `init` does not guess (`OFR0020`); pass
-  `--solution`.
+  configuration.
+  - When there are several solutions, `init` and `scan` choose one by rule and say why
+    (`OFR0023`): the only one without a Web Site project, the one that contains all the others,
+    or the one with the most projects. Check that choice against the build scripts.
+  - On a tie (`OFR0020`), `init` leaves `solution:` empty and `scan` stops.
+  - Either way, `--solution` or `solution:` in `offramp.yml` settles it.
 - **What does it ship?** An application (web, desktop, service), a library on NuGet, plugins
   loaded at run time, or an SDK other repositories use. The shape changes:
   - which target is right;
@@ -131,11 +139,11 @@ Write the answers down for the user. Most later decisions depend on them.
 ### Phase 1: make it build everywhere
 
 ```bash
-offramp doctor --json --out doctor.json          # environment and repository checks
+offramp doctor --json -q > doctor.json          # environment and repository checks
 offramp init --defaults [--solution PATH]        # writes offramp.yml
-offramp doctor --fix --json --out fix.json       # dry run: the diffs it would apply
+offramp doctor --fix --json -q > fix.json       # dry run: the diffs it would apply
 offramp doctor --fix --apply                     # once the user agrees
-offramp scan --json --out scan.json
+offramp scan --json -q > scan.json
 ```
 
 What `doctor --fix` writes:
@@ -143,8 +151,10 @@ What `doctor --fix` writes:
 - a condition on each Windows-only setting in the project files that set it;
 - for `packages.config` solutions, `Offramp.PackagesConfig.targets` and `Directory.Solution.targets`.
 
-With these, a plain `dotnet build` works on macOS and Linux, and `dotnet build` on Windows compiles
-the same way. Visual Studio's own build is unchanged.
+With these, a plain `dotnet build` on macOS or Linux does what `scan`'s build does, and `dotnet
+build` on Windows compiles the same way. Visual Studio's own build is unchanged. Problems that
+belong to the repository itself remain, and the next loop finds them: letter case, generated
+files, native projects, Web Site projects.
 
 These files change every developer's build, so the team must review and commit them. Before the
 user decides, show them `doctor`'s "Builds without Offramp" check (`plain-build`). It lists what a
@@ -168,15 +178,15 @@ result.
 ### Phase 2: understand (read-only)
 
 ```bash
-offramp plan --waves --json --out plan.json
+offramp plan --waves --json -q > plan.json
 offramp graph --format html --out graph.html --exclude-kind test
-offramp deps audit --json --out deps.json
-offramp audit api --json --out api.json
-offramp audit behavior --json --out behavior.json
-offramp audit serialization --json --out serialization.json
-offramp audit native --json --out native.json
-offramp audit dead-code --json --out dead-code.json
-offramp web inventory --project P --json --out web.json      # each web application
+offramp deps audit --json -q > deps.json
+offramp audit api --json -q > api.json
+offramp audit behavior --json -q > behavior.json
+offramp audit serialization --json -q > serialization.json
+offramp audit native --json -q > native.json
+offramp audit dead-code --json -q > dead-code.json
+offramp web inventory --project P --json -q > web.json      # each web application
 offramp report --format html --out report.html
 ```
 
@@ -319,9 +329,10 @@ It will be sometimes.
 
 - **Work around it where the workaround stays visible.** Use `offramp.yml`:
   - a `kind` override for a misclassified project;
-  - `deadCode.externalConsumers` for code other repositories use;
+  - `deadCode.externalConsumers` for a library other repositories use, when Offramp does not
+    already treat it as shipped (see [codebase-shapes.md](references/codebase-shapes.md));
   - `rules` with a reason, to change a rule's severity;
-  - `paths.exclude` to leave projects out.
+  - `paths.exclude` for projects Offramp must never modify (they are still analyzed).
 
   Every override shows up in each command's `effectiveConfig`. Do not edit results by hand.
 - **Collect the evidence:**
