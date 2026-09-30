@@ -2,7 +2,7 @@ using System.Text;
 
 namespace Offramp.Workspace.Doctor;
 
-/// <summary>What <c>doctor --fix</c> would do, or did, to Directory.Build.props.</summary>
+/// <summary>What <c>doctor --fix</c> would do, or did, to Directory.Build.props and the project files.</summary>
 public sealed record CompileOnlyFix
 {
     /// <summary>Repository-relative path of the props file.</summary>
@@ -16,6 +16,13 @@ public sealed record CompileOnlyFix
 
     /// <summary>The unified diff of the change, or null when nothing changes.</summary>
     public string? Diff { get; init; }
+
+    /// <summary>The MSBuild files whose Windows-only settings the fix conditions, by path (<see cref="WindowsGuards"/>).</summary>
+    public IReadOnlyList<ProjectFileFix> ProjectFiles { get; init; } = [];
+
+    /// <summary>True when the fix changes anything: the block is missing, or a setting needs a condition.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasChanges => !AlreadyPresent || ProjectFiles.Any(f => !f.Applied);
 }
 
 /// <summary>

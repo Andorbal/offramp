@@ -39,9 +39,9 @@ public static class DoctorRunner
         checks.Add(CheckTarget(context, sdk, target));
 
         var model = TryReadModel(context);
+        var files = model is null ? await SolutionProjectFilesAsync(context, cancellationToken) : null;
         using (context.Progress.BeginPhase("Checking .NET Framework reference assemblies", 2, PhaseCount))
         {
-            var files = model is null ? await SolutionProjectFilesAsync(context, cancellationToken) : null;
             checks.Add(LegacyReferenceAssemblies(context, model, files)
                 ?? await CheckReferenceAssembliesAsync(context, NetFrameworkTargets(model, files), cancellationToken));
         }
@@ -56,12 +56,14 @@ public static class DoctorRunner
         checks.Add(CheckRepository(context, gitVersion));
         checks.Add(CheckConfig(context));
         checks.Add(CheckWorkspace(context, model));
+        var guardFiles = GuardFiles(context.Repository.Path, model, files?.Select(f => f.Project));
         checks.Add(CheckWindowsOnlySteps(context, model));
+        checks.Add(CheckPlainBuild(context, model, files, guardFiles));
         checks.Add(await CheckCpmAsync(context, model, cancellationToken));
 
         return new DoctorReport
         {
-            Fix = context.Fix ? PlanFix(context.Repository.Path) : null,
+            Fix = context.Fix ? PlanFix(context.Repository.Path, guardFiles) : null,
             Checks = checks,
             Environment = new DoctorEnvironment
             {
@@ -424,12 +426,12 @@ public static class DoctorRunner
             .OrderBy(g => g.Key, StringComparer.Ordinal)
             .Select(g => $"{g.Key} ({string.Join(", ", g.Select(d => d.Data.TryGetValue("step", out var s) ? s?.ToString() : d.Code).Distinct())})")
             .ToList();
-        var overridden = OverriddenBuildEvents(context, model);
         if (byProject.Count == 0)
         {
-            return Pass(id, title, overridden is null
+            var properties = context.Config.Config.Verify.Properties.Keys.Order(StringComparer.Ordinal).ToList();
+            return Pass(id, title, properties.Count == 0
                 ? "No project needs Windows to build."
-                : $"No project needs Windows to build with offramp.yml's verify.properties; {overridden}.");
+                : $"No project needs Windows to build with offramp.yml's verify.properties ({string.Join(", ", properties)}); the plain-build check says what a build without them does.");
         }
 
         foreach (var diagnostic in stepDiagnostics)
@@ -440,44 +442,125 @@ public static class DoctorRunner
         var propsPath = Path.Combine(context.Repository.Path, CompileOnlyConditional.FileName);
         var hasBlock = CompileOnlyConditional.IsPresent(File.Exists(propsPath) ? File.ReadAllText(propsPath) : null);
         var remedy = hasBlock
-            ? "The compile-only block is present; guard the remaining steps with Condition=\"'$(OfframpCompileOnly)' != 'true'\", or scan a compiler log captured on Windows."
-            : "Run `offramp doctor --fix --apply` to add the compile-only block to Directory.Build.props, then guard the remaining steps with $(OfframpCompileOnly), or scan a compiler log captured on Windows.";
+            ? "The compile-only block is present; `offramp doctor --fix --apply` conditions the Windows-only settings project files set themselves. Guard any other step with Condition=\"'$(OS)' == 'Windows_NT'\", or scan a compiler log captured on Windows."
+            : "Run `offramp doctor --fix --apply`: it adds the compile-only block to Directory.Build.props and conditions the Windows-only settings project files set themselves. Guard any other step with Condition=\"'$(OS)' == 'Windows_NT'\", or scan a compiler log captured on Windows.";
         return new DoctorCheck
         {
             Id = id,
             Title = title,
             Status = CheckStatus.Warn,
-            Message = $"{byProject.Count} project(s) need Windows to build: {string.Join("; ", byProject)}{(overridden is null ? "" : $"; and {overridden}")}.",
+            Message = $"{byProject.Count} project(s) need Windows to build: {string.Join("; ", byProject)}.",
             Remedy = remedy,
             Codes = [.. stepDiagnostics.Select(d => d.Code).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
         };
     }
 
-    private static readonly string[] BuildEvents = ["PreBuildEvent", "PostBuildEvent"];
+    /// <summary>
+    /// The MSBuild files whose Windows-only settings <c>--fix</c> conditions: the projects of the model or, before
+    /// the first scan, of the solution, the shared files they import, and a settings file a scan named as the reason
+    /// the compile-only block does not reach a project (<c>OFR0122</c>).
+    /// </summary>
+    /// <param name="repositoryRoot">The repository root.</param>
+    /// <param name="model">The workspace model, when there is one.</param>
+    /// <param name="projects">Without a model, the solution's projects, repository-relative.</param>
+    public static IReadOnlyList<string> GuardFiles(string repositoryRoot, WorkspaceModel? model, IEnumerable<string>? projects) =>
+        WindowsGuards.Files(
+            repositoryRoot,
+            model?.Projects.Select(p => p.Id) ?? projects ?? [],
+            (model?.Diagnostics ?? [])
+                .Where(d => d.Code == DiagnosticCatalog.OFR0122.Code && d.Data.TryGetValue("cause", out var cause) && cause?.ToString() == "msbuild-extensions-path")
+                .Select(d => d.Data.TryGetValue("file", out var file) ? file?.ToString() : null)
+                .OfType<string>());
 
     /// <summary>
-    /// The build events <c>verify.properties</c> overrides, and the projects whose files set them: the override
-    /// empties them in the evaluations the model records, so the steps are not detected there, but they are still in
-    /// the projects (SmartStoreNET). Null when nothing is overridden or no project sets them.
+    /// Whether a plain <c>dotnet build</c> of the solution does what Offramp's own build does, so that a scan that
+    /// builds cleanly means the solution builds for anyone who clones it (docs/decisions/0063-condition-windows-only-settings-in-project-files.md):
+    /// no Windows-only setting without a condition (<c>OFR0019</c>), and nothing only Offramp's builds supply
+    /// (<c>OFR0026</c>). It lists what a build outside Windows skips, the settings conditioned on Windows.
     /// </summary>
-    private static string? OverriddenBuildEvents(DoctorContext context, WorkspaceModel model)
+    private static DoctorCheck CheckPlainBuild(DoctorContext context, WorkspaceModel? model, IReadOnlyList<ProjectFileFacts>? files, IReadOnlyList<string> guardFiles)
     {
-        var names = BuildEvents.Where(e => context.Config.Config.Verify.Properties.Keys.Any(k => string.Equals(k, e, StringComparison.OrdinalIgnoreCase))).ToList();
-        if (names.Count == 0)
+        const string id = "plain-build";
+        const string title = "Builds without Offramp";
+        var root = context.Repository.Path;
+        var found = guardFiles.Select(f => (File: f, Found: WindowsGuards.Find(root, f))).ToList();
+        var needed = found.SelectMany(f => f.Found.Needed.Select(g => (f.File, Guard: g))).ToList();
+        var guarded = found.SelectMany(f => f.Found.Guarded.Select(g => (f.File, Guard: g))).ToList();
+        var gaps = new List<string>();
+        var remedies = new List<string>();
+        var codes = new SortedSet<string>(StringComparer.Ordinal);
+
+        foreach (var (file, guard) in needed)
         {
-            return null;
+            context.Diagnostics.Report(DiagnosticCatalog.OFR0019,
+                $"{guard.Setting} ({guard.Step}) has no condition, so a plain dotnet build outside Windows runs it and fails; condition it on {guard.Condition}.",
+                new DiagnosticLocation(File: file, Line: guard.Line),
+                [
+                    KeyValuePair.Create<string, JsonNode?>("setting", guard.Setting),
+                    KeyValuePair.Create<string, JsonNode?>("step", guard.Step),
+                    KeyValuePair.Create<string, JsonNode?>("condition", guard.Condition),
+                ]);
         }
 
-        var projects = model.Projects
-            .Select(p => ProjectFileFacts.Read(context.Repository.Path, p.Id, names))
-            .OfType<ProjectFileFacts>()
-            .Where(f => f.SetProperties.Count > 0)
-            .Select(f => f.Project)
-            .Order(StringComparer.Ordinal)
-            .ToList();
-        return projects.Count == 0
-            ? null
-            : $"verify.properties overrides {string.Join(" and ", names)}, which {projects.Count} project(s) set: {string.Join(", ", projects)}; those build events still run in a normal build";
+        if (needed.Count > 0)
+        {
+            codes.Add(DiagnosticCatalog.OFR0019.Code);
+            gaps.Add(string.Create(CultureInfo.InvariantCulture,
+                $"{needed.Count} Windows-only setting(s) in {needed.Select(n => n.File).Distinct(StringComparer.Ordinal).Count()} file(s) have no condition ({Sites(needed)})"));
+            remedies.Add("Run `offramp doctor --fix --apply` to condition them.");
+        }
+
+        var properties = context.Config.Config.Verify.Properties.Keys.Order(StringComparer.Ordinal).ToList();
+        if (properties.Count > 0)
+        {
+            var message = $"offramp.yml's verify.properties passes {string.Join(", ", properties)} to Offramp's builds only; a plain dotnet build does not get them.";
+            context.Diagnostics.Report(DiagnosticCatalog.OFR0026, message, data: [KeyValuePair.Create<string, JsonNode?>("cause", "verify-properties")]);
+            codes.Add(DiagnosticCatalog.OFR0026.Code);
+            gaps.Add($"verify.properties passes {string.Join(", ", properties)}");
+            remedies.Add("Set what verify.properties sets in the project files instead (doctor --fix conditions the Windows-only settings), then remove it from offramp.yml.");
+        }
+
+        var packagesConfig = model?.Projects.Count(p => p.PackagesConfig)
+            ?? (files ?? []).Count(f => File.Exists(Path.Combine(Path.GetDirectoryName(RepoPaths.ToAbsolute(root, f.Project))!, "packages.config")));
+        if (packagesConfig > 0)
+        {
+            var message = string.Create(CultureInfo.InvariantCulture,
+                $"{packagesConfig} project(s) restore from packages.config, which dotnet restore skips; Offramp's scan restores them into the packages folder, so a fresh clone needs that first.");
+            context.Diagnostics.Report(DiagnosticCatalog.OFR0026, message, data: [KeyValuePair.Create<string, JsonNode?>("cause", "packages-config")]);
+            codes.Add(DiagnosticCatalog.OFR0026.Code);
+            gaps.Add(string.Create(CultureInfo.InvariantCulture, $"{packagesConfig} project(s) use packages.config, which dotnet restore skips"));
+            remedies.Add("For packages.config, run `offramp scan` once in each clone, or convert the projects with `offramp csproj modernize`.");
+        }
+
+        var webSites = (model?.Diagnostics ?? []).Where(d => d.Code == DiagnosticCatalog.OFR0126.Code).Select(d => d.Project ?? d.File).OfType<string>().Order(StringComparer.Ordinal).ToList();
+        if (webSites.Count > 0)
+        {
+            var message = $"The solution lists ASP.NET Web Site project(s) ({string.Join(", ", webSites)}); dotnet build stops the whole solution on them (MSB4249), and Offramp's scan builds a solution filter without them.";
+            context.Diagnostics.Report(DiagnosticCatalog.OFR0026, message, data: [KeyValuePair.Create<string, JsonNode?>("cause", "web-site")]);
+            codes.Add(DiagnosticCatalog.OFR0026.Code);
+            gaps.Add($"the solution lists ASP.NET Web Site project(s): {string.Join(", ", webSites)}");
+            remedies.Add("Convert a Web Site to a web application project, or build a solution filter without it.");
+        }
+
+        var skipped = guarded.Count == 0 ? "" : $"Outside Windows it skips {guarded.Count} conditioned setting(s) that Visual Studio's build runs ({Sites(guarded)}).";
+        if (gaps.Count == 0)
+        {
+            return Pass(id, title, ("A plain `dotnet build` of the solution does what Offramp's build does. " + skipped).TrimEnd());
+        }
+
+        return new DoctorCheck
+        {
+            Id = id,
+            Title = title,
+            Status = CheckStatus.Warn,
+            Message = ($"A plain `dotnet build` does less than Offramp's build: {string.Join("; ", gaps)}. " + skipped).TrimEnd(),
+            Remedy = string.Join(" ", remedies),
+            Codes = [.. codes],
+        };
+
+        static string Sites(List<(string File, WindowsGuard Guard)> sites) =>
+            string.Join(", ", sites.Take(5).Select(s => string.Create(CultureInfo.InvariantCulture, $"{s.File}:{s.Guard.Line} {s.Guard.Setting}")))
+            + (sites.Count > 5 ? ", …" : "");
     }
 
     private static async Task<DoctorCheck> CheckCpmAsync(DoctorContext context, WorkspaceModel? model, CancellationToken cancellationToken)
@@ -534,8 +617,11 @@ public static class DoctorRunner
         };
     }
 
-    /// <summary>What <c>--fix</c> would change in the root Directory.Build.props.</summary>
-    public static CompileOnlyFix PlanFix(string repositoryRoot)
+    /// <summary>
+    /// What <c>--fix</c> would change: the compile-only block in the root Directory.Build.props, and a condition on
+    /// each Windows-only setting in <paramref name="guardFiles"/> (<see cref="GuardFiles"/>).
+    /// </summary>
+    public static CompileOnlyFix PlanFix(string repositoryRoot, IReadOnlyList<string>? guardFiles = null)
     {
         var path = Path.Combine(repositoryRoot, CompileOnlyConditional.FileName);
         var current = File.Exists(path) ? File.ReadAllText(path) : null;
@@ -548,13 +634,18 @@ public static class DoctorRunner
             Diff = updated is null
                 ? null
                 : UnifiedDiff.Create(current is null ? null : CompileOnlyConditional.FileName, CompileOnlyConditional.FileName, current ?? "", updated),
+            ProjectFiles = [.. (guardFiles ?? []).Select(f => WindowsGuards.Plan(repositoryRoot, f)).OfType<ProjectFileFix>()],
         };
     }
 
-    /// <summary>Writes the compile-only block; returns the fix with <c>Applied</c> set.</summary>
-    public static CompileOnlyFix ApplyFix(string repositoryRoot)
+    /// <summary>
+    /// Conditions the Windows-only settings in <paramref name="guardFiles"/>, then writes the compile-only block;
+    /// returns the fix with <c>Applied</c> set on what was written.
+    /// </summary>
+    public static CompileOnlyFix ApplyFix(string repositoryRoot, IReadOnlyList<string>? guardFiles = null)
     {
-        var plan = PlanFix(repositoryRoot);
+        var plan = PlanFix(repositoryRoot, guardFiles);
+        plan = plan with { ProjectFiles = [.. plan.ProjectFiles.Select(f => WindowsGuards.Apply(repositoryRoot, f.File) ?? f)] };
         if (plan.AlreadyPresent)
         {
             return plan;

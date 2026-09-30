@@ -23,7 +23,7 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
     {
         var fix = new Option<bool>("--fix")
         {
-            Description = "Show the compile-only block for Windows-only build steps as a diff to Directory.Build.props; with --apply, write it.",
+            Description = "Show the compile-only block for Windows-only build steps as a diff to Directory.Build.props, and the conditions for the Windows-only settings project files set themselves; with --apply, write them.",
         };
         var command = new Command("doctor", "Check SDKs, reference assemblies, git, offramp.yml, the workspace model, Windows-only build steps, and central package management, and explain how to fix what is wrong.")
         {
@@ -56,9 +56,9 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
             Fix = options.Fix,
         }, cancellationToken);
 
-        if (report.Fix is { AlreadyPresent: false } plan && context.Settings.Apply && Confirm(plan, context))
+        if (report.Fix is { HasChanges: true } plan && context.Settings.Apply && Confirm(plan, context))
         {
-            report = report with { Fix = DoctorRunner.ApplyFix(context.Repository.Path) };
+            report = report with { Fix = DoctorRunner.ApplyFix(context.Repository.Path, [.. plan.ProjectFiles.Select(f => f.File)]) };
         }
 
         return CommandOutcome<DoctorReport>.Completed(report);
@@ -117,8 +117,34 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
         }
 
         var console = ConsoleFactory.Create(context.Host, context.Host.Out, isTerminal: true);
-        DiffRenderer.Render(new HumanOutput(console), plan.Diff ?? "");
-        return console.Confirm($"Add the compile-only block to {plan.File}?", defaultValue: false);
+        var output = new HumanOutput(console);
+        foreach (var diff in Diffs(plan))
+        {
+            DiffRenderer.Render(output, diff);
+        }
+
+        return console.Confirm($"Write {Changes(plan)}?", defaultValue: false);
+    }
+
+    /// <summary>The block's diff first, then each project file's, as the fix writes them.</summary>
+    private static IEnumerable<string> Diffs(CompileOnlyFix fix) =>
+        new[] { fix.AlreadyPresent ? null : fix.Diff }.Concat(fix.ProjectFiles.Where(f => !f.Applied).Select(f => f.Diff)).OfType<string>();
+
+    private static string Changes(CompileOnlyFix fix)
+    {
+        var guards = fix.ProjectFiles.Where(f => !f.Applied).ToList();
+        var parts = new List<string>();
+        if (!fix.AlreadyPresent)
+        {
+            parts.Add($"the compile-only block to {fix.File}");
+        }
+
+        if (guards.Count > 0)
+        {
+            parts.Add($"{Plural(guards.Sum(f => f.Guards.Count), "Windows condition")} to {Plural(guards.Count, "project file")}");
+        }
+
+        return string.Join(" and ", parts);
     }
 
     private static void RenderFix(CompileOnlyFix? fix, HumanOutput output)
@@ -129,25 +155,40 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
         }
 
         output.Line();
-        if (fix.AlreadyPresent)
+        var written = fix.ProjectFiles.Where(f => f.Applied).ToList();
+        if (fix.Applied || written.Count > 0)
         {
-            output.MarkupLine($"[{Theme.ReadyStyle}]{Markup.Escape(fix.File)} already has the compile-only block.[/]");
+            var parts = new List<string>();
+            if (fix.Applied)
+            {
+                parts.Add($"the compile-only block to {fix.File}");
+            }
+
+            if (written.Count > 0)
+            {
+                parts.Add($"{Plural(written.Sum(f => f.Guards.Count), "Windows condition")} to {string.Join(", ", written.Select(f => f.File))}");
+            }
+
+            output.MarkupLine($"[{Theme.ReadyStyle}]Added {Markup.Escape(string.Join(" and ", parts))}.[/] Commit them with your next change.");
             return;
         }
 
-        if (fix.Applied)
+        if (!fix.HasChanges)
         {
-            output.MarkupLine($"[{Theme.ReadyStyle}]Added the compile-only block to {Markup.Escape(fix.File)}.[/] Commit it with your next change.");
+            output.MarkupLine($"[{Theme.ReadyStyle}]{Markup.Escape(fix.File)} already has the compile-only block, and every Windows-only setting in the project files has a condition.[/]");
             return;
         }
 
-        output.MarkupLine($"[{Theme.DecisionStyle}]Dry run:[/] this would change {Markup.Escape(fix.File)} (re-run with --apply to write it):");
-        DiffRenderer.Render(output, fix.Diff ?? "");
+        output.MarkupLine($"[{Theme.DecisionStyle}]Dry run:[/] this would add {Markup.Escape(Changes(fix))} (re-run with --apply to write it):");
+        foreach (var diff in Diffs(fix))
+        {
+            DiffRenderer.Render(output, diff);
+        }
     }
 
     public string? NextStep(DoctorReport result, CommandContext context)
     {
-        if (result.Fix is { Applied: false, AlreadyPresent: false })
+        if (result.Fix is { HasChanges: true } fix && !fix.Applied && fix.ProjectFiles.All(f => !f.Applied))
         {
             return "offramp doctor --fix --apply";
         }

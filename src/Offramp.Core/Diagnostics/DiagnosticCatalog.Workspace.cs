@@ -87,6 +87,22 @@ public static partial class DiagnosticCatalog
         "Run `offramp doctor --fix --apply`; it adds only the sections the file lacks.",
         EnvironmentArea);
 
+    public static readonly DiagnosticDescriptor OFR0019 = new(
+        "OFR0019", Severity.Warning,
+        "setting in a project file needs Windows and has no condition",
+        "A project file, or a `Directory.Build.props`/`.targets` it imports, sets something only Windows or .NET Framework's MSBuild can carry out: `GenerateSerializationAssemblies` (sgen), `MvcBuildViews` (`AspNetCompiler`), a pre- or post-build event or an `Exec` written for cmd.exe, `RestorePackages` (NuGet 2's `NuGet.exe`), or `MSBuildExtensionsPath`. MSBuild reads the project's own properties after `Directory.Build.props`, so the compile-only block cannot turn them off: a plain `dotnet build` outside Windows fails on them, whoever runs it.",
+        "A legacy project with `<GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>` or `<MvcBuildViews>true</MvcBuildViews>` in its own property group, a `PostBuildEvent` that runs `xcopy`, or a shared settings file that points `MSBuildExtensionsPath` into the repository.",
+        "Run `offramp doctor --fix --apply`. It conditions each one where it is set: `'$(MSBuildRuntimeType)' != 'Core'` for sgen and `AspNetCompiler`, which only Visual Studio's MSBuild runs (on Windows too), and `'$(OS)' == 'Windows_NT'` for the rest. Visual Studio's build is unchanged; elsewhere the step is skipped, and `doctor` lists what is skipped.",
+        EnvironmentArea);
+
+    public static readonly DiagnosticDescriptor OFR0026 = new(
+        "OFR0026", Severity.Warning,
+        "a plain dotnet build does less than Offramp's build",
+        "Offramp's own builds (`scan`, verification) do something a plain `dotnet build` of the solution does not: pass `offramp.yml`'s `verify.properties`, restore `packages.config` into the packages folder, or leave an ASP.NET Web Site out of the solution. Until the repository does it itself, a solution that `scan` builds cleanly still fails for someone who clones it and runs `dotnet build`.",
+        "`verify.properties` set to switch a step off; legacy projects on `packages.config`, which `dotnet restore` skips; a Web Site project in the solution (`OFR0126`).",
+        "Move each `verify.properties` entry into the project files (conditioned as `offramp doctor --fix` conditions Windows-only settings) and remove it from `offramp.yml`. For `packages.config`, run `offramp scan` once in each clone, restore on Windows, or convert the projects (`offramp csproj modernize`), whose `PackageReference` items `dotnet restore` restores. Convert a Web Site to a web application project, or build a solution filter without it.",
+        EnvironmentArea);
+
     public static readonly DiagnosticDescriptor OFR0020 = new(
         "OFR0020", Severity.Error,
         "more than one solution found",

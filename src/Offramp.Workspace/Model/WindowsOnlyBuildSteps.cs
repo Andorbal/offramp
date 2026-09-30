@@ -164,7 +164,7 @@ public static class WindowsOnlyBuildSteps
             foreach (var name in new[] { "PreBuildEvent", "PostBuildEvent" })
             {
                 var command = e.Property(name);
-                if (command is not null && WindowsCommandMarkers.Any(m => command.Contains(m, StringComparison.OrdinalIgnoreCase)))
+                if (command is not null && IsWindowsCommand(command))
                 {
                     Add("build-event", DiagnosticCatalog.OFR0115, $"{name}: {FirstLine(context.Display(command))}");
                 }
@@ -318,8 +318,15 @@ public static class WindowsOnlyBuildSteps
     /// <summary>The simple name of a <c>Reference</c> item (<c>Name, Version=...</c>).</summary>
     private static string AssemblyName(string include) => include.Split(',')[0].Trim();
 
-    private static bool IsWindowsCommand(string command) =>
-        WindowsCommandMarkers.Any(m => command.Contains(m, StringComparison.OrdinalIgnoreCase));
+    /// <summary>
+    /// True when a command reads as written for cmd.exe: it runs a <c>.exe</c>, <c>.bat</c>, or <c>.cmd</c>, or uses
+    /// <c>xcopy</c>, <c>copy</c>, <c>del</c>, or a <c>%VAR%</c>. MSBuild's own <c>%(Item.Metadata)</c> is not a variable.
+    /// </summary>
+    public static bool IsWindowsCommand(string command)
+    {
+        var text = command.Replace("%(", "(", StringComparison.Ordinal);
+        return WindowsCommandMarkers.Any(m => text.Contains(m, StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>The first quoted path in an error message: <c>"..."</c> for MSBuild, <c>'...'</c> for the compiler.</summary>
     private static string? QuotedPath(string message)

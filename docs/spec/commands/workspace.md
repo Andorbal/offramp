@@ -146,12 +146,28 @@ Checks, each with pass/warn/fail and a remedy:
 - `offramp.yml` valid; unknown keys; pins without reasons.
 - Workspace model present and fresh (`OFR0002` names what changed).
 - Windows-only build steps per project (from the model), with the exact
-  conditional to add. `verify.properties` overriding `PreBuildEvent` or
-  `PostBuildEvent` empties them in the evaluations the model records, so the
-  check names the projects whose files still set them: `--fix` shows the diff of the compile-only block against
-  the root `Directory.Build.props`; `--fix --apply` writes it (asking first on a
-  terminal unless `--yes`), keeping every other byte of the file
-  (`docs/decisions/0012-doctor-fix-and-slice.md`).
+  conditional to add. `--fix` shows the diff of the compile-only block against
+  the root `Directory.Build.props`, and of a condition on each Windows-only
+  setting the MSBuild files set themselves, which win over the block; `--fix
+  --apply` writes them (asking first on a terminal unless `--yes`), keeping
+  every other byte of each file (`docs/decisions/0012-doctor-fix-and-slice.md`,
+  `docs/decisions/0063-condition-windows-only-settings-in-project-files.md`).
+  The files are the model's projects (before the first scan, the solution's),
+  the `Directory.Build.props`/`.targets` files above them, the repository files
+  they import by a path readable without evaluation, and a settings file named
+  by `OFR0122`. `GenerateSerializationAssemblies` (not `Off`) and `MvcBuildViews`
+  (`true`) get `'$(MSBuildRuntimeType)' != 'Core'`; non-empty
+  `PreBuildEvent`/`PostBuildEvent`, an `Exec` in a target whose command reads as
+  cmd.exe's, `RestorePackages` (`true`), and `MSBuildExtensionsPath` get
+  `'$(OS)' == 'Windows_NT'`. A setting already conditioned on the platform or
+  builder is left alone, so a second run changes nothing.
+- Builds without Offramp (`plain-build`), from the files, not the model: warns
+  when a plain `dotnet build` of the solution would do less than Offramp's
+  build, with `OFR0019` for each Windows-only setting without its condition
+  (file and line) and `OFR0026` for each thing only Offramp's builds supply
+  (`verify.properties`, `packages.config` restore, a Web Site project left out
+  of the solution). The message lists the conditioned settings a build outside
+  Windows skips.
 - CPM shadowing hazards (see `deps.md`), against the model's projects or, before
   the first scan, the solution's. `packages.config` projects (`OFR1303`) count
   only once a `Directory.Packages.props` (or `deps.cpm.file`) exists; before that
@@ -174,18 +190,23 @@ Result (`schemas/v1/doctor.json`; decided in `docs/decisions/0006-doctor-contrac
     "git": { "version": "2.45.0", "repository": true }, "os": "linux-x64", "target": "net10.0"
   },
   "summary": { "pass": 7, "warn": 1, "fail": 0, "skip": 0 },
-  "fix": null   // with --fix: { "file": "Directory.Build.props", "alreadyPresent": false, "applied": false, "diff": "--- a/..." }
+  "fix": null   // with --fix: { "file": "Directory.Build.props", "alreadyPresent": false, "applied": false, "diff": "--- a/...",
+                //   "projectFiles": [ { "file": "src/Site/Site.csproj", "applied": false, "diff": "--- a/...",
+                //     "guards": [ { "line": 4, "setting": "MvcBuildViews", "step": "aspnet-compiler",
+                //                   "condition": "'$(MSBuildRuntimeType)' != 'Core'" } ] } ] }
 }
 ```
 
 Check ids, in output order: `dotnet-sdk`, `global-json`, `target`,
 `reference-assemblies`, `git`, `git-repository`, `config`, `workspace`,
-`windows-only-build-steps`, `cpm`; M13 appends `llm`. A check's status
+`windows-only-build-steps`, `plain-build`, `cpm`; M13 appends `llm`. A check's status
 matches its diagnostic's severity (fail = error, warn = warning), so the exit code
 follows `--fail-on`. Diagnostics: `OFR0010` no SDK, `OFR0011` global.json SDK not
 installed, `OFR0012` SDK cannot target `--target`, `OFR0013` reference assemblies
 unresolvable, `OFR0014` git not found, `OFR0015` not a git repository, `OFR0016`
 no `offramp.yml` (info), `OFR0018` legacy projects without the legacy section,
+`OFR0019` Windows-only setting in a project file without a condition, `OFR0026`
+a plain `dotnet build` does less than Offramp's build,
 `OFR0001` workspace model missing (reported as a warning
 by doctor), `OFR0002` model stale, `OFR0110`–`OFR0119` and `OFR0124`–`OFR0126`
 Windows-only build steps (from the model), `OFR1301`–`OFR1303` CPM hazards, `OFR1006` feed

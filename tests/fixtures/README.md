@@ -31,6 +31,7 @@ Offramp's own settings when a fixture is built in place.
 | `plugin-host` | hosted projects (ADR 0055): scan's `outputPath` and `hostedBy`, report, plan --for, redirects sync, web inventory and scaffold on a plugin; see its README |
 | `web-registrations` | web inventory and web scaffold on an MVC 5 site that registers its routes, areas, filters, and bundles through its own helpers, in a library it references, and with Autofac (SmartStoreNET's patterns; ADR 0059); see its README |
 | `systemweb` | an `MSBuild.SDK.SystemWeb` site: the missing Visual Studio web targets (OFR0116) and the compile-only block that supplies them; see its README |
+| `windows-only-settings` | Windows-only settings the project files set themselves (sgen, `MvcBuildViews`, cmd.exe build events and `Exec`), which `doctor --fix` conditions so a plain `dotnet build` of the whole solution succeeds outside Windows; see its README |
 | `webforms` | audit api (a missing base type reached through another project, an extension method over a System.Web type), audit dead-code (classes named only by markup); see its README |
 | `winforms-library` | audit api (a Windows Forms class library compiled for `-windows`, the controls .NET keeps only as throwing shims); see its README |
 | `dead-code-evidence` | audit dead-code evidence: libraries shipped by a `.nuspec` or used by no application, types a type finder or a generic type definition finds, controller actions, NUnit classes without `[TestFixture]`, COM-visible members called from a page and a script; see its README |

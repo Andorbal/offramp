@@ -26,6 +26,15 @@ public sealed class ScratchDirectory : IDisposable
         return full;
     }
 
+    /// <summary>Writes a file's exact bytes (creating directories).</summary>
+    public string WriteBytes(string relativePath, byte[] content)
+    {
+        var full = Combine(relativePath.Split('/'));
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(full)!);
+        File.WriteAllBytes(full, content);
+        return full;
+    }
+
     public string Read(string relativePath) => File.ReadAllText(Combine(relativePath.Split('/')));
 
     public bool Exists(string relativePath) => File.Exists(Combine(relativePath.Split('/')));

@@ -208,8 +208,9 @@ public static class ApiCompatRunner
 
     /// <summary>
     /// Gives the baseline's work tree what the working tree's build has and no revision holds (ADR 0058): the
-    /// compile-only sections of the root <c>Directory.Build.props</c> that Offramp owns, when the working tree's has
-    /// them (<c>doctor --fix</c> writes them, usually uncommitted), and the git-ignored files the working tree's
+    /// compile-only sections of the root <c>Directory.Build.props</c> that Offramp owns and the Windows conditions on
+    /// the project files' own settings (ADR 0063), when the working tree has the block (<c>doctor --fix</c> writes
+    /// them, usually uncommitted), and the git-ignored files the working tree's
     /// compilation of the project and the projects it references uses (a generated shared AssemblyInfo), with OFR3505.
     /// </summary>
     private static async Task PrepareBaselineAsync(ApiCompatRequest request, ScratchWorktree scratch, CancellationToken cancellationToken)
@@ -219,7 +220,7 @@ public static class ApiCompatRunner
         {
             try
             {
-                DoctorRunner.ApplyFix(scratch.Path);
+                DoctorRunner.ApplyFix(scratch.Path, DoctorRunner.GuardFiles(scratch.Path, request.Model, null));
             }
             catch (InvalidDataException)
             {

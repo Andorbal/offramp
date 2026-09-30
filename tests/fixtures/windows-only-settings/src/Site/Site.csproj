@@ -1,0 +1,14 @@
+<Project Sdk="MSBuild.SDK.SystemWeb/4.0.88">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <!-- Views precompiled by AspNetCompiler, which only .NET Framework's MSBuild has (MSB4803). Set here, it wins over
+         the compile-only block's MvcBuildViews=false in Directory.Build.props. -->
+    <MvcBuildViews>true</MvcBuildViews>
+    <!-- A post-build event written for cmd.exe. -->
+    <PostBuildEvent>xcopy /y /i "$(TargetDir)*.dll" "$(MSBuildProjectDirectory)\..\..\drop\"</PostBuildEvent>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Contracts\Contracts.csproj" />
+    <ProjectReference Include="..\Legacy\Legacy.csproj" />
+  </ItemGroup>
+</Project>

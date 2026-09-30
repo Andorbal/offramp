@@ -98,7 +98,7 @@ public static partial class DiagnosticCatalog
         "build step needs Windows: sgen",
         "`GenerateSerializationAssemblies` runs sgen, which loads the built assembly under the .NET Framework runtime; the build fails outside Windows (MSB3474).",
         "`<GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>` in the project or an imported props file.",
-        "Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`), which turns sgen off outside Windows; on modern .NET use `Microsoft.XmlSerializer.Generator` or drop it.",
+        "Run `offramp doctor --fix --apply`: the compile-only block turns sgen off outside Windows, and where the project file sets it itself, which wins over the block, `doctor` conditions that setting on `'$(MSBuildRuntimeType)' != 'Core'` (`OFR0019`), so only Visual Studio's MSBuild runs sgen. On modern .NET use `Microsoft.XmlSerializer.Generator` or drop it.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0111 = new(
@@ -138,7 +138,7 @@ public static partial class DiagnosticCatalog
         "build step needs Windows: build event calling a Windows executable",
         "A pre- or post-build event, or an `Exec` in a target, runs a Windows command (`.exe`, `.bat`, `xcopy`, `%VAR%`, ...), which fails elsewhere. When the program is one the solution itself builds, it is a build-time generator: the message names its target and the files it writes.",
         "A `PreBuildEvent`/`PostBuildEvent` written for cmd.exe, or a target that runs a generator the solution builds, such as `$(OutDir)Tool.exe`.",
-        "Guard the event or target with `Condition=\"'$(OS)' == 'Windows_NT'\"` or `'$(OfframpCompileOnly)' != 'true'`, or replace it with MSBuild tasks. A guarded generator writes nothing, so its outputs must exist before the build: generate them once (a generator often runs on .NET unchanged), or check them in.",
+        "Run `offramp doctor --fix --apply`, which guards each build event, and each `Exec` in the project's targets that reads as a cmd.exe command, with `Condition=\"'$(OS)' == 'Windows_NT'\"` (`OFR0019`); guard one it does not recognize the same way, or replace it with MSBuild tasks. A guarded generator writes nothing, so its outputs must exist before the build: generate them once (a generator often runs on .NET unchanged), or check them in.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0116 = new(
@@ -146,7 +146,7 @@ public static partial class DiagnosticCatalog
         "build step needs Windows: ASP.NET web application targets",
         "An ASP.NET (System.Web) project imports `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets`, which only Visual Studio installs, so evaluation fails elsewhere (MSB4019); or `MvcBuildViews=true` precompiles views with `AspNetCompiler`, which .NET's MSBuild does not have (MSB4803).",
         "A project on the `MSBuild.SDK.SystemWeb` SDK, which imports the web targets unconditionally, or a legacy web application project; a Release build of either, which turns `MvcBuildViews` on.",
-        "Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`). Outside Windows it takes the web targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package and turns `MvcBuildViews` off. Build with the .NET SDK (`dotnet build`), not Mono's `msbuild`.",
+        "Run `offramp doctor --fix --apply`. The compile-only block takes the web targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package outside Windows and turns `MvcBuildViews` off; where the project file sets `MvcBuildViews` itself, which wins over the block, `doctor` conditions it on `'$(MSBuildRuntimeType)' != 'Core'` (`OFR0019`). Build with the .NET SDK (`dotnet build`), not Mono's `msbuild`.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0117 = new(
@@ -194,7 +194,7 @@ public static partial class DiagnosticCatalog
         "compile-only block does not reach the project",
         "The repository's root `Directory.Build.props` has the compile-only block, but this legacy project's evaluation did not import it (`OfframpCompileOnly` is not set), so outside Windows it gets neither the .NET Framework reference assemblies (MSB3644) nor the rest of the block. The message names the cause and the file to change.",
         "A shared `.props` or `.settings` file that sets `MSBuildExtensionsPath`, so `Microsoft.Common.props`, which imports `Directory.Build.props`, is never imported; `ImportDirectoryBuildProps` set to `false`; or a nearer `Directory.Build.props` that does not import the root one.",
-        "Condition the `MSBuildExtensionsPath` override on `'$(OS)' == 'Windows_NT'`, remove `ImportDirectoryBuildProps=false`, or import the root file from the nearer one with `<Import Project=\"$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))\" />`; then `offramp scan` again.",
+        "Condition the `MSBuildExtensionsPath` override on `'$(OS)' == 'Windows_NT'` (`offramp doctor --fix --apply` does, for the file this diagnostic names), remove `ImportDirectoryBuildProps=false`, or import the root file from the nearer one with `<Import Project=\"$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))\" />`; then `offramp scan` again.",
         ScanArea);
 
     public static readonly DiagnosticDescriptor OFR0123 = new(

@@ -16,10 +16,10 @@ public sealed class DoctorRunnerTests : IDisposable
 
     public void Dispose() => _repo.Dispose();
 
-    private Task<(DoctorReport Report, DiagnosticBag Diagnostics)> RunAsync(FakeMachine machine, int target = 10) =>
-        RunAsync(machine, (System.Text.Json.Nodes.JsonNode)target);
+    private Task<(DoctorReport Report, DiagnosticBag Diagnostics)> RunAsync(FakeMachine machine, int target = 10, bool fix = false) =>
+        RunAsync(machine, (System.Text.Json.Nodes.JsonNode)target, fix);
 
-    private async Task<(DoctorReport Report, DiagnosticBag Diagnostics)> RunAsync(FakeMachine machine, System.Text.Json.Nodes.JsonNode target)
+    private async Task<(DoctorReport Report, DiagnosticBag Diagnostics)> RunAsync(FakeMachine machine, System.Text.Json.Nodes.JsonNode target, bool fix = false)
     {
         var runner = machine.CreateRunner();
         var git = new GitService(runner);
@@ -41,6 +41,7 @@ public sealed class DoctorRunnerTests : IDisposable
             ReferenceAssemblies = machine.CreateReferenceAssembliesProbe(),
             Diagnostics = bag,
             Os = "linux-x64",
+            Fix = fix,
         }, CancellationToken.None);
         return (report, bag);
     }
@@ -426,16 +427,20 @@ public sealed class DoctorRunnerTests : IDisposable
     }
 
     /// <summary>
-    /// SmartStoreNET P2: once verify.properties emptied PostBuildEvent, doctor said "No project needs Windows to build",
-    /// because the override empties the property in the evaluations it reads; it says the events exist and are overridden.
+    /// The settings a project file sets itself win over the compile-only block, and <c>verify.properties</c> hides them
+    /// from the model, so a scan that builds cleanly said nothing about a plain build (SmartStoreNET's post-build
+    /// events, an explicit <c>MvcBuildViews</c>). The plain-build check reads the files.
     /// </summary>
     [Fact]
-    public async Task Build_events_that_verify_properties_override_are_named()
+    [ProducesDiagnostic("OFR0019")]
+    [ProducesDiagnostic("OFR0026")]
+    public async Task A_plain_build_is_checked_against_the_project_files_not_the_model()
     {
         _repo.Write("offramp.yml", "verify:\n  properties:\n    PostBuildEvent: \"\"\n");
         _repo.Write("src/Web/Web.csproj", """
             <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
               <PropertyGroup>
+                <MvcBuildViews>true</MvcBuildViews>
                 <PostBuildEvent>xcopy "$(ProjectDir)bin" "$(SolutionDir)build" /s /y</PostBuildEvent>
               </PropertyGroup>
             </Project>
@@ -443,13 +448,91 @@ public sealed class DoctorRunnerTests : IDisposable
         _repo.Write("src/Core/Core.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\" />\n");
         WriteFreshModel(Project("src/Core/Core.csproj"), Project("src/Web/Web.csproj"));
 
-        var (report, _) = await RunAsync(Healthy());
+        var (report, bag) = await RunAsync(Healthy());
 
-        var check = report.Checks.Single(c => c.Id == "windows-only-build-steps");
-        Assert.Equal(CheckStatus.Pass, check.Status);
         Assert.Equal(
-            "No project needs Windows to build with offramp.yml's verify.properties; verify.properties overrides PostBuildEvent, which 1 project(s) set: src/Web/Web.csproj; those build events still run in a normal build.",
+            "No project needs Windows to build with offramp.yml's verify.properties (PostBuildEvent); the plain-build check says what a build without them does.",
+            report.Checks.Single(c => c.Id == "windows-only-build-steps").Message);
+        var check = report.Checks.Single(c => c.Id == "plain-build");
+        Assert.Equal(CheckStatus.Warn, check.Status);
+        Assert.Equal(
+            "A plain `dotnet build` does less than Offramp's build: 2 Windows-only setting(s) in 1 file(s) have no condition (src/Web/Web.csproj:3 MvcBuildViews, src/Web/Web.csproj:4 PostBuildEvent); verify.properties passes PostBuildEvent.",
             check.Message);
+        Assert.Equal(["OFR0019", "OFR0026"], check.Codes);
+        var unguarded = bag.ToSortedList().Where(d => d.Code == "OFR0019").ToList();
+        Assert.Equal([("src/Web/Web.csproj", 3), ("src/Web/Web.csproj", 4)], unguarded.Select(d => (d.File!, d.Line!.Value)));
+        Assert.Equal("'$(MSBuildRuntimeType)' != 'Core'", unguarded[0].Data["condition"]!.ToString());
+        Assert.Contains(bag.ToSortedList(), d => d.Code == "OFR0026" && d.Data["cause"]!.ToString() == "verify-properties");
+
+        var fix = DoctorRunner.ApplyFix(_repo.Path, DoctorRunner.GuardFiles(_repo.Path, WorkspaceStore.Read(Path.Combine(_repo.Path, ".offramp", "workspace.json")), null));
+        _repo.Write("offramp.yml", "version: 1\n");
+        WriteFreshModel(Project("src/Core/Core.csproj"), Project("src/Web/Web.csproj"));
+        var (after, afterBag) = await RunAsync(Healthy());
+
+        Assert.Equal(["src/Web/Web.csproj"], fix.ProjectFiles.Select(f => f.File));
+        var passed = after.Checks.Single(c => c.Id == "plain-build");
+        Assert.Equal(CheckStatus.Pass, passed.Status);
+        Assert.Equal(
+            "A plain `dotnet build` of the solution does what Offramp's build does. Outside Windows it skips 2 conditioned setting(s) that Visual Studio's build runs (src/Web/Web.csproj:3 MvcBuildViews, src/Web/Web.csproj:4 PostBuildEvent).",
+            passed.Message);
+        Assert.DoesNotContain(afterBag.ToSortedList(), d => d.Code is "OFR0019" or "OFR0026");
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0026")]
+    public async Task Packages_config_and_web_sites_are_what_only_offramps_build_handles()
+    {
+        _repo.Write("src/Legacy/Legacy.csproj", "<Project ToolsVersion=\"15.0\" />\n");
+        WriteFreshModel(
+            [Project("src/Legacy/Legacy.csproj") with { PackagesConfig = true }],
+            [
+                new Diagnostic
+                {
+                    Code = "OFR0126",
+                    Severity = Severity.Warning,
+                    Message = "Needs Windows to build: ASP.NET Web Site project (AspNetCompiler).",
+                    Project = "src/OldSite/",
+                    Help = "https://offramp.dev/diagnostics/OFR0126",
+                },
+            ]);
+
+        var (report, bag) = await RunAsync(Healthy());
+
+        var check = report.Checks.Single(c => c.Id == "plain-build");
+        Assert.Equal(CheckStatus.Warn, check.Status);
+        Assert.Equal(
+            "A plain `dotnet build` does less than Offramp's build: 1 project(s) use packages.config, which dotnet restore skips; the solution lists ASP.NET Web Site project(s): src/OldSite/.",
+            check.Message);
+        Assert.Equal(["packages-config", "web-site"], bag.ToSortedList().Where(d => d.Code == "OFR0026").Select(d => d.Data["cause"]!.ToString()).Order());
+    }
+
+    [Fact]
+    public async Task Doctor_fix_plans_the_conditions_with_the_block()
+    {
+        _repo.Write("src/A/A.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>\n  </PropertyGroup>\n</Project>\n");
+        WriteFreshModel(Project("src/A/A.csproj"));
+
+        var (report, _) = await RunAsync(Healthy(), fix: true);
+
+        var fix = report.Fix!;
+        Assert.False(fix.AlreadyPresent);
+        Assert.True(fix.HasChanges);
+        var file = Assert.Single(fix.ProjectFiles);
+        Assert.Equal("src/A/A.csproj", file.File);
+        Assert.Equal(new WindowsGuard { Line = 3, Setting = "GenerateSerializationAssemblies", Step = "sgen", Condition = WindowsGuards.OnFrameworkMsbuild }, Assert.Single(file.Guards));
+        Assert.Equal("""
+            --- a/src/A/A.csproj
+            +++ b/src/A/A.csproj
+            @@ -1,5 +1,5 @@
+             <Project Sdk="Microsoft.NET.Sdk">
+               <PropertyGroup>
+            -    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>
+            +    <GenerateSerializationAssemblies Condition="'$(MSBuildRuntimeType)' != 'Core'">On</GenerateSerializationAssemblies>
+               </PropertyGroup>
+             </Project>
+
+            """, file.Diff);
+        Assert.Equal("<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>\n  </PropertyGroup>\n</Project>\n", _repo.Read("src/A/A.csproj"));
     }
 
     [Fact]
@@ -458,7 +541,7 @@ public sealed class DoctorRunnerTests : IDisposable
         var (report, _) = await RunAsync(new FakeMachine { DotnetInstalled = false, GitVersion = null });
 
         Assert.Equal(
-            ["dotnet-sdk", "global-json", "target", "reference-assemblies", "git", "git-repository", "config", "workspace", "windows-only-build-steps", "cpm"],
+            ["dotnet-sdk", "global-json", "target", "reference-assemblies", "git", "git-repository", "config", "workspace", "windows-only-build-steps", "plain-build", "cpm"],
             report.Checks.Select(c => c.Id));
         Assert.Equal(report.Checks.Count, report.Summary.Pass + report.Summary.Warn + report.Summary.Fail + report.Summary.Skip);
     }

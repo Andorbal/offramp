@@ -12,6 +12,25 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- `doctor --fix` conditions the Windows-only settings a project file sets itself, which win over the
+  compile-only block in `Directory.Build.props` (ADR 0063): `GenerateSerializationAssemblies` and
+  `MvcBuildViews` on `'$(MSBuildRuntimeType)' != 'Core'` (only Visual Studio's MSBuild has sgen and
+  `AspNetCompiler`), and build events, `Exec` commands written for cmd.exe, NuGet 2's
+  `RestorePackages`, and `MSBuildExtensionsPath` on `'$(OS)' == 'Windows_NT'`, in the project files,
+  the `Directory.Build.*` files above them, and the repository files they import. It shows a diff
+  per file and writes with `--apply`, keeping every other byte. The block alone left
+  `<GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>` in a project running sgen
+  (MSB3474) and an explicit `MvcBuildViews` running `AspNetCompiler` (MSB4803); on the new
+  `windows-only-settings` fixture a plain `dotnet build` of the whole solution now succeeds outside
+  Windows, in Debug and Release. On the corpus it conditions NHibernate's ILRepack step, Open Live
+  Writer's `MSBuildExtensionsPath` override (so the block reaches all 28 projects without a harness
+  edit), and SmartStoreNET's 24 NuGet 2 restores and two post-build events; the harnesses no longer pass
+  `PostBuildEvent=""` or edit Open Live Writer's build files for it.
+- A `doctor` check, "Builds without Offramp" (`plain-build`), that reads the files rather than the
+  model and warns when a plain `dotnet build` would do less than Offramp's own build: `OFR0019` for
+  each Windows-only setting without its condition, `OFR0026` for `verify.properties`,
+  `packages.config` restore, and a Web Site project that only Offramp's builds handle. It lists the
+  conditioned settings a build outside Windows skips.
 - Three field tests (`docs/field-tests/`), each with its fixes and a corpus test that pins them:
   NHibernate 4.1.2 (a library shipped on NuGet, `nhibernate`), SmartStoreNET 4.2.0 (an MVC 5 site
   with plugins, `smartstore`), and Open Live Writer 0.6.3 (a WinForms desktop application with COM
@@ -211,6 +230,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `OFR0110` and `OFR0116` said the compile-only block turns sgen and `MvcBuildViews` off outside
+  Windows; it cannot where the project file sets them, and their fixes now say what `doctor --fix`
+  does there. `doctor` said "No project needs Windows to build" when `verify.properties` only hid a
+  step from the model; it now names the properties and leaves the rest to the plain-build check.
 - `csproj modernize` keeps the `.resx` files a legacy project does not embed out of the converted
   project. When the `.resx` files on disk were not the ones the project lists, the conversion kept the
   list but left the SDK's `**/*.resx` glob on, which embedded the others too: 9 of Open Live Writer

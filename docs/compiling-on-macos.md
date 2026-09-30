@@ -35,15 +35,15 @@ Visual Studio installs. The compile-only block's legacy section and
 | Thing | Why | What to do |
 |---|---|---|
 | Running `net48` output, including tests | needs the Framework runtime | run the modern target of dual-target tests locally; leave `net48` execution to Windows CI |
-| `sgen` (`GenerateSerializationAssemblies=On`) | loads the built assembly under the Framework runtime to pre-generate `XmlSerializer` code | turn it off for non-Windows builds (below); on modern .NET use `Microsoft.XmlSerializer.Generator` or drop it |
+| `sgen` (`GenerateSerializationAssemblies=On`) | loads the built assembly under the Framework runtime to pre-generate `XmlSerializer` code; .NET's MSBuild has no `SGen` task, on Windows either (MSB3474) | the compile-only block turns it off, and `doctor --fix` conditions it where a project sets it ([below](#settings-in-project-files)); on modern .NET use `Microsoft.XmlSerializer.Generator` or drop it |
 | COM references, `EmbedInteropTypes` | type library importer is Windows-only | reference the interop assembly as a file, or exclude the project from Mac builds |
 | Entity Framework 6 EDMX embedding (`EntityDeploy`) | build task ships with Visual Studio | use code-first mappings, or the compiler-log route |
 | T4 templates at build time, Microsoft Fakes | Visual Studio-only targets | run on Windows, or check generated output in |
 | SSDT `.sqlproj` | Windows-only targets | `MSBuild.Sdk.SqlProj` is the cross-platform replacement |
-| Pre/post-build events calling Windows executables | obvious | guard them with a condition on `$(OS)` |
+| Pre/post-build events, and `Exec` commands written for cmd.exe | Visual Studio runs build events as batch files; elsewhere MSBuild hands them to `/bin/sh` | `doctor --fix` conditions them on `'$(OS)' == 'Windows_NT'` ([below](#settings-in-project-files)) |
 | WPF / WinForms on modern targets | need Windows targeting packs | set `EnableWindowsTargeting=true`; they then build on macOS |
 | ASP.NET (System.Web) web application targets, including every `MSBuild.SDK.SystemWeb` project | `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets` ships with Visual Studio only; evaluation stops with MSB4019 | the compile-only block takes them from a package (below) |
-| Precompiled MVC views (`MvcBuildViews=true`, on by default in Release for `MSBuild.SDK.SystemWeb`) | `AspNetCompiler` exists only in .NET Framework's MSBuild (MSB4803) | the compile-only block turns it off |
+| Precompiled MVC views (`MvcBuildViews=true`, on by default in Release for `MSBuild.SDK.SystemWeb`) | `AspNetCompiler` exists only in .NET Framework's MSBuild (MSB4803) | the compile-only block turns the default off, and `doctor --fix` conditions it where a project sets it |
 | `packages.config` packages | `dotnet restore` skips `packages.config`, and `NuGet.exe` needs Mono | `offramp scan` restores them into `packages/` (below) |
 | Paths in another letter case than the file on disk (Linux only) | Windows and macOS file systems ignore case; Linux does not (MSB4019, CS2001, MSB3030, MSB3554) | rename the reference or the file; `scan` names every one in each project at once (`OFR0117`) |
 | `CodeTaskFactory` inline tasks, as in `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` | only .NET Framework's MSBuild has the factory (MSB4801) | redefine the targets that use it (below); `OFR0118` |
@@ -94,11 +94,14 @@ Put this in the repository's root `Directory.Build.props` (`offramp doctor
 </PropertyGroup>
 ```
 
-Then guard anything else that needs Windows with
-`Condition="'$(OfframpCompileOnly)' != 'true'"`. Offramp's own verification
-builds pass the properties from `offramp.yml` (`verify.properties`), so
-verification of the first section works even before you edit any props file;
-the ASP.NET section needs the file, because it adds a package.
+MSBuild imports `Directory.Build.props` before the project's own properties,
+so a setting the project file makes itself wins over the block; `doctor --fix`
+conditions those where they are ([Settings in project
+files](#settings-in-project-files)). Guard anything else that needs Windows with
+`Condition="'$(OS)' == 'Windows_NT'"`. Offramp's own builds also pass the
+properties from `offramp.yml` (`verify.properties`) on the command line, but a
+plain `dotnet build` does not get them, so keep that list empty once the files
+carry the conditions; `doctor` warns while it is not (`OFR0026`).
 
 If your `Directory.Build.props` has sections from an earlier Offramp,
 `offramp doctor --fix` adds only the ones it lacks.
@@ -129,6 +132,56 @@ MSBuild cannot load it (MSB4062). Compile-only builds need no binding
 redirects; on Windows the task still writes the ones the application needs.
 `scan` reports a project that imports the package's targets without the switch
 as `OFR0124`.
+
+## Settings in project files
+
+The compile-only block cannot switch off what a project file sets itself:
+MSBuild reads `Directory.Build.props` first, and the project's own
+`<GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>` or
+`<MvcBuildViews>true</MvcBuildViews>` wins. `Directory.Build.targets` comes too
+late (the common targets read the sgen setting before it, and a legacy project
+defines its `PostBuildEvent` after them). So `offramp doctor --fix` puts a
+condition on each such setting where it is written: in the project files, the
+`Directory.Build.props`/`.targets` files above them, and the repository files
+they import (`docs/decisions/0063-condition-windows-only-settings-in-project-files.md`):
+
+```xml
+<GenerateSerializationAssemblies Condition="'$(MSBuildRuntimeType)' != 'Core'">On</GenerateSerializationAssemblies>
+<MvcBuildViews Condition="'$(MSBuildRuntimeType)' != 'Core'">true</MvcBuildViews>
+<PostBuildEvent Condition="'$(OS)' == 'Windows_NT'">xcopy /y "$(TargetDir)*.dll" "$(SolutionDir)deploy\"</PostBuildEvent>
+<Exec Condition="'$(OS)' == 'Windows_NT'" Command="copy /y &quot;$(TargetPath)&quot; ..\drop\" />
+<RestorePackages Condition="'$(OS)' == 'Windows_NT'">true</RestorePackages>
+<MSBuildExtensionsPath Condition="'$(OS)' == 'Windows_NT'">$(MSBuildToolsPath)\MsBuildExtensions</MSBuildExtensionsPath>
+```
+
+sgen and `AspNetCompiler` are kept for .NET Framework's MSBuild (Visual Studio,
+Build Tools), which is what they need: `dotnet build` cannot run them on
+Windows either. Build events, cmd.exe commands (`.exe`, `.bat`, `xcopy`,
+`copy`, `del`, `%VAR%`), NuGet 2's `RestorePackages`, and an
+`MSBuildExtensionsPath` override are kept for Windows. An `Exec` that runs
+`dotnet`, `npm`, or `git` is left alone, as is anything already conditioned on
+`$(OS)`, `IsOSPlatform`, `$(MSBuildRuntimeType)`, or `$(OfframpCompileOnly)`.
+An existing condition is kept inside the new one. Visual Studio's build on
+Windows is unchanged.
+
+The result is a repository that builds with a plain `dotnet build` outside
+Windows, for anyone, with or without Offramp. It is the same compile as on
+Windows, not the same output: the skipped steps do not run, so there is no
+`*.XmlSerializers.dll`, no precompiled views, and nothing a build event copies
+or merges. `doctor`'s **Builds without Offramp** check lists every skipped
+setting by file and line, so you know what only a Windows build proves, and
+warns about what still separates a plain build from Offramp's:
+
+- a Windows-only setting without its condition (`OFR0019`): run
+  `offramp doctor --fix --apply`;
+- `verify.properties` in `offramp.yml` (`OFR0026`): Offramp's builds pass them,
+  a plain build does not;
+- `packages.config` projects (`OFR0026`): `dotnet restore` does not restore
+  them, so a fresh clone needs its packages folder filled first (`offramp
+  scan` does it, as does `nuget restore` on Windows), until `offramp csproj
+  modernize` moves them to `PackageReference`;
+- an ASP.NET Web Site project (`OFR0026`, `OFR0126`): it stops `dotnet build`
+  of the whole solution, so `scan` builds a filter without it.
 
 ### ASP.NET (System.Web) projects
 
@@ -225,8 +278,10 @@ to change:
   ```
 
 - **Build events and `Exec` commands written for cmd.exe** (`OFR0115`), such as
-  `XCOPY` in a `PostBuild` target: add
-  `Condition="'$(OfframpCompileOnly)' != 'true'"` to the target. When the
+  `XCOPY` in a `PostBuild` target: `offramp doctor --fix --apply` conditions
+  them on `'$(OS)' == 'Windows_NT'` ([Settings in project
+  files](#settings-in-project-files)); condition one it does not recognize the
+  same way. When the
   command runs a program the solution itself builds (`$(OutDir)Tool.exe`), it
   is a build-time generator, and `scan` names its target and the files it
   writes (its `Outputs`). Guarding that target leaves those files missing, and
@@ -359,5 +414,7 @@ you which projects those are.
 1. `dotnet --list-sdks` shows an SDK that can target your `--target`.
 2. `offramp doctor` is green, or lists exactly which projects need the
    compiler-log route and why.
-3. `dotnet build` of your solution filter succeeds with the conditional above.
+3. `offramp doctor`'s **Builds without Offramp** check passes, and a plain
+   `dotnet build` of your solution succeeds with the conditional above and the
+   conditions `doctor --fix` added; the check lists what that build skips.
 4. Your IDE shows no red squiggles in a `net48` project.

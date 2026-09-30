@@ -77,6 +77,14 @@
       "codes": []
     },
     {
+      "id": "plain-build",
+      "title": "Builds without Offramp",
+      "status": "pass",
+      "message": "A plain `dotnet build` of the solution does what Offramp's build does.",
+      "remedy": null,
+      "codes": []
+    },
+    {
       "id": "cpm",
       "title": "Central package management",
       "status": "skip",
@@ -100,7 +108,7 @@
     "target": "net10.0"
   },
   "summary": {
-    "pass": 7,
+    "pass": 8,
     "warn": 1,
     "fail": 0,
     "skip": 2

@@ -187,7 +187,8 @@
             "file",
             "alreadyPresent",
             "applied",
-            "diff"
+            "diff",
+            "projectFiles"
           ],
           "properties": {
             "file": {
@@ -204,6 +205,71 @@
                 "string",
                 "null"
               ]
+            },
+            "projectFiles": {
+              "type": "array",
+              "description": "The MSBuild files whose Windows-only settings the fix conditions, sorted by path (docs/decisions/0063-condition-windows-only-settings-in-project-files.md).",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file",
+                  "guards",
+                  "applied",
+                  "diff"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Repository-relative path."
+                  },
+                  "guards": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "line",
+                        "setting",
+                        "step",
+                        "condition"
+                      ],
+                      "properties": {
+                        "line": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "setting": {
+                          "type": "string",
+                          "description": "The property, or `Exec in target X`."
+                        },
+                        "step": {
+                          "enum": [
+                            "sgen",
+                            "aspnet-compiler",
+                            "build-event",
+                            "nuget-restore",
+                            "msbuild-extensions-path"
+                          ]
+                        },
+                        "condition": {
+                          "type": "string",
+                          "description": "The condition added: '$(MSBuildRuntimeType)' != 'Core' or '$(OS)' == 'Windows_NT'."
+                        }
+                      }
+                    }
+                  },
+                  "applied": {
+                    "type": "boolean"
+                  },
+                  "diff": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
             }
           }
         }

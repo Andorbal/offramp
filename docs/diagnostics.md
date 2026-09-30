@@ -41,12 +41,14 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0016](#ofr0016) | info | configuration | no offramp.yml; built-in defaults in effect |
 | [OFR0017](#ofr0017) | error | environment | MSBuild not found |
 | [OFR0018](#ofr0018) | warning | environment | legacy projects get no reference assemblies outside Windows |
+| [OFR0019](#ofr0019) | warning | environment | setting in a project file needs Windows and has no condition |
 | [OFR0020](#ofr0020) | error | workspace | more than one solution found |
 | [OFR0021](#ofr0021) | error | workspace | project not in the workspace model |
 | [OFR0022](#ofr0022) | error | workspace | no solution found |
 | [OFR0023](#ofr0023) | info | workspace | solution chosen among several |
 | [OFR0024](#ofr0024) | info | scan | project is not C#, Visual Basic, or F# |
 | [OFR0025](#ofr0025) | warning | scan | C++/CLI project needs migrating |
+| [OFR0026](#ofr0026) | warning | environment | a plain dotnet build does less than Offramp's build |
 | [OFR0030](#ofr0030) | error | configuration | offramp.yml already exists |
 | [OFR0040](#ofr0040) | error | guide | guide progress file unreadable |
 | [OFR0041](#ofr0041) | error | guide | guide step needs a project |
@@ -407,6 +409,15 @@ The .NET SDK gives SDK-style projects the .NET Framework reference assemblies as
 - **Typical cause:** A legacy solution checked out on macOS or Linux, or a compile-only block added by an Offramp version before the legacy section.
 - **Fix:** Run `offramp doctor --fix --apply`; it adds only the sections the file lacks.
 
+### OFR0019
+
+**setting in a project file needs Windows and has no condition** · warning · environment
+
+A project file, or a `Directory.Build.props`/`.targets` it imports, sets something only Windows or .NET Framework's MSBuild can carry out: `GenerateSerializationAssemblies` (sgen), `MvcBuildViews` (`AspNetCompiler`), a pre- or post-build event or an `Exec` written for cmd.exe, `RestorePackages` (NuGet 2's `NuGet.exe`), or `MSBuildExtensionsPath`. MSBuild reads the project's own properties after `Directory.Build.props`, so the compile-only block cannot turn them off: a plain `dotnet build` outside Windows fails on them, whoever runs it.
+
+- **Typical cause:** A legacy project with `<GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>` or `<MvcBuildViews>true</MvcBuildViews>` in its own property group, a `PostBuildEvent` that runs `xcopy`, or a shared settings file that points `MSBuildExtensionsPath` into the repository.
+- **Fix:** Run `offramp doctor --fix --apply`. It conditions each one where it is set: `'$(MSBuildRuntimeType)' != 'Core'` for sgen and `AspNetCompiler`, which only Visual Studio's MSBuild runs (on Windows too), and `'$(OS)' == 'Windows_NT'` for the rest. Visual Studio's build is unchanged; elsewhere the step is skipped, and `doctor` lists what is skipped.
+
 ### OFR0020
 
 **more than one solution found** · error · workspace
@@ -460,6 +471,15 @@ A C++ project sets `CLRSupport` (`true`, `Pure`, or `Safe`): it compiles .NET Fr
 
 - **Typical cause:** A mixed-mode assembly that wraps a native library for the .NET projects of the solution.
 - **Fix:** Port it to .NET's C++/CLI support (`CLRSupport=NetCore` with a `TargetFramework`, Windows only), or replace it with P/Invoke or a .NET library, before migrating the projects that reference it.
+
+### OFR0026
+
+**a plain dotnet build does less than Offramp's build** · warning · environment
+
+Offramp's own builds (`scan`, verification) do something a plain `dotnet build` of the solution does not: pass `offramp.yml`'s `verify.properties`, restore `packages.config` into the packages folder, or leave an ASP.NET Web Site out of the solution. Until the repository does it itself, a solution that `scan` builds cleanly still fails for someone who clones it and runs `dotnet build`.
+
+- **Typical cause:** `verify.properties` set to switch a step off; legacy projects on `packages.config`, which `dotnet restore` skips; a Web Site project in the solution (`OFR0126`).
+- **Fix:** Move each `verify.properties` entry into the project files (conditioned as `offramp doctor --fix` conditions Windows-only settings) and remove it from `offramp.yml`. For `packages.config`, run `offramp scan` once in each clone, restore on Windows, or convert the projects (`offramp csproj modernize`), whose `PackageReference` items `dotnet restore` restores. Convert a Web Site to a web application project, or build a solution filter without it.
 
 ### OFR0030
 
@@ -639,7 +659,7 @@ Outside Windows, `scan` restored the packages that `packages.config` files list 
 `GenerateSerializationAssemblies` runs sgen, which loads the built assembly under the .NET Framework runtime; the build fails outside Windows (MSB3474).
 
 - **Typical cause:** `<GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>` in the project or an imported props file.
-- **Fix:** Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`), which turns sgen off outside Windows; on modern .NET use `Microsoft.XmlSerializer.Generator` or drop it.
+- **Fix:** Run `offramp doctor --fix --apply`: the compile-only block turns sgen off outside Windows, and where the project file sets it itself, which wins over the block, `doctor` conditions that setting on `'$(MSBuildRuntimeType)' != 'Core'` (`OFR0019`), so only Visual Studio's MSBuild runs sgen. On modern .NET use `Microsoft.XmlSerializer.Generator` or drop it.
 
 ### OFR0111
 
@@ -684,7 +704,7 @@ SQL Server Data Tools projects (`.sqlproj`) build with Windows-only targets.
 A pre- or post-build event, or an `Exec` in a target, runs a Windows command (`.exe`, `.bat`, `xcopy`, `%VAR%`, ...), which fails elsewhere. When the program is one the solution itself builds, it is a build-time generator: the message names its target and the files it writes.
 
 - **Typical cause:** A `PreBuildEvent`/`PostBuildEvent` written for cmd.exe, or a target that runs a generator the solution builds, such as `$(OutDir)Tool.exe`.
-- **Fix:** Guard the event or target with `Condition="'$(OS)' == 'Windows_NT'"` or `'$(OfframpCompileOnly)' != 'true'`, or replace it with MSBuild tasks. A guarded generator writes nothing, so its outputs must exist before the build: generate them once (a generator often runs on .NET unchanged), or check them in.
+- **Fix:** Run `offramp doctor --fix --apply`, which guards each build event, and each `Exec` in the project's targets that reads as a cmd.exe command, with `Condition="'$(OS)' == 'Windows_NT'"` (`OFR0019`); guard one it does not recognize the same way, or replace it with MSBuild tasks. A guarded generator writes nothing, so its outputs must exist before the build: generate them once (a generator often runs on .NET unchanged), or check them in.
 
 ### OFR0116
 
@@ -693,7 +713,7 @@ A pre- or post-build event, or an `Exec` in a target, runs a Windows command (`.
 An ASP.NET (System.Web) project imports `$(VSToolsPath)/WebApplications/Microsoft.WebApplication.targets`, which only Visual Studio installs, so evaluation fails elsewhere (MSB4019); or `MvcBuildViews=true` precompiles views with `AspNetCompiler`, which .NET's MSBuild does not have (MSB4803).
 
 - **Typical cause:** A project on the `MSBuild.SDK.SystemWeb` SDK, which imports the web targets unconditionally, or a legacy web application project; a Release build of either, which turns `MvcBuildViews` on.
-- **Fix:** Add the compile-only block to `Directory.Build.props` (`offramp doctor --fix --apply`). Outside Windows it takes the web targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package and turns `MvcBuildViews` off. Build with the .NET SDK (`dotnet build`), not Mono's `msbuild`.
+- **Fix:** Run `offramp doctor --fix --apply`. The compile-only block takes the web targets from the `MSBuild.Microsoft.VisualStudio.Web.targets` package outside Windows and turns `MvcBuildViews` off; where the project file sets `MvcBuildViews` itself, which wins over the block, `doctor` conditions it on `'$(MSBuildRuntimeType)' != 'Core'` (`OFR0019`). Build with the .NET SDK (`dotnet build`), not Mono's `msbuild`.
 
 ### OFR0117
 
@@ -747,7 +767,7 @@ A standard, modern, or dual project's portable targets reference a project that 
 The repository's root `Directory.Build.props` has the compile-only block, but this legacy project's evaluation did not import it (`OfframpCompileOnly` is not set), so outside Windows it gets neither the .NET Framework reference assemblies (MSB3644) nor the rest of the block. The message names the cause and the file to change.
 
 - **Typical cause:** A shared `.props` or `.settings` file that sets `MSBuildExtensionsPath`, so `Microsoft.Common.props`, which imports `Directory.Build.props`, is never imported; `ImportDirectoryBuildProps` set to `false`; or a nearer `Directory.Build.props` that does not import the root one.
-- **Fix:** Condition the `MSBuildExtensionsPath` override on `'$(OS)' == 'Windows_NT'`, remove `ImportDirectoryBuildProps=false`, or import the root file from the nearer one with `<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />`; then `offramp scan` again.
+- **Fix:** Condition the `MSBuildExtensionsPath` override on `'$(OS)' == 'Windows_NT'` (`offramp doctor --fix --apply` does, for the file this diagnostic names), remove `ImportDirectoryBuildProps=false`, or import the root file from the nearer one with `<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />`; then `offramp scan` again.
 
 ### OFR0123
 
