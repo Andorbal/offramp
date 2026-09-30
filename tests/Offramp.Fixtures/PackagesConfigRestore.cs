@@ -24,9 +24,12 @@ public static class PackagesConfigRestore
         }
 
         using var scratch = new ScratchDirectory("packages-config");
+        // One PackageDownload per package with every version the fixture lists (legacy-shared has two of
+        // Newtonsoft.Json): a PackageReference per version restores only one of them.
         File.WriteAllText(Path.Combine(scratch.Path, "Restore.csproj"),
             "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net48</TargetFramework>\n  </PropertyGroup>\n  <ItemGroup>\n"
-            + string.Concat(packages.Select(p => $"    <PackageReference Include=\"{p.Id}\" Version=\"[{p.Version}]\" />\n"))
+            + string.Concat(packages.GroupBy(p => p.Id, StringComparer.OrdinalIgnoreCase).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(g => $"    <PackageDownload Include=\"{g.Key}\" Version=\"{string.Join(';', g.Select(p => $"[{p.Version}]").Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal))}\" />\n"))
             + "  </ItemGroup>\n</Project>\n");
         var restore = await ProcessRunner.Instance.RunAsync(new ProcessSpec("dotnet", ["restore", "Restore.csproj", "-nologo"]) { WorkingDirectory = scratch.Path, Timeout = TimeSpan.FromMinutes(10) }, cancellationToken);
         if (!restore.Succeeded)
