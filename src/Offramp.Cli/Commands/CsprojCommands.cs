@@ -216,7 +216,18 @@ public sealed class CsprojModernizeCommand : ICommandHandler<CsprojModernizeOpti
 
                 if (target.TransitiveReferencesAdded.Count > 0)
                 {
-                    output.MarkupLine($"    [dim]{Markup.Escape(target.TargetFramework)}: packages of referenced projects now flow here: {Markup.Escape(string.Join(", ", target.TransitiveReferencesAdded))}[/]");
+                    output.MarkupLine($"    [dim]{Markup.Escape(target.TargetFramework)}: assemblies of restored packages (their own, or flowing from referenced projects): {Markup.Escape(string.Join(", ", target.TransitiveReferencesAdded))}[/]");
+                }
+
+                if (target.FrameworkReferencesAdded.Count > 0)
+                {
+                    output.MarkupLine($"    [dim]{Markup.Escape(target.TargetFramework)}: framework assemblies that packages declare: {Markup.Escape(string.Join(", ", target.FrameworkReferencesAdded))}[/]");
+                }
+
+                if (target.FacadesRemoved.Count > 0)
+                {
+                    output.MarkupLine(string.Create(CultureInfo.InvariantCulture,
+                        $"    [dim]{Markup.Escape(target.TargetFramework)}: {target.FacadesRemoved.Count} .NET Standard facades the legacy build added are not needed[/]"));
                 }
             }
         }

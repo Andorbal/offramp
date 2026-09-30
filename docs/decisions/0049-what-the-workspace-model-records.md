@@ -45,8 +45,8 @@ one target, as `scan` already chose. `source.sha256` is the hash of a supplied l
 `kind: build`; staleness of a built model comes from `inputs` alone, as before.
 
 The inputs are also every file the evaluations imported from inside the repository (outside
-`bin/`, `obj/`, `packages/`, dot-directories, and the state directory, as for the others), and
-every `NuGet.config`. The comparison hashes the recorded imported files again by path, since their
+`bin/`, `obj/`, `packages/`, `.git/`, and the state directory; other dot-directories count, since
+SmartStoreNET's projects import `.nuget/NuGet.targets`, ADR 0061), and every `NuGet.config`. The comparison hashes the recorded imported files again by path, since their
 names say nothing.
 
 The model's projects are C#, Visual Basic, and F# projects only. Any other project, evaluated or not,

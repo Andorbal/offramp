@@ -200,7 +200,7 @@ public sealed class CsprojModernizeCommandTests
         // NuGet 2's restore import goes; SolutionDir stays in Tests only, whose build event uses it.
         Assert.DoesNotContain(data, l => l.Contains("NuGet.targets", StringComparison.OrdinalIgnoreCase) || l.Contains("SolutionDir", StringComparison.Ordinal));
         Assert.Contains(tests, l => l.StartsWith("<SolutionDir Condition=", StringComparison.Ordinal));
-        Assert.Contains("<Target Name=\"PostBuild\" AfterTargets=\"PostBuildEvent\" Condition=\"'$(Configuration)' == 'Debug'\">", tests);
+        Assert.Contains("<PostBuildEvent Condition=\"'$(PostBuildEvent)' != '' and ('$(Configuration)' == 'Debug')\">echo Checks built for $(SolutionDir)</PostBuildEvent>", tests);
         // Data's Newtonsoft.Json 12.0.1 would be downgraded from Domain's 13.0.3.
         Assert.Contains("<PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.3\" />", data);
         Assert.Contains("<PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.3\" />", domain);
@@ -210,6 +210,61 @@ public sealed class CsprojModernizeCommandTests
             (raised["data"]!["from"]!.GetValue<string>(), raised["data"]!["to"]!.GetValue<string>(), raised["data"]!["source"]!.GetValue<string>()));
         Assert.Equal(["src/Layers.Domain/Layers.Domain.csproj", "src/Layers.Tests/Layers.Tests.csproj"],
             Diagnostics(run.Out, "OFR4308").Select(d => d["project"]!.GetValue<string>()).Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// SmartStoreNET 4.2.0 (corpus): SmartStore.Data.Tests' post-build step (cmd's <c>md</c> and <c>xcopy</c>)
+    /// became a target with the command inline, so <c>verify.properties: PostBuildEvent: ""</c> (OFR0115's
+    /// remedy) no longer turned it off and verification failed with MSB3073.
+    /// </summary>
+    [Fact]
+    public async Task A_converted_build_event_is_turned_off_as_the_legacy_one_was()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared", (root, request) =>
+        {
+            var tests = Path.Combine(root, "src/Layers.Tests/Layers.Tests.csproj");
+            File.WriteAllText(tests, File.ReadAllText(tests).Replace("echo Checks built for $(SolutionDir)", "exit 3", StringComparison.Ordinal));
+            File.WriteAllText(Path.Combine(root, "offramp.yml"), "version: 1\nverify:\n  properties:\n    PostBuildEvent: \"\"\n");
+            return request with { Config = request.Config with { Verify = request.Config.Verify with { Properties = new(StringComparer.Ordinal) { ["PostBuildEvent"] = "" } } } };
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Layers.Tests", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        var project = Assert.Single(JsonNode.Parse(run.Out)!["result"]!["projects"]!.AsArray())!;
+        Assert.True(project["verification"]!["passed"]!.GetValue<bool>(), run.Out);
+        Assert.Contains("<PostBuildEvent Condition=\"'$(PostBuildEvent)' != '' and ('$(Configuration)' == 'Debug')\">exit 3</PostBuildEvent>", JsonNode.Parse(run.Out)!["result"]!["preview"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// SmartStoreNET 4.2.0 (corpus): the legacy projects import <c>$(SolutionDir)\.nuget\nuget.targets</c>, which on
+    /// Linux exists only as an untracked link to <c>NuGet.targets</c> in the working tree (OFR0117's fix). The
+    /// scratch copy verification builds in lacked it, so a converted project's legacy reference failed with MSB4019.
+    /// </summary>
+    [Fact]
+    public async Task Verification_builds_with_the_working_trees_untracked_imports()
+    {
+        var fixture = await ScannedFixtures.ScanAsync("legacy-shared", (root, request) =>
+        {
+            var data = Path.Combine(root, "src/Layers.Data/Layers.Data.csproj");
+            File.WriteAllText(data, File.ReadAllText(data).Replace(@"\.nuget\NuGet.targets", @"\.nuget\nuget.targets", StringComparison.Ordinal));
+            var link = Path.Combine(root, ".nuget", "nuget.targets");
+            if (!File.Exists(link))
+            {
+                File.CreateSymbolicLink(link, "NuGet.targets");
+            }
+
+            return request;
+        });
+        using var repository = fixture.Repository;
+        using var cli = new CliHarness(repository.Directory).WithRealGitAndBuilds();
+
+        var run = await cli.RunAsync("csproj", "modernize", "--project", "Layers.Tests", "--json");
+
+        Assert.True(run.ExitCode == 0, run.Out);
+        Assert.True(JsonNode.Parse(run.Out)!["result"]!["projects"]![0]!["verification"]!["passed"]!.GetValue<bool>(), run.Out);
     }
 
     private static List<JsonNode> Diagnostics(string envelope, string code) =>

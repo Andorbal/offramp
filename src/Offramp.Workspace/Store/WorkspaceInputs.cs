@@ -92,22 +92,35 @@ public static class WorkspaceInputs
             }
         }
 
-        // An import may spell a file the walk found in another letter case (Windows, macOS): one entry.
-        var collected = inputs.Select(i => i.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // An import may spell a file in another letter case. Where the file system ignores case (Windows,
+        // macOS) that is the file on disk, recorded once and as the disk spells it; where it does not, a
+        // folder can hold both spellings (SmartStoreNET's nuget.targets, a link to NuGet.targets that
+        // makes the build work on Linux), and each is an input.
+        var ignoresCase = IgnoresCase(repositoryRoot);
+        var seen = inputs.Select(i => i.Path).ToHashSet(ignoresCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         foreach (var import in (imports ?? []).Select(RepoPaths.Normalize).Distinct(StringComparer.Ordinal))
         {
             var file = RepoPaths.ToAbsolute(repositoryRoot, import);
-            if (!collected.Contains(import) && IsInRepository(import, repositoryRoot, state) && File.Exists(file))
+            if (!IsInRepository(import, repositoryRoot, state) || !File.Exists(file))
             {
-                inputs.Add(new InputFile(import, ContentHash.Sha256File(file)));
-                collected.Add(import);
+                continue;
+            }
+
+            var path = ignoresCase ? AsOnDisk(import, file) : import;
+            if (seen.Add(path))
+            {
+                inputs.Add(new InputFile(path, ContentHash.Sha256File(file)));
             }
         }
 
         return [.. inputs.OrderBy(i => i.Path, StringComparer.Ordinal)];
     }
 
-    /// <summary>True for a repository-relative path the walk would reach: inside the repository, outside skipped and dot folders and the state directory.</summary>
+    /// <summary>
+    /// True for a repository-relative imported file worth recording: inside the repository, outside the
+    /// skipped folders, <c>.git</c>, and the state directory. Other dot folders count: NuGet 2's
+    /// <c>.nuget/NuGet.targets</c> is imported from one.
+    /// </summary>
     private static bool IsInRepository(string relative, string repositoryRoot, string state)
     {
         if (relative.Length == 0 || relative.StartsWith("../", StringComparison.Ordinal) || relative == ".." || Path.IsPathRooted(relative))
@@ -116,8 +129,37 @@ public static class WorkspaceInputs
         }
 
         var folders = relative.Split('/')[..^1];
-        return !folders.Any(f => f.StartsWith('.') || SkippedDirectories.Contains(f))
+        return !folders.Any(f => f is "." or ".." or ".git" || SkippedDirectories.Contains(f))
             && !Path.GetFullPath(RepoPaths.ToAbsolute(repositoryRoot, relative)).StartsWith(state.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    }
+
+    /// <summary>True when the file system holding the repository ignores letter case: the root spelled in the other case exists too.</summary>
+    private static bool IgnoresCase(string repositoryRoot)
+    {
+        var root = Path.GetFullPath(repositoryRoot);
+        var swapped = new string([.. root.Select(c => char.IsUpper(c) ? char.ToLowerInvariant(c) : char.ToUpperInvariant(c))]);
+        return !string.Equals(swapped, root, StringComparison.Ordinal) && Directory.Exists(swapped);
+    }
+
+    /// <summary>A repository-relative path with its file name spelled as the directory spells it.</summary>
+    private static string AsOnDisk(string relative, string file)
+    {
+        var name = Path.GetFileName(file);
+        try
+        {
+            var entries = Directory.EnumerateFileSystemEntries(Path.GetDirectoryName(file)!).Select(Path.GetFileName).OfType<string>().ToList();
+            if (entries.Contains(name, StringComparer.Ordinal))
+            {
+                return relative;
+            }
+
+            var actual = entries.Where(e => string.Equals(e, name, StringComparison.OrdinalIgnoreCase)).Order(StringComparer.Ordinal).FirstOrDefault();
+            return actual is null ? relative : relative[..^name.Length] + actual;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return relative;
+        }
     }
 
     /// <summary>

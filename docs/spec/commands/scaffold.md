@@ -296,9 +296,14 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
     that a project in the ProjectReference closure passes on at a higher version (converted in
     the same run, or restoring the `PackageReference` way already) raises the project's own
     version to it, since the lower one would be a package downgrade (NU1605): `OFR4307`.
-  - `PreBuildEvent`/`PostBuildEvent` and `BeforeBuild`/`AfterBuild` become targets hooked
-    at the same point (`OFR4302`). A build event keeps its property group's condition, and its
-    own, as the target's `Condition`.
+  - `BeforeBuild`/`AfterBuild` become targets hooked at the same point (`OFR4302`).
+    `PreBuildEvent`/`PostBuildEvent` stay where the legacy project defines them, and a
+    `SetBuildEvents` target that runs before `BeforeBuild` sets each one that is set again,
+    with the same text and its conditions: in the project body the SDK has not defined
+    `$(TargetPath)` and the other macros yet, in the target they have their values. The SDK's
+    own `PreBuildEvent`/`PostBuildEvent` targets run them as the legacy build did (from the
+    output folder, by `RunPostBuildEvent`'s rule), and under `-p:PostBuildEvent=` the property
+    stays empty, the target does not set it, and the event does not run (`OFR4302`; ADR 0061).
   - `OFR4308` names what the SDK overrides without a word: a target in the body with the name
     of a common target (`AfterCompile`, `_CopyFilesMarkedCopyLocal`, ...), which the SDK's
     targets, imported after the body, replace; and an imported file in the repository that sets
@@ -316,10 +321,17 @@ Decisions in `docs/decisions/0026-web-csproj-config-extract.md`.
 - **Verification always runs**, dry run included: the change set is applied in a scratch
   copy, the changed projects are built with a binary log, and each target's compiler
   inputs (source files, references by file name, embedded resources by manifest name)
-  are compared with the scan's build of the original. References the conversion adds only
-  transitively (a package's dependency now flowing through `PackageReference`) are
-  reported and allowed. A difference or a failed build is `OFR4303`; `--apply` then
-  refuses unless `--accept-diff`. A build that fails only on NuGet audit (NU1901–NU1904,
+  are compared with the scan's build of the original. Reference changes the SDK and
+  `PackageReference` make by themselves are allowed and reported with their evidence in
+  `explanations` (ADR 0061): the SDK's implicit framework references; the compile assemblies
+  of a package the converted project's restore resolved (`transitiveReferencesAdded`: a
+  package's other assemblies, packages flowing from referenced projects); framework assemblies
+  that restored packages declare in their nuspec (`frameworkReferencesAdded`); and the .NET
+  Standard facades the legacy build added from the framework's `Facades` folder or
+  `Microsoft.NET.Build.Extensions` (`facadesRemoved`). Any other added or removed reference is
+  a difference. The scratch copy holds the committed tree plus the model's inputs from the
+  working tree, imported files in dot-directories and untracked ones included. A
+  difference or a failed build is `OFR4303`; `--apply` then refuses unless `--accept-diff`. A build that fails only on NuGet audit (NU1901–NU1904,
   known vulnerabilities, which `PackageReference` restore reports and
   `TreatWarningsAsErrors` makes errors) is not the conversion's fault: it is reported as
   `OFR4305` and the verification build runs again with `NuGetAudit=false`. A failed build is

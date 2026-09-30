@@ -226,7 +226,11 @@ The model records `inputs`: the SHA-256 of every project file (`.csproj`,
 `.slnf`), `Directory.*.props/targets`, `packages.config`, and `NuGet.config` in the
 repository, and of every other file the evaluations imported from the repository
 (a shared `build.settings` or `.targets`), all outside `bin/`, `obj/`, `packages/`,
-dot-directories, and the state directory. Imported files are hashed again by path;
+and the state directory; files found by name also outside dot-directories, imported
+ones outside `.git/` only (NuGet 2's `.nuget/NuGet.targets` is imported). An imported
+file is recorded as the file system spells it: once where it ignores letter case, in
+each spelling a case-sensitive one holds (a `nuget.targets` link next to
+`NuGet.targets`). Imported files are hashed again by path;
 the others are found by name. Every command that reads the model compares them, and
 `source.sha256` for a supplied log, with the files on disk (a log `scan` built itself
 has no hash: every build of the same inputs writes a different log, and the inputs

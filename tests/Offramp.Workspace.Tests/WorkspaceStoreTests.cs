@@ -69,6 +69,31 @@ public sealed class WorkspaceStoreTests : IDisposable
         Assert.Equal(["src/managed/writer.build.settings"], WorkspaceInputs.Compare(model, _repo.Path, State).Removed);
     }
 
+    /// <summary>
+    /// SmartStoreNET 4.2.0 (corpus): the projects import <c>$(SolutionDir)\.nuget\nuget.targets</c>, and on Linux
+    /// the working tree has <c>nuget.targets</c> as an untracked link to <c>NuGet.targets</c> (OFR0117's fix). An
+    /// import from a dot folder was not an input, so <c>csproj modernize</c>'s scratch copy lacked the link
+    /// (MSB4019). Both spellings are inputs where the file system tells them apart; one, spelled as on disk,
+    /// where it does not.
+    /// </summary>
+    [Fact]
+    public void Imports_from_dot_folders_are_inputs_in_every_spelling_the_disk_has()
+    {
+        _repo.Write("src/.nuget/NuGet.targets", "<Project />");
+        _repo.Write(".git/info.targets", "<Project />");
+        var link = _repo.Combine("src", ".nuget", "nuget.targets");
+        var caseSensitive = !File.Exists(link);
+        if (caseSensitive)
+        {
+            File.CreateSymbolicLink(link, "NuGet.targets");
+        }
+
+        var inputs = WorkspaceInputs.Collect(_repo.Path, State, imports: ["src/.nuget/nuget.targets", "src/.nuget/NuGet.targets", ".git/info.targets"])
+            .Select(i => i.Path);
+
+        Assert.Equal(caseSensitive ? ["src/.nuget/NuGet.targets", "src/.nuget/nuget.targets"] : ["src/.nuget/NuGet.targets"], inputs);
+    }
+
     [Fact]
     public void A_model_with_the_same_inputs_is_fresh_and_any_change_makes_it_stale()
     {

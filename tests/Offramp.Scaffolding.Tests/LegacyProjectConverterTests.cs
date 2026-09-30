@@ -160,8 +160,8 @@ public sealed class LegacyProjectConverterTests : IDisposable
         var (windows, output) = Convert(Legacy, ["net472", "net10.0-windows"]);
         var (framework, _) = Convert(Legacy, []);
 
-        var postBuild = windows.Descendants("Target").Single(t => (string?)t.Attribute("Name") == "PostBuild");
-        Assert.Equal("'$(OfframpCompileOnly)' != 'true'", (string?)postBuild.Attribute("Condition"));
+        var postBuild = windows.Descendants("Target").Single(t => (string?)t.Attribute("Name") == "SetBuildEvents").Descendants("PostBuildEvent").Single();
+        Assert.Equal("'$(PostBuildEvent)' != '' and ('$(OfframpCompileOnly)' != 'true')", (string?)postBuild.Attribute("Condition"));
         Assert.Equal("true", windows.Descendants("UseWindowsForms").Single().Value);
         Assert.Empty(windows.Descendants("UseWPF"));
         var conditioned = windows.Elements("ItemGroup").Single(g => (string?)g.Attribute("Condition") == "'$(TargetFrameworkIdentifier)' == '.NETFramework'");
@@ -173,6 +173,48 @@ public sealed class LegacyProjectConverterTests : IDisposable
         Assert.Equal(2, notes.Count);
         Assert.Contains(notes, n => n.Contains("build.settings sets TargetFrameworkVersion, OutputPath unconditionally", StringComparison.Ordinal));
         Assert.Contains(notes, n => n.Contains("The _CopyFilesMarkedCopyLocal target", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// SmartStoreNET 4.2.0 (corpus): a PostBuildEvent became a target with the command inline, so
+    /// <c>-p:PostBuildEvent=</c> (OFR0115's remedy for compile-only builds) no longer turned it off. The
+    /// events stay, and a target that runs before the build sets each one that is set again, when its
+    /// macros have values, for the SDK's own targets to run.
+    /// </summary>
+    [Fact]
+    public void Build_events_stay_and_a_target_sets_them_again_for_the_sdk_targets_to_run()
+    {
+        const string Legacy = """
+            <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup>
+                <AssemblyName>Library</AssemblyName>
+                <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+                <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
+              </PropertyGroup>
+              <ItemGroup>
+                <Compile Include="Class1.cs" />
+              </ItemGroup>
+              <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+              <PropertyGroup>
+                <PreBuildEvent>echo before $(ProjectName)</PreBuildEvent>
+                <PostBuildEvent>if not exist "$(TargetDir)x86" md "$(TargetDir)x86"</PostBuildEvent>
+              </PropertyGroup>
+            </Project>
+            """;
+
+        var (project, _) = Convert(Legacy, []);
+
+        var target = project.Elements("Target").Single();
+        Assert.Equal(("SetBuildEvents", "BeforeBuild"), ((string?)target.Attribute("Name"), (string?)target.Attribute("BeforeTargets")));
+        Assert.Equal(["PreBuildEvent", "PostBuildEvent"], target.Element("PropertyGroup")!.Elements().Select(e => e.Name.LocalName));
+        var postBuild = target.Descendants("PostBuildEvent").Single();
+        Assert.Equal("if not exist \"$(TargetDir)x86\" md \"$(TargetDir)x86\"", postBuild.Value);
+        Assert.Equal("'$(PostBuildEvent)' != ''", (string?)postBuild.Attribute("Condition"));
+        // The body keeps them: -p:PostBuildEvent= empties that definition, and the target then sets nothing.
+        Assert.Equal(postBuild.Value, project.Elements("PropertyGroup").Elements("PostBuildEvent").Single().Value);
+        Assert.Single(project.Elements("PropertyGroup").Elements("PreBuildEvent"));
+        Assert.Empty(project.Descendants("Exec"));
+        Assert.Equal("OnOutputUpdated", project.Elements("PropertyGroup").Descendants("RunPostBuildEvent").Single().Value);
     }
 
     private (XElement Project, ConversionOutput Output) Convert(string project, string[] frameworks, bool disableTransitiveProjectReferences = false)

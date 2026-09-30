@@ -211,6 +211,28 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   writes it to `offramp.yml` with its defaults.
 
 ### Fixed
+- `csproj modernize` verifies a conversion against what the legacy build really compiled (ADR 0061).
+  On SmartStoreNET 4.2.0, 10 of 11 conversions still failed verification (`OFR4303`) for reasons
+  that were not the conversion's; now 10 of 11 pass:
+  - The comparison counted as differences the .NET Standard facades the legacy builds added (103
+    of them, from the framework's `Facades` folder), the framework assemblies that packages declare
+    (`frameworkAssemblies`: PresentationCore, System.Security, System.Net.Http), and a package's
+    other assemblies (Microsoft.Web.Infrastructure). With the converted project's
+    `project.assets.json` as evidence, they are allowed and listed: `transitiveReferencesAdded`,
+    the new `frameworkReferencesAdded` and `facadesRemoved`, and `explanations` with the package
+    or folder each comes from. Other reference changes still fail.
+  - Files imported from a dot-directory were not model inputs, and of two spellings of one name
+    only one was kept, so the scratch copy lacked the working tree's untracked
+    `.nuget/nuget.targets` link (OFR0117's letter-case fix) and SmartStore.Web.MVC.Tests' legacy
+    references failed with MSB4019. Imports are inputs outside `.git/` and the state directory,
+    in each spelling a case-sensitive file system holds.
+  - A converted `PreBuildEvent`/`PostBuildEvent` became a target with the command inline, so
+    `verify.properties: PostBuildEvent: ""` (OFR0115's remedy) no longer turned it off, and
+    SmartStore.Data.Tests failed with MSB3073. The events now stay where the legacy project
+    defines them, and a `SetBuildEvents` target sets each one that is set again before the build,
+    when `$(TargetDir)` and the other macros have their values. The SDK's own targets run them as
+    before: from the output folder, by `RunPostBuildEvent` (now kept), and not under
+    `-p:PostBuildEvent=`.
 - `move plan` and `move extract` report a source that does not compile without the moved files
   once, at the project, with the file count and the first error, instead of one `OFR2104` per file
   (and one more for each resource pair or partial sibling kept with it): DotNetNuke 9.13's

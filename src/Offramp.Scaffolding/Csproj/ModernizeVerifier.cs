@@ -111,7 +111,9 @@ public static class ModernizeVerifier
         {
             if (after.TryGetValue(framework, out var converted))
             {
-                targets.Add(CompileSets.Compare(set, converted, request.ConvertedPackages));
+                // What the converted project's restore resolved explains the references PackageReference adds.
+                var assets = Path.Combine(Path.GetDirectoryName(scratch.Resolve(project))!, "obj", "project.assets.json");
+                targets.Add(CompileSets.Compare(set, converted, request.ConvertedPackages, RestoredPackages.Read(assets, framework)));
             }
             else
             {

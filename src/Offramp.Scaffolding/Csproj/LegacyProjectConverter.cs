@@ -88,7 +88,7 @@ public static class LegacyProjectConverter
         "Configuration", "Platform", "ProjectGuid", "AppDesignerFolder", "TargetFrameworkVersion", "TargetFrameworkProfile",
         "FileAlignment", "Deterministic", "ProjectTypeGuids", "NuGetPackageImportStamp", "SchemaVersion", "ProductVersion",
         "OldToolsVersion", "UpgradeBackupLocation", "FileUpgradeFlags", "TargetFrameworkIdentifier", "RestorePackages",
-        "SolutionDir", "AutoGenerateBindingRedirects", "PreBuildEvent", "PostBuildEvent", "RunPostBuildEvent",
+        "SolutionDir", "AutoGenerateBindingRedirects",
     };
 
     /// <summary>Configuration properties whose legacy template values are the SDK's defaults (by configuration).</summary>
@@ -288,7 +288,7 @@ public static class LegacyProjectConverter
                     continue;
                 }
 
-                if (property.Name.LocalName is "PreBuildEvent" or "PostBuildEvent" or "RunPostBuildEvent" || context.Drops(property.Name.LocalName))
+                if (context.Drops(property.Name.LocalName))
                 {
                     continue;
                 }
@@ -457,7 +457,6 @@ public static class LegacyProjectConverter
     /// <summary>Kept imports and targets, build events as targets, and conditioned groups kept as they are.</summary>
     private static List<XElement> Tail(Context context, XElement project)
     {
-        var ns = context.Ns;
         var result = new List<XElement>();
         foreach (var element in project.Elements())
         {
@@ -517,32 +516,51 @@ public static class LegacyProjectConverter
             }
         }
 
-        foreach (var (property, target, hook) in new[] { ("PreBuildEvent", "PreBuild", "BeforeTargets"), ("PostBuildEvent", "PostBuild", "AfterTargets") })
+        if (BuildEvents(context, project) is { } events)
         {
-            var definition = project.Elements(ns + "PropertyGroup").SelectMany(g => g.Elements(ns + property)).FirstOrDefault(e => e.Value.Trim().Length > 0);
-            if (definition is null)
-            {
-                continue;
-            }
-
-            // The property group's condition, and the property's own, now hold for the target.
-            var conditions = new[] { definition.Parent!.Attribute("Condition")?.Value, definition.Attribute("Condition")?.Value }
-                .Select(c => c?.Trim())
-                .Where(c => !string.IsNullOrEmpty(c))
-                .ToList();
-            var converted = new XElement("Target", new XAttribute("Name", target), new XAttribute(hook, property));
-            if (conditions.Count > 0)
-            {
-                converted.Add(new XAttribute("Condition", conditions.Count == 1 ? conditions[0]! : string.Join(" and ", conditions.Select(c => $"({c})"))));
-            }
-
-            converted.Add(new XElement("Exec", new XAttribute("Command", definition.Value.Trim())));
-            result.Add(converted);
-            context.Notes.Add(new ConversionNote("OFR4302",
-                $"The {property} is now the {target} target ({hook}=\"{property}\"). Review it: macros such as $(TargetPath) keep their meaning, but paths relative to the output folder change with the SDK's bin/<configuration>/<framework>/ layout."));
+            result.Add(events);
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// The PreBuildEvent and PostBuildEvent stay where the legacy project defines them, and a target
+    /// that runs before the build sets each one that is set again, with the same text
+    /// (docs/decisions/0061-modernize-verification.md). In the project body the SDK has not defined
+    /// $(TargetPath) and the other macros yet, so they expand to nothing; in the target they have
+    /// their values. The SDK's PreBuildEvent and PostBuildEvent targets then run the events as the
+    /// legacy build did (from the output folder, by RunPostBuildEvent's rule), and a build that
+    /// passes <c>-p:PostBuildEvent=</c> leaves the property empty, so the target does not set it and
+    /// the event does not run. Each definition keeps its group's condition and its own, in document
+    /// order, as evaluation applies them. Null without build events.
+    /// </summary>
+    private static XElement? BuildEvents(Context context, XElement project)
+    {
+        var properties = new XElement("PropertyGroup");
+        foreach (var property in new[] { "PreBuildEvent", "PostBuildEvent" })
+        {
+            var definitions = project.Elements(context.Ns + "PropertyGroup").SelectMany(g => g.Elements(context.Ns + property)).Where(e => e.Value.Trim().Length > 0).ToList();
+            foreach (var definition in definitions)
+            {
+                var conditions = new[] { $"'$({property})' != ''", definition.Parent!.Attribute("Condition")?.Value, definition.Attribute("Condition")?.Value }
+                    .Select(c => c?.Trim())
+                    .Where(c => !string.IsNullOrEmpty(c))
+                    .ToList();
+                properties.Add(new XElement(property, new XAttribute("Condition", conditions.Count == 1 ? conditions[0]! : string.Join(" and ", conditions.Select((c, i) => i == 0 ? c : $"({c})"))),
+                    definition.Value.Trim()));
+            }
+
+            if (definitions.Count > 0)
+            {
+                context.Notes.Add(new ConversionNote("OFR4302",
+                    $"The {property} stays, and the SetBuildEvents target sets it again before the build, when macros such as $(TargetPath) have their values; the SDK's {property} target runs it from the output folder as before, and -p:{property}= still turns it off. Review what it does in an SDK-style build."));
+            }
+        }
+
+        return properties.HasElements
+            ? new XElement("Target", new XAttribute("Name", "SetBuildEvents"), new XAttribute("BeforeTargets", "BeforeBuild"), properties)
+            : null;
     }
 
     /// <summary>The simple names of the project's framework references (Reference items without a HintPath).</summary>
