@@ -143,11 +143,14 @@ public sealed class OpenLiveWriterTests
         Assert.True(extract.Result["plan"]!["moves"]!.AsArray().Count >= 5, extract.Result["plan"]!["excluded"]?.ToJsonString());
     }
 
-    /// <summary>The Directory.Build.props sections docs/compiling-on-macos.md gives for OFR0119 and OFR0125.</summary>
+    /// <summary>The Directory.Build.props sections docs/compiling-on-macos.md gives for OFR0119 (legacy and SDK-style) and OFR0125.</summary>
     private static string LegacySections(List<string> mstestProjects)
     {
         const string legacy = "'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' != 'true'";
         const string net461 = "$([MSBuild]::VersionGreaterThanOrEquals($(TargetFrameworkVersion.TrimStart('v')), '4.6.1'))";
+
+        // The SDK-style form, for the projects csproj modernize converts (an item condition sees TargetFramework).
+        const string sdk = "'$(OfframpCompileOnly)' == 'true' And '$(UsingMicrosoftNETSdk)' == 'true'";
         var resources = $"""
               <PropertyGroup Condition="{legacy}">
                 <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
@@ -160,6 +163,12 @@ public sealed class OpenLiveWriterTests
                   <Reference Include="$(NuGetPackageRoot)system.resources.extensions/6.0.0/lib/net461/System.Resources.Extensions.dll" />
                 </ItemGroup>
               </Target>
+              <PropertyGroup Condition="{sdk}">
+                <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+              </PropertyGroup>
+              <ItemGroup Condition="{sdk} And $(TargetFramework.StartsWith('net4'))">
+                <PackageReference Include="System.Resources.Extensions" Version="6.0.0" />
+              </ItemGroup>
 
             """;
         if (mstestProjects.Count == 0)
