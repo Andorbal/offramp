@@ -229,7 +229,7 @@ public static class WindowsOnlyBuildSteps
         var preserialized = inner.Count > 0 && inner.All(e => e.IsTrue("GenerateResourceUsePreserializedResources"));
         if (files.NonStringResources.Count > 0 && !preserialized)
         {
-            var first = files.NonStringResources[0];
+            var first = files.NonStringResources[0] with { Path = files.NonStringResources[0].Path.Replace('\\', '/') };
             var more = files.NonStringResources.Count > 1
                 ? string.Create(CultureInfo.InvariantCulture, $" (and {files.NonStringResources.Count - 1} more .resx file(s))")
                 : "";
@@ -290,7 +290,7 @@ public static class WindowsOnlyBuildSteps
             && context.ToLocal(error.File) is { } file && context.ToLocal(error.ProjectFile) is { } projectFile
                 ? ExecTarget.Find(file, line, projectFile)
                 : null;
-        var outputs = (target?.Outputs ?? []).Select(context.Display).ToList();
+        var outputs = (target?.Outputs ?? []).Select(o => context.Display(o.Replace('\\', '/'))).ToList();
         var where = target is null ? "" : $" in target {target.Name}";
         var writes = outputs.Count > 0 ? $"; it writes {string.Join(", ", outputs)}" : "";
         var them = outputs.Count > 0 ? "those files" : "its output";

@@ -225,5 +225,6 @@ public sealed class ProjectFileChecksTests : IDisposable
     private ProjectFileFindings Check(string project, string? solutionDirectory = null) =>
         ProjectFileChecks.Check(_repo.Path, project, [], p => p, solutionDirectory);
 
-    private string Relative(string text) => text.Replace(_repo.Path + "/", "", StringComparison.Ordinal);
+    private string Relative(string text) =>
+        text.Replace(_repo.Path + "/", "", StringComparison.Ordinal).Replace(_repo.Path + "\\", "", StringComparison.Ordinal).Replace('\\', '/');
 }

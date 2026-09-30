@@ -276,8 +276,22 @@ public static class ModernizeVerifier
         return [.. (build.StandardOutput + "\n" + build.StandardError).Split('\n')
             .Select(l => l.Trim())
             .Where(l => l.Contains(": error ", StringComparison.Ordinal))
-            .Select(l => prefixes.Aggregate(l, (line, prefix) => line.Replace(prefix, "", StringComparison.Ordinal)))
+            .Select(l => Portable(prefixes.Aggregate(l, (line, prefix) => line.Replace(prefix, "", StringComparison.Ordinal))))
             .Distinct(StringComparer.Ordinal)];
+    }
+
+    /// <summary>An error line with forward slashes in its file (before <c>: error </c>) and its project (<c>[...]</c> at the end), as on every OS.</summary>
+    private static string Portable(string error)
+    {
+        var at = error.IndexOf(": error ", StringComparison.Ordinal);
+        var tail = error[at..];
+        var bracket = tail.LastIndexOf(" [", StringComparison.Ordinal);
+        if (bracket >= 0 && tail.EndsWith(']'))
+        {
+            tail = tail[..bracket] + tail[bracket..].Replace('\\', '/');
+        }
+
+        return error[..at].Replace('\\', '/') + tail;
     }
 
     private static string Shorten(string error) => error.Length > 300 ? error[..300] : error;

@@ -241,7 +241,7 @@ public sealed class WindowsOnlyBuildStepsTests
         {
             Executables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["MarketXmlGenerator.exe"] = "src/Gen/MarketXmlGenerator.csproj" },
             ToLocal = path => path,
-            Display = text => text.Replace(repo.Path + "/", "", StringComparison.Ordinal),
+            Display = text => text.Replace(repo.Path + "/", "", StringComparison.Ordinal).Replace(repo.Path.Replace('\\', '/') + "/", "", StringComparison.Ordinal),
         };
 
         var generator = Assert.Single(WindowsOnlyBuildSteps.Detect("src/Core/Core.csproj", [], errors, context));
@@ -253,7 +253,7 @@ public sealed class WindowsOnlyBuildStepsTests
             + "it writes src/Core/Marketization/Markets.xml. Guarding the target with OfframpCompileOnly leaves those files missing, "
             + "so generate them once (the generator may run on .NET) or check them in (MSB3073)",
             generator.Evidence);
-        Assert.Equal([repo.Path + "/src/Core/Marketization/Markets.xml"], generator.Paths);
+        Assert.Equal([repo.Path.Replace('\\', '/') + "/src/Core/Marketization/Markets.xml"], generator.Paths.Select(p => p.Replace('\\', '/')));
 
         // Paths are made repository-relative before the evidence is shortened (it read "src/managed//bin/De…").
         Assert.StartsWith("Exec: \"src/managed/bin/Debug/i386/Writer/MarketXmlGenerator.exe\" \"src/Core/Marketization/Markets.xml\"", plain.Evidence, StringComparison.Ordinal);

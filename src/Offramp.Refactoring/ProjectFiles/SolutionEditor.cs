@@ -62,7 +62,9 @@ public static class SolutionEditor
             .Where(p => string.Equals(Path.GetDirectoryName(Path.GetDirectoryName(p.FilePath.Replace('\\', '/'))), Path.GetDirectoryName(Path.GetDirectoryName(relative)), StringComparison.OrdinalIgnoreCase))
             .Select(p => p.Parent)
             .FirstOrDefault(f => f is not null);
-        model.AddProject(relative, projectTypeName: null, folder: siblingFolder);
+        // In the platform's separators: on Windows the serializer writes a forward-slash path as it is, and a .sln
+        // names projects with backslashes, which SlnText.Insert looks for.
+        model.AddProject(relative.Replace('/', Path.DirectorySeparatorChar), projectTypeName: null, folder: siblingFolder);
         var rewritten = await SaveAsync(serializer, model, Path.GetExtension(path), cancellationToken);
         if (!path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
         {
