@@ -50,6 +50,7 @@ public static class BinlogReader
         "EnableWindowsTargeting", "OfframpCompileOnly", "AdditionalExplicitAssemblyReferences", "MvcBuildViews", "BaseIntermediateOutputPath", "IntermediateOutputPath", "BaseOutputPath", "OutputPath",
         "GenerateResourceUsePreserializedResources", "SkipEnsureBindingRedirects",
         "MicrosoftCommonPropsHasBeenImported", "ImportDirectoryBuildProps", "DirectoryBuildPropsPath",
+        "SignAssembly", "AssemblyOriginatorKeyFile", "DelaySign", "PublicSign",
     };
 
     /// <summary>Item types copied from each evaluation.</summary>

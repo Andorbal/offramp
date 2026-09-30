@@ -149,6 +149,15 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   tainted type (partition N)`) instead of listing its members, which made one reason 42,036
   characters long. Now: 11 tainted types (SqlClient, ODBC, OLE DB, CodeDom, `CallContext`,
   `SecurityManager`, `DefineDynamicAssembly`), 7 seams, 2.7 MB (ADR 0053).
+- `move extract` creates a strong-named project next to a strong-named one. The template copied
+  only `LangVersion`, `Nullable` and `ImplicitUsings`, so NHibernate 4.1.2's extracted
+  `NHibernate.DynamicProxy` was unsigned while the signed `NHibernate.dll` referenced it, which
+  .NET Framework refuses to load. The workspace model now records `SignAssembly`,
+  `AssemblyOriginatorKeyFile` (repository-relative), `DelaySign` and `PublicSign` for signed
+  projects, and the new project gets them, the key file relative to its folder. Its
+  `InternalsVisibleTo` grant to the source carries the source's public key, and `OFR2114` (info)
+  names the friend assemblies the source grants its internals to by public key, which the new
+  project does not.
 - `move plan` and `move extract` move code out of a .NET Framework project that references no
   .NET Standard assembly yet. The source check added the .NET Standard destination to the recorded
   compilation without the facades a build adds with it (`netstandard.dll` and the `System.*`

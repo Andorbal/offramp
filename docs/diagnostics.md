@@ -133,6 +133,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR2111](#ofr2111) | warning | move | destination excludes the file path |
 | [OFR2112](#ofr2112) | warning | move | file breaks the destination's warning policy |
 | [OFR2113](#ofr2113) | info | move | co-move no longer needed |
+| [OFR2114](#ofr2114) | info | move | source's friend assemblies not granted by the new project |
 | [OFR2120](#ofr2120) | warning | move | namespace differs from destination root namespace |
 | [OFR2150](#ofr2150) | warning | move | file changed since plan |
 | [OFR2151](#ofr2151) | error | move | file changed since the move; rollback stopped |
@@ -1215,6 +1216,15 @@ The file was added to the move as a co-move (a file that a moving file needs), b
 
 - **Typical cause:** A requested file that is excluded (it does not compile in the destination, would close a cycle, ...) after the files it needs were added to the move.
 - **Fix:** Nothing to do; ask for the file explicitly if it should move on its own.
+
+### OFR2114
+
+**source's friend assemblies not granted by the new project** · info · move
+
+`move extract` creates the new project strong-named like the source, and the source grants its internal members to friend assemblies by public key (`InternalsVisibleTo`). The new project grants them nothing, so a friend that uses internal members of the moved code no longer compiles. The data lists the friends.
+
+- **Typical cause:** A strong-named library whose test project uses its internals, as NHibernate's does.
+- **Fix:** If a friend uses internal members of the moved code, add `<InternalsVisibleTo Include="Friend" Key="..." />` to the new project (the move's verification build shows it), or keep those files in the source.
 
 ### OFR2120
 

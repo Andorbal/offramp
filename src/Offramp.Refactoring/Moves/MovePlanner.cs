@@ -543,7 +543,7 @@ public static class MovePlanner
         private bool InternalsCheck(SortedSet<string> candidates)
         {
             var changed = false;
-            if (!DestinationAboveSource && InternalsBlocked(destination, destinations[0].Compilation, sourceCompilation.AssemblyName!, request.Create is not null) is { } destinationBlocked)
+            if (!DestinationAboveSource && (CreatedBlocked() ?? InternalsBlocked(destination, destinations[0].Compilation, sourceCompilation.AssemblyName!, request.Create is not null)) is { } destinationBlocked)
             {
                 var usedFromSource = _uses.Where(u => !candidates.Contains(u.Key))
                     .SelectMany(u => u.Value.Internals)
@@ -573,6 +573,24 @@ public static class MovePlanner
 
             return changed;
         }
+
+        /// <summary>
+        /// A project <c>move extract</c> creates signs like the source (<c>SignAssembly</c>), so its grant to the
+        /// source needs the source's public key, which the recorded compilation has when the build signed it.
+        /// </summary>
+        private bool CreatedSigned =>
+            request.Create is not null && destination.Properties.TryGetValue("SignAssembly", out var sign) && string.Equals(sign, "true", StringComparison.OrdinalIgnoreCase);
+
+        private string? CreatedBlocked() =>
+            CreatedSigned && sourceCompilation.Assembly.Identity.PublicKey.IsDefaultOrEmpty
+                ? $"{destination.Id} is strong-named like {source.Id}, and the compiler log has no public key of {sourceCompilation.AssemblyName} for InternalsVisibleTo"
+                : null;
+
+        /// <summary>The InternalsVisibleTo value that names the source: with its public key when the destination is a new, signed project.</summary>
+        private string SourceFriend =>
+            CreatedSigned && !sourceCompilation.Assembly.Identity.PublicKey.IsDefaultOrEmpty
+                ? $"{sourceCompilation.AssemblyName}, PublicKey={Convert.ToHexString(sourceCompilation.Assembly.Identity.PublicKey.AsSpan()).ToLowerInvariant()}"
+                : sourceCompilation.AssemblyName!;
 
         /// <summary>
         /// Why InternalsVisibleTo for <paramref name="friend"/> cannot take effect in <paramref name="project"/>, or null
@@ -649,7 +667,7 @@ public static class MovePlanner
             {
                 var (tfm, compilation) = NearestDestination(sourceTarget);
                 var trial = DestinationTrial(tfm, compilation, candidates, needs[tfm], out _)
-                    .AddSyntaxTrees(CSharpSyntaxTree.ParseText($"[assembly: System.Runtime.CompilerServices.InternalsVisibleTo(\"{sourceCompilation.AssemblyName}\")]", Options(compilation)));
+                    .AddSyntaxTrees(CSharpSyntaxTree.ParseText($"[assembly: System.Runtime.CompilerServices.InternalsVisibleTo(\"{SourceFriend}\")]", Options(compilation)));
                 var reference = trial.ToMetadataReference();
                 remaining = NetStandardFacades.Add(remaining.AddReferences(reference), sourceTarget, [reference]);
             }
@@ -927,7 +945,7 @@ public static class MovePlanner
 
             if (!DestinationAboveSource && SourceUsesMovedInternals(candidates))
             {
-                edits.Add(new ProjectEdit { Project = destination.Id, Kind = ProjectEditKind.AddInternalsVisibleTo, Value = sourceCompilation.AssemblyName });
+                edits.Add(new ProjectEdit { Project = destination.Id, Kind = ProjectEditKind.AddInternalsVisibleTo, Value = SourceFriend });
             }
 
             if (DestinationAboveSource && MovedUsesSourceInternals(candidates))

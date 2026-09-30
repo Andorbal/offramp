@@ -228,6 +228,14 @@ public static partial class DiagnosticCatalog
         "Nothing to do; ask for the file explicitly if it should move on its own.",
         MovesArea);
 
+    public static readonly DiagnosticDescriptor OFR2114 = new(
+        "OFR2114", Severity.Info,
+        "source's friend assemblies not granted by the new project",
+        "`move extract` creates the new project strong-named like the source, and the source grants its internal members to friend assemblies by public key (`InternalsVisibleTo`). The new project grants them nothing, so a friend that uses internal members of the moved code no longer compiles. The data lists the friends.",
+        "A strong-named library whose test project uses its internals, as NHibernate's does.",
+        "If a friend uses internal members of the moved code, add `<InternalsVisibleTo Include=\"Friend\" Key=\"...\" />` to the new project (the move's verification build shows it), or keep those files in the source.",
+        MovesArea);
+
     public static readonly DiagnosticDescriptor OFR2120 = new(
         "OFR2120", Severity.Warning,
         "namespace differs from destination root namespace",

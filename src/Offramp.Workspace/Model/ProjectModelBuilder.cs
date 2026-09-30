@@ -41,6 +41,9 @@ public static class ProjectModelBuilder
         "IsTestProject", "ProjectTypeGuids", "ImplicitUsings", "EnableWindowsTargeting", "OfframpCompileOnly",
     ];
 
+    /// <summary>Strong naming, recorded when <c>SignAssembly</c> is true; the key file repository-relative when it is inside the repository.</summary>
+    private static readonly string[] SigningProperties = ["SignAssembly", "AssemblyOriginatorKeyFile", "DelaySign", "PublicSign"];
+
     public static ProjectInfo Build(string projectId, IReadOnlyList<EvaluatedProject> evaluations, ProjectBuildContext context)
     {
         var outer = evaluations.FirstOrDefault(e => e.TargetFramework is null);
@@ -211,7 +214,24 @@ public static class ProjectModelBuilder
             result[name] = name == "DirectoryPackagesPropsPath" ? context.Paths.ToRelative(value) ?? Path.GetFileName(value) : value;
         }
 
+        var signed = evaluations.FirstOrDefault(e => e.IsTrue("SignAssembly"));
+        foreach (var name in signed is null ? [] : SigningProperties)
+        {
+            if (signed!.Property(name) is { } value)
+            {
+                result[name] = name == "AssemblyOriginatorKeyFile" ? KeyFile(signed.ProjectFile, value, context) : value;
+            }
+        }
+
         return result;
+    }
+
+    /// <summary>A key file path (relative to the project, or absolute) as a repository-relative path; unchanged when it is outside the repository.</summary>
+    private static string KeyFile(string projectFile, string value, ProjectBuildContext context)
+    {
+        var project = projectFile.Replace('\\', '/');
+        var relative = context.Paths.ToRelative(project[..Math.Max(project.LastIndexOf('/'), 0)], value);
+        return relative is null || relative.Length == 0 || relative.StartsWith("../", StringComparison.Ordinal) ? value : relative;
     }
 
     /// <summary>

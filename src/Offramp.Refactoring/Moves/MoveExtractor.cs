@@ -1,5 +1,6 @@
 using System.Security;
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Offramp.Analysis.Compilations;
@@ -94,6 +95,9 @@ public static class MoveExtractor
 {
     private static readonly string[] CopiedProperties = ["LangVersion", "Nullable", "ImplicitUsings"];
 
+    /// <summary>Strong naming: a strong-named assembly loads only strong-named ones on .NET Framework, so the new project signs with the source's key.</summary>
+    private static readonly string[] SigningProperties = ["SignAssembly", "AssemblyOriginatorKeyFile", "DelaySign", "PublicSign"];
+
     public static async Task<MoveExtractPlan?> PlanAsync(MoveExtractRequest request, CancellationToken cancellationToken)
     {
         var bag = request.Diagnostics;
@@ -130,7 +134,7 @@ public static class MoveExtractor
 
         var requested = types.SelectMany(t => t.Files).Concat(files).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
         var tfms = request.TargetFrameworks.Count > 0 ? request.TargetFrameworks : source.TargetFrameworks;
-        var content = Template(source, tfms);
+        var content = Template(source, tfms, projectPath);
         var bytes = new UTF8Encoding(false).GetBytes(content);
         var info = new ProjectInfo
         {
@@ -142,7 +146,8 @@ public static class MoveExtractor
             Sdk = "Microsoft.NET.Sdk",
             TargetFrameworks = tfms,
             Properties = new SortedDictionary<string, string>(
-                source.Properties.Where(p => p.Key == "ManagePackageVersionsCentrally" || CopiedProperties.Contains(p.Key)).ToDictionary(p => p.Key, p => p.Value), StringComparer.Ordinal),
+                source.Properties.Where(p => p.Key == "ManagePackageVersionsCentrally" || CopiedProperties.Contains(p.Key) || SigningProperties.Contains(p.Key))
+                    .ToDictionary(p => p.Key, p => p.Value), StringComparer.Ordinal),
         };
 
         var compilations = new List<(string Tfm, CSharpCompilation Compilation)>();
@@ -177,6 +182,11 @@ public static class MoveExtractor
             return null;
         }
 
+        if (planned.Plan.Moves.Count > 0)
+        {
+            NoteFriends(bag, source, compilation, projectPath);
+        }
+
         var created = new Dictionary<string, byte[]>(StringComparer.Ordinal) { [projectPath] = bytes };
         var changeSet = MoveChangeSet.Build(request.RepositoryRoot, planned.Plan, new HashSet<string>(StringComparer.Ordinal), out _, model, created);
         await MoveApplier.AddToSolutionsAsync(request.RepositoryRoot, planned.Plan, changeSet, cancellationToken).ConfigureAwait(false);
@@ -192,6 +202,30 @@ public static class MoveExtractor
             Preview = changeSet.Preview(),
         };
         return new MoveExtractPlan(result, model, created);
+    }
+
+    /// <summary>
+    /// <c>OFR2114</c> when the source grants its internals to friend assemblies by public key: the new project, signed
+    /// with the same key, grants them nothing, so a friend that uses internal members of the moved code loses them.
+    /// </summary>
+    private static void NoteFriends(DiagnosticBag bag, ProjectInfo source, CSharpCompilation compilation, string projectPath)
+    {
+        var friends = compilation.Assembly.GetAttributes()
+            .Where(a => a.AttributeClass?.Name == "InternalsVisibleToAttribute")
+            .Select(a => a.ConstructorArguments.FirstOrDefault().Value as string)
+            .OfType<string>()
+            .Where(v => v.Contains("PublicKey=", StringComparison.OrdinalIgnoreCase))
+            .Select(v => v.Split(',')[0].Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        if (friends.Count > 0)
+        {
+            bag.Report(DiagnosticCatalog.OFR2114,
+                $"{source.Id} grants its internal members to {string.Join(", ", friends)} by public key, and {projectPath} does not; a friend that uses internal members of the moved code needs an InternalsVisibleTo item with that key in {projectPath}.",
+                new DiagnosticLocation(source.Id),
+                [KeyValuePair.Create<string, JsonNode?>("friends", new JsonArray([.. friends.Select(f => (JsonNode?)f)]))]);
+        }
     }
 
     /// <summary>The default folder: beside the source project's folder.</summary>
@@ -265,16 +299,17 @@ public static class MoveExtractor
         return failed ? null : result;
     }
 
-    /// <summary>The new project file: SDK-style, the source's language settings, analyzers, and .NET Framework references.</summary>
-    internal static string Template(ProjectInfo source, IReadOnlyList<string> tfms)
+    /// <summary>The new project file: SDK-style, the source's language settings, strong naming, analyzers, and .NET Framework references.</summary>
+    internal static string Template(ProjectInfo source, IReadOnlyList<string> tfms, string projectPath)
     {
         var builder = new StringBuilder();
         builder.Append("<Project Sdk=\"Microsoft.NET.Sdk\">\n\n  <PropertyGroup>\n");
         builder.Append(tfms.Count == 1 ? $"    <TargetFramework>{tfms[0]}</TargetFramework>\n" : $"    <TargetFrameworks>{string.Join(';', tfms)}</TargetFrameworks>\n");
         builder.Append("    <RootNamespace>").Append(Escape(source.RootNamespace ?? source.Name)).Append("</RootNamespace>\n");
-        foreach (var name in CopiedProperties.Where(source.Properties.ContainsKey))
+        foreach (var name in CopiedProperties.Concat(SigningProperties).Where(source.Properties.ContainsKey))
         {
-            builder.Append("    <").Append(name).Append('>').Append(Escape(source.Properties[name])).Append("</").Append(name).Append(">\n");
+            var text = name == "AssemblyOriginatorKeyFile" ? KeyFile(source.Properties[name], source.Id, projectPath) : source.Properties[name];
+            builder.Append("    <").Append(name).Append('>').Append(Escape(text)).Append("</").Append(name).Append(">\n");
         }
 
         builder.Append("  </PropertyGroup>\n");
@@ -314,6 +349,39 @@ public static class MoveExtractor
 
         builder.Append("\n</Project>\n");
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// The source's key file relative to the new project's folder. The model records it repository-relative, or,
+    /// outside the repository, as the source project says it: absolute (kept), or relative to the source's folder.
+    /// </summary>
+    private static string KeyFile(string recorded, string sourceProject, string projectPath)
+    {
+        var path = recorded.Replace('\\', '/');
+        if (Path.IsPathRooted(recorded) || path.StartsWith('/'))
+        {
+            return recorded;
+        }
+
+        if (path.StartsWith("../", StringComparison.Ordinal))
+        {
+            var parts = new List<string>(sourceProject.Split('/')[..^1]);
+            foreach (var segment in path.Split('/'))
+            {
+                if (segment == ".." && parts.Count > 0 && parts[^1] != "..")
+                {
+                    parts.RemoveAt(parts.Count - 1);
+                }
+                else if (segment is not ("." or ""))
+                {
+                    parts.Add(segment);
+                }
+            }
+
+            path = string.Join('/', parts);
+        }
+
+        return MoveChangeSet.Relative(projectPath, path);
     }
 
     /// <summary>

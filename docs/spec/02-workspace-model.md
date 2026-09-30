@@ -54,7 +54,9 @@ From the binlog, via the structured log reader (`MSBuild.StructuredLogger`):
   `UseWPF`, `UseWindowsForms`, `IsTestProject`, `IsPackable`,
   `GenerateSerializationAssemblies`, `ManagePackageVersionsCentrally`,
   `DirectoryPackagesPropsPath`, `ProjectTypeGuids` (legacy), `LangVersion`,
-  `Nullable`, `TreatWarningsAsErrors`, `NoWarn`, `DefineConstants`.
+  `Nullable`, `TreatWarningsAsErrors`, `NoWarn`, `DefineConstants`, and, when
+  `SignAssembly` is true, `SignAssembly`, `AssemblyOriginatorKeyFile`
+  (repository-relative when inside the repository), `DelaySign`, `PublicSign`.
 - Items: `Compile`, `ProjectReference`, `PackageReference` (with `Version`,
   `VersionOverride`, `PrivateAssets`), `Reference` (with `HintPath`),
   `COMReference`, `EmbeddedResource`, `None` with `CopyToOutputDirectory`,

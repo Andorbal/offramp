@@ -373,7 +373,9 @@ unless that would be circular, then runs `move plan` + `move apply` into it.
   `NAME.csproj`; the folder must not exist or be empty (`OFR2007`). The template:
   `Microsoft.NET.Sdk`, `--tfm` (default: `SRC`'s target frameworks), `SRC`'s root
   namespace (moved files keep their namespaces), `LangVersion`, `Nullable`, and
-  `ImplicitUsings` when `SRC` sets them, `SRC`'s analyzer packages (`PrivateAssets="all"`,
+  `ImplicitUsings` when `SRC` sets them, `SRC`'s strong naming (`SignAssembly`,
+  `AssemblyOriginatorKeyFile` relative to the new folder, `DelaySign`, `PublicSign`: a
+  strong-named assembly loads only strong-named ones on .NET Framework), `SRC`'s analyzer packages (`PrivateAssets="all"`,
   versions omitted under central package management), and `SRC`'s .NET Framework
   `Reference` items for .NET Framework targets. It is added to the workspace's solution.
 - **Planning** is `move plan` with the new project as destination. It does not exist
@@ -382,7 +384,10 @@ unless that would be circular, then runs `move plan` + `move apply` into it.
   assemblies resolved by the SDK (`OFR2008` when they do not resolve). The plan adds
   the package and project references the moved files need, `SRC`'s reference to the new
   project, and the rest of `move plan`'s rules (exclusions, internals, resources).
-  Its `projectEdits` start with `createProject` and `addToSolution`.
+  Its `projectEdits` start with `createProject` and `addToSolution`. When the new project
+  is signed, its `addInternalsVisibleTo` for `SRC` carries `SRC`'s public key
+  (`Name, PublicKey=...`), and when `SRC` grants its internals to friend assemblies by
+  public key, `OFR2114` (info) names them: the new project does not grant them.
 - **Applying** (`--apply`, when anything can move) is `move apply` of that plan: one
   journal creates the project file (with the plan's edits), edits the solution and
   `SRC`, and renames the files, then verifies (`--verify`, default `move.verify`); a
@@ -463,6 +468,7 @@ offramp forwarders --from SRC.csproj --to DEST.csproj [--since GIT_REF] [--apply
 | OFR2111 | destination excludes the file's path |
 | OFR2112 | file compiles but breaks the destination's warning policy |
 | OFR2113 | co-move no longer needed: the file it was co-moved for stays |
+| OFR2114 | `move extract`: the source's friend assemblies are not granted by the new project |
 | OFR2120 | namespace differs from destination root namespace |
 | OFR2150 | file changed since plan |
 | OFR2151 | file changed since the move; rollback stopped |
