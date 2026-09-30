@@ -220,6 +220,14 @@ public static partial class DiagnosticCatalog
         "Fix the warnings in the source project first (they are the destination's rules), or relax them for the moved code in the destination (`NoWarn`, `WarningsNotAsErrors`, an `.editorconfig` section), then plan the move again.",
         MovesArea);
 
+    public static readonly DiagnosticDescriptor OFR2113 = new(
+        "OFR2113", Severity.Info,
+        "co-move no longer needed",
+        "The file was added to the move as a co-move (a file that a moving file needs), but the file it was co-moved for stays, and no other moving file needs it, so it stays too. The message names the file it was co-moved for.",
+        "A requested file that is excluded (it does not compile in the destination, would close a cycle, ...) after the files it needs were added to the move.",
+        "Nothing to do; ask for the file explicitly if it should move on its own.",
+        MovesArea);
+
     public static readonly DiagnosticDescriptor OFR2120 = new(
         "OFR2120", Severity.Warning,
         "namespace differs from destination root namespace",

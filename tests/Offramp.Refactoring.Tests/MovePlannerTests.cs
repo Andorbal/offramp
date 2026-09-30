@@ -3,6 +3,7 @@ using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Fixtures;
 using Offramp.Refactoring.Moves;
+using Offramp.Workspace.Scanning;
 using Offramp.Workspace.Store;
 
 namespace Offramp.Refactoring.Tests;
@@ -189,6 +190,82 @@ public sealed class MovePlannerTests
         Assert.Equal("Code staying in src/Legacy/Legacy.csproj uses its internal members, and src/Core/Core.csproj does not generate its assembly info (GenerateAssemblyInfo=false), so an InternalsVisibleTo item would have no effect.", rounding.Message);
         Assert.DoesNotContain(internals.ProjectEdits, e => e.Kind == ProjectEditKind.AddInternalsVisibleTo);
     }
+
+    [Fact]
+    [ProducesDiagnostic("OFR2113")]
+    public async Task Co_moves_stay_when_the_file_they_were_for_stays()
+    {
+        // As in SmartStoreNET: a requested file that does not compile in the destination had
+        // brought along what it needs, and what that needs; none of it moves on its own.
+        var fixture = await Extended.Value;
+        var diagnostics = new DiagnosticBag();
+
+        var alone = Plan(fixture, ["src/Legacy/Chain/Alpha.cs"], diagnostics)!.Plan;
+        var shared = Plan(fixture, ["src/Legacy/Chain/Alpha.cs", "src/Legacy/Chain/Zeta.cs"], new DiagnosticBag())!.Plan;
+
+        Assert.Empty(alone.Moves);
+        Assert.Equal(
+            [("src/Legacy/Chain/Alpha.cs", "OFR2103"), ("src/Legacy/Chain/Title.cs", "OFR2113"), ("src/Legacy/Chain/Trim.cs", "OFR2113")],
+            alone.Excluded.Select(e => (e.File, e.Code)));
+        Assert.Equal("Co-moved for src/Legacy/Chain/Alpha.cs, which stays.", alone.Excluded[1].Message);
+        Assert.Equal(["src/Legacy/Chain/Title.cs"], alone.Excluded[2].Details);
+        Assert.Equal(2, diagnostics.ToSortedList().Count(d => d.Code == "OFR2113"));
+        Assert.DoesNotContain(alone.ProjectEdits, e => e.Kind == ProjectEditKind.AddProjectReference);
+
+        // A co-move another moving file still needs stays in the plan, attributed to that file.
+        Assert.Equal(
+            [("src/Legacy/Chain/Title.cs", "src/Legacy/Chain/Zeta.cs"), ("src/Legacy/Chain/Trim.cs", "src/Legacy/Chain/Title.cs"), ("src/Legacy/Chain/Zeta.cs", null)],
+            shared.Moves.Select(m => (m.File, m.CoMoveOf)));
+        Assert.Equal(("src/Legacy/Chain/Alpha.cs", "OFR2103"), (Assert.Single(shared.Excluded).File, shared.Excluded[0].Code));
+
+        // A file whose co-move --namespace-mismatch block keeps stays too.
+        var blocked = Plan(fixture, ["src/Legacy/Chain/Banner.cs"], new DiagnosticBag(), namespaces: "block")!.Plan;
+        Assert.Empty(blocked.Moves);
+        Assert.Equal(
+            [("src/Legacy/Chain/Banner.cs", "OFR2101"), ("src/Legacy/Chain/Title.cs", "OFR2120"), ("src/Legacy/Chain/Trim.cs", "OFR2120")],
+            blocked.Excluded.Select(e => (e.File, e.Code)));
+    }
+
+    /// <summary>
+    /// move-cases plus a chain of files in Legacy (Alpha, which uses System.Web's HttpContext, Zeta,
+    /// and Banner, in Core's root namespace, need Title, which needs Trim), and two .NET Framework
+    /// projects that reference no .NET Standard assembly: Framework (net461) and Framework48 (net48),
+    /// where Timer uses Clock.
+    /// </summary>
+    private static readonly Lazy<Task<ScannedFixture>> Extended = new(async () =>
+    {
+        var fixture = await ScannedFixtures.ScanAsync("move-cases", Extend);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => fixture.Repository.Dispose();
+        return fixture;
+    });
+
+    private static ScanRequest Extend(string root, ScanRequest request)
+    {
+        static void Write(string root, string path, string text)
+        {
+            var absolute = Path.Combine(root, path);
+            Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+            File.WriteAllText(absolute, text);
+        }
+
+        Write(root, "src/Legacy/Chain/Alpha.cs", "namespace Legacy.Chain\n{\n    public static class Alpha\n    {\n        public static string Render(string text) => (System.Web.HttpContext.Current?.Request.RawUrl ?? \"/\") + Title.Of(text);\n    }\n}\n");
+        Write(root, "src/Legacy/Chain/Zeta.cs", "namespace Legacy.Chain\n{\n    public static class Zeta\n    {\n        public static string Heading(string text) => \"# \" + Title.Of(text);\n    }\n}\n");
+        Write(root, "src/Legacy/Chain/Banner.cs", "namespace Core.Chain\n{\n    public static class Banner\n    {\n        public static string Of(string text) => Legacy.Chain.Title.Of(text);\n    }\n}\n");
+        Write(root, "src/Legacy/Chain/Title.cs", "namespace Legacy.Chain\n{\n    public static class Title\n    {\n        public static string Of(string text) => Trim.Text(text).ToUpperInvariant();\n    }\n}\n");
+        Write(root, "src/Legacy/Chain/Trim.cs", "namespace Legacy.Chain\n{\n    public static class Trim\n    {\n        public static string Text(string text) => text.Trim();\n    }\n}\n");
+        foreach (var (name, tfm) in new[] { ("Framework", "net461"), ("Framework48", "net48") })
+        {
+            Write(root, $"src/{name}/{name}.csproj", $"<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>{tfm}</TargetFramework>\n    <LangVersion>latest</LangVersion>\n  </PropertyGroup>\n</Project>\n");
+            Write(root, $"src/{name}/Clock.cs", $"namespace {name}\n{{\n    public static class Clock\n    {{\n        public static System.DateTime Now() => System.DateTime.UtcNow;\n    }}\n}}\n");
+            Write(root, $"src/{name}/Timer.cs", $"namespace {name}\n{{\n    public static class Timer\n    {{\n        public static long Ticks() => Clock.Now().Ticks;\n    }}\n}}\n");
+        }
+
+        var solution = Path.Combine(root, "MoveCases.slnx");
+        File.WriteAllText(solution, File.ReadAllText(solution).Replace(
+            "</Folder>", "  <Project Path=\"src/Framework/Framework.csproj\" />\n    <Project Path=\"src/Framework48/Framework48.csproj\" />\n  </Folder>", StringComparison.Ordinal));
+        return request;
+    }
+
 
     private static MovePlanResult? Plan(
         ScannedFixture fixture, IReadOnlyList<string> files, DiagnosticBag diagnostics, string coMove = "closure", string namespaces = "allow",

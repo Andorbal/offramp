@@ -176,6 +176,11 @@ public static class MovePlanner
     {
         private readonly Dictionary<string, string?> _coMoveOf = new(StringComparer.Ordinal);
         private readonly Dictionary<string, ExcludedMove> _excluded = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _requested = new(StringComparer.Ordinal);
+
+        // Co-moves dropped because nothing that still moves needs them, and the file each was co-moved for.
+        private readonly SortedDictionary<string, string?> _dropped = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<string>> _pulls = new(StringComparer.Ordinal);
         private readonly List<PlanCycle> _cycles = [];
         private readonly HashSet<string> _partialNoted = new(StringComparer.Ordinal);
 
@@ -200,29 +205,111 @@ public static class MovePlanner
             _uses = _trees.ToDictionary(t => t.Key, t => Uses(t.Value), StringComparer.Ordinal);
 
             var candidates = new SortedSet<string>(StringComparer.Ordinal);
+            _requested.UnionWith(requested);
             foreach (var file in requested)
             {
                 Add(candidates, file, null);
             }
 
-            // Static rules, then trial compilation, until nothing more is excluded.
+            // Static rules, then trial compilation, until nothing more is excluded. After every
+            // exclusion, co-moves that nothing moving needs any more stay too.
             Dictionary<string, List<ReferenceNeed>> needs;
             while (true)
             {
-                while (Partition(candidates))
+                while (Partition(candidates) || DropUnneeded(candidates))
                 {
                 }
 
                 needs = NeedsPerTarget(candidates);
-                if (!InternalsCheck(candidates) && !TrialCompile(candidates, needs) && !SourceCheck(candidates, needs) && !DependentsCheck(candidates))
+                if (!InternalsCheck(candidates) && !TrialCompile(candidates, needs) && !SourceCheck(candidates, needs) && !DependentsCheck(candidates)
+                    && !NamespaceCheck(candidates))
                 {
                     break;
                 }
             }
 
             PlatformCheck(candidates, needs);
-            NamespaceCheck(candidates);
+            ReportDropped(candidates);
             return Result(candidates, needs);
+        }
+
+        /// <summary>
+        /// Drops co-moves that no file still moving needs: the candidates not reachable from a
+        /// requested file through what files need (the files they use, their resource pairs, and
+        /// the other parts of their partial types). A co-move that is still needed, but no longer
+        /// by the file it was first co-moved for, is attributed to one that still moves. Returns
+        /// true when files were dropped.
+        /// </summary>
+        private bool DropUnneeded(SortedSet<string> candidates)
+        {
+            var reached = new HashSet<string>(candidates.Where(_requested.Contains), StringComparer.Ordinal);
+            var via = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            var pending = new Queue<string>(candidates.Where(_requested.Contains));
+            while (pending.TryDequeue(out var file))
+            {
+                foreach (var next in Pulls(file).Where(candidates.Contains))
+                {
+                    if (reached.Add(next))
+                    {
+                        via[next] = file;
+                        pending.Enqueue(next);
+                    }
+                }
+            }
+
+            foreach (var (file, parent) in via)
+            {
+                if (_coMoveOf.GetValueOrDefault(file) is not { } recorded || !reached.Contains(recorded))
+                {
+                    _coMoveOf[file] = parent;
+                }
+            }
+
+            var unneeded = candidates.Where(f => !reached.Contains(f)).ToList();
+            foreach (var file in unneeded)
+            {
+                candidates.Remove(file);
+                _dropped[file] = _coMoveOf.GetValueOrDefault(file);
+                _coMoveOf.Remove(file);
+            }
+
+            return unneeded.Count > 0;
+        }
+
+        /// <summary>The files a candidate brings along, sorted: its resource pair, its partial siblings, and (unless the destination is above the source) the files it uses.</summary>
+        private List<string> Pulls(string file)
+        {
+            if (!_pulls.TryGetValue(file, out var pulled))
+            {
+                var files = new SortedSet<string>(Pairs(file), StringComparer.Ordinal);
+                if (_trees.TryGetValue(file, out var tree))
+                {
+                    files.UnionWith(PartialSiblings(tree));
+                }
+
+                if (!DestinationAboveSource && _uses.TryGetValue(file, out var uses))
+                {
+                    files.UnionWith(uses.Files);
+                }
+
+                files.Remove(file);
+                _pulls[file] = pulled = [.. files];
+            }
+
+            return pulled;
+        }
+
+        /// <summary>Co-moves dropped by <see cref="DropUnneeded"/> stay where they are: excluded with <c>OFR2113</c>, naming the file they were co-moved for.</summary>
+        private void ReportDropped(SortedSet<string> candidates)
+        {
+            foreach (var (file, coMoveOf) in _dropped.Where(d => !candidates.Contains(d.Key) && !_excluded.ContainsKey(d.Key)))
+            {
+                var message = coMoveOf is null ? "Nothing that moves needs it any more." : $"Co-moved for {coMoveOf}, which stays.";
+                List<string> details = coMoveOf is null ? [] : [coMoveOf];
+                _excluded[file] = new ExcludedMove { File = file, Code = DiagnosticCatalog.OFR2113.Code, Message = message, Details = details };
+                Bag.Report(DiagnosticCatalog.OFR2113, message, new DiagnosticLocation(source.Id, file),
+                    details.Count == 0 ? null : [KeyValuePair.Create<string, JsonNode?>("details", new JsonArray([.. details.Select(d => (JsonNode?)d)]))]);
+            }
         }
 
         /// <summary>The rules of <see cref="MovePlanner.Assess"/>, in order; the first that fails is the reason.</summary>
@@ -325,6 +412,7 @@ public static class MovePlanner
                 return;
             }
 
+            _dropped.Remove(file);
             _coMoveOf.TryAdd(file, coMoveOf);
             foreach (var pair in Pairs(file))
             {
@@ -717,13 +805,19 @@ public static class MovePlanner
             project.CompilerCalls.Keys.Concat(project.TargetFrameworks).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
                 .FirstOrDefault(tfm => Nearest(destinations.Select(d => d.Tfm), tfm) is null);
 
-        private void NamespaceCheck(SortedSet<string> candidates)
+        /// <summary>
+        /// Namespaces outside the destination's root namespace: warned about, or with <c>block</c>
+        /// excluded. Runs last in each round, so a warning is reported once, for the final set;
+        /// returns true when a file had to be excluded (files needing it are then excluded too).
+        /// </summary>
+        private bool NamespaceCheck(SortedSet<string> candidates)
         {
             if (request.NamespaceMismatch == "allow")
             {
-                return;
+                return false;
             }
 
+            var changed = false;
             var root = destination.RootNamespace ?? destination.Name;
             foreach (var file in candidates.Where(_trees.ContainsKey).ToList())
             {
@@ -736,13 +830,15 @@ public static class MovePlanner
                 var message = $"Declares {string.Join(", ", outside)}, outside {destination.Id}'s root namespace {root}.";
                 if (request.NamespaceMismatch == "block")
                 {
-                    Exclude(candidates, file, DiagnosticCatalog.OFR2120, message, outside);
+                    changed |= Exclude(candidates, file, DiagnosticCatalog.OFR2120, message, outside);
                 }
                 else
                 {
                     Bag.Report(DiagnosticCatalog.OFR2120, message, new DiagnosticLocation(source.Id, file));
                 }
             }
+
+            return changed;
         }
 
         /// <summary>The namespaces a file declares outside the destination's root namespace.</summary>
@@ -1042,16 +1138,10 @@ public static class MovePlanner
             Bag.Report(code, message, new DiagnosticLocation(source.Id, file),
                 details.Count == 0 ? null : [KeyValuePair.Create<string, JsonNode?>("details", new JsonArray([.. details.Select(d => (JsonNode?)d)]))]);
 
-            // Its pair and partial siblings stay with it; files co-moved only for it stay too.
+            // Its pair and partial siblings stay with it; co-moves nothing else needs stay too (DropUnneeded).
             foreach (var partner in Pairs(file).Concat(_trees.TryGetValue(file, out var tree) ? PartialSiblings(tree) : []).Where(candidates.Contains).ToList())
             {
                 Exclude(candidates, partner, code, $"Moves only with {file}, which stays.", [file]);
-            }
-
-            foreach (var dependent in _coMoveOf.Where(c => c.Value == file && candidates.Contains(c.Key)).Select(c => c.Key).ToList())
-            {
-                candidates.Remove(dependent);
-                _coMoveOf.Remove(dependent);
             }
 
             return true;

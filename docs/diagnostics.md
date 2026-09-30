@@ -132,6 +132,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR2110](#ofr2110) | info | move | partial type co-moved |
 | [OFR2111](#ofr2111) | warning | move | destination excludes the file path |
 | [OFR2112](#ofr2112) | warning | move | file breaks the destination's warning policy |
+| [OFR2113](#ofr2113) | info | move | co-move no longer needed |
 | [OFR2120](#ofr2120) | warning | move | namespace differs from destination root namespace |
 | [OFR2150](#ofr2150) | warning | move | file changed since plan |
 | [OFR2151](#ofr2151) | error | move | file changed since the move; rollback stopped |
@@ -1205,6 +1206,15 @@ The file compiles in the destination, but raises warnings the destination treats
 
 - **Typical cause:** A destination that generates documentation (CS1591 for public members without XML comments), enables nullable warnings, or runs analyzers the source does not, with warnings as errors.
 - **Fix:** Fix the warnings in the source project first (they are the destination's rules), or relax them for the moved code in the destination (`NoWarn`, `WarningsNotAsErrors`, an `.editorconfig` section), then plan the move again.
+
+### OFR2113
+
+**co-move no longer needed** · info · move
+
+The file was added to the move as a co-move (a file that a moving file needs), but the file it was co-moved for stays, and no other moving file needs it, so it stays too. The message names the file it was co-moved for.
+
+- **Typical cause:** A requested file that is excluded (it does not compile in the destination, would close a cycle, ...) after the files it needs were added to the move.
+- **Fix:** Nothing to do; ask for the file explicitly if it should move on its own.
 
 ### OFR2120
 

@@ -149,6 +149,16 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   tainted type (partition N)`) instead of listing its members, which made one reason 42,036
   characters long. Now: 11 tainted types (SqlClient, ODBC, OLE DB, CodeDom, `CallContext`,
   `SecurityManager`, `DefineDynamicAssembly`), 7 seams, 2.7 MB (ADR 0053).
+- `move plan` and `move extract` no longer move co-moves whose reason stays. When a requested
+  file was excluded, only the files co-moved directly for it were removed from the plan, silently,
+  and theirs stayed: moving SmartStoreNET 4.2.0's `SmartStore.Core/Collections` (10 files) into a
+  new `netstandard2.0` project moved 1 requested file and 40 others, among them a
+  `BinaryFormatter` helper, and for 35 of the 41 moves the file named in `coMoveOf` neither moved
+  nor was excluded. After every exclusion the planner now keeps only the files a requested file
+  still needs, transitively; a co-move another moving file needs stays, with `coMoveOf` naming
+  that file, and each dropped co-move is listed in `excluded` with the new `OFR2113` (info),
+  naming the file it was co-moved for. With `--namespace-mismatch block`, a file that needs a
+  blocked file is now excluded too (`OFR2101`) instead of moving without it.
 - `csproj modernize` reports what its verification found in full. A converted build that failed
   showed its first 10 errors and nothing else (NHibernate 4.1.2's `netstandard2.0` conversion had
   71): the result's `verification` now has `built`, `buildErrorCount`, and `buildErrorCodes` (the

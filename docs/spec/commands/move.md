@@ -35,7 +35,11 @@ frameworks:
    - **Declared in the same project.** If declared in files also being moved,
      fine. Otherwise, with `--co-move closure` the declaring files are added to
      the candidate set (transitively) and reported as co-moves; with `none` the
-     file is excluded (`OFR2101 needs co-move`). Files that the *rest of the
+     file is excluded (`OFR2101 needs co-move`). A co-move stays only while a
+     moving file needs it: when the file it was added for is excluded, it and
+     its own co-moves stay too, unless another moving file needs them (then
+     `coMoveOf` names that file). `excluded` lists each dropped co-move with
+     `OFR2113` (info), naming the file it was co-moved for (ADR 0051). Files that the *rest of the
      source project* still needs after moving are allowed to move only if
      `SRC` will reference `DEST` (checked for cycles: `OFR2001 would create
      cycle`, `OFR2002 self reference`).
@@ -452,6 +456,7 @@ offramp forwarders --from SRC.csproj --to DEST.csproj [--since GIT_REF] [--apply
 | OFR2110 | partial type co-moved |
 | OFR2111 | destination excludes the file's path |
 | OFR2112 | file compiles but breaks the destination's warning policy |
+| OFR2113 | co-move no longer needed: the file it was co-moved for stays |
 | OFR2120 | namespace differs from destination root namespace |
 | OFR2150 | file changed since plan |
 | OFR2151 | file changed since the move; rollback stopped |
