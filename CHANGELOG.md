@@ -12,6 +12,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- `skills/offramp-migration`, a skill for AI agents that guide a migration with Offramp: the
+  phases from making the solution build anywhere to porting a wave at a time, the ground rules
+  (dry runs first, no commits, verify every write with the real toolchain), how to check each
+  command's answers against the code before reporting them, what each codebase shape (a library on
+  NuGet, an MVC site with plugins, Web Forms, a WinForms application) changes, and which decisions
+  belong to people. It is drawn from the four field tests; `skills/README.md` says how to install
+  it.
 - `doctor --fix` makes `dotnet restore` restore `packages.config` (ADR 0064): for a solution with
   `packages.config` projects it adds `Offramp.PackagesConfig.targets`, imported from the block and
   from `Directory.Solution.targets`, which after a restore has NuGet download what each
