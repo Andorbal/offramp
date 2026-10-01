@@ -11,6 +11,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-01
+
 ### Added
 - `skills/offramp-migration`, a skill for AI agents that guide a migration with Offramp: the
   phases from making the solution build anywhere to porting a wave at a time, the ground rules
@@ -1514,7 +1516,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `Directory.Build.props` no longer produces a separate symbols package: PDBs
   are embedded, so `dotnet pack` failed with NU5017 when asked for a `.snupkg`.
 
-[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/Andorbal/offramp/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/Andorbal/offramp/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/Andorbal/offramp/compare/68f5511b14b047def139a5de50f8f0dd7919174e...v0.15.0
 [0.14.0]: https://github.com/Andorbal/offramp/compare/6f08ae0eb5cfccb69f7610cde61f4bf09943d081...68f5511b14b047def139a5de50f8f0dd7919174e
