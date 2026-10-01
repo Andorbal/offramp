@@ -68,6 +68,7 @@ docs/
   field-tests/            reports from running Offramp on real codebases (README: how to do one)
   ROADMAP.md              ordered milestones with acceptance criteria
   RELEASING.md            how a release happens
+skills/                   agent skills for people migrating with Offramp (offramp-migration)
 eng/                      shared MSBuild props, scripts
 .github/workflows/        ci.yml, release.yml, corpus.yml
 ```

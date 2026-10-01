@@ -53,6 +53,16 @@ unless you start it with `--apply`. Without a terminal (or with `--json`) it
 reports where you are; `--run`, `--done`, and `--skip` move it along. See
 [docs/spec/commands/guide.md](docs/spec/commands/guide.md).
 
+## With an AI agent
+
+`offramp mcp serve` exposes every command to an agent over MCP, as a dry run unless you start
+it with `--allow-apply`. For Claude Code and other agents that load skills,
+[`skills/offramp-migration`](skills/offramp-migration/SKILL.md) is a guide to running a
+migration with Offramp: the phases, the ground rules (dry runs first, no commits, verify every
+step), how to check Offramp's answers against the code before reporting them, and which decisions
+to leave to people. It is drawn from the field tests on four large codebases; copy it into your
+repository's `.claude/skills/` ([skills/README.md](skills/README.md)).
+
 ## Five-minute tour
 
 ```bash
