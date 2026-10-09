@@ -46,7 +46,11 @@ internal sealed record SettingsShape(IReadOnlySet<string> Types, bool SetsMaxDep
 }
 
 /// <summary>A site with the semantic facts the detectors need.</summary>
-internal sealed record FoundSite(NewtonsoftSite Site, IInvocationOperation Call, IReadOnlyList<ITypeSymbol> Payloads, SettingsShape Shape);
+internal sealed record FoundSite(NewtonsoftSite Site, IInvocationOperation Call, IReadOnlyList<ITypeSymbol> Payloads, SettingsShape Shape)
+{
+    /// <summary>What the settings resolve to: the creation (inline) or the static member reference (member); null otherwise.</summary>
+    public IOperation? Settings { get; init; }
+}
 
 /// <summary>Finds the sites and configuration of one project's compilation (<c>newtonsoft scan</c>, steps 2 and 3).</summary>
 internal sealed class NewtonsoftSiteFinder(string repositoryRoot, Compilation compilation)
@@ -130,7 +134,7 @@ internal sealed class NewtonsoftSiteFinder(string repositoryRoot, Compilation co
         var member = Member(model, invocation.Syntax);
         var (file, line, _) = AuditEngine.Position(repositoryRoot, invocation.Syntax.GetLocation());
         var payloads = Payloads(api, invocation, model);
-        var (settings, shape) = SettingsOf(invocation, model);
+        var (settings, shape, source) = SettingsOf(invocation, model);
         return new FoundSite(
             new NewtonsoftSite
             {
@@ -145,7 +149,10 @@ internal sealed class NewtonsoftSiteFinder(string repositoryRoot, Compilation co
             },
             invocation,
             payloads,
-            shape);
+            shape)
+        {
+            Settings = settings.Kind is SettingsKind.Inline or SettingsKind.Member ? source : null,
+        };
     }
 
     /// <summary>The member a node belongs to, as the call graph names it.</summary>
@@ -199,7 +206,7 @@ internal sealed class NewtonsoftSiteFinder(string repositoryRoot, Compilation co
     }
 
     /// <summary>The settings a call uses: its settings, serializer, or converters argument, or the serializer it is called on.</summary>
-    private (SiteSettings, SettingsShape) SettingsOf(IInvocationOperation invocation, SemanticModel model)
+    private (SiteSettings, SettingsShape, IOperation?) SettingsOf(IInvocationOperation invocation, SemanticModel model)
     {
         var source = invocation.Arguments
             .Where(a => a.Parameter is { } p && (IsType(p.Type, Settings) || IsType(p.Type, Serializer)
@@ -214,26 +221,27 @@ internal sealed class NewtonsoftSiteFinder(string repositoryRoot, Compilation co
         return Classify(source, model);
     }
 
-    private (SiteSettings, SettingsShape) Classify(IOperation? operation, SemanticModel model)
+    /// <summary>The settings' provenance, their shape, and the operation they resolve to.</summary>
+    private (SiteSettings, SettingsShape, IOperation?) Classify(IOperation? operation, SemanticModel model)
     {
         switch (operation)
         {
             case null or ILiteralOperation { ConstantValue.Value: null } or IDefaultValueOperation:
-                return (new SiteSettings { Kind = SettingsKind.None }, SettingsShape.Empty);
+                return (new SiteSettings { Kind = SettingsKind.None }, SettingsShape.Empty, null);
             case IInvocationOperation { TargetMethod: { Name: "Create" or "CreateDefault" } create } call when IsType(create.ContainingType, Serializer):
                 return call.Arguments.Length == 0
-                    ? (new SiteSettings { Kind = SettingsKind.None }, SettingsShape.Empty)
+                    ? (new SiteSettings { Kind = SettingsKind.None }, SettingsShape.Empty, null)
                     : Classify(Unconverted(call.Arguments[0].Value), model);
             case IObjectCreationOperation or IArrayCreationOperation:
-                return (Located(Reproducible(operation) ? SettingsKind.Inline : SettingsKind.Unknown, null, operation.Syntax), Shape(operation));
+                return (Located(Reproducible(operation) ? SettingsKind.Inline : SettingsKind.Unknown, null, operation.Syntax), Shape(operation), operation);
             case IFieldReferenceOperation { Field: { IsStatic: true } field }:
-                return (Located(SettingsKind.Member, field, Declaration(field)), Shape(Initializer(field)));
+                return (Located(SettingsKind.Member, field, Declaration(field)), Shape(Initializer(field)), operation);
             case IPropertyReferenceOperation { Property: { IsStatic: true } property, Arguments.Length: 0 }:
-                return (Located(SettingsKind.Member, property, Declaration(property)), Shape(Initializer(property)));
+                return (Located(SettingsKind.Member, property, Declaration(property)), Shape(Initializer(property)), operation);
             case ILocalReferenceOperation { Local: var local } when AssignedOnce(local, operation, model) is { } initial:
                 return Classify(Unconverted(initial), model);
             default:
-                return (Located(SettingsKind.Unknown, null, operation.Syntax), SettingsShape.Empty);
+                return (Located(SettingsKind.Unknown, null, operation.Syntax), SettingsShape.Empty, null);
         }
     }
 

@@ -99,8 +99,13 @@ deadCode:
 
 newtonsoft:
   target: "[13.0,14.0)"       # the newest stable release in this range that supports every target framework
+  samples: null              # a folder of real payloads named <payload type full name>[.<label>].json
   tests:
     entryDepth: 4             # how many callers up from a site the entry-point search goes
+    folder: NewtonsoftCharacterization   # generated into each test project's folder
+    projects: { }             # production project -> test project, when the choice is not obvious
+    samplesPerType: 3         # 1 typical, 2 and empty, 3 and edge
+    objectDepth: 3            # how deep generated samples nest objects before null
   hermetic:
     nonHermetic: [ ]          # documentation IDs (N:, T:, M:, P:) that disqualify an entry point, added to
                               # rules/newtonsoft-hermetic.yml (commands/newtonsoft.md#configuration has every key)

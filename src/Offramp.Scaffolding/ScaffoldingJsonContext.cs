@@ -23,6 +23,7 @@ namespace Offramp.Scaffolding;
 [JsonSerializable(typeof(ConfigConvertResult))]
 [JsonSerializable(typeof(WebInventoryResult))]
 [JsonSerializable(typeof(WebScaffoldResult))]
+[JsonSerializable(typeof(Offramp.Scaffolding.Newtonsoft.NewtonsoftTestsResult))]
 public sealed partial class ScaffoldingJsonContext : JsonSerializerContext
 {
 }

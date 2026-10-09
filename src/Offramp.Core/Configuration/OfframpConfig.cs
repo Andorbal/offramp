@@ -376,6 +376,9 @@ public sealed record NewtonsoftConfig
     /// <summary>A NuGet version range; the newest stable release in it that supports every target framework is the target.</summary>
     public string Target { get; init; } = "[13.0,14.0)";
 
+    /// <summary>A folder of real payloads named <c>&lt;payload type full name&gt;[.&lt;label&gt;].json</c>, repository-relative; null for none.</summary>
+    public string? Samples { get; init; }
+
     public NewtonsoftTestsConfig Tests { get; init; } = new();
 
     public NewtonsoftHermeticConfig Hermetic { get; init; } = new();
@@ -386,6 +389,18 @@ public sealed record NewtonsoftTestsConfig
 {
     /// <summary>How many callers up from a site the entry-point search goes.</summary>
     public int EntryDepth { get; init; } = 4;
+
+    /// <summary>The folder probes are generated into, in each test project.</summary>
+    public string Folder { get; init; } = "NewtonsoftCharacterization";
+
+    /// <summary>Production project (path or name) to the test project (path or name) its probes go into.</summary>
+    public IReadOnlyDictionary<string, string> Projects { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>Generated samples per type: 1 (typical), 2 (and empty), or 3 (and edge).</summary>
+    public int SamplesPerType { get; init; } = 3;
+
+    /// <summary>How deep generated samples nest objects before null.</summary>
+    public int ObjectDepth { get; init; } = 3;
 }
 
 /// <summary><c>newtonsoft.hermetic:</c>, what makes a method unsuitable as a probe's entry point.</summary>

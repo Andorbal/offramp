@@ -244,11 +244,16 @@
       "description": "The Newtonsoft.Json upgrade. See docs/spec/commands/newtonsoft.md.",
       "properties": {
         "target": { "type": "string", "minLength": 1, "description": "A NuGet version range; the newest stable release in it that supports every target framework is the target." },
+        "samples": { "type": ["string", "null"], "description": "A folder of real payloads named <payload type full name>[.<label>].json." },
         "tests": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "entryDepth": { "type": "integer", "minimum": 0, "maximum": 20, "description": "How many callers up from a site the entry-point search goes." }
+            "entryDepth": { "type": "integer", "minimum": 0, "maximum": 20, "description": "How many callers up from a site the entry-point search goes." },
+            "folder": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.-]+$", "description": "The folder probes are generated into, in each test project." },
+            "projects": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 }, "description": "Production project (path or name) to test project (path or name)." },
+            "samplesPerType": { "type": "integer", "minimum": 1, "maximum": 3 },
+            "objectDepth": { "type": "integer", "minimum": 1, "maximum": 8 }
           }
         },
         "hermetic": {

@@ -17,6 +17,7 @@ public static class NewtonsoftCommands
     {
         var newtonsoft = new Command("newtonsoft", "Upgrade Newtonsoft.Json to 13.x: find what serializes, record what it does today, upgrade, and compare.");
         newtonsoft.Subcommands.Add(NewtonsoftScanCommand.Create(host, globals));
+        newtonsoft.Subcommands.Add(NewtonsoftTestsCommand.Create(host, globals));
         return newtonsoft;
     }
 

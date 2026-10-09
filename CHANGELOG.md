@@ -40,6 +40,18 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   (nothing within six calls is in `rules/newtonsoft-hermetic.yml`: files, network, databases, the
   clock, random numbers, the environment), observable, and for reading sites fed the JSON through
   a parameter. Configuration `newtonsoft.tests.entryDepth` and `newtonsoft.hermetic.nonHermetic`.
+- `offramp newtonsoft tests [--project P ...] [--to T] [--samples DIR] [--apply]` (ADR 0071)
+  generates characterization probes into the test projects that already cover each production
+  project (xunit, NUnit, MSTest v1 and v2; legacy projects at C# 6 included, with Compile items):
+  entry probes that call each site's entry point with generated arguments, type probes that call
+  Newtonsoft.Json with a site's own settings where there is no entry point, and reading probes fed
+  real payloads and what the code's own writing probes record. A probe runtime written into the
+  test project (`OfframpProbe`, `OfframpObjectDump`, BCL only) records each observation with the
+  Newtonsoft.Json version that ran and, outside recording, compares it with its baseline, so the
+  probes fail in any test runner when the behavior changes. Everything is compiled into the test
+  project's recorded compilation before it is written; probes that do not compile are dropped
+  (OFR3735). JSON contract `schemas/v1/newtonsoft-tests.json`; diagnostics OFR3731–3737, OFR3742,
+  OFR3743; configuration `newtonsoft.samples` and `newtonsoft.tests.folder|projects|samplesPerType|objectDepth`.
 
 ### Changed
 - `audit serialization`'s tracing of `object` arguments to their callers moved into a shared

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/newtonsoft-tests.json",
+  "title": "offramp newtonsoft tests result",
+  "description": "The result of `offramp newtonsoft tests`. See docs/spec/commands/newtonsoft.md#newtonsoft-tests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["targets", "probes", "uncovered", "files", "coverage", "preview", "applied", "journal"],
+  "properties": {
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["production", "testProject", "framework", "by", "folder"],
+        "properties": {
+          "production": { "$ref": "workspace.json#/$defs/relativePath" },
+          "testProject": { "$ref": "workspace.json#/$defs/relativePath" },
+          "framework": { "enum": ["xunit", "nunit", "mstest"] },
+          "by": { "enum": ["config", "option", "name", "reference"] },
+          "folder": { "$ref": "workspace.json#/$defs/relativePath" }
+        }
+      }
+    },
+    "probes": {
+      "type": "array",
+      "description": "Sorted by test project and id.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "direction", "site", "testProject", "sample", "input", "file"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9._#-]+$" },
+          "kind": { "enum": ["entry", "type"] },
+          "direction": { "enum": ["serialize", "deserialize", "dom"] },
+          "site": { "type": "string", "minLength": 1 },
+          "testProject": { "$ref": "workspace.json#/$defs/relativePath" },
+          "sample": { "type": "string", "minLength": 1 },
+          "input": { "enum": ["generated", "sample", "roundtrip"] },
+          "inputFrom": { "type": "string", "description": "Inputs/<file>, or probe:<id> for a roundtrip." },
+          "file": { "$ref": "workspace.json#/$defs/relativePath" }
+        }
+      }
+    },
+    "uncovered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["site", "project", "reason", "detail"],
+        "properties": {
+          "site": { "type": "string", "minLength": 1 },
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "reason": {
+            "enum": ["notAccessible", "notConstructible", "typeNotGeneratable", "nonHermetic", "notObservable", "inputNotParameter", "depthExceeded",
+              "noInput", "payloadNotGeneratable", "settingsNotReproducible", "newtonsoftNotBound", "doesNotCompile"]
+          },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "action"],
+        "properties": {
+          "path": { "$ref": "workspace.json#/$defs/relativePath" },
+          "action": { "enum": ["create", "edit", "delete", "unchanged", "kept"] }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sites", "withEntryProbe", "withTypeProbe", "uncovered"],
+      "properties": {
+        "sites": { "type": "integer", "minimum": 0 },
+        "withEntryProbe": { "type": "integer", "minimum": 0 },
+        "withTypeProbe": { "type": "integer", "minimum": 0 },
+        "uncovered": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } }
+      }
+    },
+    "preview": { "type": ["string", "null"], "description": "The dry run's unified diff; null once applied or when nothing changes." },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] }
+  }
+}

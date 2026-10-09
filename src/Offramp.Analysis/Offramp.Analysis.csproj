@@ -15,6 +15,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Offramp.Analysis.Tests" />
+    <!-- newtonsoft tests generates probes from the scanner's sites and their operations. -->
+    <InternalsVisibleTo Include="Offramp.Scaffolding" />
+    <InternalsVisibleTo Include="Offramp.Scaffolding.Tests" />
   </ItemGroup>
 
   <ItemGroup>

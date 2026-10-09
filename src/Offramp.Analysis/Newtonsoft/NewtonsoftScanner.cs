@@ -43,11 +43,20 @@ public sealed record NewtonsoftScanRequest
     public ICompilationSource? Compilations { get; init; }
 }
 
+/// <summary>A scanned project with what <c>newtonsoft tests</c> generates probes from.</summary>
+internal sealed record ScannedProject(ProjectInfo Project, NewtonsoftReference Reference, CSharpCompilation Compilation, IReadOnlyList<FoundSite> Sites);
+
 /// <summary><c>offramp newtonsoft scan</c> (<c>docs/spec/commands/newtonsoft.md</c>).</summary>
 public static class NewtonsoftScanner
 {
-    public static NewtonsoftScanResult Scan(NewtonsoftScanRequest request, CancellationToken cancellationToken = default)
+    public static NewtonsoftScanResult Scan(NewtonsoftScanRequest request, CancellationToken cancellationToken = default) =>
+        Scan(request, out _, cancellationToken);
+
+    /// <summary>The scan, with each project's compilation and sites for <c>newtonsoft tests</c>.</summary>
+    internal static NewtonsoftScanResult Scan(NewtonsoftScanRequest request, out IReadOnlyList<ScannedProject> scanned, CancellationToken cancellationToken = default)
     {
+        var projectsScanned = new List<ScannedProject>();
+        scanned = projectsScanned;
         using var owned = request.Compilations is null ? new CompilationLoader(request.RepositoryRoot) : null;
         var compilations = request.Compilations ?? owned!;
         var candidates = request.Model.Projects
@@ -90,8 +99,9 @@ public static class NewtonsoftScanner
                     continue;
                 }
 
-                var (report, projectFindings) = ScanProject(request, project, tfm, reference!, compilation, entryPoints);
+                var (report, projectFindings, sites) = ScanProject(request, project, tfm, reference!, compilation, entryPoints);
                 reports.Add(report);
+                projectsScanned.Add(new ScannedProject(project, reference!, compilation, sites));
                 findings.AddRange(projectFindings);
             }
 
@@ -139,7 +149,7 @@ public static class NewtonsoftScanner
         }
     }
 
-    private static (NewtonsoftProjectReport, List<NewtonsoftFinding>) ScanProject(
+    private static (NewtonsoftProjectReport, List<NewtonsoftFinding>, IReadOnlyList<FoundSite>) ScanProject(
         NewtonsoftScanRequest request, ProjectInfo project, string tfm, NewtonsoftReference reference, CSharpCompilation compilation, EntryPointFinder entryPoints)
     {
         var finder = new NewtonsoftSiteFinder(request.RepositoryRoot, compilation);
@@ -167,7 +177,7 @@ public static class NewtonsoftScanner
             request.Diagnostics.Report(DiagnosticCatalog.OFR3723,
                 $"{project.Id} references {reference.HintPath}, which no package provides (assembly version {reference.Version}); the upgrade cannot edit it. Run `offramp deps resolve-dlls` first.",
                 new DiagnosticLocation(project.Id));
-            return (report, []);
+            return (report, [], finder.Sites);
         }
 
         if (current is null || current >= request.Target)
@@ -177,7 +187,7 @@ public static class NewtonsoftScanner
                 request.Diagnostics.Report(DiagnosticCatalog.OFR3724, $"{project.Id} already uses Newtonsoft.Json {request.Target}.", new DiagnosticLocation(project.Id));
             }
 
-            return (report, []);
+            return (report, [], finder.Sites);
         }
 
         var trees = AuditEngine.Sources(compilation);
@@ -187,7 +197,7 @@ public static class NewtonsoftScanner
             raw.AddRange(TargetTrialCompile.Run(request.RepositoryRoot, compilation, target, trees));
         }
 
-        return (report, [.. raw.Select(r => ToFinding(request, project, r)).OfType<NewtonsoftFinding>()]);
+        return (report, [.. raw.Select(r => ToFinding(request, project, r)).OfType<NewtonsoftFinding>()], finder.Sites);
     }
 
     /// <summary>OFR3720 for sites whose payload is unknown; OFR3721 for settings a test cannot recreate and for DefaultSettings.</summary>

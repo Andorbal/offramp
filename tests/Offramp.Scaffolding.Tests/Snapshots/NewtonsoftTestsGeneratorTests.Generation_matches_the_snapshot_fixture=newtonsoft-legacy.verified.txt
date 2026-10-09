@@ -1,0 +1,326 @@
+﻿{
+  "targets": [
+    {
+      "production": "src/Orders/Orders.csproj",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "framework": "mstest",
+      "by": "name",
+      "folder": "tests/Orders.Tests/NewtonsoftCharacterization"
+    }
+  ],
+  "probes": [
+    {
+      "id": "Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-edge",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.CommentCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "roundtrip-edge",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Orders.CommentCodec.Read#1.input.edge",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-empty",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.CommentCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "roundtrip-empty",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Orders.CommentCodec.Read#1.input.empty",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-typical",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.CommentCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "roundtrip-typical",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Orders.CommentCodec.Read#1.input.typical",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.CommentCodec.Read#1.entry.sample-deep",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.CommentCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "sample-deep",
+      "input": "sample",
+      "inputFrom": "Inputs/Contoso.Orders.Comment.deep.json",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.CommentCodec.Read#1.input.edge",
+      "kind": "type",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.CommentCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "edge",
+      "input": "generated",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.CommentCodec.Read#1.input.empty",
+      "kind": "type",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.CommentCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "empty",
+      "input": "generated",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.CommentCodec.Read#1.input.typical",
+      "kind": "type",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.CommentCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "typical",
+      "input": "generated",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-edge",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.OrderCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "roundtrip-edge",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Orders.OrderCodec.Write#1.entry.edge",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-empty",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.OrderCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "roundtrip-empty",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Orders.OrderCodec.Write#1.entry.empty",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-typical",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.OrderCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "roundtrip-typical",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Orders.OrderCodec.Write#1.entry.typical",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.OrderCodec.Read#1.entry.sample",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Orders.OrderCodec.Read#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "sample",
+      "input": "sample",
+      "inputFrom": "Inputs/Contoso.Orders.Order.json",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.OrderCodec.Write#1.entry.edge",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Orders.OrderCodec.Write#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "edge",
+      "input": "generated",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.OrderCodec.Write#1.entry.empty",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Orders.OrderCodec.Write#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "empty",
+      "input": "generated",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Orders.OrderCodec.Write#1.entry.typical",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Orders.OrderCodec.Write#1",
+      "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sample": "typical",
+      "input": "generated",
+      "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+    }
+  ],
+  "uncovered": [],
+  "files": [
+    {
+      "path": "tests/Orders.Tests/NewtonsoftCharacterization/Inputs/Contoso.Orders.Comment.deep.json",
+      "action": "create"
+    },
+    {
+      "path": "tests/Orders.Tests/NewtonsoftCharacterization/Inputs/Contoso.Orders.Order.json",
+      "action": "create"
+    },
+    {
+      "path": "tests/Orders.Tests/NewtonsoftCharacterization/OfframpObjectDump.cs",
+      "action": "create"
+    },
+    {
+      "path": "tests/Orders.Tests/NewtonsoftCharacterization/OfframpProbe.cs",
+      "action": "create"
+    },
+    {
+      "path": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs",
+      "action": "create"
+    },
+    {
+      "path": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs",
+      "action": "create"
+    }
+  ],
+  "coverage": {
+    "sites": 3,
+    "withEntryProbe": 3,
+    "withTypeProbe": 0,
+    "uncovered": {}
+  },
+  "preview": null,
+  "applied": false,
+  "journal": null
+}
+
+OFR3737  Contoso.Orders.Invoice.json is not named <payload type full name>[.<label>].json for a type any reading site uses; it is not copied.
+=== tests/Orders.Tests/NewtonsoftCharacterization/Inputs/Contoso.Orders.Comment.deep.json
+{"Text":"level 0","Replies":[{"Text":"level 1","Replies":[{"Text":"level 2","Replies":[{"Text":"level 3","Replies":[{"Text":"level 4","Replies":[{"Text":"level 5","Replies":[{"Text":"level 6","Replies":[{"Text":"level 7","Replies":[{"Text":"level 8","Replies":[{"Text":"level 9","Replies":[{"Text":"level 10","Replies":[{"Text":"level 11","Replies":[{"Text":"level 12","Replies":[{"Text":"level 13","Replies":[{"Text":"level 14","Replies":[{"Text":"level 15","Replies":[{"Text":"level 16","Replies":[{"Text":"level 17","Replies":[{"Text":"level 18","Replies":[{"Text":"level 19","Replies":[{"Text":"level 20","Replies":[{"Text":"level 21","Replies":[{"Text":"level 22","Replies":[{"Text":"level 23","Replies":[{"Text":"level 24","Replies":[{"Text":"level 25","Replies":[{"Text":"level 26","Replies":[{"Text":"level 27","Replies":[{"Text":"level 28","Replies":[{"Text":"level 29","Replies":[{"Text":"level 30","Replies":[{"Text":"level 31","Replies":[{"Text":"level 32","Replies":[{"Text":"level 33","Replies":[{"Text":"level 34","Replies":[{"Text":"level 35","Replies":[{"Text":"level 36","Replies":[{"Text":"level 37","Replies":[{"Text":"level 38","Replies":[{"Text":"level 39","Replies":[{"Text":"level 40","Replies":[{"Text":"level 41","Replies":[{"Text":"level 42","Replies":[{"Text":"level 43","Replies":[{"Text":"level 44","Replies":[{"Text":"level 45","Replies":[{"Text":"level 46","Replies":[{"Text":"level 47","Replies":[{"Text":"level 48","Replies":[{"Text":"level 49","Replies":[{"Text":"level 50","Replies":[{"Text":"level 51","Replies":[{"Text":"level 52","Replies":[{"Text":"level 53","Replies":[{"Text":"level 54","Replies":[{"Text":"level 55","Replies":[{"Text":"level 56","Replies":[{"Text":"level 57","Replies":[{"Text":"level 58","Replies":[{"Text":"level 59","Replies":[{"Text":"level 60","Replies":[{"Text":"level 61","Replies":[{"Text":"level 62","Replies":[{"Text":"level 63","Replies":[{"Text":"level 64","Replies":[{"Text":"level 65","Replies":[{"Text":"level 66","Replies":[{"Text":"level 67","Replies":[{"Text":"level 68","Replies":[{"Text":"level 69","Replies":[{"Text":"leaf","Replies":[]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}
+=== tests/Orders.Tests/NewtonsoftCharacterization/Inputs/Contoso.Orders.Order.json
+{"orderId":42,"customerName":"Grace","total":19.90,"placedAt":"2024-03-01T09:30:00","status":1,"lines":[{"sku":"LAMP-1","quantity":2,"unitPrice":9.95}]}
+=== tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs
+// <auto-generated>
+//   Written by `offramp newtonsoft tests` (docs/spec/commands/newtonsoft.md) and rewritten on every
+//   run. Remove this header to keep your own changes; Offramp then leaves the file alone.
+// </auto-generated>
+#pragma warning disable CS0618, CS0612, CS1591, CS8600, CS8601, CS8602, CS8603, CS8604, CS8618, CS8625
+namespace Contoso.Orders.Tests.NewtonsoftCharacterization
+{
+    [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestClass]
+    public class OrdersDeserializeProbes
+    {
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_CommentCodec_Read_1_entry_sample_deep()
+        {
+            OfframpProbe.Check("Contoso.Orders.CommentCodec.Read#1.entry.sample-deep", () => global::Contoso.Orders.CommentCodec.Read(OfframpProbe.Input("Inputs/Contoso.Orders.Comment.deep.json")));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_CommentCodec_Read_1_entry_roundtrip_typical()
+        {
+            OfframpProbe.Check("Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-typical", () => global::Contoso.Orders.CommentCodec.Read(OfframpProbe.Input("probe:Contoso.Orders.CommentCodec.Read#1.input.typical")));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_CommentCodec_Read_1_entry_roundtrip_empty()
+        {
+            OfframpProbe.Check("Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-empty", () => global::Contoso.Orders.CommentCodec.Read(OfframpProbe.Input("probe:Contoso.Orders.CommentCodec.Read#1.input.empty")));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_CommentCodec_Read_1_entry_roundtrip_edge()
+        {
+            OfframpProbe.Check("Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-edge", () => global::Contoso.Orders.CommentCodec.Read(OfframpProbe.Input("probe:Contoso.Orders.CommentCodec.Read#1.input.edge")));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_OrderCodec_Read_1_entry_sample()
+        {
+            OfframpProbe.Check("Contoso.Orders.OrderCodec.Read#1.entry.sample", () => global::Contoso.Orders.OrderCodec.Read(OfframpProbe.Input("Inputs/Contoso.Orders.Order.json")));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_OrderCodec_Read_1_entry_roundtrip_typical()
+        {
+            OfframpProbe.Check("Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-typical", () => global::Contoso.Orders.OrderCodec.Read(OfframpProbe.Input("probe:Contoso.Orders.OrderCodec.Write#1.entry.typical")));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_OrderCodec_Read_1_entry_roundtrip_empty()
+        {
+            OfframpProbe.Check("Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-empty", () => global::Contoso.Orders.OrderCodec.Read(OfframpProbe.Input("probe:Contoso.Orders.OrderCodec.Write#1.entry.empty")));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_OrderCodec_Read_1_entry_roundtrip_edge()
+        {
+            OfframpProbe.Check("Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-edge", () => global::Contoso.Orders.OrderCodec.Read(OfframpProbe.Input("probe:Contoso.Orders.OrderCodec.Write#1.entry.edge")));
+        }
+    }
+}
+=== tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs
+// <auto-generated>
+//   Written by `offramp newtonsoft tests` (docs/spec/commands/newtonsoft.md) and rewritten on every
+//   run. Remove this header to keep your own changes; Offramp then leaves the file alone.
+// </auto-generated>
+#pragma warning disable CS0618, CS0612, CS1591, CS8600, CS8601, CS8602, CS8603, CS8604, CS8618, CS8625
+namespace Contoso.Orders.Tests.NewtonsoftCharacterization
+{
+    [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestClass]
+    public class OrdersSerializeProbes
+    {
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_OrderCodec_Write_1_entry_typical()
+        {
+            OfframpProbe.Check("Contoso.Orders.OrderCodec.Write#1.entry.typical", () => global::Contoso.Orders.OrderCodec.Write(new global::Contoso.Orders.Order() { OrderId = (int)70, CustomerName = "CustomerName 45", Total = 729.25m, PlacedAt = new global::System.DateTime(2024, 3, 13, 9, 30, 0, global::System.DateTimeKind.Utc), Status = global::Contoso.Orders.OrderStatus.Shipped, Lines = new global::System.Collections.Generic.List<global::Contoso.Orders.OrderLine> { new global::Contoso.Orders.OrderLine() { Sku = "Sku 53", Quantity = (int)27, UnitPrice = 357.25m }, new global::Contoso.Orders.OrderLine() { Sku = "Sku 53", Quantity = (int)27, UnitPrice = 357.25m } } }));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_OrderCodec_Write_1_entry_empty()
+        {
+            OfframpProbe.Check("Contoso.Orders.OrderCodec.Write#1.entry.empty", () => global::Contoso.Orders.OrderCodec.Write(new global::Contoso.Orders.Order() { OrderId = (int)0, CustomerName = null, Total = 0m, PlacedAt = default(global::System.DateTime), Status = default(global::Contoso.Orders.OrderStatus), Lines = new global::System.Collections.Generic.List<global::Contoso.Orders.OrderLine>() }));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_OrderCodec_Write_1_entry_edge()
+        {
+            OfframpProbe.Check("Contoso.Orders.OrderCodec.Write#1.entry.edge", () => global::Contoso.Orders.OrderCodec.Write(new global::Contoso.Orders.Order() { OrderId = int.MaxValue, CustomerName = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Total = 1.10m, PlacedAt = new global::System.DateTime(2024, 2, 29, 23, 59, 59, 999, global::System.DateTimeKind.Unspecified), Status = (global::Contoso.Orders.OrderStatus)3, Lines = new global::System.Collections.Generic.List<global::Contoso.Orders.OrderLine> { new global::Contoso.Orders.OrderLine() { Sku = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Quantity = int.MaxValue, UnitPrice = 1.10m } } }));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_CommentCodec_Read_1_input_typical()
+        {
+            OfframpProbe.Check("Contoso.Orders.CommentCodec.Read#1.input.typical", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Orders.Comment() { Text = "Text 7", Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment> { new global::Contoso.Orders.Comment() { Text = "Text 7", Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment> { null, null } }, new global::Contoso.Orders.Comment() { Text = "Text 7", Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment> { null, null } } } }));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_CommentCodec_Read_1_input_empty()
+        {
+            OfframpProbe.Check("Contoso.Orders.CommentCodec.Read#1.input.empty", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Orders.Comment() { Text = null, Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment>() }));
+        }
+
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Orders_CommentCodec_Read_1_input_edge()
+        {
+            OfframpProbe.Check("Contoso.Orders.CommentCodec.Read#1.input.edge", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Orders.Comment() { Text = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment> { new global::Contoso.Orders.Comment() { Text = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment> { null } } } }));
+        }
+    }
+}
+=== edit tests/Orders.Tests/Orders.Tests.csproj
