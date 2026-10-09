@@ -64,5 +64,7 @@
     <!-- config convert's round-trip test binds the generated appsettings.json the way an application does. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.12" />
+    <!-- The Newtonsoft.Json differential tests load net45 assemblies of old releases, which need it on .NET (ADR 0067). -->
+    <PackageVersion Include="System.Security.Permissions" Version="10.0.12" />
   </ItemGroup>
 </Project>

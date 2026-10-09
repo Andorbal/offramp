@@ -1,0 +1,373 @@
+# Behavior changes between Newtonsoft.Json releases (docs/spec/commands/newtonsoft.md, ADRs 0066 and 0068).
+#
+# A rule has one or more cases. A case describes one behavior as ordered version segments: the
+# first has no `from`, each later one starts at a release. A case fires for a project when the
+# label of the version in use differs from the label of the target. `example` is a C# source
+# with `public static class Example { public static string Run() }`; the differential test runs
+# it under every release from 7.0.1 to the newest 13.x (the net45 assembly) and requires equal
+# outputs exactly where the labels are equal. Nothing here is taken from release notes alone.
+rules:
+  OFR3703:
+    severity: warning
+    title: camel-cased name changes
+    detector: camel-case-names
+    recommendation: Pin the JSON name with [JsonProperty] (and NamingStrategy overrides off) if consumers depend on the old casing, or update them.
+    cases:
+      - name: names-with-spaces
+        note: "8.0.3: Fixed converting some property names to camel case; 11.0.1: Changed camel casing logic for all caps words to not leave last character capitalized"
+        segments:
+          - { label: old }
+          - { from: 8.0.3, label: lowercase-first-word-start }
+          - { from: 11.0.1, label: lowercase-all-caps-word }
+        example: |
+          using System.Collections.Generic;
+          using Newtonsoft.Json;
+          using Newtonsoft.Json.Serialization;
+          public static class Example
+          {
+              public static string Run()
+              {
+                  var keys = new Dictionary<string, int> { ["URL VALUE"] = 1, ["A B"] = 2, ["ABC DEF GHI"] = 3, ["URLValue"] = 4 };
+                  return JsonConvert.SerializeObject(keys, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() });
+              }
+          }
+  OFR3704:
+    severity: warning
+    title: ISerializable type without [Serializable]
+    detector: iserializable-without-serializable
+    recommendation: Add [Serializable] to keep GetObjectData and the serialization constructor in use, or accept the public-member shape and convert stored data.
+    cases:
+      - name: iserializable-contract
+        note: "11.0.1: Types that implement ISerializable but don't have [SerializableAttribute] are not serialized using ISerializable"
+        segments:
+          - { label: get-object-data }
+          - { from: 11.0.1, label: public-members }
+        example: |
+          using System.Runtime.Serialization;
+          using Newtonsoft.Json;
+          public sealed class Money : ISerializable
+          {
+              public Money() { }
+              private Money(SerializationInfo info, StreamingContext context) { Amount = info.GetDecimal("a"); }
+              public decimal Amount { get; set; }
+              public void GetObjectData(SerializationInfo info, StreamingContext context) { info.AddValue("a", Amount); }
+          }
+          public static class Example
+          {
+              public static string Run() =>
+                  JsonConvert.SerializeObject(new Money { Amount = 1.5m }) + " " + JsonConvert.DeserializeObject<Money>("{\"a\":2.5,\"Amount\":3.5}").Amount;
+          }
+  OFR3705:
+    severity: warning
+    title: enum dictionary keys use [EnumMember] values
+    detector: enum-member-dictionary-keys
+    recommendation: Stored JSON and consumers that use the enum names as keys must accept the [EnumMember] values, or remove [EnumMember] from the enum.
+    cases:
+      - name: enum-member-keys
+        note: "11.0.1: Changed enum serialization in dictionary keys to use EnumMemberAttribute"
+        segments:
+          - { label: names }
+          - { from: 11.0.1, label: enum-member-values }
+        example: |
+          using System;
+          using System.Collections.Generic;
+          using System.Runtime.Serialization;
+          using Newtonsoft.Json;
+          public enum Color { [EnumMember(Value = "dark-blue")] DarkBlue, Green }
+          public static class Example
+          {
+              public static string Run()
+              {
+                  var written = JsonConvert.SerializeObject(new Dictionary<Color, int> { [Color.DarkBlue] = 1, [Color.Green] = 2 });
+                  string read;
+                  try { read = string.Join(",", JsonConvert.DeserializeObject<Dictionary<Color, int>>("{\"dark-blue\":1}").Keys); }
+                  catch (Exception e) { read = e.GetType().FullName; }
+                  return written + " " + read;
+              }
+          }
+  OFR3706:
+    severity: info
+    title: decimal scale when read
+    detector: decimal-members
+    recommendation: Values such as 1.10 come back with or without their trailing zero depending on the version; compare decimals numerically, and format them explicitly where the text matters.
+    cases:
+      - name: decimal-scale
+        note: "11.0.1: Fixed not preserving trailing zeros when deserializing decimals"
+        segments:
+          - { label: kept }
+          - { from: 10.0.1, label: dropped }
+          - { from: 11.0.1, label: kept }
+        example: |
+          using System.Globalization;
+          using Newtonsoft.Json;
+          public class Holder { public decimal D { get; set; } }
+          public static class Example
+          {
+              public static string Run() => JsonConvert.DeserializeObject<Holder>("{\"D\":1.10}").D.ToString(CultureInfo.InvariantCulture);
+          }
+      - name: decimal-zero-scale
+        note: "13.0.3: Fixed parsed zero decimals losing trailing zeroes"
+        segments:
+          - { label: kept }
+          - { from: 10.0.1, label: dropped }
+          - { from: 11.0.1, label: kept }
+          - { from: 13.0.2, label: dropped }
+          - { from: 13.0.3, label: kept }
+        example: |
+          using System.Globalization;
+          using Newtonsoft.Json;
+          public class Holder { public decimal D { get; set; } }
+          public static class Example
+          {
+              public static string Run() => JsonConvert.DeserializeObject<Holder>("{\"D\":0.00}").D.ToString(CultureInfo.InvariantCulture);
+          }
+  OFR3707:
+    severity: warning
+    title: caught exception is no longer the one thrown
+    detector: caught-exceptions
+    recommendation: Catch the exception the target throws (or both, while both versions are in use).
+    cases:
+      - name: to-object-mismatch
+        note: "13.0.1: Change InvalidCastException to JsonSerializationException on mismatched JToken"
+        apis: [ "M:Newtonsoft.Json.Linq.JToken.ToObject" ]
+        caught: T:System.InvalidCastException
+        thrown: T:Newtonsoft.Json.JsonSerializationException
+        segments:
+          - { label: invalid-cast }
+          - { from: 13.0.1, label: json-serialization }
+        example: |
+          using System;
+          using Newtonsoft.Json.Linq;
+          public static class Example
+          {
+              public static string Run()
+              {
+                  try { JToken.Parse("[1]").ToObject<JObject>(); return "no exception"; }
+                  catch (Exception e) { return e.GetType().FullName; }
+              }
+          }
+      - name: invalid-unicode-escape
+        note: "10.0.1: Changed exception thrown when parsing invalid Unicode escape sequence to JsonReaderException"
+        apis: [ "M:Newtonsoft.Json.JsonConvert.DeserializeObject", "M:Newtonsoft.Json.JsonSerializer.Deserialize", "M:Newtonsoft.Json.Linq.JToken.Parse", "M:Newtonsoft.Json.Linq.JObject.Parse", "M:Newtonsoft.Json.Linq.JArray.Parse" ]
+        caught: T:System.FormatException
+        thrown: T:Newtonsoft.Json.JsonReaderException
+        segments:
+          - { label: format }
+          - { from: 10.0.1, label: json-reader }
+        example: |
+          using System;
+          using Newtonsoft.Json;
+          public static class Example
+          {
+              public static string Run()
+              {
+                  try { JsonConvert.DeserializeObject<string>("\"\\u12zz\""); return "no exception"; }
+                  catch (Exception e) { return e.GetType().FullName; }
+              }
+          }
+  OFR3708:
+    severity: warning
+    title: StringEnumConverter rejects integers more strictly
+    detector: string-enum-converter-integers
+    recommendation: Payloads with integer strings ("1") for enums, or enum values without a name, now fail; accept them explicitly or clean the data.
+    cases:
+      - name: allow-integer-values
+        note: "10.0.1: Changed StringEnumConverter.AllowIntegerValues to also reject reading integer strings / writing enum values with no name"
+        segments:
+          - { label: lenient }
+          - { from: 10.0.1, label: strict }
+        example: |
+          using System;
+          using Newtonsoft.Json;
+          using Newtonsoft.Json.Converters;
+          public enum Color { Red, Blue }
+          public static class Example
+          {
+              public static string Run()
+              {
+                  var converter = new StringEnumConverter { AllowIntegerValues = false };
+                  string read, written;
+                  try { read = JsonConvert.DeserializeObject<Color>("\"1\"", converter).ToString(); } catch (Exception e) { read = e.GetType().FullName; }
+                  try { written = JsonConvert.SerializeObject((Color)7, converter); } catch (Exception e) { written = e.GetType().FullName; }
+                  return read + " " + written;
+              }
+          }
+  OFR3709:
+    severity: warning
+    title: reading stops at a depth of 64
+    detector: recursive-payloads
+    recommendation: Set MaxDepth on the settings (or the reader) if payloads can nest deeper than 64 levels.
+    cases:
+      - name: max-depth
+        note: "13.0.1: JsonReader and JsonSerializer MaxDepth defaults to 64"
+        segments:
+          - { label: unlimited }
+          - { from: 13.0.1, label: sixty-four }
+        example: |
+          using System;
+          using System.Collections.Generic;
+          using System.Linq;
+          using Newtonsoft.Json;
+          public class Node { public List<Node> C { get; set; } }
+          public static class Example
+          {
+              public static string Run()
+              {
+                  var deep = string.Concat(Enumerable.Repeat("{\"C\":[", 70)) + "{}" + string.Concat(Enumerable.Repeat("]}", 70));
+                  try { JsonConvert.DeserializeObject<Node>(deep); return "read"; }
+                  catch (Exception e) { return e.GetType().FullName; }
+              }
+          }
+  OFR3710:
+    severity: info
+    title: ToObject honors the serializer's DateTimeZoneHandling
+    detector: to-object-dates
+    recommendation: Check the DateTime.Kind the code expects after ToObject with a configured serializer.
+    cases:
+      - name: to-object-zone-handling
+        note: "12.0.1: JTokenReader now uses JsonReader.DateTimeZoneHandling setting for date values"
+        segments:
+          - { label: ignored }
+          - { from: 12.0.1, label: honored }
+        example: |
+          using System;
+          using Newtonsoft.Json;
+          using Newtonsoft.Json.Linq;
+          public class Holder { public DateTime T { get; set; } }
+          public static class Example
+          {
+              public static string Run() =>
+                  JObject.Parse("{\"T\":\"2020-01-02T03:04:05Z\"}")
+                      .ToObject<Holder>(JsonSerializer.Create(new JsonSerializerSettings { DateTimeZoneHandling = DateTimeZoneHandling.Unspecified }))
+                      .T.Kind.ToString();
+          }
+  OFR3711:
+    severity: info
+    title: "[DataContract] collection written as an object in 11.0.1"
+    detector: data-contract-collections
+    recommendation: Data written by 11.0.1 has the object shape; the target writes an array again.
+    cases:
+      - name: data-contract-collection
+        note: "11.0.1: Fixed DataContractAttribute not forcing object serialization of classes; 11.0.2: reverted"
+        segments:
+          - { label: array }
+          - { from: 11.0.1, label: object }
+          - { from: 11.0.2, label: array }
+        example: |
+          using System.Collections;
+          using System.Collections.Generic;
+          using System.Runtime.Serialization;
+          using Newtonsoft.Json;
+          [DataContract]
+          public class Bag : IEnumerable<int>
+          {
+              [DataMember] public int N { get; set; } = 3;
+              public IEnumerator<int> GetEnumerator() { yield return 1; }
+              IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+          }
+          public static class Example
+          {
+              public static string Run() => JsonConvert.SerializeObject(new Bag());
+          }
+  OFR3712:
+    severity: warning
+    title: exception type without [Serializable] could not be written in 11.x
+    detector: exception-payloads
+    recommendation: Exceptions without [Serializable] threw when serialized by 11.x; the target writes them again.
+    cases:
+      - name: exception-without-serializable
+        note: "11.0.1: Types that implement ISerializable but don't have [SerializableAttribute] are not serialized using ISerializable; 12.0.1: Excluded TargetSite when serializing Exceptions without SerializableAttribute"
+        segments:
+          - { label: written }
+          - { from: 11.0.1, label: throws }
+          - { from: 12.0.1, label: written }
+        example: |
+          using System;
+          using Newtonsoft.Json;
+          public class MyError : Exception { public MyError() : base("boom") { } }
+          public static class Example
+          {
+              public static string Run()
+              {
+                  try { throw new MyError(); }
+                  catch (Exception thrown)
+                  {
+                      try { JsonConvert.SerializeObject(thrown); return "written"; }
+                      catch (Exception e) { return e.GetType().FullName; }
+                  }
+              }
+          }
+  OFR3713:
+    severity: info
+    title: immutable interfaces deserialize to the hash variants
+    detector: immutable-interfaces
+    recommendation: Code that relied on sorted iteration of IImmutableSet/IImmutableDictionary must sort explicitly.
+    cases:
+      - name: immutable-hash-variants
+        note: "12.0.3: Fixed deserializing IImmutableSet to ImmutableHashSet instead of ImmutableSortedSet (and IImmutableDictionary)"
+        segments:
+          - { label: sorted }
+          - { from: 12.0.3, label: hash }
+        example: |
+          using System.Collections.Immutable;
+          using Newtonsoft.Json;
+          public class Holder { public IImmutableSet<int> S { get; set; } public IImmutableDictionary<string, int> M { get; set; } }
+          public static class Example
+          {
+              public static string Run()
+              {
+                  var holder = JsonConvert.DeserializeObject<Holder>("{\"S\":[3,1,2],\"M\":{\"b\":1,\"a\":2}}");
+                  return holder.S.GetType().Name + " " + holder.M.GetType().Name;
+              }
+          }
+  OFR3719:
+    severity: info
+    title: behavior change that depends on data
+    detector: data-dependent
+    recommendation: No code pattern shows whether the data is affected; the characterization probes with real payloads (`newtonsoft tests --samples`) will.
+    cases:
+      - name: jarray-comments
+        note: "8.0.1: Changed parsing JArrays to not include comments by default"
+        applies: dom
+        segments:
+          - { label: comments-are-items }
+          - { from: 8.0.1, label: comments-skipped }
+        example: |
+          using Newtonsoft.Json.Linq;
+          public static class Example
+          {
+              public static string Run() => JArray.Parse("[1,/*c*/2]").Count.ToString();
+          }
+      - name: negative-zero
+        note: "13.0.3: Fixed parsed negative zero double losing negative"
+        applies: deserialize
+        segments:
+          - { label: kept }
+          - { from: 13.0.2, label: lost }
+          - { from: 13.0.3, label: kept }
+        example: |
+          using System;
+          using Newtonsoft.Json;
+          public static class Example
+          {
+              public static string Run() => BitConverter.DoubleToInt64Bits(JsonConvert.DeserializeObject<double>("-0.0")) < 0 ? "negative" : "positive";
+          }
+      - name: decimal-overflow
+        note: "12.0.1: Fixed incorrect overflow when reading decimal values from JSON"
+        applies: deserialize
+        segments:
+          - { label: throws }
+          - { from: 10.0.1, label: wrong-value }
+          - { from: 12.0.1, label: throws }
+        example: |
+          using System;
+          using System.Globalization;
+          using Newtonsoft.Json;
+          public static class Example
+          {
+              public static string Run()
+              {
+                  try { return JsonConvert.DeserializeObject<decimal>("79228162514264337593543950336").ToString(CultureInfo.InvariantCulture); }
+                  catch (Exception e) { return e.GetType().FullName; }
+              }
+          }

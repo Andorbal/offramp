@@ -18,6 +18,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\..\rules\framework-assemblies.yml;..\..\rules\audit-*.yml" LogicalName="Offramp.Analysis.Rules.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\rules\framework-assemblies.yml;..\..\rules\audit-*.yml;..\..\rules\newtonsoft-*.yml" LogicalName="Offramp.Analysis.Rules.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

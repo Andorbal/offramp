@@ -106,7 +106,7 @@ matrix):
 
 | Code | Segments | What changed | Detector |
 |---|---|---|---|
-| OFR3703 | `[, 8.0.1)`, `[8.0.1, 11.0.1)`, `[11.0.1, )` | camel casing of names with spaces: `"A B"` became `"a B"` (8.x), `"URL VALUE"` became `"url VALUE"` (11.0.1) | a camel-case resolver or naming strategy in a site's settings and a payload member whose JSON name (its `[JsonProperty]` name or its own) camel-cases differently; the finding lists each `old → new`. String-keyed dictionary members are reported as data-dependent (`OFR3719`) |
+| OFR3703 | `[, 8.0.3)`, `[8.0.3, 11.0.1)`, `[11.0.1, )` | camel casing of names with spaces: `"A B"` became `"a B"` (8.0.3), `"URL VALUE"` became `"url VALUE"` (11.0.1) | a camel-case resolver or naming strategy in a site's settings and a payload member whose JSON name (its `[JsonProperty]` name or its own) camel-cases differently; the finding lists each `old → new`. String-keyed dictionary members are reported as data-dependent (`OFR3719`) |
 | OFR3704 | `[, 11.0.1)`, `[11.0.1, )` | an `ISerializable` type without `[Serializable]` is written and read through its public members instead of `GetObjectData` and the serialization constructor | such a type among the payload types |
 | OFR3705 | `[, 11.0.1)`, `[11.0.1, )` | enum dictionary keys use `[EnumMember]` values (writing; reading them stopped throwing) | an `IDictionary<TEnum, …>` payload member whose enum has `[EnumMember]` |
 | OFR3706 | `[, 10.0.1)`, `[10.0.1, 11.0.1)`, `[11.0.1, 13.0.2)`, `[13.0.2, 13.0.3)`, `[13.0.3, )` | decimals read from JSON keep their scale (`1.10`), except in 10.x (`1.1`) and for zero in 13.0.2 (`0`) | a `decimal` payload member at a deserialize site |
