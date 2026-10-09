@@ -376,6 +376,9 @@ public sealed record NewtonsoftConfig
     /// <summary>A NuGet version range; the newest stable release in it that supports every target framework is the target.</summary>
     public string Target { get; init; } = "[13.0,14.0)";
 
+    /// <summary><c>keep</c> or <c>rollback</c>: what <c>newtonsoft upgrade</c> does when probes observe a change.</summary>
+    public string OnDiff { get; init; } = "keep";
+
     /// <summary>A folder of real payloads named <c>&lt;payload type full name&gt;[.&lt;label&gt;].json</c>, repository-relative; null for none.</summary>
     public string? Samples { get; init; }
 

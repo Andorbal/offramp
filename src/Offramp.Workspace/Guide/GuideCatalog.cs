@@ -219,6 +219,35 @@ public static class GuideCatalog
             },
             new GuideStep
             {
+                Id = "newtonsoft-scan",
+                Title = "See what changes when Newtonsoft.Json moves to 13",
+                Why = "Old Newtonsoft.Json (7 to 12) is the usual reason a solution has several versions of a package and the binding redirects that hide it. This lists every place the code serializes or parses JSON, traces each to a method a test can call, and lists the API and behavior changes between the release in use and 13.x, each measured against the real releases.",
+                Command = ["newtonsoft", "scan"],
+                Writes = GuideWrites.Nothing,
+                Applies = (_, model) => OldNewtonsoft(model),
+            },
+            new GuideStep
+            {
+                Id = "newtonsoft-tests",
+                Title = "Record what serialization does today",
+                Why = "Characterization probes go into the test projects that already cover each project and record, on the release in use, the JSON the code writes and what it reads back. After the upgrade they show exactly what changed. Run it where the test projects can run (Windows for .NET Framework-only ones) and commit the baselines.",
+                Command = ["newtonsoft", "tests", "--record"],
+                Writes = GuideWrites.Repository,
+                Requires = ["newtonsoft-scan"],
+                Applies = (_, model) => OldNewtonsoft(model),
+            },
+            new GuideStep
+            {
+                Id = "newtonsoft-upgrade",
+                Title = "Upgrade Newtonsoft.Json to 13",
+                Why = "Moves every project (PackageReference, packages.config, HintPath) and its binding redirects to 13.x, restores, builds, and runs the probes: a failed build rolls back, and every probe that observes something new is listed for you to judge.",
+                Command = ["newtonsoft", "upgrade"],
+                Writes = GuideWrites.Repository,
+                Requires = ["newtonsoft-tests"],
+                Applies = (_, model) => OldNewtonsoft(model),
+            },
+            new GuideStep
+            {
                 Id = "resolve-dlls",
                 Title = "Replace references to loose DLLs",
                 Why = "References to DLLs checked into the repository hide what you depend on, and those DLLs rarely work on {target}. This replaces each with the project that builds it or the NuGet package that ships it, and lists the ones it cannot place.",
@@ -359,4 +388,9 @@ public static class GuideCatalog
         argument.Length > 0 && argument.IndexOfAny([' ', ';', '"', '*', '&', '|', '<', '>', '(', ')', '\'']) < 0
             ? argument
             : "\"" + argument.Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+
+    /// <summary>True when a project uses Newtonsoft.Json older than 13.</summary>
+    private static bool OldNewtonsoft(WorkspaceModel model) =>
+        model.Packages.TryGetValue("Newtonsoft.Json", out var usage)
+        && usage.Versions.Keys.Any(v => NuGet.Versioning.NuGetVersion.TryParse(v, out var version) && version.Major < 13);
 }

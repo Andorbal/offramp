@@ -229,10 +229,10 @@ move works, in Visual Studio 2022 17.9+ (manual test script checked in with the 
 
 Acceptance: as for M16, in Rider.
 
-## M18 — Newtonsoft.Json upgrade ☐
+## M18 — Newtonsoft.Json upgrade ◐
 
 Upgrade Newtonsoft.Json from versions as old as 7 to 13.x with characterization tests recorded
-on the old version first (`commands/newtonsoft.md`, ADRs 0065–0068).
+on the old version first (`commands/newtonsoft.md`, ADRs 0065–0072).
 
 - `newtonsoft scan`: sites, configuration, payload types, settings provenance, references and
   redirects; API changes by trial compilation against the target; behavior changes from
@@ -251,8 +251,8 @@ provenance, and entry point or reason, and every seeded behavior and API change 
 schema), and each shipped rule's differential test fails when run against a single version;
 `tests` generates probes into the existing test projects of both fixtures, which build on every
 OS, and a second run changes nothing; recording on `newtonsoft-sdk` writes baselines through
-the journal, verifying them reports no difference, and a tampered baseline or a probe reading
-`Guid.NewGuid()` is caught (OFR3762, OFR3738); a test project resolving another Newtonsoft.Json
+the journal, verifying them reports no difference, and a tampered baseline or a probe whose output
+changes per process is caught (OFR3762, OFR3738); a test project resolving another Newtonsoft.Json
 version than production is refused (OFR3745); `upgrade` takes both fixtures to 13.x (every
 reference style plus the `App.config` redirect), builds, and reports the differences `scan`
 predicted, and an upgrade that breaks the build rolls back to byte-identical files.

@@ -239,7 +239,7 @@ public static class ProbeRecorder
         request.Diagnostics.Report(DiagnosticCatalog.OFR3740,
             build is null
                 ? "The test projects could not be built: the .NET SDK did not start."
-                : $"The test projects do not build ({build.ErrorCount} error{(build.ErrorCount == 1 ? "" : "s")}; the first: {build.Errors.FirstOrDefault()?.First})."
+                : $"The test projects do not build ({build.ErrorCount} error{(build.ErrorCount == 1 ? "" : "s")}; the first: {Describe(build.Errors.FirstOrDefault()?.First)})."
                     + (build.OutputTail.Count > 0 ? "\n" + string.Join("\n", build.OutputTail.TakeLast(10)) : ""));
         return false;
     }
@@ -391,6 +391,10 @@ public static class ProbeRecorder
                 [KeyValuePair.Create<string, JsonNode?>("probes", new JsonArray([.. group.Select(o => (JsonNode?)o.Probe)]))]);
         }
     }
+
+    /// <summary>A build error as one line: code, file, and message.</summary>
+    internal static string? Describe(VerifyError? error) =>
+        error is null ? null : $"{error.Code} {(error.File is null ? "" : error.File + ": ")}{error.Message}";
 
     private static string Tail(ProcessResult outcome) =>
         string.Join("\n", (outcome.StandardOutput + outcome.StandardError).Split('\n').Select(l => l.TrimEnd()).Where(l => l.Length > 0).TakeLast(10));

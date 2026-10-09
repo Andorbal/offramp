@@ -100,6 +100,7 @@ deadCode:
 newtonsoft:
   target: "[13.0,14.0)"       # the newest stable release in this range that supports every target framework
   samples: null              # a folder of real payloads named <payload type full name>[.<label>].json
+  onDiff: keep                # keep | rollback: newtonsoft upgrade when probes observe a change
   tests:
     entryDepth: 4             # how many callers up from a site the entry-point search goes
     folder: NewtonsoftCharacterization   # generated into each test project's folder

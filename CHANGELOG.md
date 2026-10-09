@@ -63,6 +63,30 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `messageOnly` (OFR3763), `missing` (OFR3741), `noBaseline` (OFR3744). .NET Framework-only test
   projects run on Windows and are skipped elsewhere with the command to run there (OFR3739); probes
   out of date with generation are OFR3746. Configuration `newtonsoft.tests.runs|command|timeoutSeconds`.
+- `offramp newtonsoft upgrade [--project P ...] [--version V] [--on-diff keep|rollback] [--apply]`
+  (ADR 0072) moves every project that uses Newtonsoft.Json, test projects included, to the target
+  as one change set:
+  - PackageReference and central versions;
+  - the `packages.config` version, edited in place, with every other byte kept;
+  - the `Reference` identity and the `HintPath`'s package and `lib/` folders, read from the
+    target package;
+  - binding redirects through `redirects sync` over the upgraded model.
+
+  It then restores and builds, rolling everything back when either fails (OFR3766, OFR3761, the
+  latter naming the OFR3701 findings that predicted it), and compares the probes with their
+  baselines (OFR3762 for each test project with changes; `--on-diff rollback` undoes the upgrade
+  then). Without baselines it says the compiler alone checked the upgrade (OFR3767).
+  `allowedVersions` that excludes the target (OFR3764) and package dependency ranges that do
+  (OFR3765) are named. JSON contract `schemas/v1/newtonsoft-upgrade.json`; configuration
+  `newtonsoft.onDiff`. The guide offers `newtonsoft-scan`, `newtonsoft-tests`, and
+  `newtonsoft-upgrade` when a project uses Newtonsoft.Json older than 13, and the migration skill
+  has a reference for them (`skills/offramp-migration/references/newtonsoft.md`).
+
+### Fixed
+- `redirects sync` moves a redirect that points at a version the application no longer deploys (as
+  an upgrade leaves `0.0.0.0-7.0.0.0 → 7.0.0.0` once 13.0.0.0 deploys) to the deployed version
+  (OFR1502). It used to keep it as harmless, and anything built against the older release then
+  failed to load.
 
 ### Changed
 - `audit serialization`'s tracing of `object` arguments to their callers moved into a shared

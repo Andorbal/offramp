@@ -214,7 +214,9 @@ the dry run, check it, apply it with the user's consent, verify it, and hand it 
    - Read what it reports about shared assembly-info files (`OFR4306`) and build events (`OFR4302`).
    - Check any conversion that fails verification one project at a time.
 3. **`deps consolidate --all`**: one version per package. A version that must stay becomes a pin in
-   `offramp.yml`, and every pin needs a reason from the user.
+   `offramp.yml`, and every pin needs a reason from the user. When the package is an old
+   Newtonsoft.Json (7 to 12), use the `newtonsoft` commands instead: they test the behavior change
+   before making it (`references/newtonsoft.md`).
 4. **`deps resolve-dlls`**: checked-in DLLs become package references. Accept a proposal only when
    the package's DLL is the same build as the checked-in one.
 5. **`redirects sync`**: binding redirects match the packages. Review every redirect `--prune`

@@ -417,9 +417,15 @@ Dry run by default: plans every edit and prints it as one diff.
      from the package, not guessed). Separators and the relative prefix are kept.
    - Binding redirects: `redirects sync` over a model in which Newtonsoft.Json is
      at the target, with the target package in the global packages folder (put
-     there first, outside the repository).
+     there first, outside the repository). A redirect that points at a version the
+     application no longer deploys (`0.0.0.0-7.0.0.0 → 7.0.0.0` after the upgrade)
+     is moved to the deployed one (`OFR1502`): left alone, anything built against
+     an older release would fail to load.
+   - Projects that get Newtonsoft.Json from another project are not edited
+     (`transitive`); test projects are upgraded with production ones, so type probes
+     keep compiling against the same assembly.
    - A package dependency whose range excludes the target is `OFR3765` (the
-     chain is shown).
+     package and its range are named).
 2. **Apply** (`--apply`): write the change set with a journal; restore
    (`dotnet restore`, and `packages.config` restore); a restore failure is
    `OFR3766` and rolls back.
@@ -432,10 +438,12 @@ Dry run by default: plans every edit and prints it as one diff.
    examined, or is rolled back (`rollback`). No baselines at all is `OFR3767`
    (warning): the upgrade was checked by the compiler only.
 
-Result (`schemas/v1/newtonsoft-upgrade.json`): `from` (versions in use),
-`to`, `projects[]` (project, from, how it was changed), `redirects` (the
-`redirects sync` result), `verify`, `probes[]` (id, status, diff), `findings`
-(the scan findings that applied), `applied`, `journal`, `rolledBack`, `preview`.
+Result (`schemas/v1/newtonsoft-upgrade.json`): `to`, `from` (each release in use
+with its projects), `projects[]` (project, release, reference style, files edited),
+`redirects` (the `redirects sync` result), `findings` (what `scan` predicts for the
+projects), `verify` (the build; null in a dry run), `probes[]` (probe, test project,
+runtime, status, diff), `onDiff`, `applied`, `journal`, `rolledBack`, `preview`.
+The build covers what `verify.projects` selects (the solution by default).
 
 ## Configuration
 

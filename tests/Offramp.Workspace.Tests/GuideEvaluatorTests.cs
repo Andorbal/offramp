@@ -76,7 +76,7 @@ public sealed class GuideEvaluatorTests
     public void Each_fact_decides_whether_its_step_is_needed()
     {
         var plain = GuideEvaluator.Evaluate(Facts(ModelOf(Project("src/A/A.csproj") with { SdkStyle = true, Language = "csharp" })), Done(SetupDone));
-        string[] factSteps = ["compile-only", "deps-audit", "web-inventory", "move-tests", "csproj-modernize", "deps-consolidate", "resolve-dlls", "config-convert", "service", "web-scaffold"];
+        string[] factSteps = ["compile-only", "deps-audit", "web-inventory", "move-tests", "csproj-modernize", "deps-consolidate", "newtonsoft-scan", "newtonsoft-tests", "newtonsoft-upgrade", "resolve-dlls", "config-convert", "service", "web-scaffold"];
         Assert.All(factSteps, id => Assert.Equal(GuideStepStatus.NotApplicable, plain.Step(id).Status));
 
         var legacy = Project("src/Legacy/Legacy.csproj", files: [("Vendor.Thing", "lib/Vendor.Thing.dll")]) with
@@ -93,6 +93,7 @@ public sealed class GuideEvaluatorTests
             Packages = new(StringComparer.Ordinal)
             {
                 ["NUnit"] = new PackageUsage { Versions = new(StringComparer.Ordinal) { ["3.13.0"] = ["src/Web/Web.csproj"], ["3.14.0"] = ["src/Legacy/Legacy.csproj"] } },
+                ["Newtonsoft.Json"] = new PackageUsage { Versions = new(StringComparer.Ordinal) { ["7.0.1"] = ["src/Legacy/Legacy.csproj"] } },
             },
         };
         var facts = Facts(model) with { ProjectsWithConfigFile = new HashSet<string> { "src/Web/Web.csproj" } };

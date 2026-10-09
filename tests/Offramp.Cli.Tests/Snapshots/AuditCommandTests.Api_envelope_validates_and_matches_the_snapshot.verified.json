@@ -70,6 +70,7 @@
         "hermetic": {
           "nonHermetic": []
         },
+        "onDiff": "keep",
         "samples": null,
         "target": "[13.0,14.0)",
         "tests": {

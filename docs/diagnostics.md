@@ -259,8 +259,13 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3745](#ofr3745) | error | newtonsoft | probe ran another Newtonsoft.Json than the production project uses |
 | [OFR3746](#ofr3746) | error | newtonsoft | generated probes are out of date |
 | [OFR3760](#ofr3760) | error | newtonsoft | no target Newtonsoft.Json release |
+| [OFR3761](#ofr3761) | error | newtonsoft | build failed after the Newtonsoft.Json upgrade; rolled back |
 | [OFR3762](#ofr3762) | error | newtonsoft | probe observes a behavior change |
 | [OFR3763](#ofr3763) | info | newtonsoft | only an exception message changed |
+| [OFR3764](#ofr3764) | warning | newtonsoft | allowedVersions in packages.config leaves out the target |
+| [OFR3765](#ofr3765) | warning | newtonsoft | a package's dependency leaves out the target Newtonsoft.Json |
+| [OFR3766](#ofr3766) | error | newtonsoft | restore failed after the Newtonsoft.Json upgrade; rolled back |
+| [OFR3767](#ofr3767) | warning | newtonsoft | no characterization baselines; the upgrade was checked by the compiler only |
 | [OFR4001](#ofr4001) | warning | seams | no seam found |
 | [OFR4002](#ofr4002) | warning | seams | seam member not wire-friendly |
 | [OFR4003](#ofr4003) | warning | seams | static member on the boundary |
@@ -2410,6 +2415,15 @@ No stable, listed release of Newtonsoft.Json in newtonsoft.target (or the --vers
 - **Typical cause:** A range or version with a typo, or feeds that do not mirror nuget.org.
 - **Fix:** Fix newtonsoft.target or --version, or configure a feed that has the release.
 
+### OFR3761
+
+**build failed after the Newtonsoft.Json upgrade; rolled back** · error · newtonsoft
+
+The solution does not build with every project on the target; every edit was undone from the journal. The first error is shown, with the OFR3701 findings that predicted it.
+
+- **Typical cause:** A member removed in 10.0.1, or an override of a member whose signature changed (`newtonsoft scan` lists them as OFR3701).
+- **Fix:** Fix what OFR3701 lists on the old release, then upgrade again.
+
 ### OFR3762
 
 **probe observes a behavior change** · error · newtonsoft
@@ -2427,6 +2441,42 @@ The probe throws the same exception type as its baseline, with another message.
 
 - **Typical cause:** Reworded messages between releases.
 - **Fix:** None, unless code parses the message.
+
+### OFR3764
+
+**allowedVersions in packages.config leaves out the target** · warning · newtonsoft
+
+The project's packages.config constrains Newtonsoft.Json with allowedVersions, and the target is outside it; the project is not upgraded.
+
+- **Typical cause:** A constraint added long ago to stop an accidental upgrade.
+- **Fix:** Widen or remove allowedVersions, then upgrade again.
+
+### OFR3765
+
+**a package's dependency leaves out the target Newtonsoft.Json** · warning · newtonsoft
+
+A package the project uses depends on Newtonsoft.Json with a range that excludes the target, so restore reports NU1608 or fails.
+
+- **Typical cause:** Old releases of packages built on Newtonsoft.Json with an upper bound.
+- **Fix:** Upgrade that package as well (`offramp deps audit` lists releases that allow the target).
+
+### OFR3766
+
+**restore failed after the Newtonsoft.Json upgrade; rolled back** · error · newtonsoft
+
+`dotnet restore` (or the packages.config restore) failed with every project on the target; every edit was undone from the journal.
+
+- **Typical cause:** A feed without the target, a package whose dependencies conflict with it, or no network.
+- **Fix:** Fix what restore reports, then upgrade again.
+
+### OFR3767
+
+**no characterization baselines; the upgrade was checked by the compiler only** · warning · newtonsoft
+
+The solution builds on the target, but no test project has recorded probe baselines, so behavior changes were not looked for.
+
+- **Typical cause:** Upgrading without `offramp newtonsoft tests --record --apply` first.
+- **Fix:** Roll back (`offramp move rollback`), record baselines on the old release, and upgrade again.
 
 ### OFR4001
 

@@ -315,4 +315,44 @@ public static partial class DiagnosticCatalog
         "Reworded messages between releases.",
         "None, unless code parses the message.",
         NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3761 = new(
+        "OFR3761", Severity.Error,
+        "build failed after the Newtonsoft.Json upgrade; rolled back",
+        "The solution does not build with every project on the target; every edit was undone from the journal. The first error is shown, with the OFR3701 findings that predicted it.",
+        "A member removed in 10.0.1, or an override of a member whose signature changed (`newtonsoft scan` lists them as OFR3701).",
+        "Fix what OFR3701 lists on the old release, then upgrade again.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3764 = new(
+        "OFR3764", Severity.Warning,
+        "allowedVersions in packages.config leaves out the target",
+        "The project's packages.config constrains Newtonsoft.Json with allowedVersions, and the target is outside it; the project is not upgraded.",
+        "A constraint added long ago to stop an accidental upgrade.",
+        "Widen or remove allowedVersions, then upgrade again.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3765 = new(
+        "OFR3765", Severity.Warning,
+        "a package's dependency leaves out the target Newtonsoft.Json",
+        "A package the project uses depends on Newtonsoft.Json with a range that excludes the target, so restore reports NU1608 or fails.",
+        "Old releases of packages built on Newtonsoft.Json with an upper bound.",
+        "Upgrade that package as well (`offramp deps audit` lists releases that allow the target).",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3766 = new(
+        "OFR3766", Severity.Error,
+        "restore failed after the Newtonsoft.Json upgrade; rolled back",
+        "`dotnet restore` (or the packages.config restore) failed with every project on the target; every edit was undone from the journal.",
+        "A feed without the target, a package whose dependencies conflict with it, or no network.",
+        "Fix what restore reports, then upgrade again.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3767 = new(
+        "OFR3767", Severity.Warning,
+        "no characterization baselines; the upgrade was checked by the compiler only",
+        "The solution builds on the target, but no test project has recorded probe baselines, so behavior changes were not looked for.",
+        "Upgrading without `offramp newtonsoft tests --record --apply` first.",
+        "Roll back (`offramp move rollback`), record baselines on the old release, and upgrade again.",
+        NewtonsoftArea);
 }

@@ -245,6 +245,7 @@
       "properties": {
         "target": { "type": "string", "minLength": 1, "description": "A NuGet version range; the newest stable release in it that supports every target framework is the target." },
         "samples": { "type": ["string", "null"], "description": "A folder of real payloads named <payload type full name>[.<label>].json." },
+        "onDiff": { "enum": ["keep", "rollback"], "description": "What newtonsoft upgrade does when probes observe a change." },
         "tests": {
           "type": "object",
           "additionalProperties": false,

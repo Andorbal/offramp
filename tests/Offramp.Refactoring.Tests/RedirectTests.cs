@@ -109,6 +109,28 @@ public sealed class RedirectTests
     }
 
     [Fact]
+    public async Task A_redirect_to_a_version_the_application_does_not_deploy_is_moved_to_the_deployed_one()
+    {
+        // Left by an upgrade: the App.config still sends 0.0.0.0-12.0.0.0 to 12.0.0.0, but 13.0.3
+        // (13.0.0.0) deploys, so anything built against 12 would fail to load.
+        var scanned = await ScannedFixtures.ScanAsync("legacy-csproj");
+        using var _ = scanned.Repository;
+        var config = Path.Combine(scanned.Root, "src", "Billing.Tool", "App.config");
+        var text = File.ReadAllText(config);
+        var start = text.IndexOf("<bindingRedirect", text.IndexOf("Newtonsoft.Json", StringComparison.Ordinal), StringComparison.Ordinal);
+        var end = text.IndexOf("/>", start, StringComparison.Ordinal) + 2;
+        File.WriteAllText(config, text[..start] + "<bindingRedirect oldVersion=\"0.0.0.0-12.0.0.0\" newVersion=\"12.0.0.0\" />" + text[end..]);
+        var diagnostics = new DiagnosticBag();
+
+        var plan = RedirectPlanner.Plan(Request(scanned.Root, scanned.Outcome.Model!, diagnostics, prune: false) with { Apps = ["src/Billing.Tool/Billing.Tool.csproj"] });
+
+        var redirect = Assert.Single(Assert.Single(plan.Result.Apps).Redirects);
+        Assert.Equal((RedirectAction.Changed, "0.0.0.0-13.0.0.0", "13.0.0.0", "12.0.0.0"), (redirect.Action, redirect.OldVersion, redirect.NewVersion, redirect.Was));
+        Assert.Contains("newVersion=\"13.0.0.0\"", System.Text.Encoding.UTF8.GetString(Assert.Single(plan.ChangeSet!.Edits).After), StringComparison.Ordinal);
+        Assert.True(diagnostics.Contains("OFR1502"));
+    }
+
+    [Fact]
     [ProducesDiagnostic("OFR1506")]
     public async Task An_application_with_a_partial_model_is_left_alone_even_with_prune()
     {
