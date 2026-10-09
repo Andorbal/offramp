@@ -232,7 +232,7 @@ Acceptance: as for M16, in Rider.
 ## M18 — Newtonsoft.Json upgrade ☐
 
 Upgrade Newtonsoft.Json from versions as old as 7 to 13.x with characterization tests recorded
-on the old version first (`commands/newtonsoft.md`, ADRs 0065–0067).
+on the old version first (`commands/newtonsoft.md`, ADRs 0065–0068).
 
 - `newtonsoft scan`: sites, configuration, payload types, settings provenance, references and
   redirects; API changes by trial compilation against the target; behavior changes from

@@ -88,35 +88,42 @@ ones), using its recorded compilation for the preferred target framework:
    knows one (`JsonConvert.SerializeObjectAsync` → `Task.Run` around
    `SerializeObject`). The target package comes from the global packages folder
    or the feeds; neither available is `OFR3725` and the step is skipped.
-5. **Behavior changes** from `rules/newtonsoft-breaking.yml`. Every rule names
-   the release that changed the behavior (`since`) and fires only for projects
-   whose version in use is below `since` while the target is at or above it.
-   A rule with a detector reports the code that is affected; a rule without one
-   reports once per project (`OFR3719`, info), so the list of applicable
-   release-note items is complete either way. Each rule ships with a differential
-   test that runs its example under the version before `since` and under the
-   target and fails unless the outputs differ (ADR 0066): a rule that cannot be
-   shown to change behavior is not shipped.
+5. **Behavior changes** from `rules/newtonsoft-breaking.yml`. A rule describes
+   one behavior as ordered version **segments**, each with a label: `[, 11.0.1)
+   isSerializable`, `[11.0.1, ) objectContract`. Several behaviors changed and
+   later changed back (decimals lost their trailing zeros in 10.x only), so a
+   rule fires when the label of the version in use differs from the label of the
+   target, not when a release lies between them. A rule with a detector reports
+   the code that is affected; a rule without one (the behavior depends on data,
+   not code) reports once per project (`OFR3719`, info). Every rule carries an
+   example, a C# method returning a string, and a differential test runs it
+   under every Newtonsoft.Json release from 7.0.1 to the newest 13.x: outputs
+   must be equal exactly where the labels are equal (ADR 0066, ADR 0068). A
+   release-note line that no example reproduces is not a rule.
 
-Candidate detectors, from the release notes of 8.0.1 through 13.0.4 (each is
-kept only if its differential test reproduces the change):
+Rules (the segments were measured, not read from the notes; ADR 0068 has the
+matrix):
 
-| Code | Since | What changed | Detector |
+| Code | Segments | What changed | Detector |
 |---|---|---|---|
-| OFR3703 | 11.0.1 | camel casing of all-caps words | a camel-case resolver or naming strategy in a site's settings, and payload members whose camel-cased name differs between the versions; the finding lists each `old → new` |
-| OFR3704 | 11.0.1 | `ISerializable` types without `[Serializable]` are serialized as objects | such a type among the payload types |
-| OFR3705 | 11.0.1, 13.0.1 | enum dictionary keys honor `[EnumMember]` and the naming strategy | `IDictionary<TEnum, …>` payload members whose enum has `[EnumMember]`, or a naming strategy in the settings |
-| OFR3706 | 11.0.1, 13.0.3 | decimals keep trailing zeros when read | `decimal` payload members at deserialize sites |
-| OFR3707 | 13.0.1 | a mismatched `JToken` conversion throws `JsonSerializationException`, not `InvalidCastException` | a `catch (InvalidCastException)` whose `try` contains a `ToObject`/`Value<T>`/explicit `JToken` conversion |
-| OFR3708 | 10.0.1 | `StringEnumConverter.AllowIntegerValues = false` also rejects integer strings and unnamed values | that assignment or constructor argument |
-| OFR3709 | 13.0.1 | `MaxDepth` defaults to 64 | a payload type that contains itself (directly or through members or collections) at a site without an explicit `MaxDepth` |
-| OFR3710 | 12.0.1 | `DateTime.Kind` is kept from ISO strings; `JTokenReader` honors `DateTimeZoneHandling` | `DateTime` payload members at deserialize sites, `JToken.ToObject` of them |
-| OFR3711 | 11.0.2 | `[DataContract]` no longer forces a collection type to an object contract | a `[DataContract]` payload type implementing `IEnumerable` |
-| OFR3712 | 12.0.1 | `TargetSite` is not written for exceptions without `[Serializable]` | an `Exception` payload type |
-| OFR3713 | 12.0.3 | `IImmutableSet`/`IImmutableDictionary` deserialize to the hash variants | payload members of those interface types |
+| OFR3703 | `[, 8.0.1)`, `[8.0.1, 11.0.1)`, `[11.0.1, )` | camel casing of names with spaces: `"A B"` became `"a B"` (8.x), `"URL VALUE"` became `"url VALUE"` (11.0.1) | a camel-case resolver or naming strategy in a site's settings and a payload member whose JSON name (its `[JsonProperty]` name or its own) camel-cases differently; the finding lists each `old → new`. String-keyed dictionary members are reported as data-dependent (`OFR3719`) |
+| OFR3704 | `[, 11.0.1)`, `[11.0.1, )` | an `ISerializable` type without `[Serializable]` is written and read through its public members instead of `GetObjectData` and the serialization constructor | such a type among the payload types |
+| OFR3705 | `[, 11.0.1)`, `[11.0.1, )` | enum dictionary keys use `[EnumMember]` values (writing; reading them stopped throwing) | an `IDictionary<TEnum, …>` payload member whose enum has `[EnumMember]` |
+| OFR3706 | `[, 10.0.1)`, `[10.0.1, 11.0.1)`, `[11.0.1, 13.0.2)`, `[13.0.2, 13.0.3)`, `[13.0.3, )` | decimals read from JSON keep their scale (`1.10`), except in 10.x (`1.1`) and for zero in 13.0.2 (`0`) | a `decimal` payload member at a deserialize site |
+| OFR3707 | per exception (rule data) | an exception the code catches is no longer the one thrown: `JToken.ToObject` of a mismatched token throws `JsonSerializationException`, not `InvalidCastException` (13.0.1); an invalid `\u` escape throws `JsonReaderException`, not `FormatException` (10.0.1) | a `catch` of the old type whose `try` block contains the API |
+| OFR3708 | `[, 10.0.1)`, `[10.0.1, )` | `StringEnumConverter { AllowIntegerValues = false }` also rejects integer strings when reading and unnamed values when writing | that converter in a site's settings |
+| OFR3709 | `[, 13.0.1)`, `[13.0.1, )` | readers stop at a depth of 64 by default (`JsonReaderException`) | a payload type that contains itself, at a deserialize or DOM site whose settings do not set `MaxDepth` |
+| OFR3710 | `[, 12.0.1)`, `[12.0.1, )` | `JToken.ToObject` with a serializer honors its `DateTimeZoneHandling` | `ToObject(Type, JsonSerializer)`/`ToObject<T>(JsonSerializer)` where the payload has `DateTime` members |
+| OFR3711 | `[, 11.0.1)`, `[11.0.1, 11.0.2)`, `[11.0.2, )` | a `[DataContract]` collection was written as an object in 11.0.1 only | a `[DataContract]` payload type implementing `IEnumerable` |
+| OFR3712 | `[, 11.0.1)`, `[11.0.1, 12.0.1)`, `[12.0.1, )` | serializing an exception type without `[Serializable]` threw in 11.x | such an exception type among the payload types |
+| OFR3713 | `[, 12.0.3)`, `[12.0.3, )` | `IImmutableSet<T>`/`IImmutableDictionary<K,V>` deserialize to the hash variants instead of the sorted ones | payload members of those interface types |
+
+Data-dependent changes reported through `OFR3719`: comments inside a parsed
+`JArray` are no longer items (`[, 8.0.1)`), negative zero and decimal overflow
+in narrow ranges (13.0.2; 10.x–11.x), and camel-cased dictionary keys with spaces.
 
 Severities are the defaults; `rules:` in `offramp.yml` overrides them as for
-audits. Findings carry `since` and the release-note line.
+audits. Findings carry the labels of both versions and the release-note line.
 
 Result (`schemas/v1/newtonsoft-scan.json`):
 
@@ -141,7 +148,7 @@ Result (`schemas/v1/newtonsoft-scan.json`):
       "configuration": [ { "kind": "settings", "file": "src/Orders/OrderCodec.cs", "line": 9, "symbol": "F:Orders.OrderCodec.Settings" } ]
     }
   ],
-  "findings": [ /* the audit finding shape, plus "since" */ ],
+  "findings": [ /* the audit finding shape, plus "current" and "target" labels */ ],
   "summary": { "projects": 3, "sites": 12, "withEntryPoint": 7, "findings": { "error": 1, "warning": 4, "info": 6 } }
 }
 ```
@@ -392,7 +399,7 @@ newtonsoft:
 | OFR3701 | error | API removed or changed in the target (trial compilation) |
 | OFR3702 | warning | API obsolete in the target (trial compilation) |
 | OFR3703–3713 | per rule | behavior change with a detector (table above) |
-| OFR3719 | info | behavior change between the versions with no detector |
+| OFR3719 | info | behavior change that depends on data, not code (no detector) |
 | OFR3720 | warning | payload type unknown |
 | OFR3721 | info | settings cannot be reproduced, or `DefaultSettings` is assigned |
 | OFR3722 | warning | Newtonsoft.Json at several versions in the solution |

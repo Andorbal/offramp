@@ -13,7 +13,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ### Added
 - The specification of `offramp newtonsoft scan|tests|upgrade` (`docs/spec/commands/newtonsoft.md`,
-  roadmap M18, ADRs 0065–0067): upgrading Newtonsoft.Json from versions as old as 7 to 13.x with
+  roadmap M18, ADRs 0065–0068): upgrading Newtonsoft.Json from versions as old as 7 to 13.x with
   characterization tests recorded on the old version first. Two fixtures for it,
   `newtonsoft-sdk` (SDK-style `net48;net10.0` projects with xunit and NUnit tests that run
   Newtonsoft.Json 7.0.1 on every OS) and `newtonsoft-legacy` (`packages.config`, `HintPath`, a

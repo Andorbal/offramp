@@ -23,14 +23,14 @@ OFR3701, new obsolete warnings OFR3702. The rule file only adds advice about the
 replacement. Nothing is listed by hand that the compiler can find.
 
 **Behavior rules ship only with a differential test.** Each rule in
-`rules/newtonsoft-breaking.yml` names its `since` release and an example (a type,
-settings, and the operation). A test loads Newtonsoft.Json at the last release
-before `since` and at the target into separate `AssemblyLoadContext`s, runs the
-example under each, and fails unless the outputs differ in the way the rule
-describes. The versions come from the NuGet global packages folder, restored by
-the test project as `PackageDownload`s. A rule whose example does not reproduce
-is not shipped. Its code stays reserved, and the release-note line is reported
-through the catch-all OFR3719 so the list of applicable notes stays complete.
+`rules/newtonsoft-breaking.yml` carries an example: a C# method that returns a
+string. A test compiles it against every Newtonsoft.Json release from 7.0.1 to the
+newest 13.x, runs each in its own `AssemblyLoadContext`, and checks that the
+outputs group exactly as the rule's version segments say (ADR 0068). The releases
+come from the NuGet global packages folder, restored by the test project as
+`PackageDownload`s, and the assembly is always the `net45` build, the one a .NET
+Framework application runs. A release-note line that no example reproduces is
+not a rule and is not reported.
 
 ## Alternatives considered
 
