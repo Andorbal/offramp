@@ -6,7 +6,7 @@ using Offramp.Core.Paths;
 namespace Offramp.Analysis.Newtonsoft;
 
 /// <summary>Which Newtonsoft.Json release a project uses, how it references it, and its own redirects.</summary>
-internal static class NewtonsoftReferences
+public static class NewtonsoftReferences
 {
     public const string PackageId = "Newtonsoft.Json";
 

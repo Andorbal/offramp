@@ -10,7 +10,7 @@
   "solution": "NewtonsoftSdk.slnx",
   "buildSucceeded": true,
   "projects": 4,
-  "loc": 288,
+  "loc": 294,
   "byFrameworkClass": {
     "dual": 4,
     "framework": 0,
@@ -32,5 +32,5 @@
   "unrecognized": [],
   "notLoaded": [],
   "partial": [],
-  "ledgerSnapshot": ".offramp/ledger/2026-09-25-a143f449.json"
+  "ledgerSnapshot": ".offramp/ledger/2026-09-25-c83c3e6a.json"
 }

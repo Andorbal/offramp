@@ -66,6 +66,9 @@
         },
         "verify": "end"
       },
+      "newtonsoft": {
+        "target": "[13.0,14.0)"
+      },
       "paths": {
         "exclude": [],
         "state": ".offramp"

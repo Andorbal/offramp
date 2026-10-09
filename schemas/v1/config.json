@@ -238,6 +238,14 @@
         "externalConsumers": { "$ref": "#/$defs/stringList" }
       }
     },
+    "newtonsoft": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The Newtonsoft.Json upgrade. See docs/spec/commands/newtonsoft.md.",
+      "properties": {
+        "target": { "type": "string", "minLength": 1, "description": "A NuGet version range; the newest stable release in it that supports every target framework is the target." }
+      }
+    },
     "projectMap": {
       "type": "array",
       "description": "Where a .NET Framework project's portable code lives. See docs/spec/commands/ide.md.",

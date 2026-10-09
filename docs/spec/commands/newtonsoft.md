@@ -134,7 +134,7 @@ Result (`schemas/v1/newtonsoft-scan.json`):
     {
       "project": "src/Orders/Orders.csproj", "targetFramework": "net48",
       "newtonsoft": { "version": "7.0.1", "via": "packagesConfig", "hintPath": "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll" },
-      "redirects": [ { "app": "src/Orders.App/Orders.App.csproj", "file": "src/Orders.App/App.config", "oldVersion": "0.0.0.0-7.0.0.0", "newVersion": "7.0.0.0" } ],
+      "redirects": [],
       "sites": [
         {
           "id": "Orders.OrderCodec.Write#1", "file": "src/Orders/OrderCodec.cs", "line": 14,
@@ -153,9 +153,20 @@ Result (`schemas/v1/newtonsoft-scan.json`):
 }
 ```
 
-Site ids are `<containing type>.<member>#<n>`, `n` counting sites in that member
-in source order; they are stable while the member's sites keep their order, and
-probe ids derive from them.
+Site ids are `<containing type>.<member name>#<n>`, `n` counting the type's
+sites in members of that name (overloads share a name) in file and position
+order; they are stable while those sites keep their order, and probe ids derive
+from them. `via` is one of `packageReference`, `centralPackage`,
+`packagesConfig`, `hintPath`, `looseDll`, and `transitive` (through another
+project or package). `redirects` are the project's own: those in its `app.config`
+(`web.config` for a web project), so an application lists the redirects it
+deploys. A local initialized once and never assigned again has the provenance
+of its initializer. A behavior finding is reported once per payload member or
+type, at the first site (in file order) that carries it, and names that site.
+
+With no feed to ask (every source unreachable), the target is the newest
+release the rule pack measures (13.0.4) when it is in the range, and `OFR3725`
+says the trial compilation needs that release's package.
 
 ### Entry points
 

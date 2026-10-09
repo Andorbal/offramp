@@ -71,6 +71,9 @@ public static class NewtonsoftRules
 
     public static IReadOnlyList<NewtonsoftRule> All => Loaded.Value;
 
+    /// <summary>The newest release the differential test measures: the target when no feed can be asked.</summary>
+    public static readonly NuGetVersion Measured = NuGetVersion.Parse("13.0.4");
+
     /// <summary>What replaces a removed or obsolete member, by documentation ID without parameters, or null.</summary>
     public static string? Replacement(string member)
     {

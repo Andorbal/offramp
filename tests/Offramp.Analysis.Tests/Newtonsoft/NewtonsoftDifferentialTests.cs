@@ -69,6 +69,7 @@ public sealed class NewtonsoftDifferentialTests
     [Fact]
     public void Every_rule_has_a_case_and_every_case_spans_the_supported_releases()
     {
+        Assert.Equal(NewtonsoftRules.Measured, NewtonsoftReleases.All[^1]);
         Assert.NotEmpty(NewtonsoftRules.All);
         foreach (var rule in NewtonsoftRules.All)
         {

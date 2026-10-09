@@ -97,6 +97,10 @@ deadCode:
                               # their public types. Packable projects, projects a .nuspec packs, and libraries no application
                               # in the solution uses count without being listed (commands/audit.md, ADR 0041)
 
+newtonsoft:
+  target: "[13.0,14.0)"       # the newest stable release in this range that supports every target framework
+                              # (commands/newtonsoft.md#configuration has the keys later milestones add)
+
 rules:                        # audit/behavior/serialization rule overrides
   OFR3105: { severity: none, reason: "We never run on Linux" }        # disable
   OFR3210: { severity: error }                                          # promote

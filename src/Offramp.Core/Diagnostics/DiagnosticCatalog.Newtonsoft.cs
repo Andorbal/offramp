@@ -62,7 +62,7 @@ public static partial class DiagnosticCatalog
 
     public static readonly DiagnosticDescriptor OFR3708 = new(
         "OFR3708", Severity.Warning,
-        "StringEnumConverter rejects integers more strictly",
+        "stricter integer handling in StringEnumConverter",
         "A StringEnumConverter with AllowIntegerValues = false. From 10.0.1 it also rejects integer strings (\"1\") when reading and enum values without a name when writing.",
         "Payloads that carry enums as numeric strings, or flags and out-of-range values.",
         "Accept the values explicitly or clean the data before upgrading.",
@@ -78,7 +78,7 @@ public static partial class DiagnosticCatalog
 
     public static readonly DiagnosticDescriptor OFR3710 = new(
         "OFR3710", Severity.Info,
-        "ToObject honors the serializer's DateTimeZoneHandling",
+        "serializer's DateTimeZoneHandling applies in ToObject",
         "JToken.ToObject with a serializer, for a type with DateTime members. From 12.0.1 the serializer's DateTimeZoneHandling applies, so the DateTime.Kind read back can change.",
         "ToObject(JsonSerializer.Create(settings)) with DateTimeZoneHandling set.",
         "Check the Kind the code expects after ToObject.",
@@ -134,7 +134,7 @@ public static partial class DiagnosticCatalog
 
     public static readonly DiagnosticDescriptor OFR3722 = new(
         "OFR3722", Severity.Warning,
-        "Newtonsoft.Json at several versions",
+        "several Newtonsoft.Json versions in the solution",
         "Projects in the solution use different releases of Newtonsoft.Json; each project is judged against its own.",
         "packages.config projects updated one at a time, binding redirects hiding the difference.",
         "Upgrade them together (`offramp newtonsoft upgrade`).",
@@ -142,7 +142,7 @@ public static partial class DiagnosticCatalog
 
     public static readonly DiagnosticDescriptor OFR3723 = new(
         "OFR3723", Severity.Warning,
-        "Newtonsoft.Json referenced as a loose DLL",
+        "loose Newtonsoft.Json DLL",
         "The project references a Newtonsoft.Json.dll that no package provides; its version is read from the assembly, and the upgrade cannot edit it.",
         "A lib/ folder checked into the repository.",
         "Turn it into a package reference first (`offramp deps resolve-dlls`).",
@@ -162,5 +162,13 @@ public static partial class DiagnosticCatalog
         "Neither the global packages folder nor the configured feeds have the target release, so the trial compilation (OFR3701, OFR3702) did not run.",
         "No network, or feeds that do not mirror nuget.org.",
         "Restore the target once (any project referencing it), or configure a feed that has it.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3760 = new(
+        "OFR3760", Severity.Error,
+        "no target Newtonsoft.Json release",
+        "No stable, listed release of Newtonsoft.Json in newtonsoft.target (or the --version given) supports every target framework of the projects that use it, or the release asked for does not exist.",
+        "A range or version with a typo, or feeds that do not mirror nuget.org.",
+        "Fix newtonsoft.target or --version, or configure a feed that has the release.",
         NewtonsoftArea);
 }

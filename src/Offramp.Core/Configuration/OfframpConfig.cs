@@ -48,6 +48,9 @@ public sealed record OfframpConfig
 
     public DeadCodeConfig DeadCode { get; init; } = new();
 
+    /// <summary><c>newtonsoft:</c>, the Newtonsoft.Json upgrade (docs/spec/commands/newtonsoft.md).</summary>
+    public NewtonsoftConfig Newtonsoft { get; init; } = new();
+
     /// <summary>Where a .NET Framework project's portable code lives (docs/spec/commands/ide.md#counterparts-and-the-project-map).</summary>
     public IReadOnlyList<ProjectMapEntry> ProjectMap { get; init; } = [];
 
@@ -365,6 +368,13 @@ public sealed record DeadCodeConfig
 {
     /// <summary>Assembly names other repositories consume; their public symbols are never above <c>medium</c>.</summary>
     public IReadOnlyList<string> ExternalConsumers { get; init; } = [];
+}
+
+/// <summary><c>newtonsoft:</c> (docs/spec/commands/newtonsoft.md#configuration).</summary>
+public sealed record NewtonsoftConfig
+{
+    /// <summary>A NuGet version range; the newest stable release in it that supports every target framework is the target.</summary>
+    public string Target { get; init; } = "[13.0,14.0)";
 }
 
 /// <summary>One <c>projectMap:</c> entry: the projects <see cref="From"/> matches keep their portable code in <see cref="To"/>.</summary>

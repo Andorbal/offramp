@@ -19,6 +19,24 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   Newtonsoft.Json 7.0.1 on every OS) and `newtonsoft-legacy` (`packages.config`, `HintPath`, a
   binding redirect, and a legacy MSTest project at C# 6), scanned by the fixture model tests.
   The commands themselves follow in later releases.
+- `offramp newtonsoft scan` (roadmap M18, ADRs 0066, 0068, 0069): for every project that uses
+  Newtonsoft.Json, how it references it (PackageReference, central versions, packages.config,
+  HintPath, a loose DLL, or transitively) and its own binding redirects; every call that
+  serializes, deserializes, or parses JSON, with its payload types and where its settings come from;
+  and what changes between the release in use and the target (the newest stable release in
+  `newtonsoft.target`, default `[13.0,14.0)`, that supports every target framework, or `--version`).
+  API changes come from compiling the project against the target's assembly (OFR3701 removed,
+  OFR3702 obsolete, with the replacement); behavior changes from `rules/newtonsoft-breaking.yml`
+  (OFR3703–3713, OFR3719), whose every case was measured against all 17 releases from 7.0.1 to
+  13.0.4 and is rechecked by a differential test. Several release notes did not reproduce (camel
+  casing of names without spaces, `DateTime` kinds) and several changes were reverted later
+  (decimal scale in 10.x), so a rule fires only where the two releases really behave differently.
+  `--format table|json|markdown`. JSON contract `schemas/v1/newtonsoft-scan.json`; diagnostics
+  OFR3701–3725 and OFR3760; configuration `newtonsoft.target`.
+
+### Changed
+- `audit serialization`'s tracing of `object` arguments to their callers moved into a shared
+  helper that `newtonsoft scan` also uses; its results are unchanged.
 
 ## [0.17.0] - 2026-10-01
 
