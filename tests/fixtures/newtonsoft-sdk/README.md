@@ -12,7 +12,7 @@ fixture build: the test projects resolve 7.0.1 on both targets.
 | File | Case |
 |---|---|
 | `src/Catalog/CatalogCodec.cs` | settings in a static member (camel-case resolver, `StringEnumConverter { AllowIntegerValues = false }`); serialize and deserialize sites that are their own entry points |
-| `src/Catalog/Product.cs` | payload members for the behavior rules: an all-caps prefix (`SKUCode`), `decimal`, `DateTime`, `Uri`, a dictionary keyed by an enum with `[EnumMember]` |
+| `src/Catalog/Product.cs` | payload members for the behavior rules: an all-caps prefix (`SKUCode`, which camel-cases alike in every release), a `[JsonProperty]` name with a space (`LEGACY CODE`, which does not), `decimal`, `DateTime`, `Uri`, a dictionary keyed by an enum with `[EnumMember]`, and one keyed by strings |
 | `src/Catalog/ProductExporter.cs` | inline settings in a private helper; the entry point is one caller up |
 | `src/Catalog/Envelope.cs` | an `object` payload whose concrete type (`Product`) comes from a caller |
 | `src/Catalog/Category.cs` | a type that contains itself, read without `MaxDepth` |

@@ -6,6 +6,21 @@
 # with `public static class Example { public static string Run() }`; the differential test runs
 # it under every release from 7.0.1 to the newest 13.x (the net45 assembly) and requires equal
 # outputs exactly where the labels are equal. Nothing here is taken from release notes alone.
+#
+# `replacements` only advises: which members changed is found by compiling the project against the
+# target (OFR3701, OFR3702). Keys are documentation IDs without parameters (any overload).
+replacements:
+  M:Newtonsoft.Json.JsonConvert.SerializeObjectAsync: Task.Run(() => JsonConvert.SerializeObject(...)) (removed in 10.0.1)
+  M:Newtonsoft.Json.JsonConvert.DeserializeObjectAsync: Task.Run(() => JsonConvert.DeserializeObject(...)) (removed in 10.0.1)
+  M:Newtonsoft.Json.JsonConvert.PopulateObjectAsync: Task.Run(() => JsonConvert.PopulateObject(...)) (removed in 10.0.1)
+  M:Newtonsoft.Json.JsonConverter.GetSchema: remove the override; JSON Schema lives in the Newtonsoft.Json.Schema package (removed in 10.0.1)
+  M:Newtonsoft.Json.Serialization.DefaultContractResolver.#ctor: the parameterless constructor (the shareCache overload was removed in 10.0.1)
+  P:Newtonsoft.Json.JsonSerializerSettings.TypeNameAssemblyFormat: TypeNameAssemblyFormatHandling
+  P:Newtonsoft.Json.JsonSerializer.TypeNameAssemblyFormat: TypeNameAssemblyFormatHandling
+  P:Newtonsoft.Json.JsonSerializerSettings.Binder: SerializationBinder, which takes an ISerializationBinder
+  P:Newtonsoft.Json.JsonSerializer.Binder: SerializationBinder, which takes an ISerializationBinder
+  T:Newtonsoft.Json.Bson.BsonReader: BsonDataReader from the Newtonsoft.Json.Bson package
+  T:Newtonsoft.Json.Bson.BsonWriter: BsonDataWriter from the Newtonsoft.Json.Bson package
 rules:
   OFR3703:
     severity: warning

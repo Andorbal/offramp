@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Offramp.Analysis.Serialization;
 
 namespace Offramp.Analysis.Audits.Matchers;
 
@@ -297,60 +298,9 @@ public sealed class SerializationFlowMatcher : IAuditMatcher
             yield break;
         }
 
-        foreach (var type in ArgumentTypes(context, model, graph, depth: 0))
+        foreach (var type in PayloadTypes.Of(context.Compilation, model, graph))
         {
             yield return type;
-        }
-    }
-
-    private static IEnumerable<ITypeSymbol> ArgumentTypes(AuditMatchContext context, SemanticModel model, ExpressionSyntax argument, int depth)
-    {
-        var type = model.GetTypeInfo(argument).Type;
-        if (type is null)
-        {
-            yield break;
-        }
-
-        var parameter = model.GetSymbolInfo(Unwrap(argument)).Symbol as IParameterSymbol;
-        var opaque = type.SpecialType == SpecialType.System_Object || type is ITypeParameterSymbol || type.TypeKind == TypeKind.Interface;
-        if (!opaque || parameter is null || depth >= 3 || parameter.ContainingSymbol is not IMethodSymbol owner)
-        {
-            if (type is not ITypeParameterSymbol)
-            {
-                yield return type;
-            }
-
-            yield break;
-        }
-
-        // Follow the parameter to the call sites of its method in this compilation.
-        foreach (var tree in context.Compilation.SyntaxTrees)
-        {
-            var siteModel = context.Compilation.GetSemanticModel(tree);
-            foreach (var invocation in tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>())
-            {
-                if (AuditEngine.Bound(siteModel, invocation) is not IMethodSymbol target
-                    || !SymbolEqualityComparer.Default.Equals((target.ReducedFrom ?? target).OriginalDefinition, owner.OriginalDefinition))
-                {
-                    continue;
-                }
-
-                var index = parameter.Ordinal - (target.ReducedFrom is null ? 0 : 1);
-                if (index >= 0 && index < invocation.ArgumentList.Arguments.Count)
-                {
-                    foreach (var passed in ArgumentTypes(context, siteModel, invocation.ArgumentList.Arguments[index].Expression, depth + 1))
-                    {
-                        yield return passed;
-                    }
-                }
-                else if (index == -1 && invocation.Expression is MemberAccessExpressionSyntax access)
-                {
-                    foreach (var passed in ArgumentTypes(context, siteModel, access.Expression, depth + 1))
-                    {
-                        yield return passed;
-                    }
-                }
-            }
         }
     }
 

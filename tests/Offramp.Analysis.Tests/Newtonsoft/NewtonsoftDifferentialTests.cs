@@ -38,6 +38,35 @@ public sealed class NewtonsoftDifferentialTests
     }
 
     [Fact]
+    public void The_camel_case_ports_match_every_release()
+    {
+        // OFR3703 judges names without running Newtonsoft.Json: its ports must say what each release says.
+        string[] names = ["URL VALUE", "A B", "ABC DEF GHI", "URLValue", "ID", "IOStream", "XMLHttp Request", "Hello World", "ID2", "I", "LEGACY CODE", "A", "AB CD", "lower", "X Y Z", "SKUCode"];
+        var @case = NewtonsoftRules.All.Single(r => r.Id == "OFR3703").Cases.Single();
+        var example = """
+            using System.Collections.Generic;
+            using Newtonsoft.Json;
+            using Newtonsoft.Json.Serialization;
+            public static class Example
+            {
+                public static string Run()
+                {
+                    var keys = new Dictionary<string, int>();
+                    foreach (var name in new[] { NAMES }) { keys[name] = 0; }
+                    return string.Join("|", JsonConvert.DeserializeObject<Dictionary<string, int>>(
+                        JsonConvert.SerializeObject(keys, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() })).Keys);
+                }
+            }
+            """.Replace("NAMES", string.Join(", ", names.Select(n => "\"" + n + "\"")), StringComparison.Ordinal);
+
+        foreach (var version in NewtonsoftReleases.All)
+        {
+            var expected = string.Join("|", names.Select(n => CamelCase.For(@case.LabelFor(version), n)));
+            Assert.Equal(expected, NewtonsoftReleases.Run(example, version));
+        }
+    }
+
+    [Fact]
     public void Every_rule_has_a_case_and_every_case_spans_the_supported_releases()
     {
         Assert.NotEmpty(NewtonsoftRules.All);

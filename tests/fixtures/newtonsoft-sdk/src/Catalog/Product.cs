@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using Newtonsoft.Json;
 
 namespace Contoso.Catalog
 {
@@ -20,5 +21,10 @@ namespace Contoso.Catalog
         public Uri Link { get; set; }
         public List<string> Tags { get; set; }
         public Dictionary<Color, int> Stock { get; set; }
+
+        [JsonProperty("LEGACY CODE")]
+        public string LegacyCode { get; set; }
+
+        public Dictionary<string, string> Attributes { get; set; }
     }
 }

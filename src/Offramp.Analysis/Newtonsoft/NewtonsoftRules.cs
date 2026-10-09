@@ -62,9 +62,21 @@ public sealed record VersionSegment(NuGetVersion? From, string Label);
 /// <summary>The rule pack, loaded once from the embedded <c>rules/newtonsoft-breaking.yml</c>.</summary>
 public static class NewtonsoftRules
 {
-    private static readonly Lazy<IReadOnlyList<NewtonsoftRule>> Loaded = new(() => Parse(RuleFiles.Load("newtonsoft-breaking.yml")));
+    private static readonly Lazy<JsonNode> File = new(() => RuleFiles.Load("newtonsoft-breaking.yml"));
+
+    private static readonly Lazy<IReadOnlyList<NewtonsoftRule>> Loaded = new(() => Parse(File.Value));
+
+    private static readonly Lazy<IReadOnlyDictionary<string, string>> Advice = new(() =>
+        File.Value["replacements"]!.AsObject().ToDictionary(p => p.Key, p => p.Value!.GetValue<string>(), StringComparer.Ordinal));
 
     public static IReadOnlyList<NewtonsoftRule> All => Loaded.Value;
+
+    /// <summary>What replaces a removed or obsolete member, by documentation ID without parameters, or null.</summary>
+    public static string? Replacement(string member)
+    {
+        var key = member.Contains('(', StringComparison.Ordinal) ? member[..member.IndexOf('(', StringComparison.Ordinal)] : member;
+        return Advice.Value.TryGetValue(key, out var advice) ? advice : null;
+    }
 
     internal static IReadOnlyList<NewtonsoftRule> Parse(JsonNode root)
     {
