@@ -401,6 +401,15 @@ public sealed record NewtonsoftTestsConfig
 
     /// <summary>How deep generated samples nest objects before null.</summary>
     public int ObjectDepth { get; init; } = 3;
+
+    /// <summary>How many times recording runs every probe; results that differ between runs are quarantined.</summary>
+    public int Runs { get; init; } = 2;
+
+    /// <summary>Replaces <c>dotnet test</c>: placeholders {project}, {assembly}, {framework}, {filter}, {results}.</summary>
+    public string? Command { get; init; }
+
+    /// <summary>The limit for one test run.</summary>
+    public int TimeoutSeconds { get; init; } = 1800;
 }
 
 /// <summary><c>newtonsoft.hermetic:</c>, what makes a method unsuitable as a probe's entry point.</summary>

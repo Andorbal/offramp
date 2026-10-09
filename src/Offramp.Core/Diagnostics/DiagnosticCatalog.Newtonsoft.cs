@@ -243,4 +243,76 @@ public static partial class DiagnosticCatalog
         "A test project that references another Newtonsoft.Json version, or none.",
         "Reference the production project's Newtonsoft.Json from the test project, or rely on entry probes.",
         NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3738 = new(
+        "OFR3738", Severity.Warning,
+        "probe output differs between runs; quarantined",
+        "Recording ran every probe more than once and this probe observed something different each time, so no baseline is written for it; the differing lines are shown.",
+        "Hash-ordered collections (HashSet<string> of strings, whose order changes per process), the clock or random numbers the hermetic check could not see, shared static state.",
+        "Make the output deterministic (sort, inject the clock), or accept that the site is checked by compilation only.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3739 = new(
+        "OFR3739", Severity.Warning,
+        ".NET Framework tests cannot run on this OS",
+        "The test project targets only .NET Framework, which runs on Windows; its probes were not run here. The message gives the command for a Windows machine or agent.",
+        "Recording or verifying a legacy solution on macOS or Linux.",
+        "Run the same `offramp newtonsoft tests` on Windows, or add a modern .NET target to the test project.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3740 = new(
+        "OFR3740", Severity.Error,
+        "test build or run failed",
+        "The test projects did not build, or a test run timed out, could not start, or failed while recording; the command and the end of its output are shown.",
+        "A test project that does not build, a missing test adapter, or a Newtonsoft.Json assembly that does not load (7.x on .NET needs System.Security.Permissions).",
+        "Fix the build or the run the message shows, then run again.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3741 = new(
+        "OFR3741", Severity.Warning,
+        "probe did not run",
+        "A generated probe wrote no result: the test run did not reach it (a filter, a crash, a configured command that runs fewer tests).",
+        "A newtonsoft.tests.command that runs a subset, or a test host that stopped early.",
+        "Run the probes the command left out, or regenerate them.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3744 = new(
+        "OFR3744", Severity.Warning,
+        "probe has no baseline",
+        "Verifying found a probe with nothing to compare with: it was generated after the last recording.",
+        "New sites or regenerated probes since `--record`.",
+        "Record it on the current release (`offramp newtonsoft tests --record --apply`) before upgrading.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3745 = new(
+        "OFR3745", Severity.Error,
+        "probe ran another Newtonsoft.Json than the production project uses",
+        "The test project loaded a different Newtonsoft.Json than its production project references, so its baselines would describe another release; nothing is written for it.",
+        "Microsoft.NET.Test.Sdk 17.x, whose test host brings Newtonsoft.Json 13 to .NET targets; a test project that references another version.",
+        "Use Microsoft.NET.Test.Sdk 18.x or later, or reference the production project's Newtonsoft.Json from the test project.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3746 = new(
+        "OFR3746", Severity.Error,
+        "generated probes are out of date",
+        "Recording or verifying runs the probes on disk, but generating them again would change them (the code or the configuration changed since).",
+        "Sites added or changed since `newtonsoft tests --apply`.",
+        "Run `offramp newtonsoft tests --apply` (or `--record --apply`, which writes them first).",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3762 = new(
+        "OFR3762", Severity.Error,
+        "probe observes a behavior change",
+        "A probe's observation differs from its baseline: another value, or it throws where it returned (or the reverse). The first difference is shown as removed (baseline) and added (now) lines.",
+        "A behavior change between the recorded release and the one running, as `newtonsoft scan` predicts, or a change in the code under test.",
+        "Decide whether the change is acceptable; if it is, record the new baseline (`--record --apply`).",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3763 = new(
+        "OFR3763", Severity.Info,
+        "only an exception message changed",
+        "The probe throws the same exception type as its baseline, with another message.",
+        "Reworded messages between releases.",
+        "None, unless code parses the message.",
+        NewtonsoftArea);
 }

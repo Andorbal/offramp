@@ -106,6 +106,9 @@ newtonsoft:
     projects: { }             # production project -> test project, when the choice is not obvious
     samplesPerType: 3         # 1 typical, 2 and empty, 3 and edge
     objectDepth: 3            # how deep generated samples nest objects before null
+    runs: 2                   # recording runs every probe this many times; disagreeing probes are quarantined
+    command: null             # replaces dotnet test: {project} {assembly} {framework} {filter} {results}
+    timeoutSeconds: 1800      # per test run
   hermetic:
     nonHermetic: [ ]          # documentation IDs (N:, T:, M:, P:) that disqualify an entry point, added to
                               # rules/newtonsoft-hermetic.yml (commands/newtonsoft.md#configuration has every key)

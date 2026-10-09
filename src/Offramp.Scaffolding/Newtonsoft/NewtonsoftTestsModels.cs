@@ -115,4 +115,16 @@ public sealed record NewtonsoftTestsResult
     public bool Applied { get; init; }
 
     public string? Journal { get; init; }
+
+    /// <summary><c>generate</c>, <c>record</c>, or <c>verify</c>.</summary>
+    public string Mode { get; init; } = "generate";
+
+    /// <summary>The test runs of a recording or a verification.</summary>
+    public IReadOnlyList<ProbeRun> Runs { get; init; } = [];
+
+    /// <summary>Each probe's outcome in a recording or a verification.</summary>
+    public IReadOnlyList<ProbeOutcome> Outcomes { get; init; } = [];
+
+    /// <summary>The journal of the baselines a recording wrote; null otherwise.</summary>
+    public string? BaselineJournal { get; init; }
 }

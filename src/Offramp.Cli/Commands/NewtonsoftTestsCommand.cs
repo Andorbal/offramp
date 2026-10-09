@@ -13,7 +13,7 @@ using Spectre.Console;
 
 namespace Offramp.Cli.Commands;
 
-public sealed record NewtonsoftTestsOptions(IReadOnlyList<string> Projects, string? To, string? Samples);
+public sealed record NewtonsoftTestsOptions(IReadOnlyList<string> Projects, string? To, string? Samples, bool Record = false, bool Verify = false);
 
 /// <summary><c>offramp newtonsoft tests</c> (docs/spec/commands/newtonsoft.md#newtonsoft-tests).</summary>
 public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOptions, NewtonsoftTestsResult>
@@ -27,15 +27,25 @@ public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOpti
         var project = new Option<string[]>("--project") { Description = "Only these production projects (path or name). Repeatable.", HelpName = "PROJECT" };
         var to = new Option<string?>("--to") { Description = "The test project for the probes (with a single --project).", HelpName = "PROJECT" };
         var samples = new Option<string?>("--samples") { Description = "A folder of real payloads named <payload type full name>[.<label>].json.", HelpName = "DIR" };
-        var command = new Command("tests", "Generate characterization probes for every serialization site into the test projects that cover it.")
+        var record = new Option<bool>("--record") { Description = "Build and run the probes, twice, and write what they observe as baselines (with --apply)." };
+        var verify = new Option<bool>("--verify") { Description = "Build and run the probes once and compare what they observe with the baselines." };
+        var command = new Command("tests", "Generate characterization probes for every serialization site into the test projects that cover it; record and verify their baselines.")
         {
-            project, to, samples,
+            project, to, samples, record, verify,
         };
+        command.Validators.Add(result =>
+        {
+            if (result.GetValue(record) && result.GetValue(verify))
+            {
+                result.AddError("--record and --verify cannot be combined.");
+            }
+        });
         command.SetAction((parse, ct) => CommandRunner.RunAsync(new NewtonsoftTestsCommand(),
-            new NewtonsoftTestsOptions(parse.GetValue(project) ?? [], parse.GetValue(to), parse.GetValue(samples)), globals.Bind(parse), host, ct));
+            new NewtonsoftTestsOptions(parse.GetValue(project) ?? [], parse.GetValue(to), parse.GetValue(samples), parse.GetValue(record), parse.GetValue(verify)), globals.Bind(parse), host, ct));
         HelpExamples.Add(command,
             "offramp newtonsoft tests",
-            "offramp newtonsoft tests --samples payloads/ --apply",
+            "offramp newtonsoft tests --samples payloads/ --record --apply",
+            "offramp newtonsoft tests --verify",
             "offramp newtonsoft tests --project src/Orders/Orders.csproj --to tests/Orders.Tests/Orders.Tests.csproj --apply");
         return command;
     }
@@ -86,13 +96,56 @@ public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOpti
             Diagnostics = context.Diagnostics,
             Progress = context.Progress,
         }, cancellationToken);
-        if (changeSet is null || !context.Settings.Apply || context.Settings.DryRun)
+        var apply = context.Settings.Apply && !context.Settings.DryRun;
+        if (changeSet is not null && apply)
+        {
+            var journal = await new ChangeSetApplier(root, context.Host.GitService).ApplyAsync(changeSet, "newtonsoft tests", context.Host.Time.GetUtcNow(), cancellationToken);
+            result = result with { Applied = true, Journal = journal, Preview = null };
+        }
+
+        if (!options.Record && !options.Verify)
         {
             return CommandOutcome<NewtonsoftTestsResult>.Completed(result);
         }
 
-        var journal = await new ChangeSetApplier(root, context.Host.GitService).ApplyAsync(changeSet, "newtonsoft tests", context.Host.Time.GetUtcNow(), cancellationToken);
-        return CommandOutcome<NewtonsoftTestsResult>.Completed(result with { Applied = true, Journal = journal, Preview = null });
+        if (changeSet is not null && !apply)
+        {
+            context.Diagnostics.Report(DiagnosticCatalog.OFR3746,
+                "The probes on disk are not what generating them now would write; run `offramp newtonsoft tests --apply` first (or record with --apply, which writes them).");
+            return CommandOutcome<NewtonsoftTestsResult>.Usage();
+        }
+
+        var run = new ProbeRunRequest
+        {
+            RepositoryRoot = root,
+            Model = model,
+            Config = config,
+            Targets = result.Targets,
+            Probes = result.Probes,
+            Processes = context.Host.Processes,
+            Diagnostics = context.Diagnostics,
+            Progress = context.Progress,
+        };
+        if (options.Verify)
+        {
+            var verified = await ProbeRecorder.VerifyAsync(run, cancellationToken);
+            return CommandOutcome<NewtonsoftTestsResult>.Completed(result with { Mode = "verify", Runs = verified.Runs, Outcomes = verified.Outcomes });
+        }
+
+        var recorded = await ProbeRecorder.RecordAsync(run, cancellationToken);
+        result = result with { Mode = "record", Runs = recorded.Runs, Outcomes = recorded.Outcomes };
+        if (recorded.Baselines is null)
+        {
+            return CommandOutcome<NewtonsoftTestsResult>.Completed(result);
+        }
+
+        if (!apply)
+        {
+            return CommandOutcome<NewtonsoftTestsResult>.Completed(result with { Preview = recorded.Baselines.Preview() });
+        }
+
+        var baselines = await new ChangeSetApplier(root, context.Host.GitService).ApplyAsync(recorded.Baselines, "newtonsoft tests record", context.Host.Time.GetUtcNow(), cancellationToken);
+        return CommandOutcome<NewtonsoftTestsResult>.Completed(result with { BaselineJournal = baselines });
     }
 
     public void Render(NewtonsoftTestsResult result, CommandContext context, HumanOutput output)
@@ -117,9 +170,29 @@ public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOpti
             output.MarkupLine($"  [dim]{Markup.Escape(file.Action)}[/] {Markup.Escape(file.Path)}");
         }
 
+        var outcomes = result.Outcomes.GroupBy(o => o.Status).OrderBy(g => g.Key).Select(g => $"{g.Count()} {g.Key.ToString().ToLowerInvariant()}").ToList();
+        if (outcomes.Count > 0)
+        {
+            output.MarkupLine($"  [bold]{Markup.Escape(result.Mode)}:[/] {Markup.Escape(string.Join(", ", outcomes))}");
+        }
+
+        foreach (var outcome in result.Outcomes.Where(o => o.Diff is not null))
+        {
+            output.MarkupLine($"  [yellow]{Markup.Escape(outcome.Status.ToString().ToLowerInvariant())}[/] {Markup.Escape(outcome.Probe)}");
+            foreach (var line in outcome.Diff!.Split('\n').Take(8))
+            {
+                output.MarkupLine($"      [dim]{Markup.Escape(line)}[/]");
+            }
+        }
+
         if (result.Applied)
         {
             output.MarkupLine($"[dim]Undo with[/] offramp move rollback --journal {Markup.Escape(result.Journal ?? "")}");
+        }
+
+        if (result.BaselineJournal is not null)
+        {
+            output.MarkupLine($"[dim]Baselines written; undo with[/] offramp move rollback --journal {Markup.Escape(result.BaselineJournal)}");
         }
         else if (result.Files.Any(f => f.Action is "create" or "edit" or "delete"))
         {

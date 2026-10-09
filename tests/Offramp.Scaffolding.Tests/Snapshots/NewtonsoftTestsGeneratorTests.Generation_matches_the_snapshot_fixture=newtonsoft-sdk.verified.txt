@@ -487,7 +487,11 @@
   },
   "preview": null,
   "applied": false,
-  "journal": null
+  "journal": null,
+  "mode": "generate",
+  "runs": [],
+  "outcomes": [],
+  "baselineJournal": null
 }
 
 OFR3731 src/Inventory/Inventory.csproj Site Contoso.Inventory.Reorder.Plan#1 has no probe (payloadNotGeneratable): its payload type cannot be written as C#.

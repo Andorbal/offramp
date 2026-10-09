@@ -193,7 +193,11 @@
   },
   "preview": null,
   "applied": false,
-  "journal": null
+  "journal": null,
+  "mode": "generate",
+  "runs": [],
+  "outcomes": [],
+  "baselineJournal": null
 }
 
 OFR3737  Contoso.Orders.Invoice.json is not named <payload type full name>[.<label>].json for a type any reading site uses; it is not copied.

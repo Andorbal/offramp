@@ -253,7 +253,10 @@
             "folder": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.-]+$", "description": "The folder probes are generated into, in each test project." },
             "projects": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 }, "description": "Production project (path or name) to test project (path or name)." },
             "samplesPerType": { "type": "integer", "minimum": 1, "maximum": 3 },
-            "objectDepth": { "type": "integer", "minimum": 1, "maximum": 8 }
+            "objectDepth": { "type": "integer", "minimum": 1, "maximum": 8 },
+            "runs": { "type": "integer", "minimum": 2, "maximum": 10, "description": "How many times recording runs every probe." },
+            "command": { "type": ["string", "null"], "description": "Replaces dotnet test: placeholders {project}, {assembly}, {framework}, {filter}, {results}." },
+            "timeoutSeconds": { "type": "integer", "minimum": 1 }
           }
         },
         "hermetic": {

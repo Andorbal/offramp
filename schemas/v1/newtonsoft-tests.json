@@ -5,7 +5,7 @@
   "description": "The result of `offramp newtonsoft tests`. See docs/spec/commands/newtonsoft.md#newtonsoft-tests.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["targets", "probes", "uncovered", "files", "coverage", "preview", "applied", "journal"],
+  "required": ["targets", "probes", "uncovered", "files", "coverage", "preview", "applied", "journal", "mode", "runs", "outcomes", "baselineJournal"],
   "properties": {
     "targets": {
       "type": "array",
@@ -84,6 +84,42 @@
     },
     "preview": { "type": ["string", "null"], "description": "The dry run's unified diff; null once applied or when nothing changes." },
     "applied": { "type": "boolean" },
-    "journal": { "type": ["string", "null"] }
+    "journal": { "type": ["string", "null"] },
+    "mode": { "enum": ["generate", "record", "verify"] },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["testProject", "runtime", "phase", "results", "commandLine"],
+        "properties": {
+          "testProject": { "$ref": "workspace.json#/$defs/relativePath" },
+          "framework": { "type": ["string", "null"], "description": "Null when the project was not run (OFR3739)." },
+          "runtime": { "enum": ["netfx", "core"] },
+          "phase": { "enum": ["write", "read"] },
+          "results": { "$ref": "workspace.json#/$defs/relativePath" },
+          "commandLine": { "type": "string" },
+          "exitCode": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "outcomes": {
+      "type": "array",
+      "description": "Sorted by test project, runtime, and probe.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["probe", "testProject", "runtime", "status"],
+        "properties": {
+          "probe": { "type": "string" },
+          "testProject": { "$ref": "workspace.json#/$defs/relativePath" },
+          "runtime": { "enum": ["netfx", "core"] },
+          "status": { "enum": ["recorded", "unchanged", "quarantined", "same", "differs", "nowThrows", "noLongerThrows", "messageOnly", "missing", "noBaseline"] },
+          "newtonsoft": { "type": "string" },
+          "diff": { "type": "string" }
+        }
+      }
+    },
+    "baselineJournal": { "type": ["string", "null"] }
   }
 }

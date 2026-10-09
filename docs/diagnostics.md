@@ -249,9 +249,18 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3735](#ofr3735) | warning | newtonsoft | generated probe does not compile; dropped |
 | [OFR3736](#ofr3736) | warning | newtonsoft | test framework not supported |
 | [OFR3737](#ofr3737) | warning | newtonsoft | sample file matches no payload type or is not JSON |
+| [OFR3738](#ofr3738) | warning | newtonsoft | probe output differs between runs; quarantined |
+| [OFR3739](#ofr3739) | warning | newtonsoft | .NET Framework tests cannot run on this OS |
+| [OFR3740](#ofr3740) | error | newtonsoft | test build or run failed |
+| [OFR3741](#ofr3741) | warning | newtonsoft | probe did not run |
 | [OFR3742](#ofr3742) | info | newtonsoft | generated file taken over; left alone |
 | [OFR3743](#ofr3743) | warning | newtonsoft | test project binds another Newtonsoft.Json; type probes skipped |
+| [OFR3744](#ofr3744) | warning | newtonsoft | probe has no baseline |
+| [OFR3745](#ofr3745) | error | newtonsoft | probe ran another Newtonsoft.Json than the production project uses |
+| [OFR3746](#ofr3746) | error | newtonsoft | generated probes are out of date |
 | [OFR3760](#ofr3760) | error | newtonsoft | no target Newtonsoft.Json release |
+| [OFR3762](#ofr3762) | error | newtonsoft | probe observes a behavior change |
+| [OFR3763](#ofr3763) | info | newtonsoft | only an exception message changed |
 | [OFR4001](#ofr4001) | warning | seams | no seam found |
 | [OFR4002](#ofr4002) | warning | seams | seam member not wire-friendly |
 | [OFR4003](#ofr4003) | warning | seams | static member on the boundary |
@@ -2311,6 +2320,42 @@ A file in the samples folder is not named <payload type full name>[.<label>].jso
 - **Typical cause:** A typo in the type name, a payload of a type no site reads, or a file that is not JSON.
 - **Fix:** Rename or fix the file.
 
+### OFR3738
+
+**probe output differs between runs; quarantined** · warning · newtonsoft
+
+Recording ran every probe more than once and this probe observed something different each time, so no baseline is written for it; the differing lines are shown.
+
+- **Typical cause:** Hash-ordered collections (HashSet<string> of strings, whose order changes per process), the clock or random numbers the hermetic check could not see, shared static state.
+- **Fix:** Make the output deterministic (sort, inject the clock), or accept that the site is checked by compilation only.
+
+### OFR3739
+
+**.NET Framework tests cannot run on this OS** · warning · newtonsoft
+
+The test project targets only .NET Framework, which runs on Windows; its probes were not run here. The message gives the command for a Windows machine or agent.
+
+- **Typical cause:** Recording or verifying a legacy solution on macOS or Linux.
+- **Fix:** Run the same `offramp newtonsoft tests` on Windows, or add a modern .NET target to the test project.
+
+### OFR3740
+
+**test build or run failed** · error · newtonsoft
+
+The test projects did not build, or a test run timed out, could not start, or failed while recording; the command and the end of its output are shown.
+
+- **Typical cause:** A test project that does not build, a missing test adapter, or a Newtonsoft.Json assembly that does not load (7.x on .NET needs System.Security.Permissions).
+- **Fix:** Fix the build or the run the message shows, then run again.
+
+### OFR3741
+
+**probe did not run** · warning · newtonsoft
+
+A generated probe wrote no result: the test run did not reach it (a filter, a crash, a configured command that runs fewer tests).
+
+- **Typical cause:** A newtonsoft.tests.command that runs a subset, or a test host that stopped early.
+- **Fix:** Run the probes the command left out, or regenerate them.
+
 ### OFR3742
 
 **generated file taken over; left alone** · info · newtonsoft
@@ -2329,6 +2374,33 @@ Type probes call Newtonsoft.Json from the test project, so they need it to compi
 - **Typical cause:** A test project that references another Newtonsoft.Json version, or none.
 - **Fix:** Reference the production project's Newtonsoft.Json from the test project, or rely on entry probes.
 
+### OFR3744
+
+**probe has no baseline** · warning · newtonsoft
+
+Verifying found a probe with nothing to compare with: it was generated after the last recording.
+
+- **Typical cause:** New sites or regenerated probes since `--record`.
+- **Fix:** Record it on the current release (`offramp newtonsoft tests --record --apply`) before upgrading.
+
+### OFR3745
+
+**probe ran another Newtonsoft.Json than the production project uses** · error · newtonsoft
+
+The test project loaded a different Newtonsoft.Json than its production project references, so its baselines would describe another release; nothing is written for it.
+
+- **Typical cause:** Microsoft.NET.Test.Sdk 17.x, whose test host brings Newtonsoft.Json 13 to .NET targets; a test project that references another version.
+- **Fix:** Use Microsoft.NET.Test.Sdk 18.x or later, or reference the production project's Newtonsoft.Json from the test project.
+
+### OFR3746
+
+**generated probes are out of date** · error · newtonsoft
+
+Recording or verifying runs the probes on disk, but generating them again would change them (the code or the configuration changed since).
+
+- **Typical cause:** Sites added or changed since `newtonsoft tests --apply`.
+- **Fix:** Run `offramp newtonsoft tests --apply` (or `--record --apply`, which writes them first).
+
 ### OFR3760
 
 **no target Newtonsoft.Json release** · error · newtonsoft
@@ -2337,6 +2409,24 @@ No stable, listed release of Newtonsoft.Json in newtonsoft.target (or the --vers
 
 - **Typical cause:** A range or version with a typo, or feeds that do not mirror nuget.org.
 - **Fix:** Fix newtonsoft.target or --version, or configure a feed that has the release.
+
+### OFR3762
+
+**probe observes a behavior change** · error · newtonsoft
+
+A probe's observation differs from its baseline: another value, or it throws where it returned (or the reverse). The first difference is shown as removed (baseline) and added (now) lines.
+
+- **Typical cause:** A behavior change between the recorded release and the one running, as `newtonsoft scan` predicts, or a change in the code under test.
+- **Fix:** Decide whether the change is acceptable; if it is, record the new baseline (`--record --apply`).
+
+### OFR3763
+
+**only an exception message changed** · info · newtonsoft
+
+The probe throws the same exception type as its baseline, with another message.
+
+- **Typical cause:** Reworded messages between releases.
+- **Fix:** None, unless code parses the message.
 
 ### OFR4001
 

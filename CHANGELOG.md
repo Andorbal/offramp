@@ -52,6 +52,17 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   project's recorded compilation before it is written; probes that do not compile are dropped
   (OFR3735). JSON contract `schemas/v1/newtonsoft-tests.json`; diagnostics OFR3731–3737, OFR3742,
   OFR3743; configuration `newtonsoft.samples` and `newtonsoft.tests.folder|projects|samplesPerType|objectDepth`.
+- `newtonsoft tests --record` and `--verify` (ADR 0067) build the test projects and run their
+  writing probes, then their reading probes, with `dotnet test` (or `newtonsoft.tests.command`), and
+  judge the result files the probes write, not the test run's verdict. Recording runs every probe
+  twice and writes what both runs agree on as `Baseline/<netfx|core>/<probe>.txt` through its own
+  journal; a probe that changes between runs is quarantined (OFR3738), and a test project that ran
+  another Newtonsoft.Json than its production project (as `Microsoft.NET.Test.Sdk` 17.x makes .NET
+  test projects do) records nothing (OFR3745). Verifying compares one run with the baselines:
+  `same`, `differs`, `nowThrows`, `noLongerThrows` (OFR3762, an error, with a line diff),
+  `messageOnly` (OFR3763), `missing` (OFR3741), `noBaseline` (OFR3744). .NET Framework-only test
+  projects run on Windows and are skipped elsewhere with the command to run there (OFR3739); probes
+  out of date with generation are OFR3746. Configuration `newtonsoft.tests.runs|command|timeoutSeconds`.
 
 ### Changed
 - `audit serialization`'s tracing of `object` arguments to their callers moved into a shared

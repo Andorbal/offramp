@@ -337,50 +337,63 @@ outcome: returned
 UTF-8 without BOM, LF line endings (CRLF is normalized when read, for checkouts
 with `autocrlf`).
 
-**Recording** (`--record`, needs `--apply` to write baselines):
+**Recording** (`--record`; baselines are written with `--apply`, previewed without):
 
-1. Build the test projects (`verify` machinery, `verify.mode: build`).
-2. Run the serialize probes, then the deserialize and entry probes, twice
-   (`newtonsoft.tests.runs`), with `OFFRAMP_NEWTONSOFT_MODE=record` and
-   `OFFRAMP_NEWTONSOFT_RESULTS` pointing into `.offramp/newtonsoft/runs/<n>/`.
-   Probes write only there; a deserialize probe whose input is a serialize
-   probe's output reads it from the same run.
-3. A probe whose two runs differ is `OFR3738` (warning, quarantined: no baseline
-   is written, and the differing lines are reported). A result recorded under a
-   Newtonsoft.Json version other than the production project's version in use
-   is `OFR3745` (error, nothing written): the test project resolved another
-   version, as SDK-style test projects on modern .NET do through
-   `Microsoft.NET.Test.Sdk` 17.x (ADR 0067).
-4. The results become `Baseline/<runtime>/<probe>.txt` through a change set
-   (journaled, previewed, undone with `move rollback`). `<runtime>` is `netfx` or
-   `core`: the two runtimes format some doubles differently, and each compares only
-   with itself.
+1. The probes on disk must be what generation writes now: with `--apply` they are
+   written first, without it a difference is `OFR3746` (exit 2).
+2. Build the test projects (`verify` machinery, build mode; a failure is `OFR3740`).
+3. Run each test project's writing probes (`<Production>SerializeProbes`), then
+   its reading probes (`<Production>DeserializeProbes`), `newtonsoft.tests.runs`
+   times (default 2), with `OFFRAMP_NEWTONSOFT_MODE=record`,
+   `OFFRAMP_NEWTONSOFT_RESULTS` set to `.offramp/newtonsoft/runs/record-<n>/`, and
+   `OFFRAMP_NEWTONSOFT_DIR` set to the generated folder (for builds whose
+   `[CallerFilePath]` is mapped). Probes write only there; a reading probe whose
+   input is a writing probe's output reads it from the same run.
+4. A probe whose runs differ is `OFR3738` (warning, quarantined: no baseline is
+   written, and the differing lines are shown). A probe with no result is
+   `OFR3741`. A result recorded under a Newtonsoft.Json assembly version other
+   than the production project's (`<major>.<minor>.0.0` of its release) is
+   `OFR3745` (error) and nothing is written for that test project: the test
+   project resolved another version, as SDK-style test projects on modern .NET do
+   through `Microsoft.NET.Test.Sdk` 17.x (ADR 0067).
+5. The results become `Baseline/<runtime>/<probe>.txt` through a change set with
+   its own journal (`baselineJournal`, undone with `move rollback`); baselines of
+   probes that no longer exist are deleted. `<runtime>` is `netfx` or `core`: the
+   two runtimes format some doubles differently, and each compares only with
+   itself.
 
-**Verifying** (`--verify`): build, run once with `OFFRAMP_NEWTONSOFT_MODE=verify`
-(deserialize probes read their input from the baseline, so inputs stay those the
-old version wrote), and compare each result with its baseline. Statuses: `same`,
-`differs`, `nowThrows`, `noLongerThrows`, `messageOnly` (`OFR3763`, info: only an
-exception message changed), `missing` (`OFR3741`, did not run), `noBaseline`
-(`OFR3744`), `quarantined`. Any `differs`, `nowThrows`, or `noLongerThrows` is
-`OFR3762` (warning, per probe, with a line diff) and exit 1.
+**Verifying** (`--verify`): the probes on disk must be current (`OFR3746`); build;
+run once into `.offramp/newtonsoft/runs/verify/` with
+`OFFRAMP_NEWTONSOFT_MODE=verify` (reading probes read their input from the
+baselines, so inputs stay those the old version wrote); compare each result with
+its baseline. Statuses: `same`, `differs`, `nowThrows`, `noLongerThrows`,
+`messageOnly` (`OFR3763`, info: only an exception message changed), `missing`
+(`OFR3741`), `noBaseline` (`OFR3744`). Any `differs`, `nowThrows`, or
+`noLongerThrows` is `OFR3762` (error, one per test project, with the probes
+listed and the first line diff) and exit 1.
 
-**Running.** SDK-style test projects: `dotnet test <project> --no-build -f <tfm>
---filter FullyQualifiedName~.NewtonsoftCharacterization.`; legacy ones: `dotnet
-test <output assembly> --test-adapter-path <the adapter's packages folder>`.
-`newtonsoft.tests.command` replaces both (placeholders `{project}`,
-`{assembly}`, `{framework}`, `{filter}`, `{results}`). The pass or fail of the
-test run is not the verdict: the result files are. A run that fails to build or
-start is `OFR3740` (error, output tail attached). .NET Framework test targets
-run on Windows only: elsewhere they are skipped with `OFR3739` (warning), which
-gives the command to run on Windows; a test project that also targets modern
-.NET runs that target instead (ADR 0067). There is no Mono support.
+**Running.** SDK-style test projects: `dotnet test <project> --no-build -c
+<verify.configuration> -f <tfm> --filter FullyQualifiedName~.<folder>.<class>.`;
+legacy ones: `dotnet test <output assembly> --test-adapter-path <output folder>`.
+`newtonsoft.tests.command` replaces both, run through the shell (placeholders
+`{project}`, `{assembly}`, `{framework}`, `{filter}`, `{results}`), with the same
+environment. The pass or fail of the test run is not the verdict: the result
+files are (a recording run that exits non-zero is still `OFR3740`). A test project
+runs its first modern .NET target (results under `core`); one that targets only
+.NET Framework runs on Windows (`netfx`) and elsewhere is skipped with `OFR3739`
+(warning), which gives the command to run on Windows (ADR 0067). There is no Mono
+support.
 
 Result (`schemas/v1/newtonsoft-tests.json`): `targets[]` (production project,
-test project, framework, how it was chosen), `probes[]` (id, kind `type|entry`,
-direction, site, payload type, sample, input `generated|sample|roundtrip`, file),
-`uncovered[]` (site, reason), `files[]`, `preview`, `applied`, `journal`, `runs[]`
-(runtime, framework, command line, exit code, per-probe status), and `coverage`
-(sites, with a type probe, with an entry probe, uncovered by reason).
+test project, framework, how it was chosen, folder), `probes[]` (id, kind
+`entry|type`, direction, site, test project, sample, input
+`generated|sample|roundtrip`, where the input comes from, file), `uncovered[]`
+(site, project, reason, detail), `files[]` (path, `create|edit|delete|unchanged|kept`),
+`coverage` (sites, with an entry probe, with a type probe, uncovered by reason),
+`preview`, `applied`, `journal`, `mode` (`generate|record|verify`), `runs[]` (test
+project, framework, runtime, phase `write|read`, results folder, command line, exit
+code), `outcomes[]` (probe, test project, runtime, status, the Newtonsoft.Json
+version that ran, diff), and `baselineJournal`.
 
 ## `newtonsoft upgrade`
 
@@ -473,9 +486,10 @@ newtonsoft:
 | OFR3743 | warning | test project binds another Newtonsoft.Json; type probes skipped |
 | OFR3744 | warning | probe has no baseline |
 | OFR3745 | error | probe ran under another Newtonsoft.Json version than production |
+| OFR3746 | error | generated probes are out of date |
 | OFR3760 | error | no target version supports every framework |
 | OFR3761 | error | build failed after the upgrade; rolled back |
-| OFR3762 | warning | probe output changed |
+| OFR3762 | error | probe observes a behavior change |
 | OFR3763 | info | only an exception message changed |
 | OFR3764 | warning | `allowedVersions` in packages.config excludes the target |
 | OFR3765 | warning | a package dependency excludes the target |
