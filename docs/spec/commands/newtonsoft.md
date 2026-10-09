@@ -141,7 +141,7 @@ Result (`schemas/v1/newtonsoft-scan.json`):
           "member": "M:Orders.OrderCodec.Write(Orders.Order)", "api": "M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object,Newtonsoft.Json.JsonSerializerSettings)",
           "direction": "serialize", "payloadTypes": [ "Orders.Order" ],
           "settings": { "kind": "member", "symbol": "F:Orders.OrderCodec.Settings", "file": "src/Orders/OrderCodec.cs", "line": 9 },
-          "entryPoint": { "member": "M:Orders.OrderCodec.Write(Orders.Order)", "depth": 0 },
+          "entryPoint": { "member": "M:Orders.OrderCodec.Write(Orders.Order)", "project": "src/Orders/Orders.csproj", "depth": 0, "path": [ "M:Orders.OrderCodec.Write(Orders.Order)" ] },
           "uncovered": null
         }
       ],
@@ -190,11 +190,18 @@ callers (default 4), it takes the first member that is:
    directories, network, databases, `DateTime.Now`/`UtcNow`, `Guid.NewGuid`,
    `Random`, `Environment`, `ConfigurationManager`, `Thread.Sleep`, console
    input) (`nonHermetic`, with the API and where it is called);
-5. **observable**: returns a value or has an output parameter (`notObservable`).
+5. **observable**: returns a value or has an output parameter (`notObservable`);
+6. for deserialize and DOM sites, **fed**: the JSON the site reads comes from one
+   of its parameters, followed through `StringReader`, `JsonTextReader`,
+   `StreamReader`, `Encoding.GetBytes`, parsed tokens, and locals initialized
+   once (`inputNotParameter`). `entryPoint.input` names that parameter.
 
-Ties at the same depth go to the ordinal-first documentation ID. A site with no
-such member gets the first reason that ruled out the nearest candidate, or
-`depthExceeded`. Every site has exactly one of `entryPoint` and `uncovered`.
+Callers in test projects are not candidates. Ties at the same depth go to the
+ordinal-first documentation ID. A site with no such member is `uncovered` with
+`depthExceeded` when callers remained beyond the depth limit, otherwise with the
+reason that ruled out the site's own member; `candidates` lists the members
+examined (nearest first, at most ten) with each one's reason. Every site has
+exactly one of `entryPoint` and `uncovered` (ADR 0070).
 
 ## `newtonsoft tests`
 

@@ -67,7 +67,13 @@
         "verify": "end"
       },
       "newtonsoft": {
-        "target": "[13.0,14.0)"
+        "hermetic": {
+          "nonHermetic": []
+        },
+        "target": "[13.0,14.0)",
+        "tests": {
+          "entryDepth": 4
+        }
       },
       "paths": {
         "exclude": [],
@@ -165,7 +171,17 @@
             ],
             "settings": {
               "kind": "none"
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Orders.CommentCodec.Read(System.String)",
+              "project": "src/Orders/Orders.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Orders.CommentCodec.Read(System.String)"
+              ],
+              "input": "json"
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Orders.OrderCodec.Write#1",
@@ -182,7 +198,16 @@
               "symbol": "F:Contoso.Orders.OrderCodec.Settings",
               "file": "src/Orders/OrderCodec.cs",
               "line": 10
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Orders.OrderCodec.Write(Contoso.Orders.Order)",
+              "project": "src/Orders/Orders.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Orders.OrderCodec.Write(Contoso.Orders.Order)"
+              ]
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Orders.OrderCodec.Read#1",
@@ -199,7 +224,17 @@
               "symbol": "F:Contoso.Orders.OrderCodec.Settings",
               "file": "src/Orders/OrderCodec.cs",
               "line": 10
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Orders.OrderCodec.Read(System.String)",
+              "project": "src/Orders/Orders.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Orders.OrderCodec.Read(System.String)"
+              ],
+              "input": "json"
+            },
+            "uncovered": null
           }
         ],
         "configuration": [

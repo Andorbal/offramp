@@ -99,7 +99,11 @@ deadCode:
 
 newtonsoft:
   target: "[13.0,14.0)"       # the newest stable release in this range that supports every target framework
-                              # (commands/newtonsoft.md#configuration has the keys later milestones add)
+  tests:
+    entryDepth: 4             # how many callers up from a site the entry-point search goes
+  hermetic:
+    nonHermetic: [ ]          # documentation IDs (N:, T:, M:, P:) that disqualify an entry point, added to
+                              # rules/newtonsoft-hermetic.yml (commands/newtonsoft.md#configuration has every key)
 
 rules:                        # audit/behavior/serialization rule overrides
   OFR3105: { severity: none, reason: "We never run on Linux" }        # disable

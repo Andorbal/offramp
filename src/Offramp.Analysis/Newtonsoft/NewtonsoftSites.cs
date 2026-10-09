@@ -148,17 +148,8 @@ internal sealed class NewtonsoftSiteFinder(string repositoryRoot, Compilation co
             shape);
     }
 
-    /// <summary>The member a node belongs to: lambdas and local functions count for the member around them, accessors for their property.</summary>
-    internal static ISymbol Member(SemanticModel model, SyntaxNode node)
-    {
-        var symbol = model.GetEnclosingSymbol(node.SpanStart)!;
-        while (symbol is IMethodSymbol { MethodKind: MethodKind.AnonymousFunction or MethodKind.LocalFunction })
-        {
-            symbol = symbol.ContainingSymbol;
-        }
-
-        return symbol is IMethodSymbol { AssociatedSymbol: IPropertySymbol or IEventSymbol } accessor ? accessor.AssociatedSymbol! : symbol;
-    }
+    /// <summary>The member a node belongs to, as the call graph names it.</summary>
+    internal static ISymbol Member(SemanticModel model, SyntaxNode node) => Offramp.Analysis.CallGraph.CallGraph.Member(model, node);
 
     internal static string TypeName(ITypeSymbol type) =>
         type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat

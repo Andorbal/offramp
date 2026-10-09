@@ -8,6 +8,7 @@ using Offramp.Analysis.Compilations;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Model;
 using Offramp.Core.Progress;
+using Graph = Offramp.Analysis.CallGraph.CallGraph;
 
 namespace Offramp.Analysis.Newtonsoft;
 
@@ -31,6 +32,12 @@ public sealed record NewtonsoftScanRequest
     public required DiagnosticBag Diagnostics { get; init; }
 
     public IProgressSink Progress { get; init; } = NullProgressSink.Instance;
+
+    /// <summary>How many callers up the entry-point search goes (<c>newtonsoft.tests.entryDepth</c>).</summary>
+    public int EntryDepth { get; init; } = 4;
+
+    /// <summary>Documentation IDs added to <c>rules/newtonsoft-hermetic.yml</c> (<c>newtonsoft.hermetic.nonHermetic</c>).</summary>
+    public IReadOnlyList<string> NonHermetic { get; init; } = [];
 
     /// <summary>Where compilations come from; null for the recorded compiler logs.</summary>
     public ICompilationSource? Compilations { get; init; }
@@ -63,7 +70,14 @@ public static class NewtonsoftScanner
         var reports = new List<NewtonsoftProjectReport>();
         var findings = new List<NewtonsoftFinding>();
         var skipped = new List<string>();
-        using (var phase = request.Progress.BeginPhase("newtonsoft scan", 1, 1))
+        EntryPointFinder entryPoints;
+        using (request.Progress.BeginPhase("call graph", 1, 2))
+        {
+            entryPoints = new EntryPointFinder(request.RepositoryRoot, Graph.Build(Compilations(request, compilations)), request.Model, request.EntryDepth,
+                NewtonsoftRules.NonHermetic.Concat(request.NonHermetic).ToHashSet(StringComparer.Ordinal));
+        }
+
+        using (var phase = request.Progress.BeginPhase("newtonsoft scan", 2, 2))
         {
             for (var i = 0; i < candidates.Count; i++)
             {
@@ -76,7 +90,7 @@ public static class NewtonsoftScanner
                     continue;
                 }
 
-                var (report, projectFindings) = ScanProject(request, project, tfm, reference!, compilation);
+                var (report, projectFindings) = ScanProject(request, project, tfm, reference!, compilation, entryPoints);
                 reports.Add(report);
                 findings.AddRange(projectFindings);
             }
@@ -113,11 +127,29 @@ public static class NewtonsoftScanner
         };
     }
 
+    /// <summary>Every C# project's compilation for its preferred target, test projects aside (their calls are not entry points).</summary>
+    private static IEnumerable<(ProjectInfo, Compilation)> Compilations(NewtonsoftScanRequest request, ICompilationSource compilations)
+    {
+        foreach (var project in request.Model.Projects.Where(p => p.Language == "csharp" && !p.IsTestProject && p.Kind != ProjectKind.Test).OrderBy(p => p.Id, StringComparer.Ordinal))
+        {
+            if (CompilationLoader.PreferredTarget(project) is { } tfm && compilations.LoadForProject(project, tfm) is { } compilation)
+            {
+                yield return (project, compilation);
+            }
+        }
+    }
+
     private static (NewtonsoftProjectReport, List<NewtonsoftFinding>) ScanProject(
-        NewtonsoftScanRequest request, ProjectInfo project, string tfm, NewtonsoftReference reference, CSharpCompilation compilation)
+        NewtonsoftScanRequest request, ProjectInfo project, string tfm, NewtonsoftReference reference, CSharpCompilation compilation, EntryPointFinder entryPoints)
     {
         var finder = new NewtonsoftSiteFinder(request.RepositoryRoot, compilation);
         finder.Find();
+        for (var i = 0; i < finder.Sites.Count; i++)
+        {
+            var (entry, uncovered) = entryPoints.Find(finder.Sites[i]);
+            finder.Sites[i] = finder.Sites[i] with { Site = finder.Sites[i].Site with { EntryPoint = entry, Uncovered = uncovered } };
+        }
+
         var report = new NewtonsoftProjectReport
         {
             Project = project.Id,

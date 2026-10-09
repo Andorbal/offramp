@@ -115,6 +115,57 @@ public sealed record NewtonsoftSite
     public required IReadOnlyList<string> PayloadTypes { get; init; }
 
     public required SiteSettings Settings { get; init; }
+
+    /// <summary>The member a test calls to exercise the site; null when <see cref="Uncovered"/> says why there is none.</summary>
+    public SiteEntryPoint? EntryPoint { get; init; }
+
+    public SiteUncovered? Uncovered { get; init; }
+}
+
+[JsonConverter(typeof(CamelCaseEnumConverter<UncoveredReason>))]
+public enum UncoveredReason
+{
+    NotAccessible,
+    NotConstructible,
+    TypeNotGeneratable,
+    NonHermetic,
+    NotObservable,
+    InputNotParameter,
+    DepthExceeded,
+}
+
+/// <summary>The member a test calls to exercise a site.</summary>
+public sealed record SiteEntryPoint
+{
+    /// <summary>Documentation ID.</summary>
+    public required string Member { get; init; }
+
+    /// <summary>The project that declares it.</summary>
+    public required string Project { get; init; }
+
+    /// <summary>Calls between it and the site's member (0: the site's member itself).</summary>
+    public required int Depth { get; init; }
+
+    /// <summary>From the entry point down to the site's member.</summary>
+    public required IReadOnlyList<string> Path { get; init; }
+
+    /// <summary>For deserialize and DOM sites: the parameter that carries the JSON.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Input { get; init; }
+}
+
+/// <summary>A member the finder looked at and why it does not qualify.</summary>
+public sealed record EntryCandidate(string Member, UncoveredReason Reason, string Detail);
+
+/// <summary>Why no member a test can call reaches a site.</summary>
+public sealed record SiteUncovered
+{
+    public required UncoveredReason Reason { get; init; }
+
+    public required string Detail { get; init; }
+
+    /// <summary>The members examined, nearest first (at most ten).</summary>
+    public required IReadOnlyList<EntryCandidate> Candidates { get; init; }
 }
 
 /// <summary>A place that configures Newtonsoft.Json.</summary>

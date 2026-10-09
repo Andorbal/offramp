@@ -243,7 +243,21 @@
       "additionalProperties": false,
       "description": "The Newtonsoft.Json upgrade. See docs/spec/commands/newtonsoft.md.",
       "properties": {
-        "target": { "type": "string", "minLength": 1, "description": "A NuGet version range; the newest stable release in it that supports every target framework is the target." }
+        "target": { "type": "string", "minLength": 1, "description": "A NuGet version range; the newest stable release in it that supports every target framework is the target." },
+        "tests": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "entryDepth": { "type": "integer", "minimum": 0, "maximum": 20, "description": "How many callers up from a site the entry-point search goes." }
+          }
+        },
+        "hermetic": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nonHermetic": { "$ref": "#/$defs/stringList", "description": "Documentation IDs (N:, T:, M:, P:) that make a method unsuitable as an entry point, added to the built-in list." }
+          }
+        }
       }
     },
     "projectMap": {

@@ -33,10 +33,19 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   (decimal scale in 10.x), so a rule fires only where the two releases really behave differently.
   `--format table|json|markdown`. JSON contract `schemas/v1/newtonsoft-scan.json`; diagnostics
   OFR3701–3725 and OFR3760; configuration `newtonsoft.target`.
+- `newtonsoft scan` gives each site the member a test can call to exercise it, or the reason
+  there is none (ADR 0070): breadth first up a method-level call graph of the whole solution
+  (through lambdas, accessors, interface members, and overrides), the nearest member that is
+  accessible to a test project, constructible, callable with generatable arguments, hermetic
+  (nothing within six calls is in `rules/newtonsoft-hermetic.yml`: files, network, databases, the
+  clock, random numbers, the environment), observable, and for reading sites fed the JSON through
+  a parameter. Configuration `newtonsoft.tests.entryDepth` and `newtonsoft.hermetic.nonHermetic`.
 
 ### Changed
 - `audit serialization`'s tracing of `object` arguments to their callers moved into a shared
-  helper that `newtonsoft scan` also uses; its results are unchanged.
+  helper that `newtonsoft scan` also uses, and `audit dead-code`'s reading of interface
+  implementations and overrides into another that the call graph uses; their results are
+  unchanged.
 
 ## [0.17.0] - 2026-10-01
 

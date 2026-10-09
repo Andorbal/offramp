@@ -375,6 +375,24 @@ public sealed record NewtonsoftConfig
 {
     /// <summary>A NuGet version range; the newest stable release in it that supports every target framework is the target.</summary>
     public string Target { get; init; } = "[13.0,14.0)";
+
+    public NewtonsoftTestsConfig Tests { get; init; } = new();
+
+    public NewtonsoftHermeticConfig Hermetic { get; init; } = new();
+}
+
+/// <summary><c>newtonsoft.tests:</c>, the characterization probes.</summary>
+public sealed record NewtonsoftTestsConfig
+{
+    /// <summary>How many callers up from a site the entry-point search goes.</summary>
+    public int EntryDepth { get; init; } = 4;
+}
+
+/// <summary><c>newtonsoft.hermetic:</c>, what makes a method unsuitable as a probe's entry point.</summary>
+public sealed record NewtonsoftHermeticConfig
+{
+    /// <summary>Documentation IDs (N:, T:, M:, P:) added to rules/newtonsoft-hermetic.yml.</summary>
+    public IReadOnlyList<string> NonHermetic { get; init; } = [];
 }
 
 /// <summary>One <c>projectMap:</c> entry: the projects <see cref="From"/> matches keep their portable code in <see cref="To"/>.</summary>

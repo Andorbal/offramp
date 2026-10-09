@@ -74,6 +74,12 @@ public static class NewtonsoftRules
     /// <summary>The newest release the differential test measures: the target when no feed can be asked.</summary>
     public static readonly NuGetVersion Measured = NuGetVersion.Parse("13.0.4");
 
+    private static readonly Lazy<IReadOnlyList<string>> Impure = new(() =>
+        [.. RuleFiles.Load("newtonsoft-hermetic.yml")["nonHermetic"]!.AsArray().Select(n => n!.GetValue<string>())]);
+
+    /// <summary>The APIs <c>rules/newtonsoft-hermetic.yml</c> lists as making a method unsuitable as an entry point.</summary>
+    public static IReadOnlyList<string> NonHermetic => Impure.Value;
+
     /// <summary>What replaces a removed or obsolete member, by documentation ID without parameters, or null.</summary>
     public static string? Replacement(string member)
     {

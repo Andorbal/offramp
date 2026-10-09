@@ -233,6 +233,74 @@ public sealed class NewtonsoftScannerTests
         Assert.Contains(result.Findings, f => f.Rule == "OFR3704" && f.Severity == Severity.Error && f.Overridden);
     }
 
+    [Fact]
+    public async Task Each_site_has_an_entry_point_or_the_reason_it_has_none()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var (result, _) = Scan(scanned, r => r with
+        {
+            EntryDepth = 1,
+            Compilations = new AddedSource(r.RepositoryRoot, Catalog, """
+                using System;
+                using Newtonsoft.Json;
+                namespace Contoso.Catalog
+                {
+                    public interface IClock { DateTime Read(); }
+                    public sealed class SystemClock : IClock { public DateTime Read() => DateTime.Now; }
+                    public interface IProductSource { Product Get(); }
+                    public static class Entries
+                    {
+                        public static readonly IClock Clock = new SystemClock();
+                        public static void Log(Product product) { var json = JsonConvert.SerializeObject(product); }
+                        public static Product Default() => JsonConvert.DeserializeObject<Product>("{}");
+                        public static string FromSource(IProductSource source) => JsonConvert.SerializeObject(source.Get());
+                        public static string Stamped() => JsonConvert.SerializeObject(Clock.Read());
+                        internal static string Friend(Product product) => JsonConvert.SerializeObject(product);
+                        private static string Deep(Product product) => JsonConvert.SerializeObject(product);
+                        private static string Deeper(Product product) => Deep(product);
+                        public static string Deepest(Product product) => Deeper(product);
+                    }
+                }
+                """),
+        });
+
+        var sites = result.Projects.Single(p => p.Project == Catalog).Sites.ToDictionary(s => s.Id);
+        Assert.Equal(UncoveredReason.NotObservable, sites["Contoso.Catalog.Entries.Log#1"].Uncovered!.Reason);
+        Assert.Equal(UncoveredReason.InputNotParameter, sites["Contoso.Catalog.Entries.Default#1"].Uncovered!.Reason);
+        Assert.Equal(UncoveredReason.TypeNotGeneratable, sites["Contoso.Catalog.Entries.FromSource#1"].Uncovered!.Reason);
+        var stamped = sites["Contoso.Catalog.Entries.Stamped#1"].Uncovered!;
+        Assert.Equal(UncoveredReason.NonHermetic, stamped.Reason);
+        Assert.Contains("System.DateTime.Now", stamped.Detail, StringComparison.Ordinal);
+        Assert.Equal("M:Contoso.Catalog.Entries.Friend(Contoso.Catalog.Product)", sites["Contoso.Catalog.Entries.Friend#1"].EntryPoint!.Member);
+        var deep = sites["Contoso.Catalog.Entries.Deep#1"].Uncovered!;
+        Assert.Equal(UncoveredReason.DepthExceeded, deep.Reason);
+        Assert.Equal([UncoveredReason.NotAccessible, UncoveredReason.NotAccessible], deep.Candidates.Select(c => c.Reason));
+        Assert.All(result.Projects.SelectMany(p => p.Sites), s => Assert.True(s.EntryPoint is null != (s.Uncovered is null)));
+    }
+
+    [Fact]
+    public async Task A_public_caller_is_the_entry_point_and_the_depth_bounds_the_search()
+    {
+        // Reorder.Plan is internal to Inventory; a public caller in Inventory reaches it, and with
+        // depth 0 allowed only, the same site has none.
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var source = """
+            namespace Contoso.Inventory
+            {
+                public static class Reorders
+                {
+                    public static string For(Contoso.Catalog.Product product) => Reorder.Plan(product, 3);
+                }
+            }
+            """;
+        var (reached, _) = Scan(scanned, r => r with { Compilations = new AddedSource(r.RepositoryRoot, Inventory, source) });
+        var (bounded, _) = Scan(scanned, r => r with { EntryDepth = 0, Compilations = new AddedSource(r.RepositoryRoot, Inventory, source) });
+
+        static NewtonsoftSite Plan(NewtonsoftScanResult result) => result.Projects.Single(p => p.Project == Inventory).Sites.Single(s => s.Id == "Contoso.Inventory.Reorder.Plan#1");
+        Assert.Equal("M:Contoso.Inventory.Reorders.For(Contoso.Catalog.Product)", Plan(reached).EntryPoint!.Member);
+        Assert.Equal(UncoveredReason.DepthExceeded, Plan(bounded).Uncovered!.Reason);
+    }
+
     internal static (NewtonsoftScanResult Result, DiagnosticBag Diagnostics) Scan(ScannedFixture scanned, Func<NewtonsoftScanRequest, NewtonsoftScanRequest>? customize = null)
     {
         var diagnostics = new DiagnosticBag();

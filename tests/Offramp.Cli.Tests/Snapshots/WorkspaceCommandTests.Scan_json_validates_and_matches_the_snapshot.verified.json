@@ -67,7 +67,13 @@
         "verify": "end"
       },
       "newtonsoft": {
-        "target": "[13.0,14.0)"
+        "hermetic": {
+          "nonHermetic": []
+        },
+        "target": "[13.0,14.0)",
+        "tests": {
+          "entryDepth": 4
+        }
       },
       "paths": {
         "exclude": [],

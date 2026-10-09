@@ -67,7 +67,13 @@
         "verify": "end"
       },
       "newtonsoft": {
-        "target": "[13.0,14.0)"
+        "hermetic": {
+          "nonHermetic": []
+        },
+        "target": "[13.0,14.0)",
+        "tests": {
+          "entryDepth": 4
+        }
       },
       "paths": {
         "exclude": [],
@@ -149,7 +155,16 @@
               "symbol": "F:Contoso.Catalog.CatalogCodec.Settings",
               "file": "src/Catalog/CatalogCodec.cs",
               "line": 10
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Catalog.CatalogCodec.Write(Contoso.Catalog.Product)",
+              "project": "src/Catalog/Catalog.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Catalog.CatalogCodec.Write(Contoso.Catalog.Product)"
+              ]
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Catalog.CatalogCodec.Read#1",
@@ -166,7 +181,17 @@
               "symbol": "F:Contoso.Catalog.CatalogCodec.Settings",
               "file": "src/Catalog/CatalogCodec.cs",
               "line": 10
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Catalog.CatalogCodec.Read(System.String)",
+              "project": "src/Catalog/Catalog.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Catalog.CatalogCodec.Read(System.String)"
+              ],
+              "input": "json"
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Catalog.CategoryCodec.Read#1",
@@ -180,7 +205,17 @@
             ],
             "settings": {
               "kind": "none"
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Catalog.CategoryCodec.Read(System.String)",
+              "project": "src/Catalog/Catalog.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Catalog.CategoryCodec.Read(System.String)"
+              ],
+              "input": "json"
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Catalog.Envelope.Wrap#1",
@@ -194,7 +229,17 @@
             ],
             "settings": {
               "kind": "none"
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Catalog.ProductFeed.Publish(Contoso.Catalog.Product)",
+              "project": "src/Catalog/Catalog.csproj",
+              "depth": 1,
+              "path": [
+                "M:Contoso.Catalog.ProductFeed.Publish(Contoso.Catalog.Product)",
+                "M:Contoso.Catalog.Envelope.Wrap(System.Object)"
+              ]
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Catalog.MoneyCodec.Write#1",
@@ -208,7 +253,16 @@
             ],
             "settings": {
               "kind": "none"
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Catalog.MoneyCodec.Write(Contoso.Catalog.Money)",
+              "project": "src/Catalog/Catalog.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Catalog.MoneyCodec.Write(Contoso.Catalog.Money)"
+              ]
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Catalog.MoneyCodec.Read#1",
@@ -222,7 +276,17 @@
             ],
             "settings": {
               "kind": "none"
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Catalog.MoneyCodec.Read(System.String)",
+              "project": "src/Catalog/Catalog.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Catalog.MoneyCodec.Read(System.String)"
+              ],
+              "input": "json"
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Catalog.PriceReader.TryRead#1",
@@ -234,7 +298,17 @@
             "payloadTypes": [],
             "settings": {
               "kind": "none"
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Catalog.PriceReader.TryRead(System.String)",
+              "project": "src/Catalog/Catalog.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Catalog.PriceReader.TryRead(System.String)"
+              ],
+              "input": "json"
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Catalog.PriceReader.TryRead#2",
@@ -248,7 +322,17 @@
             ],
             "settings": {
               "kind": "none"
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Catalog.PriceReader.TryRead(System.String)",
+              "project": "src/Catalog/Catalog.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Catalog.PriceReader.TryRead(System.String)"
+              ],
+              "input": "json"
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Catalog.ProductExporter.Line#1",
@@ -264,7 +348,17 @@
               "kind": "inline",
               "file": "src/Catalog/ProductExporter.cs",
               "line": 22
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Catalog.ProductExporter.Export(System.Collections.Generic.IEnumerable{Contoso.Catalog.Product})",
+              "project": "src/Catalog/Catalog.csproj",
+              "depth": 1,
+              "path": [
+                "M:Contoso.Catalog.ProductExporter.Export(System.Collections.Generic.IEnumerable{Contoso.Catalog.Product})",
+                "M:Contoso.Catalog.ProductExporter.Line(Contoso.Catalog.Product)"
+              ]
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Catalog.ProductStore.Save#1",
@@ -278,6 +372,18 @@
             ],
             "settings": {
               "kind": "none"
+            },
+            "entryPoint": null,
+            "uncovered": {
+              "reason": "nonHermetic",
+              "detail": "System.IO.File.WriteAllText(string, string) (T:System.IO.File) at src/Catalog/ProductStore.cs:18",
+              "candidates": [
+                {
+                  "member": "M:Contoso.Catalog.ProductStore.Save(Contoso.Catalog.Product)",
+                  "reason": "nonHermetic",
+                  "detail": "System.IO.File.WriteAllText(string, string) (T:System.IO.File) at src/Catalog/ProductStore.cs:18"
+                }
+              ]
             }
           }
         ],
@@ -329,6 +435,18 @@
             ],
             "settings": {
               "kind": "none"
+            },
+            "entryPoint": null,
+            "uncovered": {
+              "reason": "notConstructible",
+              "detail": "Contoso.Inventory.StockSnapshotWriter has no constructor a probe can call",
+              "candidates": [
+                {
+                  "member": "M:Contoso.Inventory.StockSnapshotWriter.Write(System.Collections.Generic.IDictionary{System.String,System.Int32})",
+                  "reason": "notConstructible",
+                  "detail": "Contoso.Inventory.StockSnapshotWriter has no constructor a probe can call"
+                }
+              ]
             }
           },
           {
@@ -343,7 +461,17 @@
             ],
             "settings": {
               "kind": "none"
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Inventory.StockSnapshotReader.Read(System.String)",
+              "project": "src/Inventory/Inventory.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Inventory.StockSnapshotReader.Read(System.String)"
+              ],
+              "input": "json"
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Inventory.SupplierFeed.Parse#1",
@@ -357,7 +485,17 @@
             ],
             "settings": {
               "kind": "none"
-            }
+            },
+            "entryPoint": {
+              "member": "M:Contoso.Inventory.SupplierFeed.Parse(System.String)",
+              "project": "src/Inventory/Inventory.csproj",
+              "depth": 0,
+              "path": [
+                "M:Contoso.Inventory.SupplierFeed.Parse(System.String)"
+              ],
+              "input": "json"
+            },
+            "uncovered": null
           },
           {
             "id": "Contoso.Inventory.Reorder.Plan#1",
@@ -371,6 +509,18 @@
             ],
             "settings": {
               "kind": "none"
+            },
+            "entryPoint": null,
+            "uncovered": {
+              "reason": "notAccessible",
+              "detail": "Contoso.Inventory.Reorder.Plan(Contoso.Catalog.Product, int) is not visible to a test project",
+              "candidates": [
+                {
+                  "member": "M:Contoso.Inventory.Reorder.Plan(Contoso.Catalog.Product,System.Int32)",
+                  "reason": "notAccessible",
+                  "detail": "Contoso.Inventory.Reorder.Plan(Contoso.Catalog.Product, int) is not visible to a test project"
+                }
+              ]
             }
           }
         ],

@@ -82,6 +82,8 @@ public sealed class NewtonsoftScanCommand(string format) : ICommandHandler<Newto
             TargetPackage = release.Package,
             Projects = projects,
             Overrides = config.SeverityOverrides(),
+            EntryDepth = config.Newtonsoft.Tests.EntryDepth,
+            NonHermetic = config.Newtonsoft.Hermetic.NonHermetic,
             Diagnostics = context.Diagnostics,
             Progress = context.Progress,
         }, cancellationToken);

@@ -87,7 +87,7 @@
     "site": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "file", "line", "member", "api", "direction", "payloadTypes", "settings"],
+      "required": ["id", "file", "line", "member", "api", "direction", "payloadTypes", "settings", "entryPoint", "uncovered"],
       "properties": {
         "id": { "type": "string", "pattern": "^.+#[1-9][0-9]*$", "description": "<containing type>.<member name>#<n>." },
         "file": { "$ref": "workspace.json#/$defs/relativePath" },
@@ -106,9 +106,55 @@
             "file": { "$ref": "workspace.json#/$defs/relativePath" },
             "line": { "type": "integer", "minimum": 1 }
           }
+        },
+        "entryPoint": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["member", "project", "depth", "path"],
+              "properties": {
+                "member": { "type": "string", "minLength": 1, "description": "The member a test calls, as a documentation ID." },
+                "project": { "$ref": "workspace.json#/$defs/relativePath" },
+                "depth": { "type": "integer", "minimum": 0 },
+                "path": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "From the entry point down to the site's member." },
+                "input": { "type": "string", "description": "For deserialize and DOM sites: the parameter that carries the JSON." }
+              }
+            }
+          ]
+        },
+        "uncovered": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["reason", "detail", "candidates"],
+              "properties": {
+                "reason": { "$ref": "#/$defs/reason" },
+                "detail": { "type": "string" },
+                "candidates": {
+                  "type": "array",
+                  "maxItems": 10,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["member", "reason", "detail"],
+                    "properties": {
+                      "member": { "type": "string" },
+                      "reason": { "$ref": "#/$defs/reason" },
+                      "detail": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          ]
         }
       }
     },
+    "reason": { "enum": ["notAccessible", "notConstructible", "typeNotGeneratable", "nonHermetic", "notObservable", "inputNotParameter", "depthExceeded"] },
     "finding": {
       "type": "object",
       "additionalProperties": false,
