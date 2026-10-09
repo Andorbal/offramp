@@ -35,6 +35,8 @@ Offramp's own settings when a fixture is built in place.
 | `webforms` | audit api (a missing base type reached through another project, an extension method over a System.Web type), audit dead-code (classes named only by markup); see its README |
 | `winforms-library` | audit api (a Windows Forms class library compiled for `-windows`, the controls .NET keeps only as throwing shims); see its README |
 | `dead-code-evidence` | audit dead-code evidence: libraries shipped by a `.nuspec` or used by no application, types a type finder or a generic type definition finds, controller actions, NUnit classes without `[TestFixture]`, COM-visible members called from a page and a script; see its README |
+| `newtonsoft-sdk` | newtonsoft scan, tests (generation, recording on every OS), upgrade of PackageReference projects; see its README |
+| `newtonsoft-legacy` | newtonsoft scan, tests (a legacy MSTest project at C# 6), upgrade of `packages.config`, `HintPath`, and binding redirects; see its README |
 
 `hollow` is generated, not checked in (`GeneratedFixtures.Hollow` in
 `tests/Offramp.Fixtures`): 500 files in `src/Big` to be moved into `src/Big.Core`
