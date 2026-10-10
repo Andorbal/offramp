@@ -147,6 +147,31 @@ public sealed class PackagesConfigRestoreTests : IDisposable
     }
 
     [Fact]
+    public async Task The_download_project_the_build_runs_is_not_one_of_the_repositorys()
+    {
+        // MassTransit field test: on Windows, scan leaves packages.config to the build, and the targets' download
+        // project came out of the log as a 37th, partial project.
+        using var repository = await FixtureRepository.CreateAsync("mvc5");
+        DoctorRunner.ApplyFix(repository.Path, packagesConfig: true);
+        var binlog = Path.Combine(repository.Path, "build.binlog");
+        // The download project is written only for packages missing from the global packages folder.
+        using var cache = new ScratchDirectory("empty-nuget-cache");
+
+        var build = await ProcessRunner.Instance.RunAsync(new ProcessSpec("dotnet", ["build", "Mvc5.sln", "-nologo", "-v:minimal", "-nodeReuse:false", "-bl:" + binlog])
+        {
+            WorkingDirectory = repository.Path,
+            Timeout = TimeSpan.FromMinutes(10),
+            Environment = new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1", ["NUGET_PACKAGES"] = cache.Path },
+        });
+
+        Assert.True(build.Succeeded, build.StandardOutput + build.StandardError);
+        Assert.True(File.Exists(Path.Combine(repository.Path, "obj", "offramp-packages-config", "download.csproj")));
+        var evaluations = Offramp.Workspace.Ingest.BinlogReader.Read(binlog).Evaluations;
+        Assert.NotEmpty(evaluations);
+        Assert.DoesNotContain(evaluations, e => e.ProjectFile.Replace('\\', '/').EndsWith(PackagesConfigRestore.DownloadProjectSuffix, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task A_project_built_on_its_own_finds_its_packages_folder_from_its_hint_paths()
     {
         using var repository = await FixtureRepository.CreateAsync("mvc5");

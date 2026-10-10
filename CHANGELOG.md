@@ -104,6 +104,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   widened in place. NuGet 2's `RestorePackages` is conditioned on .NET Framework's MSBuild instead
   of on Windows, since its `NuGet.targets` downloads NuGet.exe with a `CodeTaskFactory` task that
   .NET's MSBuild lacks on Windows too (MSB4801).
+- `scan` no longer takes the project `Offramp.PackagesConfig.targets` writes to download missing
+  `packages.config` packages (`obj/offramp-packages-config/download.csproj`) for one of the
+  repository's: a build that ran it, as `dotnet build` on Windows does, added it to the model as a
+  partial project (MassTransit field test).
 - `redirects sync` moves a redirect that points at a version the application no longer deploys (as
   an upgrade leaves `0.0.0.0-7.0.0.0 → 7.0.0.0` once 13.0.0.0 deploys) to the deployed version
   (OFR1502). It used to keep it as harmless, and anything built against the older release then
