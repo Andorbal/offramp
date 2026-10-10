@@ -35,6 +35,7 @@ Check findings before reporting them (`checking-results.md`). For OFR3703, look 
 3. `newtonsoft tests --record --apply` writes the probes, builds, runs them twice, and writes the
    baselines.
    - **Where to run it.** Test projects that target only .NET Framework run on Windows only (OFR3739). Record on Windows, or on a CI agent there.
+   - **Adapters.** A legacy test project needs a VSTest adapter in its output folder (OFR3747 names the package; NUnit 2 projects often have only `NUnit.Runners` and need `NUnitTestAdapter`). Add it before going to Windows: the check runs on every OS.
    - **OFR3745** means the test project loaded another Newtonsoft.Json than production. With `Microsoft.NET.Test.Sdk` 17.x on .NET targets, update it to 18.x.
    - **OFR3738** quarantines probes whose output changes between runs.
 4. The user reviews and commits the probes and baselines as their own change. `newtonsoft tests --verify` should then report every probe `same`.
