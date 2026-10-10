@@ -153,8 +153,86 @@ public sealed class NewtonsoftRecordCommandTests
         }
         else
         {
-            Assert.Contains("OFR3739", record.Out, StringComparison.Ordinal);
+            Assert.Single(Codes(record.Out), c => c == "OFR3739");
             Assert.False(Directory.Exists(baselines));
         }
+
+        // Its output folder has MSTest's adapter.
+        Assert.DoesNotContain("OFR3747", Codes(record.Out));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3747")]
+    public async Task A_legacy_test_project_without_an_adapter_is_not_run_and_says_which_package_to_add()
+    {
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-legacy", (root, request) =>
+        {
+            var project = Path.Combine(root, "tests", "Orders.Tests", "Orders.Tests.csproj");
+            File.WriteAllLines(project, File.ReadAllLines(project).Where(l => !l.Contains("MSTest.TestAdapter.", StringComparison.Ordinal)));
+            return request;
+        });
+        using var cli = new CliHarness(scanned.Repository.Directory).WithRealTests();
+
+        var record = await cli.RunAsync("newtonsoft", "tests", "--record", "--apply", "--json");
+
+        Assert.Single(Codes(record.Out), c => c == "OFR3747");
+        Assert.Contains("Add the MSTest.TestAdapter package", record.Out, StringComparison.Ordinal);
+        Assert.False(Directory.Exists(Path.Combine(scanned.Root, "tests", "Orders.Tests", "NewtonsoftCharacterization", "Baseline")));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3747")]
+    public async Task A_legacy_nunit_2_project_gets_probes_that_compile_and_is_told_it_needs_the_nunit_2_adapter()
+    {
+        // MassTransit field test P1 #1: NUnit 2.6.4 through packages.config, NUnit.Runners, no VSTest adapter.
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-legacy", (root, request) =>
+        {
+            ToNUnit2(Path.Combine(root, "tests", "Orders.Tests"));
+            PackagesConfigRestore.RestoreAsync(root).GetAwaiter().GetResult();
+            return request;
+        });
+        using var cli = new CliHarness(scanned.Repository.Directory).WithRealTests();
+
+        var record = await cli.RunAsync("newtonsoft", "tests", "--record", "--apply", "--json");
+
+        var result = JsonNode.Parse(record.Out)!["result"]!;
+        Assert.Equal("nunit", result["targets"]!.AsArray().Single()!["framework"]!.GetValue<string>());
+        Assert.NotEmpty(result["probes"]!.AsArray());
+        // The probes compiled into the NUnit 2 project and it built.
+        Assert.DoesNotContain("OFR3735", Codes(record.Out));
+        Assert.DoesNotContain("OFR3740", Codes(record.Out));
+        Assert.Contains("[global::NUnit.Framework.TestFixture]", File.ReadAllText(Path.Combine(scanned.Root, "tests", "Orders.Tests", "NewtonsoftCharacterization", "OrdersSerializeProbes.cs")), StringComparison.Ordinal);
+        Assert.Single(Codes(record.Out), c => c == "OFR3747");
+        Assert.Contains("Add the NUnitTestAdapter package", record.Out, StringComparison.Ordinal);
+    }
+
+    private static List<string> Codes(string envelope) =>
+        [.. JsonNode.Parse(envelope)!["diagnostics"]!.AsArray().Select(d => d!["code"]!.GetValue<string>())];
+
+    /// <summary>Turns the legacy MSTest project into a legacy NUnit 2.6.4 one, as MassTransit's are: no adapter.</summary>
+    private static void ToNUnit2(string folder)
+    {
+        var packages = Path.Combine(folder, "packages.config");
+        File.WriteAllLines(packages, File.ReadAllLines(packages)
+            .Where(l => !l.Contains("\"MSTest.TestFramework\"", StringComparison.Ordinal))
+            .Select(l => l.Contains("\"MSTest.TestAdapter\"", StringComparison.Ordinal) ? "  <package id=\"NUnit\" version=\"2.6.4\" targetFramework=\"net48\" />" : l));
+        var project = Path.Combine(folder, "Orders.Tests.csproj");
+        var text = File.ReadAllText(project).Replace("\r\n", "\n", StringComparison.Ordinal);
+        var lines = text.Split('\n').Where(l => !l.Contains("MSTest.TestAdapter.", StringComparison.Ordinal) && !l.Contains("<ProjectTypeGuids>", StringComparison.Ordinal)).ToList();
+        var first = lines.FindIndex(l => l.Contains("<Reference Include=\"Microsoft.VisualStudio.TestPlatform.TestFramework,", StringComparison.Ordinal));
+        lines.RemoveRange(first, 6);
+        lines.InsertRange(first,
+        [
+            "    <Reference Include=\"nunit.framework, Version=2.6.4.14350, Culture=neutral, PublicKeyToken=96d09a1eb7f44a77, processorArchitecture=MSIL\">",
+            "      <HintPath>..\\..\\packages\\NUnit.2.6.4\\lib\\nunit.framework.dll</HintPath>",
+            "      <Private>True</Private>",
+            "    </Reference>",
+        ]);
+        File.WriteAllText(project, string.Join('\n', lines));
+        var tests = Path.Combine(folder, "OrderCodecTests.cs");
+        File.WriteAllText(tests, File.ReadAllText(tests)
+            .Replace("using Microsoft.VisualStudio.TestTools.UnitTesting;", "using NUnit.Framework;", StringComparison.Ordinal)
+            .Replace("[TestClass]", "[TestFixture]", StringComparison.Ordinal)
+            .Replace("[TestMethod]", "[Test]", StringComparison.Ordinal));
     }
 }

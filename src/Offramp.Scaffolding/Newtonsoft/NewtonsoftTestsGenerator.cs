@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using NuGet.Versioning;
 using Offramp.Analysis.Compilations;
 using Offramp.Analysis.Newtonsoft;
 using Offramp.Core.Diagnostics;
@@ -536,5 +537,23 @@ internal static class TestFrameworks
         return names.Overlaps(["MSTest.TestFramework", "MSTest", "Microsoft.VisualStudio.TestPlatform.TestFramework", "Microsoft.VisualStudio.QualityTools.UnitTestFramework"])
             ? ProbeFramework.Mstest
             : null;
+    }
+
+    /// <summary>The package that brings the VSTest adapter for the project's framework (NUnit 2 has its own).</summary>
+    public static string AdapterPackage(ProjectInfo project, ProbeFramework framework) => framework switch
+    {
+        ProbeFramework.Xunit => "xunit.runner.visualstudio",
+        ProbeFramework.Nunit => NUnitMajor(project) is 2 ? "NUnitTestAdapter" : "NUnit3TestAdapter",
+        _ => "MSTest.TestAdapter",
+    };
+
+    private static int? NUnitMajor(ProjectInfo project)
+    {
+        static bool Is(string id) => string.Equals(id, "NUnit", StringComparison.OrdinalIgnoreCase);
+        var version = (project.PackagesConfigPackages ?? []).FirstOrDefault(p => Is(p.Id))?.Version
+            ?? project.PackageReferences.FirstOrDefault(p => Is(p.Id))?.Version
+            ?? project.Resolved.Values.SelectMany(r => r.Packages).FirstOrDefault(p => Is(p.Id))?.Version
+            ?? project.AssemblyReferences.FirstOrDefault(r => string.Equals(r.Name, "nunit.framework", StringComparison.OrdinalIgnoreCase))?.Metadata?.AssemblyVersion;
+        return version is not null && NuGetVersion.TryParse(version, out var parsed) ? parsed.Major : null;
     }
 }

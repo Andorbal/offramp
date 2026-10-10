@@ -21,6 +21,11 @@ questions open, or answered them in a way the codebase showed to be wrong:
   but not how far a reference is followed to get there. MassTransit caches its serializers in
   `static readonly Lazy<JsonSerializer>` fields set in a static constructor, and copies one into a
   readonly field in a constructor; both were `unknown`.
+- **NUnit 2, and test projects without an adapter** (P1 #1). The spec named NUnit 3 and 4 only;
+  the code accepted any `NUnit`, and the generated attributes exist in NUnit 2. What does not work
+  is running: a legacy project runs as `dotnet test <assembly> --test-adapter-path <output>`, and
+  MassTransit's NUnit 2 projects, like most legacy ones, have no VSTest adapter (they used
+  `nunit-console`). Every probe would have been `missing` with no reason given.
 
 ## Decision
 
@@ -39,6 +44,12 @@ questions open, or answered them in a way the codebase showed to be wrong:
   has one value when it is assigned exactly once: in its initializer, or in the type's only
   constructor of its kind, and never passed by `ref`. Anything less certain (two constructors, a
   compound assignment, a parameter) stays `unknown`, now located where the value came from.
+- **NUnit 2 is supported; a missing adapter is named, not run.** After the build, a legacy test
+  project's output folder must contain a VSTest adapter (a `*.testadapter.dll`, VSTest's own
+  convention for extensions), unless `newtonsoft.tests.command` runs the tests another way.
+  Without one the project is not run and `OFR3747` names the package to add for its framework
+  (`NUnitTestAdapter` 2.x for NUnit 2). The check runs on every OS, so a user on macOS learns it
+  before going to Windows. Nothing is added to the project: the user adds the package.
 
 ## Alternatives considered
 
@@ -52,7 +63,14 @@ questions open, or answered them in a way the codebase showed to be wrong:
   MassTransit's five deserializers, but each has several callers with different serializers, so
   a site would need several settings; that is a model change for another time.
 
+- **Supply the adapter from Offramp** (download `NUnitTestAdapter` into `.offramp/` and pass it
+  with `--test-adapter-path`). Works out of the box, but the adapter's version must match the
+  framework's, the probes would run in a way the project's own CI does not, and the user still
+  needs the package to run the probes anywhere else (they are meant to stay in the test suite).
+
 ## Consequences
 
+- A legacy NUnit 2 or MSTest v1 project needs one package added before its probes record; the
+  diagnostic says which, before the first run on Windows.
 - The upgrade's diff and result list Newtonsoft.Json redirects only. A user who wants the rest runs
   `redirects sync`, which says what it changes.

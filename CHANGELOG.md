@@ -44,7 +44,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   a parameter. Configuration `newtonsoft.tests.entryDepth` and `newtonsoft.hermetic.nonHermetic`.
 - `offramp newtonsoft tests [--project P ...] [--to T] [--samples DIR] [--apply]` (ADR 0071)
   generates characterization probes into the test projects that already cover each production
-  project (xunit, NUnit, MSTest v1 and v2; legacy projects at C# 6 included, with Compile items):
+  project (xunit, NUnit 2 to 4, MSTest v1 and v2; legacy projects at C# 6 included, with Compile items):
   entry probes that call each site's entry point with generated arguments, type probes that call
   Newtonsoft.Json with a site's own settings where there is no entry point, and reading probes fed
   real payloads and what the code's own writing probes record. A probe runtime written into the
@@ -66,7 +66,9 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   test projects do) records nothing (OFR3745). Verifying compares one run with the baselines:
   `same`, `differs`, `nowThrows`, `noLongerThrows` (OFR3762, an error, with a line diff),
   `messageOnly` (OFR3763), `missing` (OFR3741), `noBaseline` (OFR3744). .NET Framework-only test
-  projects run on Windows and are skipped elsewhere with the command to run there (OFR3739); probes
+  projects run on Windows and are skipped elsewhere with the command to run there (OFR3739), once
+  per command; a legacy test project without a VSTest adapter in its output folder is not run, and
+  OFR3747 names the package to add (`NUnitTestAdapter` for NUnit 2; ADR 0073); probes
   out of date with generation are OFR3746. Configuration `newtonsoft.tests.runs|command|timeoutSeconds`.
 - `offramp newtonsoft upgrade [--project P ...] [--version V] [--on-diff keep|rollback] [--apply]`
   (ADR 0072) moves every project that uses Newtonsoft.Json, test projects included, to the target

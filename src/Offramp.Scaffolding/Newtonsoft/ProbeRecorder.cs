@@ -21,7 +21,7 @@ public sealed record ProbeRun
 {
     public required string TestProject { get; init; }
 
-    /// <summary>The target framework run, or null when the project was not run (OFR3739).</summary>
+    /// <summary>The target framework run, or null when the project was not run (OFR3739, OFR3747).</summary>
     public string? Framework { get; init; }
 
     /// <summary><c>netfx</c> or <c>core</c>.</summary>
@@ -84,7 +84,8 @@ public static class ProbeRecorder
         var names = Enumerable.Range(1, Math.Max(2, request.Config.Newtonsoft.Tests.Runs)).Select(n => "record-" + n.ToString(CultureInfo.InvariantCulture)).ToList();
         foreach (var name in names)
         {
-            runs.AddRange(await RunAsync(request, "record", name, cancellationToken).ConfigureAwait(false));
+            // What cannot run is reported once, not once per pass.
+            runs.AddRange(await RunAsync(request, "record", name, report: name == names[0], cancellationToken).ConfigureAwait(false));
         }
 
         var outcomes = new List<ProbeOutcome>();
@@ -145,7 +146,7 @@ public static class ProbeRecorder
             return new ProbeRunResult([], [], null, BuildFailed: true);
         }
 
-        var runs = await RunAsync(request, "verify", "verify", cancellationToken).ConfigureAwait(false);
+        var runs = await RunAsync(request, "verify", "verify", report: true, cancellationToken).ConfigureAwait(false);
         var outcomes = new List<ProbeOutcome>();
         foreach (var target in request.Targets)
         {
@@ -245,7 +246,7 @@ public static class ProbeRecorder
     }
 
     /// <summary>Runs each test project's writing probes, then its reading probes, into <c>runs/&lt;name&gt;</c>.</summary>
-    private static async Task<List<ProbeRun>> RunAsync(ProbeRunRequest request, string mode, string name, CancellationToken cancellationToken)
+    private static async Task<List<ProbeRun>> RunAsync(ProbeRunRequest request, string mode, string name, bool report, CancellationToken cancellationToken)
     {
         var results = Path.Combine(RepoPaths.ToAbsolute(request.RepositoryRoot, RunsFolder), name);
         if (Directory.Exists(results))
@@ -259,6 +260,8 @@ public static class ProbeRecorder
         {
             var test = request.Model.Projects.Single(p => p.Id == group.Key);
             var (framework, runtime) = Framework(test, request.RunsNetFramework);
+            // A legacy project runs from its output folder, where VSTest needs an adapter to find any test.
+            var adapterless = request.Config.Newtonsoft.Tests.Command is null && !test.SdkStyle && !HasAdapter(request.RepositoryRoot, test);
             foreach (var phase in new[] { "write", "read" })
             {
                 var classes = group.Select(t => "." + CSharp6.Identifier(t.Folder[(t.Folder.LastIndexOf('/') + 1)..]) + "." + ClassName(request.Model, t.Production) + (phase == "write" ? "SerializeProbes." : "DeserializeProbes."))
@@ -271,14 +274,22 @@ public static class ProbeRecorder
 
                 var filter = string.Join("|", classes.Select(c => "FullyQualifiedName~" + c));
                 var relative = RepoPaths.ToRepositoryRelative(request.RepositoryRoot, results);
-                if (framework is null)
+                if (framework is null || adapterless)
                 {
-                    var command = $"dotnet test {Assembly(test)} --filter \"{filter}\"";
-                    if (phase == "write")
+                    var command = $"dotnet test {Assembly(test)} --test-adapter-path {OutputFolder(test)} --filter \"{filter}\"";
+                    if (report && phase == "write" && framework is null)
                     {
                         request.Diagnostics.Report(DiagnosticCatalog.OFR3739,
                             $"{test.Id} targets only .NET Framework, which runs on Windows. On Windows, run `offramp newtonsoft tests --{mode}` (or `{command}` with OFFRAMP_NEWTONSOFT_MODE={mode} and OFFRAMP_NEWTONSOFT_RESULTS set).",
                             new DiagnosticLocation(test.Id));
+                    }
+
+                    if (report && phase == "write" && adapterless)
+                    {
+                        var package = TestFrameworks.AdapterPackage(test, group.First().Framework);
+                        request.Diagnostics.Report(DiagnosticCatalog.OFR3747,
+                            $"{test.Id} has no VSTest adapter in {OutputFolder(test)} (no *.testadapter.dll), so `dotnet test` would find none of its probes; it is not run. Add the {package} package to it, or set newtonsoft.tests.command to run its tests another way.",
+                            new DiagnosticLocation(test.Id), [KeyValuePair.Create<string, JsonNode?>("package", package)]);
                     }
 
                     runs.Add(new ProbeRun { TestProject = test.Id, Runtime = runtime, Phase = phase, Results = relative, CommandLine = command });
@@ -347,8 +358,17 @@ public static class ProbeRecorder
         return (netFramework ? framework : null, "netfx");
     }
 
-    private static string Assembly(ProjectInfo test) =>
-        (test.OutputPath ?? Path.GetDirectoryName(test.Id)!.Replace('\\', '/') + "/bin/Debug") + "/" + (test.AssemblyName ?? test.Name) + ".dll";
+    private static string Assembly(ProjectInfo test) => OutputFolder(test) + "/" + (test.AssemblyName ?? test.Name) + ".dll";
+
+    private static string OutputFolder(ProjectInfo test) => test.OutputPath ?? Path.GetDirectoryName(test.Id)!.Replace('\\', '/') + "/bin/Debug";
+
+    /// <summary>Whether the output folder has a VSTest adapter: VSTest loads extensions named <c>*.TestAdapter.dll</c>.</summary>
+    private static bool HasAdapter(string root, ProjectInfo test)
+    {
+        var folder = RepoPaths.ToAbsolute(root, OutputFolder(test));
+        return Directory.Exists(folder)
+            && Directory.EnumerateFiles(folder, "*.dll").Any(f => f.EndsWith(".testadapter.dll", StringComparison.OrdinalIgnoreCase));
+    }
 
     private static string ClassName(WorkspaceModel model, string production) =>
         CSharp6.Identifier(model.Projects.Single(p => p.Id == production).Name.Replace(".", "", StringComparison.Ordinal));

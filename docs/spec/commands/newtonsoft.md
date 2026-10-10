@@ -223,7 +223,7 @@ Generates probes for the selected production projects (default: every project
 the test project that references it, chosen as `move tests` chooses (ADR 0045):
 several is `OFR3734` (error, candidates listed), none is `OFR3733` (error). Test
 projects are not created. The framework is detected from the test project's
-references: xunit (2 and 3), NUnit (3 and 4), MSTest (v1
+references: xunit (2 and 3), NUnit (2, 3 and 4), MSTest (v1
 `Microsoft.VisualStudio.QualityTools.UnitTestFramework` and v2); anything else
 is `OFR3736` and the project is skipped.
 
@@ -383,6 +383,12 @@ listed and the first line diff) and exit 1.
 **Running.** SDK-style test projects: `dotnet test <project> --no-build -c
 <verify.configuration> -f <tfm> --filter FullyQualifiedName~.<folder>.<class>.`;
 legacy ones: `dotnet test <output assembly> --test-adapter-path <output folder>`.
+VSTest finds tests only through an adapter (`*.testadapter.dll`) in that folder: a
+legacy test project whose output folder has none is not run, on any OS, and is
+`OFR3747` (warning), which names the package that brings the adapter for its
+framework (`NUnitTestAdapter` for NUnit 2, `NUnit3TestAdapter`,
+`xunit.runner.visualstudio`, `MSTest.TestAdapter`; ADR 0073). A project that
+cannot run is reported once per command, not once per recording pass.
 `newtonsoft.tests.command` replaces both, run through the shell (placeholders
 `{project}`, `{assembly}`, `{framework}`, `{filter}`, `{results}`), with the same
 environment. The pass or fail of the test run is not the verdict: the result
