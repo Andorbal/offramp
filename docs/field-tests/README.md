@@ -81,3 +81,4 @@ then on, anyone can run it with the **Corpus** workflow.
 | [2026-09-nhibernate-4.1.2.md](2026-09-nhibernate-4.1.2.md) | NHibernate 4.1.2: an ORM library shipped on NuGet, 5 legacy net40 projects with DLLs checked in, one in Visual Basic, built by NAnt | `nhibernate` |
 | [2026-09-smartstorenet-4.2.0.md](2026-09-smartstorenet-4.2.0.md) | SmartStoreNET 4.2.0: an MVC 5 e-commerce site with 12 plugins that build into it, 25 legacy projects on `packages.config` | `smartstore` |
 | [2026-09-open-live-writer-0.6.3.md](2026-09-open-live-writer-0.6.3.md) | Open Live Writer 0.6.3 (master): a WinForms desktop application with COM and P/Invoke interop, 28 legacy projects and a native one | `olw` |
+| [2026-10-masstransit-3.3.5.md](2026-10-masstransit-3.3.5.md) | MassTransit 3.3.5: a message bus library, 36 legacy projects on `packages.config` with NUnit 2 tests and Newtonsoft.Json 7.0.1 used every way; the first field test of the `newtonsoft` commands | `masstransit` |

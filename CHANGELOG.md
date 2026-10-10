@@ -91,6 +91,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `newtonsoft-upgrade` when a project uses Newtonsoft.Json older than 13, and the migration skill
   has a reference for them (`skills/offramp-migration/references/newtonsoft.md`).
 
+- A field test of the `newtonsoft` commands on MassTransit 3.3.5, a real codebase on Newtonsoft.Json
+  7.0.1 with NUnit 2 tests (`docs/field-tests/2026-10-masstransit-3.3.5.md`), and the corpus test
+  that pins what it found (`masstransit` in `tests/Offramp.Corpus.Tests`): the standard sweep, then
+  `newtonsoft scan`, `tests`, `tests --record`, and `upgrade --apply`.
+
 ### Fixed
 - `redirects sync` moves a redirect that points at a version the application no longer deploys (as
   an upgrade leaves `0.0.0.0-7.0.0.0 → 7.0.0.0` once 13.0.0.0 deploys) to the deployed version
