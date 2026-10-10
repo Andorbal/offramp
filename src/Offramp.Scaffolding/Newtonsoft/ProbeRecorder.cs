@@ -324,9 +324,10 @@ public static class ProbeRecorder
                 : new ProcessSpec("/bin/sh", ["-c", expanded]) { WorkingDirectory = request.RepositoryRoot, Environment = environment, Timeout = timeout };
         }
 
+        // `dotnet test <assembly>` hands its arguments to VSTest, not MSBuild: VSTest rejects `-nologo`.
         string[] arguments = test.SdkStyle
             ? ["test", RepoPaths.ToAbsolute(request.RepositoryRoot, test.Id), "--no-build", "-c", request.Config.Verify.Configuration, "-f", framework, "--filter", filter, "-nologo"]
-            : ["test", RepoPaths.ToAbsolute(request.RepositoryRoot, Assembly(test)), "--test-adapter-path", RepoPaths.ToAbsolute(request.RepositoryRoot, test.OutputPath ?? "."), "--filter", filter, "-nologo"];
+            : ["test", RepoPaths.ToAbsolute(request.RepositoryRoot, Assembly(test)), "--test-adapter-path", RepoPaths.ToAbsolute(request.RepositoryRoot, test.OutputPath ?? "."), "--filter", filter];
         return new ProcessSpec("dotnet", arguments) { WorkingDirectory = request.RepositoryRoot, Environment = environment, Timeout = timeout };
     }
 

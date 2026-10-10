@@ -148,7 +148,7 @@ public sealed class NewtonsoftRecordCommandTests
         var baselines = Path.Combine(scanned.Root, "tests", "Orders.Tests", "NewtonsoftCharacterization", "Baseline", "netfx");
         if (OperatingSystem.IsWindows())
         {
-            Assert.True(Directory.Exists(baselines));
+            Assert.True(Directory.Exists(baselines), record.Out);
             Assert.Contains(Directory.EnumerateFiles(baselines), f => File.ReadAllText(f).Contains("newtonsoft: 7.0.0.0", StringComparison.Ordinal));
         }
         else
