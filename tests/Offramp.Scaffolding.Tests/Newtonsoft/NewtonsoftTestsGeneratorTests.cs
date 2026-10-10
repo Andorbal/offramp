@@ -250,6 +250,47 @@ public sealed class NewtonsoftTestsGeneratorTests
         Assert.Contains(result.Uncovered, u => u.Site == "Contoso.Catalog.Tags.Root#1" && u.Reason != "doesNotCompile");
     }
 
+    [Fact]
+    public async Task A_site_without_a_payload_type_says_so()
+    {
+        // MassTransit field test P2 #6: "no sample payload for  and nothing writes it", with no type to name.
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-sdk", (root, request) =>
+        {
+            File.WriteAllText(Path.Combine(root, "src", "Catalog", "Untyped.cs"), """
+                using System;
+                using Newtonsoft.Json;
+
+                namespace Contoso.Catalog
+                {
+                    public static class Untyped
+                    {
+                        private static object last = new object();
+
+                        // Private and never called (Catalog's internals are visible to its tests): only a type probe could cover them.
+                        private static string Write() => JsonConvert.SerializeObject(last);
+
+                        private static object Read(string json, Type type) => JsonConvert.DeserializeObject(json, type);
+
+                        private static string WriteHidden() => JsonConvert.SerializeObject(new Hidden());
+
+                        private sealed class Hidden { public int Id { get; set; } }
+                    }
+                }
+                """);
+            return request;
+        });
+
+        var (result, _, _) = Generate(scanned);
+
+        var details = result.Uncovered.ToDictionary(u => u.Site, u => (u.Reason, u.Detail));
+        Assert.Equal("payloadNotGeneratable", details["Contoso.Catalog.Untyped.Write#1"].Reason);
+        Assert.StartsWith("its payload type is not known", details["Contoso.Catalog.Untyped.Write#1"].Detail, StringComparison.Ordinal);
+        Assert.Equal("noInput", details["Contoso.Catalog.Untyped.Read#1"].Reason);
+        Assert.StartsWith("its payload type is not known", details["Contoso.Catalog.Untyped.Read#1"].Detail, StringComparison.Ordinal);
+        Assert.Equal("its payload type (Contoso.Catalog.Untyped.Hidden) cannot be written as C#", details["Contoso.Catalog.Untyped.WriteHidden#1"].Detail);
+        Assert.DoesNotContain(result.Uncovered, u => u.Detail.Contains("for  and", StringComparison.Ordinal));
+    }
+
     private static void Write(string root, Offramp.Refactoring.ChangeSets.ChangeSet changeSet)
     {
         foreach (var create in changeSet.Creates)

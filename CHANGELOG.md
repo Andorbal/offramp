@@ -54,7 +54,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   project's recorded compilation before it is written; probes that do not compile are dropped
   (OFR3735), and a test project left without probes gets no files at all (ADR 0073). Generated
   values never use a copy constructor and write a null argument as `default(T)`, so overloaded
-  constructors compile (`XElement` on MassTransit did not). JSON
+  constructors compile (`XElement` on MassTransit did not). A site without a payload type says so
+  instead of asking for a sample of no type, and one whose type cannot be written names it. JSON
   contract `schemas/v1/newtonsoft-tests.json`; diagnostics OFR3731–3737, OFR3742,
   OFR3743; configuration `newtonsoft.samples` and `newtonsoft.tests.folder|projects|samplesPerType|objectDepth`.
 - `newtonsoft tests --record` and `--verify` (ADR 0067) build the test projects and run their
