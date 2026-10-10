@@ -209,6 +209,28 @@ public sealed class RedirectTests
         Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR1507" && d.Project == "src/Plugins/Tax/Tax.csproj");
     }
 
+    [Fact]
+    public async Task Only_the_named_assemblies_are_synced()
+    {
+        // newtonsoft upgrade syncs Newtonsoft.Json only (ADR 0073): MassTransit's stale log4net redirects rode along.
+        var fixture = await ScannedFixtures.GetAsync("versions");
+        using var copy = await FixtureRepository.CreateAsync("versions", git: false);
+        var path = Path.Combine(copy.Path, "src", "Customer.Api", "web.config");
+        var original = File.ReadAllText(path);
+        var wrong = original
+            .Replace("newVersion=\"9.0.0.0\"", "newVersion=\"8.0.0.0\"", StringComparison.Ordinal)
+            .Replace("newVersion=\"5.2.3.0\"", "newVersion=\"5.2.2.0\"", StringComparison.Ordinal);
+        File.WriteAllText(path, wrong);
+
+        var plan = RedirectPlanner.Plan(Request(copy.Path, fixture.Outcome.Model!, new DiagnosticBag(), prune: true) with { Assemblies = ["newtonsoft.json"] });
+
+        var app = Assert.Single(plan.Result.Apps);
+        Assert.Equal([("Newtonsoft.Json", RedirectAction.Changed)], app.Redirects.Select(r => (r.Assembly, r.Action)));
+        // System.Net.Http.Formatting stays wrong and the stale System.Web.Mvc entry stays, though prune is on.
+        var expected = wrong.Replace("newVersion=\"8.0.0.0\"", "newVersion=\"9.0.0.0\"", StringComparison.Ordinal);
+        Assert.Equal(expected, System.Text.Encoding.UTF8.GetString(Assert.Single(plan.ChangeSet!.Edits).After));
+    }
+
     private static RedirectsRequest Request(string root, WorkspaceModel model, DiagnosticBag diagnostics, bool prune) => new()
     {
         RepositoryRoot = root,

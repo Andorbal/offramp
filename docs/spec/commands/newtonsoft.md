@@ -420,7 +420,9 @@ Dry run by default: plans every edit and prints it as one diff.
      there first, outside the repository). A redirect that points at a version the
      application no longer deploys (`0.0.0.0-7.0.0.0 → 7.0.0.0` after the upgrade)
      is moved to the deployed one (`OFR1502`): left alone, anything built against
-     an older release would fail to load.
+     an older release would fail to load. Only the `Newtonsoft.Json` redirects are
+     synced: another assembly's out-of-date redirect was so before the upgrade and
+     is `redirects sync`'s to change (ADR 0073).
    - Projects that get Newtonsoft.Json from another project are not edited
      (`transitive`); test projects are upgraded with production ones, so type probes
      keep compiling against the same assembly.

@@ -70,7 +70,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   - the `packages.config` version, edited in place, with every other byte kept;
   - the `Reference` identity and the `HintPath`'s package and `lib/` folders, read from the
     target package;
-  - binding redirects through `redirects sync` over the upgraded model.
+  - binding redirects through `redirects sync` over the upgraded model, for Newtonsoft.Json only
+    (ADR 0073; other out-of-date redirects are left to `redirects sync`).
 
   It then restores and builds, rolling everything back when either fails (OFR3766, OFR3761, the
   latter naming the OFR3701 findings that predicted it), and compares the probes with their

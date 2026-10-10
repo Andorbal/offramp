@@ -126,4 +126,31 @@ public sealed class NewtonsoftUpgradeCommandTests
         Assert.Contains("version=\"13.0.4\"", File.ReadAllText(Path.Combine(scanned.Root, "src", "Orders", "packages.config")), StringComparison.Ordinal);
         Assert.Contains("version=\"7.0.1\"", File.ReadAllText(Path.Combine(scanned.Root, "src", "Orders.App", "packages.config")), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Redirects_of_other_assemblies_are_not_the_upgrades_to_change()
+    {
+        // MassTransit field test P1 #3: two stale log4net redirects rode along in the Newtonsoft.Json upgrade.
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-legacy", (root, request) =>
+        {
+            var config = Path.Combine(root, "src", "Orders.App", "App.config");
+            File.WriteAllText(config, File.ReadAllText(config).Replace("    </assemblyBinding>", """
+                      <dependentAssembly>
+                        <assemblyIdentity name="log4net" publicKeyToken="669e0ddf0bb1aa2a" culture="neutral" />
+                        <bindingRedirect oldVersion="0.0.0.0-1.2.13.0" newVersion="1.2.13.0" />
+                      </dependentAssembly>
+                    </assemblyBinding>
+                """, StringComparison.Ordinal));
+            return request;
+        });
+        using var cli = new CliHarness(scanned.Repository.Directory);
+
+        var run = await cli.RunAsync("newtonsoft", "upgrade", "--version", "13.0.4", "--json");
+
+        var redirects = JsonNode.Parse(run.Out)!["result"]!["redirects"]!["apps"]!.AsArray()
+            .SelectMany(a => a!["redirects"]!.AsArray()).Select(r => (r!["assembly"]!.GetValue<string>(), r["action"]!.GetValue<string>())).ToList();
+        Assert.Equal([("Newtonsoft.Json", "changed")], redirects);
+        var changedLines = JsonNode.Parse(run.Out)!["result"]!["preview"]!.GetValue<string>().Split('\n').Where(l => l.StartsWith('+') || l.StartsWith('-'));
+        Assert.DoesNotContain(changedLines, l => l.Contains("1.2.13.0", StringComparison.Ordinal));
+    }
 }
