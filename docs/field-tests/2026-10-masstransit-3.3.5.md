@@ -26,7 +26,10 @@ in depth: the other field tests cover those commands.
   Offramp's code. `upgrade --apply` was run, built, and undone with its journal. MassTransit's test
   projects target only .NET Framework, so recording baselines (which needs Windows, ADR 0067) was
   not possible on this machine; what recording would do on Windows was established from the build
-  output and the run command Offramp uses.
+  output and the run command Offramp uses. After the fixes, the whole loop (`doctor`, `scan`,
+  `newtonsoft tests --record`, `newtonsoft upgrade --apply`) ran on a GitHub Actions `windows-latest`
+  runner (Visual Studio 2022, the .NET 10.0.401 SDK); that run found P1 #9 and #10
+  ([below](#on-windows-the-whole-loop)). The Windows runs were one-off workflows on throwaway branches.
 
 ## Summary
 
@@ -57,9 +60,68 @@ The gaps are in what the tests can see and in what the commands touch:
 5. **Probes for `XElement` do not compile.** The generator picks `XElement`'s copy constructor and
    writes `new XElement(null)`, which is ambiguous; three probes are dropped (`OFR3735`).
 
+On Windows, after the fixes, the whole loop works on this codebase: the probes record on 7.0.1, the
+upgrade builds on 13.0.4, and the probes catch a real behavior change in MassTransit's XML serializer
+([below](#on-windows-the-whole-loop)). Getting there found three more P1s, in `doctor` and `scan`
+for `dotnet build` on Windows (#9 to #11).
+
 Coverage is low (1 of 51 production sites gets a probe), and most of that is MassTransit, not
 Offramp: a message bus serializes `object` and internal envelope types, which no test can construct
 and no rule can type. The report says where Offramp could do better (finding #6).
+
+## Status after the fixes
+
+All eight P1s and two of the three P2s are fixed on the branch that carries this report, and all
+are general. The numbers are from a fresh checkout after the fixes; the corpus test `masstransit`
+(`tests/Offramp.Corpus.Tests/Codebases/MassTransitTests.cs`) pins them.
+
+| Finding | Fix | On MassTransit now |
+|---|---|---|
+| P1 #1 NUnit 2 records nothing, silently | `79e3d6b` | `OFR3747` for `MassTransit.Tests`, naming `NUnitTestAdapter`, on every OS; with that package added (a `packages.config` entry and its props import), the 6 probes record on Windows |
+| P1 #2 settings through `Lazy<T>` and fields set once | `bc364f1` | the JSON and BSON serializers are `member` (`SerializerSettings`), the encrypted one `member` (`BsonMessageSerializer.Serializer`); `unknown` settings 20 (was 23), the rest injected or converter parameters, now located at the assignment |
+| P1 #3 the upgrade edits log4net redirects | `241990c` | the upgrade's configuration edits are the two Newtonsoft.Json redirects only |
+| P1 #4 files in test projects without probes | `32af828` | 4 files, all in `MassTransit.Tests` (was 10 in 4 projects, and 3 project files edited) |
+| P1 #5 `XElement` probes do not compile | `13a6e28` | no `OFR3735` (was 3); the `XElement` site is `payloadNotGeneratable`, which it is |
+| P2 #6 unknown payloads read as missing samples | `ccd29c8` | "its payload type is not known (…; OFR3720)"; a type that cannot be written is named (`JsonMessageEnvelope`) |
+| P2 #7 `OFR3739` twice | `79e3d6b` | once, with `--test-adapter-path` in its command |
+| P1 #9 no targeting pack for `dotnet build` on Windows | `cd971ef` | the legacy section applies to every build by .NET's MSBuild; all 36 projects build on `windows-latest` |
+| P1 #10 NuGet 2 restore under .NET's MSBuild on Windows | `cd971ef` | `RestorePackages` conditioned on `'$(MSBuildRuntimeType)' != 'Core'` |
+| P1 #11 the packages.config download project in the model | `cb0cb38` | 36 projects on Windows too (was 37, one of them partial) |
+
+Still open:
+
+- **P2 #8** (fixture fields set in `[SetUp]`): not fixed, as proposed.
+- **Coverage.** 1 of 51 production sites gets probes. The rest are MassTransit's shape (payloads
+  typed `object` or internal, serializers injected through constructors), and tracing a constructor
+  parameter to the callers that pass it is the next step that would move it (ADR 0073 says why not now).
+- A `RestorePackages` that an earlier Offramp conditioned on `'$(OS)' == 'Windows_NT'` is left as it
+  is (ADR 0073); `dotnet build` on Windows then still fails on `NuGet.targets` until the condition
+  is changed by hand.
+
+## On Windows: the whole loop
+
+After the fixes, a `windows-latest` runner ran what a Windows user would: `doctor --fix --apply`,
+`init`, `scan`, the package `OFR3747` asks for (`NUnitTestAdapter` 2.3.0 in `MassTransit.Tests`'
+`packages.config`, with its props import, as Visual Studio adds it), `newtonsoft tests --record
+--apply`, and `newtonsoft upgrade --apply`.
+
+| Step | Time | Result |
+|---|---|---|
+| `doctor --fix --apply --yes` | 2 s | the block, the 28 `RestorePackages` conditioned for .NET Framework's MSBuild |
+| `scan` | 26 s | 36 projects, build succeeded, 0 partial |
+| `newtonsoft tests --record --apply` | 51 s | 6 probes, each run twice: all 6 `recorded`, on Newtonsoft.Json 7.0.0.0 |
+| `newtonsoft upgrade --apply --yes` | 79 s | 9 projects to 13.0.4, restored, all 36 projects built; probes: 3 `same`, 3 `noLongerThrows` (`OFR3762`, exit 1); the upgrade stays applied (`--on-diff keep`) |
+
+**What the probes found.** MassTransit's XML serializer (`XmlMessageSerializer.XmlSerializer`, a
+`JsonSerializer` with Newtonsoft.Json's `XmlNodeConverter`) writing an `XDocument` that has a
+declaration and no root element: on 7.0.1 it throws `ArgumentOutOfRangeException` ("Index was out of
+range"), on 13.0.4 it writes `{"?xml":{"@version":…,"@encoding":…,"@standalone":…}}`. That is a real
+change between the two releases, at a site no rule in `rules/newtonsoft-breaking.yml` covers, found
+by a probe generated for a site with no entry point. The three reading probes that read what it wrote
+are `same`: verifying feeds them the 7.x baselines, which threw.
+
+Before the fixes, the same run stopped at `scan`: P1 #9, P1 #10, and (with those two worked around)
+P1 #11.
 
 ## What worked well
 
@@ -207,6 +269,47 @@ reported on each pass: two identical `OFR3739`s. Its suggested Windows command a
 method; 9 sites in `MassTransit.Tests` are `unknown` because the field is not readonly and is
 assigned in a method. These are test sites, which matter less (the probes go into the same project).
 Not proposed for now.
+
+## Found on Windows
+
+### P1 #9: `dotnet build` of a legacy project on .NET Framework 4.5.2 fails on Windows (MSB3644)
+
+**What happened.** On `windows-latest`, `scan` after `doctor --fix` failed in 9 projects: "The
+reference assemblies for .NETFramework,Version=v4.5.2 were not found." Visual Studio 2022 installs
+no targeting pack older than 4.6.2, and the compile-only block's legacy section, which supplies the
+reference assemblies as a package, was conditioned on `!$([MSBuild]::IsOSPlatform('Windows'))`
+(ADR 0064 assumed Windows has the packs).
+
+**Would another codebase hit this?** Any legacy codebase on 4.6.1 or older, built with `dotnet build`
+on a machine with only Visual Studio 2022 or the .NET SDK: most of them.
+
+**Fix.** The legacy section's condition becomes `'$(MSBuildRuntimeType)' == 'Core'`: every build by
+.NET's MSBuild, as on macOS; Visual Studio's own build is unchanged. `doctor --fix` widens a section
+an earlier Offramp wrote, in place.
+
+### P1 #10: NuGet 2's `RestorePackages` was kept for Windows, not for .NET Framework's MSBuild (MSB4801)
+
+**What happened.** `doctor --fix` conditions the 28 `<RestorePackages>true</RestorePackages>` on
+`'$(OS)' == 'Windows_NT'` (ADR 0063: "NuGet.exe, through Mono outside Windows"). On Windows,
+`dotnet build` then runs `src/.nuget/NuGet.targets`, whose `DownloadNuGet` task is a
+`CodeTaskFactory` task: MSB4801 and MSB4036, and the build stops.
+
+**Fix.** Condition it on `'$(MSBuildRuntimeType)' != 'Core'`, like sgen and `AspNetCompiler`. Under
+.NET's MSBuild, `Offramp.PackagesConfig.targets` restores `packages.config` instead.
+
+### P1 #11: the packages.config download project is taken for a repository project
+
+**What happened.** With P1 #9 and #10 worked around, `scan` on Windows built everything but reported
+37 projects, one partial: `src/obj/offramp-packages-config/download.csproj`. On Windows, `scan`
+leaves `packages.config` to the build, and with a cold NuGet cache `Offramp.PackagesConfig.targets`
+writes and restores that project to download the missing packages. The build log has an evaluation of
+it like any other project's, and nothing compiles in it.
+
+**Would another codebase hit this?** Any `packages.config` solution scanned on Windows with packages
+missing from the global packages folder, or built with `dotnet build -bl` and scanned with
+`--no-build`.
+
+**Fix.** `BinlogReader` skips it, as it skips `.metaproj` files.
 
 ## Command log
 
