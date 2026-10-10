@@ -26,6 +26,12 @@ questions open, or answered them in a way the codebase showed to be wrong:
   is running: a legacy project runs as `dotnet test <assembly> --test-adapter-path <output>`, and
   MassTransit's NUnit 2 projects, like most legacy ones, have no VSTest adapter (they used
   `nunit-console`). Every probe would have been `missing` with no reason given.
+- **`dotnet build` of legacy projects on Windows** (P1 #9, #10). Run on a Windows runner (Visual
+  Studio 2022, the .NET 10 SDK), MassTransit did not build: no .NET Framework 4.5.2 targeting pack
+  (MSB3644 in 9 projects), and NuGet 2's `NuGet.targets`, which `doctor --fix` had conditioned on
+  `'$(OS)' == 'Windows_NT'`, failed on its `CodeTaskFactory` task (MSB4801). ADR 0064 kept the
+  legacy section off Windows, assuming Windows has the targeting packs; ADR 0063 put NuGet 2 restore
+  with the steps that need Windows, when what it needs is .NET Framework's MSBuild.
 
 ## Decision
 
@@ -50,6 +56,14 @@ questions open, or answered them in a way the codebase showed to be wrong:
   Without one the project is not run and `OFR3747` names the package to add for its framework
   (`NUnitTestAdapter` 2.x for NUnit 2). The check runs on every OS, so a user on macOS learns it
   before going to Windows. Nothing is added to the project: the user adds the package.
+- **Choose by builder, not by OS, where the builder is the reason.** The legacy section's condition
+  becomes `'$(MSBuildRuntimeType)' == 'Core'` (unchanged on macOS and Linux, where it always is;
+  `dotnet build` on Windows now gets the reference assemblies package too; Visual Studio's `Full`
+  build is unchanged), and `doctor --fix` widens a section an earlier Offramp wrote in place.
+  `RestorePackages` is conditioned on `'$(MSBuildRuntimeType)' != 'Core'`, like sgen and
+  `AspNetCompiler`: .NET's MSBuild restores `packages.config` through `Offramp.PackagesConfig.targets`.
+  A `RestorePackages` an earlier Offramp conditioned on the OS is left as it is: that condition is
+  indistinguishable from one a person wrote.
 
 ## Alternatives considered
 
@@ -68,9 +82,16 @@ questions open, or answered them in a way the codebase showed to be wrong:
   framework's, the probes would run in a way the project's own CI does not, and the user still
   needs the package to run the probes anywhere else (they are meant to stay in the test suite).
 
+- **Use the reference assemblies package on Windows only when the targeting pack is missing.**
+  `Directory.Build.props` is imported before the project sets `TargetFrameworkVersion`, so it
+  cannot test for the pack of the right version; and the package's assemblies are the same
+  metadata, so using it where the pack exists changes nothing.
+
 ## Consequences
 
 - A legacy NUnit 2 or MSTest v1 project needs one package added before its probes record; the
   diagnostic says which, before the first run on Windows.
+- `dotnet build` of a legacy solution on Windows restores and builds like it does on a Mac, which
+  is what let MassTransit record and verify its probes on a Windows runner.
 - The upgrade's diff and result list Newtonsoft.Json redirects only. A user who wants the rest runs
   `redirects sync`, which says what it changes.

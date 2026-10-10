@@ -97,6 +97,13 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `newtonsoft scan`, `tests`, `tests --record`, and `upgrade --apply`.
 
 ### Fixed
+- `doctor --fix` makes `dotnet build` of legacy projects work on Windows (ADR 0073, MassTransit field
+  test): the legacy section of the compile-only block (the .NET Framework reference assemblies as a
+  package) now applies to every build by .NET's MSBuild, not only off Windows, since Visual Studio
+  2022 installs no targeting pack older than 4.6.2 (MSB3644); a section an earlier Offramp wrote is
+  widened in place. NuGet 2's `RestorePackages` is conditioned on .NET Framework's MSBuild instead
+  of on Windows, since its `NuGet.targets` downloads NuGet.exe with a `CodeTaskFactory` task that
+  .NET's MSBuild lacks on Windows too (MSB4801).
 - `redirects sync` moves a redirect that points at a version the application no longer deploys (as
   an upgrade leaves `0.0.0.0-7.0.0.0 → 7.0.0.0` once 13.0.0.0 deploys) to the deployed version
   (OFR1502). It used to keep it as harmless, and anything built against the older release then

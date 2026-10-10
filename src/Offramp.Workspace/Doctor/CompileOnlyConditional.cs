@@ -96,23 +96,26 @@ public static class CompileOnlyConditional
     /// from the SDK (docs/decisions/0037-legacy-projects-outside-windows.md). Restored as
     /// <c>PackageReference</c> projects, they take both from packages, as SDK-style projects do; their
     /// <c>packages.config</c> is still ignored by <c>dotnet restore</c>, and <c>offramp scan</c> restores it.
+    /// It applies wherever .NET's MSBuild builds, <c>dotnet build</c> on Windows included: Visual Studio 2022 installs
+    /// no targeting pack older than .NET Framework 4.6.2 (MSB3644 on MassTransit's 4.5.2), and Visual Studio's own
+    /// build (<c>Full</c>) is unchanged.
     /// The reference assemblies package wires Visual Basic's runtime for SDK-style projects only, so a
     /// legacy Visual Basic project references <c>Microsoft.VisualBasic</c> and passes it to the compiler
     /// the way the SDK does, instead of looking for it in a .NET Framework directory that is not there.
     /// </summary>
     public static readonly string[] LegacyLines =
     [
-        "<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects (added by offramp doctor). -->",
-        "<PropertyGroup Condition=\"!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'\">",
+        "<!-- Legacy (non-SDK) projects built by .NET's MSBuild (macOS/Linux, and dotnet build on Windows): the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects (added by offramp doctor). -->",
+        "<PropertyGroup Condition=\"'$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' != 'true'\">",
         "  <RestoreProjectStyle>PackageReference</RestoreProjectStyle>",
         "  <OfframpLegacyPackages>true</OfframpLegacyPackages>",
         "</PropertyGroup>",
-        "<ItemGroup Condition=\"!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'\">",
+        "<ItemGroup Condition=\"'$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' != 'true'\">",
         "  <PackageReference Include=\"Microsoft.NETFramework.ReferenceAssemblies\" Version=\"" + ReferenceAssembliesVersion + "\" IsImplicitlyDefined=\"true\" PrivateAssets=\"all\" />",
         "  <PackageReference Include=" + WebTargetsMarker + " Version=\"" + WebTargetsVersion + "\" IsImplicitlyDefined=\"true\" PrivateAssets=\"all\" />",
         "  <Reference Include=\"Microsoft.VisualBasic\" Condition=\"'$(MSBuildProjectExtension)' == '.vbproj'\" />",
         "</ItemGroup>",
-        "<Target Name=\"OfframpLegacyVisualBasicRuntime\" BeforeTargets=\"CoreCompile\" Condition=\"!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true' And '$(Language)' == 'VB' And '$(VBRuntime)' == ''\">",
+        "<Target Name=\"OfframpLegacyVisualBasicRuntime\" BeforeTargets=\"CoreCompile\" Condition=\"'$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' != 'true' And '$(Language)' == 'VB' And '$(VBRuntime)' == ''\">",
         "  <PropertyGroup>",
         "    <VBRuntime Condition=\"'%(ReferencePath.FileName)' == 'Microsoft.VisualBasic'\">%(ReferencePath.Identity)</VBRuntime>",
         "    <DisableSdkPath>true</DisableSdkPath>",
@@ -146,7 +149,8 @@ public static class CompileOnlyConditional
     /// targets are not: the same as on macOS and Linux. So it gets what the sections above give those, and a build
     /// that passes there passes with <c>dotnet build</c> on Windows too; Visual Studio's MSBuild (<c>Full</c>) is
     /// unchanged (docs/decisions/0064-dotnet-build-and-packages-config-without-offramp.md). The web targets package
-    /// goes to SDK-style projects only, as above: a legacy project on Windows restores <c>packages.config</c>'s way.
+    /// goes to SDK-style projects only here: legacy projects get theirs from the legacy section, which applies to
+    /// every build by .NET's MSBuild (ADR 0073).
     /// </summary>
     public static readonly string[] DotnetBuildLines =
     [
@@ -189,7 +193,8 @@ public static class CompileOnlyConditional
     public static bool HasPackagesConfigSection(string? content) => content is not null && content.Contains(PackagesConfigMarker, StringComparison.Ordinal);
 
     /// <summary>True when every section is in <paramref name="content"/>, the packages.config one with <paramref name="packagesConfig"/>.</summary>
-    public static bool IsPresent(string? content, bool packagesConfig = false) => content is not null && MissingLines(content, packagesConfig).Count == 0;
+    public static bool IsPresent(string? content, bool packagesConfig = false) =>
+        content is not null && MissingLines(content, packagesConfig).Count == 0 && Upgraded(content) == content;
 
     /// <summary>The new content for <paramref name="current"/> (null when the file does not exist), or null when already present.</summary>
     /// <param name="current">The file's content, or null when it does not exist.</param>
@@ -207,14 +212,27 @@ public static class CompileOnlyConditional
             return created.Append("</Project>\n").ToString();
         }
 
-        var lines = MissingLines(current, packagesConfig);
+        var upgraded = Upgraded(current);
+        var lines = MissingLines(upgraded, packagesConfig);
         if (lines.Count == 0)
         {
-            return null;
+            return upgraded == current ? null : upgraded;
         }
 
-        return InsertBeforeClose(current, lines, FileName);
+        return InsertBeforeClose(upgraded, lines, FileName);
     }
+
+    /// <summary>
+    /// <paramref name="content"/> with the legacy section an earlier Offramp wrote (macOS/Linux only) widened to every
+    /// build by .NET's MSBuild, in place; unchanged when it has none.
+    /// </summary>
+    private static string Upgraded(string content) => content
+        .Replace(OldLegacyComment, LegacyLines[0], StringComparison.Ordinal)
+        .Replace(OldLegacyCondition, NewLegacyCondition, StringComparison.Ordinal);
+
+    private const string OldLegacyComment = "<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects (added by offramp doctor). -->";
+    private const string OldLegacyCondition = "!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'";
+    private const string NewLegacyCondition = "'$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' != 'true'";
 
     /// <summary>
     /// <paramref name="current"/> with <paramref name="lines"/> inserted before its last <c>&lt;/Project&gt;</c>, indented
