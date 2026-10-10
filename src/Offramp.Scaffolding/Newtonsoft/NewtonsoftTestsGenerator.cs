@@ -134,7 +134,9 @@ public static class NewtonsoftTestsGenerator
                 }
             }
 
-            foreach (var sample in group.SelectMany(p => p.Planner.UsedSamples).Distinct().OrderBy(s => s.Name, StringComparer.Ordinal))
+            var read = group.SelectMany(p => p.Planner.Serialize.Concat(p.Planner.Deserialize))
+                .Where(p => !dropped.ContainsKey(p.Probe.Id)).Select(p => p.Probe.InputFrom).ToHashSet(StringComparer.Ordinal);
+            foreach (var sample in group.SelectMany(p => p.Planner.UsedSamples).Distinct().Where(s => read.Contains("Inputs/" + s.Name)).OrderBy(s => s.Name, StringComparer.Ordinal))
             {
                 written[folder + "/Inputs/" + sample.Name] = File.ReadAllText(sample.Source);
             }
@@ -352,6 +354,12 @@ public static class NewtonsoftTestsGenerator
                     files[folder + "/" + ClassName(production.Project) + suffix + ".cs"] = TestClass(framework, ns, ClassName(production.Project) + suffix, live);
                 }
             }
+        }
+
+        // Without probes the runtime serves nothing, unless a file the user took over still uses it.
+        if (files.Count == 2 && kept.Count == 0)
+        {
+            files.Clear();
         }
 
         foreach (var path in kept.Where(files.ContainsKey).ToList())

@@ -179,6 +179,34 @@ public sealed class NewtonsoftTestsGeneratorTests
         Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR3735" && d.Project == CatalogTests);
     }
 
+    [Fact]
+    public async Task A_test_project_left_without_probes_gets_no_files_and_loses_old_ones()
+    {
+        // MassTransit field test P1 #4: three test projects got the probe runtime and Compile items, and no probes.
+        const string tests = "tests/Orders.Tests/Orders.Tests.csproj";
+        const string runtime = "tests/Orders.Tests/NewtonsoftCharacterization/OfframpProbe.cs";
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-legacy");
+        var noOrders = (NewtonsoftTestsRequest r) => r with
+        {
+            Compilations = new EditedCompilation(r.RepositoryRoot, tests, c => c.RemoveReferences(c.References.Where(x => c.GetAssemblyOrModuleSymbol(x) is IAssemblySymbol { Name: "Orders" }))),
+        };
+
+        var (fresh, freshChanges, _) = Generate(scanned, noOrders);
+        var (earlier, earlierChanges, _) = Generate(scanned);
+        Write(scanned.Root, earlierChanges!);
+        var (again, againChanges, _) = Generate(scanned, noOrders);
+
+        Assert.Contains(fresh.Targets, t => t.TestProject == tests);
+        Assert.DoesNotContain(fresh.Probes, p => p.TestProject == tests);
+        Assert.DoesNotContain(fresh.Files, f => f.Path.StartsWith("tests/Orders.Tests/", StringComparison.Ordinal));
+        Assert.True(freshChanges is null || (freshChanges.Creates.Count == 0 && freshChanges.Edits.All(e => e.Path != tests)));
+        Assert.Contains(earlier.Files, f => f.Path == runtime && f.Action == "create");
+        Assert.Contains(again.Files, f => f.Path == runtime && f.Action == "delete");
+        Assert.Contains(againChanges!.Deletes, d => d.Path == runtime);
+        var project = Encoding.UTF8.GetString(againChanges.Edits.Single(e => e.Path == tests).After);
+        Assert.DoesNotContain("NewtonsoftCharacterization", project, StringComparison.Ordinal);
+    }
+
     private static void Write(string root, Offramp.Refactoring.ChangeSets.ChangeSet changeSet)
     {
         foreach (var create in changeSet.Creates)

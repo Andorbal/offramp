@@ -50,7 +50,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   Newtonsoft.Json version that ran and, outside recording, compares it with its baseline, so the
   probes fail in any test runner when the behavior changes. Everything is compiled into the test
   project's recorded compilation before it is written; probes that do not compile are dropped
-  (OFR3735). JSON contract `schemas/v1/newtonsoft-tests.json`; diagnostics OFR3731–3737, OFR3742,
+  (OFR3735), and a test project left without probes gets no files at all (ADR 0073). JSON
+  contract `schemas/v1/newtonsoft-tests.json`; diagnostics OFR3731–3737, OFR3742,
   OFR3743; configuration `newtonsoft.samples` and `newtonsoft.tests.folder|projects|samplesPerType|objectDepth`.
 - `newtonsoft tests --record` and `--verify` (ADR 0067) build the test projects and run their
   writing probes, then their reading probes, with `dotnet test` (or `newtonsoft.tests.command`), and

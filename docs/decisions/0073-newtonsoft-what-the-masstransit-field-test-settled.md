@@ -14,6 +14,9 @@ questions open, or answered them in a way the codebase showed to be wrong:
   upgraded model so that the redirects third-party packages need are computed, not guessed. As
   written it also took every other edit `redirects sync` would make: on MassTransit, two stale
   log4net redirects.
+- **What a test project with no probes gets** (P1 #4). The runtime was "once per test project",
+  so three MassTransit test projects whose sites all went uncovered got two runtime files and two
+  `Compile` items, and nothing that used them.
 
 ## Decision
 
@@ -22,6 +25,11 @@ questions open, or answered them in a way the codebase showed to be wrong:
   plan to the `Newtonsoft.Json` identity. The upgrade changes only Newtonsoft.Json in the model,
   so any other redirect that is out of date was so before; it is `redirects sync`'s to fix, in a
   change of its own.
+- **No probes, no files.** A test project whose probes were all left out gets nothing: no runtime
+  and no `Inputs/` copies, and the files an earlier run generated there are deleted with their
+  `Compile` items, as any file no longer produced is. The runtime stays while a file the user took
+  over (OFR3742) is in the folder, since it may use it. Samples are copied only for probes that are
+  written.
 
 ## Alternatives considered
 
