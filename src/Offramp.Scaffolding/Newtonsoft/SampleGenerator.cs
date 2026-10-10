@@ -165,7 +165,9 @@ internal sealed class SampleGenerator(Compilation compilation, Func<ISymbol, boo
             return null;
         }
 
-        var arguments = constructor?.Parameters.Select(p => Value(p.Type, label, CSharp6.Type(type) + "." + p.Name, depth + 1) ?? $"default({CSharp6.Type(p.Type)})") ?? [];
+        // A bare null matches every overload that takes a reference; default(T) names the one chosen.
+        var arguments = constructor?.Parameters.Select(p => Value(p.Type, label, CSharp6.Type(type) + "." + p.Name, depth + 1) is { } value and not "null"
+            ? value : $"default({CSharp6.Type(p.Type)})") ?? [];
         var assigned = new List<string>();
         foreach (var member in Settable(type).Where(m => constructor is null || !constructor.Parameters.Any(p => string.Equals(p.Name, m.Name, StringComparison.OrdinalIgnoreCase))))
         {

@@ -207,6 +207,49 @@ public sealed class NewtonsoftTestsGeneratorTests
         Assert.DoesNotContain("NewtonsoftCharacterization", project, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Constructor_arguments_compile_whatever_the_overloads()
+    {
+        // MassTransit field test P1 #5: `new XElement(null)` from its copy constructor did not compile (OFR3735).
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-sdk", (root, request) =>
+        {
+            File.WriteAllText(Path.Combine(root, "src", "Catalog", "Tags.cs"), """
+                using Newtonsoft.Json;
+
+                namespace Contoso.Catalog
+                {
+                    public sealed class Tag
+                    {
+                        public Tag(string name) { Name = name; }
+
+                        public Tag(System.Uri link) { Name = link == null ? null : link.ToString(); }
+
+                        public string Name { get; }
+                    }
+
+                    public static class Tags
+                    {
+                        public static string Write(Tag tag) => JsonConvert.SerializeObject(tag);
+
+                        public static string Root(System.Xml.Linq.XElement root) => JsonConvert.SerializeObject(root);
+                    }
+                }
+                """);
+            return request;
+        });
+
+        var (result, changeSet, diagnostics) = Generate(scanned);
+
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR3735");
+        // Tag(System.Uri) sorts first; its empty sample is a typed null.
+        Assert.Contains(result.Probes, p => p.Id == "Contoso.Catalog.Tags.Write#1.entry.empty");
+        var probes = Encoding.UTF8.GetString(changeSet!.Creates.Single(c => c.Path == "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs").Content);
+        Assert.Contains("new global::Contoso.Catalog.Tag(default(global::System.Uri))", probes, StringComparison.Ordinal);
+        // XElement can only be copied from another XElement: nothing a probe can write.
+        Assert.DoesNotContain(result.Probes, p => p.Site == "Contoso.Catalog.Tags.Root#1");
+        Assert.Contains(result.Uncovered, u => u.Site == "Contoso.Catalog.Tags.Root#1" && u.Reason != "doesNotCompile");
+    }
+
     private static void Write(string root, Offramp.Refactoring.ChangeSets.ChangeSet changeSet)
     {
         foreach (var create in changeSet.Creates)

@@ -633,7 +633,7 @@ namespace Catalog.Tests.NewtonsoftCharacterization
         [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
         public void Probe_Contoso_Catalog_MoneyCodec_Write_1_entry_empty()
         {
-            OfframpProbe.Check("Contoso.Catalog.MoneyCodec.Write#1.entry.empty", () => global::Contoso.Catalog.MoneyCodec.Write(new global::Contoso.Catalog.Money(0m, null)));
+            OfframpProbe.Check("Contoso.Catalog.MoneyCodec.Write#1.entry.empty", () => global::Contoso.Catalog.MoneyCodec.Write(new global::Contoso.Catalog.Money(0m, default(string))));
         }
 
         [global::Xunit.Fact]

@@ -297,7 +297,9 @@ characters, a `Uri` with an unescaped original string). Typical values come from
 a seed derived from the type and member names (FNV-1a), so the same type gets
 the same samples everywhere. `DateTime` values are never `Local` (they would
 depend on the machine's time zone). Members are set through accessible setters
-(and the constructor with the fewest generatable parameters); abstract member
+(and the constructor with the fewest generatable parameters, never one that
+takes the type itself, which could only be given null; a null argument is
+written `default(T)` so the overload is the one chosen); abstract member
 types take the compilation's single concrete implementation, else none;
 collections get two items (one for `edge`), dictionaries distinct keys; nesting
 stops at `newtonsoft.tests.objectDepth` (default 3) with null.
