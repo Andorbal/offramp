@@ -54,7 +54,12 @@ Diagnostics are `OFR3700–3799` (an audit sub-range).
   or creations of public types with accessible parameterless constructors),
   `member` (a static field or property, readable from the test project), or
   `unknown` (a local assigned in several statements, a parameter, an instance
-  member, anything else). `unknown` and any `DefaultSettings` assignment are
+  member, anything else). The settings are followed through a local assigned
+  once, `JsonSerializer.Create(settings)`, a `Lazy<T>`'s `.Value` to what its
+  factory lambda returns, and a readonly field to its one value (its initializer,
+  or its single assignment in the type's only constructor of its kind); a value
+  that comes from a constructor parameter is `unknown`, located at that
+  assignment (ADR 0073). `unknown` and any `DefaultSettings` assignment are
   `OFR3721` (info): probes of that site use the settings they can reproduce, and
   the report says so.
 - **Probe.** One generated test method that exercises one (site or entry point,

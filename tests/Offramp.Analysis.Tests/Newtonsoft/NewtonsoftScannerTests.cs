@@ -301,6 +301,64 @@ public sealed class NewtonsoftScannerTests
         Assert.Equal(UncoveredReason.DepthExceeded, Plan(bounded).Uncovered!.Reason);
     }
 
+    [Fact]
+    public async Task Settings_are_followed_through_a_lazy_serializer_and_a_field_set_once()
+    {
+        // MassTransit field test P1 #2: its JSON, BSON, and encrypted message serializers were "unknown".
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var (result, _) = Scan(scanned, r => r with
+        {
+            Compilations = new AddedSource(r.RepositoryRoot, Catalog, """
+                namespace Contoso.Catalog
+                {
+                    using System;
+                    using System.IO;
+                    using Newtonsoft.Json;
+
+                    public class Envelope { public string Id { get; set; } }
+
+                    public class LazyWriter
+                    {
+                        public static JsonSerializerSettings Settings = new JsonSerializerSettings { MaxDepth = 10 };
+                        static readonly Lazy<JsonSerializer> _serializer;
+                        static LazyWriter() { _serializer = new Lazy<JsonSerializer>(() => JsonSerializer.Create(Settings)); }
+                        public static JsonSerializer Serializer => _serializer.Value;
+                        public void Write(TextWriter writer, Envelope envelope) => _serializer.Value.Serialize(writer, envelope);
+                    }
+
+                    public class CopiedWriter
+                    {
+                        readonly JsonSerializer _serializer;
+                        public CopiedWriter() { _serializer = LazyWriter.Serializer; }
+                        public void Write(TextWriter writer, Envelope envelope) => _serializer.Serialize(writer, envelope);
+                    }
+
+                    public class InjectedWriter
+                    {
+                        readonly JsonSerializer _serializer;
+                        public InjectedWriter(JsonSerializer serializer) { _serializer = serializer; }
+                        public void Write(TextWriter writer, Envelope envelope) => _serializer.Serialize(writer, envelope);
+                    }
+
+                    public class TwoConstructors
+                    {
+                        readonly JsonSerializer _serializer;
+                        public TwoConstructors() { _serializer = LazyWriter.Serializer; }
+                        public TwoConstructors(int unused) { }
+                        public void Write(TextWriter writer, Envelope envelope) => _serializer.Serialize(writer, envelope);
+                    }
+                }
+                """),
+        });
+
+        var sites = result.Projects.Single(p => p.Project == Catalog).Sites.ToDictionary(s => s.Id, s => s.Settings);
+        Assert.Equal((SettingsKind.Member, "F:Contoso.Catalog.LazyWriter.Settings"), (sites["Contoso.Catalog.LazyWriter.Write#1"].Kind, sites["Contoso.Catalog.LazyWriter.Write#1"].Symbol));
+        Assert.Equal((SettingsKind.Member, "P:Contoso.Catalog.LazyWriter.Serializer"), (sites["Contoso.Catalog.CopiedWriter.Write#1"].Kind, sites["Contoso.Catalog.CopiedWriter.Write#1"].Symbol));
+        // A serializer passed in, or a field another constructor leaves null, stays unknown.
+        Assert.Equal(SettingsKind.Unknown, sites["Contoso.Catalog.InjectedWriter.Write#1"].Kind);
+        Assert.Equal(SettingsKind.Unknown, sites["Contoso.Catalog.TwoConstructors.Write#1"].Kind);
+    }
+
     internal static (NewtonsoftScanResult Result, DiagnosticBag Diagnostics) Scan(ScannedFixture scanned, Func<NewtonsoftScanRequest, NewtonsoftScanRequest>? customize = null)
     {
         var diagnostics = new DiagnosticBag();

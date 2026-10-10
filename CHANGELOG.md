@@ -22,7 +22,9 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `offramp newtonsoft scan` (roadmap M18, ADRs 0066, 0068, 0069): for every project that uses
   Newtonsoft.Json, how it references it (PackageReference, central versions, packages.config,
   HintPath, a loose DLL, or transitively) and its own binding redirects; every call that
-  serializes, deserializes, or parses JSON, with its payload types and where its settings come from;
+  serializes, deserializes, or parses JSON, with its payload types and where its settings come from
+  (followed through locals, `JsonSerializer.Create`, `Lazy<T>` factories, and readonly fields set
+  once; ADR 0073);
   and what changes between the release in use and the target (the newest stable release in
   `newtonsoft.target`, default `[13.0,14.0)`, that supports every target framework, or `--version`).
   API changes come from compiling the project against the target's assembly (OFR3701 removed,

@@ -222,8 +222,13 @@ internal sealed class NewtonsoftSiteFinder(string repositoryRoot, Compilation co
     }
 
     /// <summary>The settings' provenance, their shape, and the operation they resolve to.</summary>
-    private (SiteSettings, SettingsShape, IOperation?) Classify(IOperation? operation, SemanticModel model)
+    private (SiteSettings, SettingsShape, IOperation?) Classify(IOperation? operation, SemanticModel model, int depth = 0)
     {
+        if (depth > 8 && operation is not null)
+        {
+            return (Located(SettingsKind.Unknown, null, operation.Syntax), SettingsShape.Empty, null);
+        }
+
         switch (operation)
         {
             case null or ILiteralOperation { ConstantValue.Value: null } or IDefaultValueOperation:
@@ -231,18 +236,83 @@ internal sealed class NewtonsoftSiteFinder(string repositoryRoot, Compilation co
             case IInvocationOperation { TargetMethod: { Name: "Create" or "CreateDefault" } create } call when IsType(create.ContainingType, Serializer):
                 return call.Arguments.Length == 0
                     ? (new SiteSettings { Kind = SettingsKind.None }, SettingsShape.Empty, null)
-                    : Classify(Unconverted(call.Arguments[0].Value), model);
+                    : Classify(Unconverted(call.Arguments[0].Value), model, depth + 1);
             case IObjectCreationOperation or IArrayCreationOperation:
                 return (Located(Reproducible(operation) ? SettingsKind.Inline : SettingsKind.Unknown, null, operation.Syntax), Shape(operation), operation);
             case IFieldReferenceOperation { Field: { IsStatic: true } field }:
-                return (Located(SettingsKind.Member, field, Declaration(field)), Shape(Initializer(field)), operation);
+                return (Located(SettingsKind.Member, field, Declaration(field)), Shape(Initializer(field) ?? OnlyValue(field)), operation);
+            case IFieldReferenceOperation { Field: { IsStatic: false } field } when OnlyValue(field) is { } value:
+                return Classify(value, ModelOf(value), depth + 1);
             case IPropertyReferenceOperation { Property: { IsStatic: true } property, Arguments.Length: 0 }:
                 return (Located(SettingsKind.Member, property, Declaration(property)), Shape(Initializer(property)), operation);
+            case IPropertyReferenceOperation { Property.Name: "Value", Instance: { } lazy } when IsLazy(lazy.Type) && LazyFactory(Unconverted(lazy)) is { } made:
+                return Classify(made, ModelOf(made), depth + 1);
             case ILocalReferenceOperation { Local: var local } when AssignedOnce(local, operation, model) is { } initial:
-                return Classify(Unconverted(initial), model);
+                return Classify(Unconverted(initial), model, depth + 1);
             default:
                 return (Located(SettingsKind.Unknown, null, operation.Syntax), SettingsShape.Empty, null);
         }
+    }
+
+    private SemanticModel ModelOf(IOperation operation) => compilation.GetSemanticModel(operation.Syntax.SyntaxTree);
+
+    private static bool IsLazy(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { OriginalDefinition: var definition } && definition.ToDisplayString() == "System.Lazy<T>";
+
+    /// <summary>
+    /// What a <c>Lazy&lt;T&gt;</c> makes: the value its factory lambda returns, when the lazy is a
+    /// local, field, or static property with one known value, created as <c>new Lazy&lt;T&gt;(() =&gt; …)</c>.
+    /// </summary>
+    private IOperation? LazyFactory(IOperation lazy)
+    {
+        var value = lazy switch
+        {
+            IFieldReferenceOperation { Field: var field } => OnlyValue(field) ?? (field.IsStatic ? Initializer(field) : null),
+            IPropertyReferenceOperation { Property: { IsStatic: true } property, Arguments.Length: 0 } => Initializer(property),
+            ILocalReferenceOperation { Local: var local } => AssignedOnce(local, lazy, ModelOf(lazy)) is { } initial ? Unconverted(initial) : null,
+            _ => null,
+        };
+        return value is IObjectCreationOperation { Arguments: [{ Value: var factory }, ..] } creation && IsLazy(creation.Type)
+            && Unconverted(factory) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Body.Operations: [IReturnOperation { ReturnedValue: { } returned }] } }
+                ? Unconverted(returned)
+                : null;
+    }
+
+    /// <summary>
+    /// The one value a readonly field ever gets: its initializer, or else its single assignment in
+    /// a constructor, where the type has only that constructor of the field's kind (static or
+    /// instance); null when it may get another, or none.
+    /// </summary>
+    private IOperation? OnlyValue(IFieldSymbol field)
+    {
+        if (!field.IsReadOnly || Declaration(field) is not VariableDeclaratorSyntax declarator)
+        {
+            return null;
+        }
+
+        var constructors = field.ContainingType.Constructors.Where(c => c.IsStatic == field.IsStatic && !c.IsImplicitlyDeclared).ToList();
+        var assignments = new List<ExpressionSyntax>();
+        foreach (var body in constructors.SelectMany(c => c.DeclaringSyntaxReferences).Select(r => r.GetSyntax()))
+        {
+            var model = compilation.GetSemanticModel(body.SyntaxTree);
+            bool IsField(ExpressionSyntax e) => SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(e).Symbol, field);
+            if (body.DescendantNodes().OfType<ArgumentSyntax>().Any(a => !a.RefKindKeyword.IsKind(SyntaxKind.None) && IsField(a.Expression)))
+            {
+                return null;
+            }
+
+            assignments.AddRange(body.DescendantNodes().OfType<AssignmentExpressionSyntax>().Where(a => IsField(a.Left)).Select(a =>
+                a.IsKind(SyntaxKind.SimpleAssignmentExpression) ? a.Right : a));
+        }
+
+        var expression = (declarator.Initializer, assignments) switch
+        {
+            ({ Value: var initial }, []) => initial,
+            (null, [AssignmentExpressionSyntax]) => null,
+            (null, [var right]) when constructors.Count == 1 => right,
+            _ => null,
+        };
+        return expression is null || compilation.GetSemanticModel(expression.SyntaxTree).GetOperation(expression) is not { } operation ? null : Unconverted(operation);
     }
 
     private SiteSettings Located(SettingsKind kind, ISymbol? symbol, SyntaxNode? where)

@@ -17,6 +17,10 @@ questions open, or answered them in a way the codebase showed to be wrong:
 - **What a test project with no probes gets** (P1 #4). The runtime was "once per test project",
   so three MassTransit test projects whose sites all went uncovered got two runtime files and two
   `Compile` items, and nothing that used them.
+- **How far settings are followed** (P1 #2). The spec named what is `member` and what is `unknown`
+  but not how far a reference is followed to get there. MassTransit caches its serializers in
+  `static readonly Lazy<JsonSerializer>` fields set in a static constructor, and copies one into a
+  readonly field in a constructor; both were `unknown`.
 
 ## Decision
 
@@ -30,6 +34,11 @@ questions open, or answered them in a way the codebase showed to be wrong:
   `Compile` items, as any file no longer produced is. The runtime stays while a file the user took
   over (OFR3742) is in the folder, since it may use it. Samples are copied only for probes that are
   written.
+- **Follow a reference while its value is certain.** A `Lazy<T>`'s `.Value` is what its factory
+  lambda returns, when the lazy itself has one known value. A readonly field (static or instance)
+  has one value when it is assigned exactly once: in its initializer, or in the type's only
+  constructor of its kind, and never passed by `ref`. Anything less certain (two constructors, a
+  compound assignment, a parameter) stays `unknown`, now located where the value came from.
 
 ## Alternatives considered
 
@@ -38,6 +47,10 @@ questions open, or answered them in a way the codebase showed to be wrong:
 - **Keep the edits that differ between planning on the original model and on the upgraded one.**
   Exact in principle, but it plans twice for no difference in practice: Newtonsoft.Json has no
   dependencies on .NET Framework, so only its own redirects can differ.
+
+- **Trace serializers passed into constructors to the callers that pass them.** It would cover
+  MassTransit's five deserializers, but each has several callers with different serializers, so
+  a site would need several settings; that is a model change for another time.
 
 ## Consequences
 
