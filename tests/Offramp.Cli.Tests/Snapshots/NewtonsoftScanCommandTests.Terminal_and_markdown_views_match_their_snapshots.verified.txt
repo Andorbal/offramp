@@ -1,0 +1,43 @@
+﻿Newtonsoft.Json in 3 projects, 3 sites; 2 changes to 13.0.4 (0 errors, 2 warnings).
+
+  Project                                  Release   Referenced as    Sites
+─────────────────────────────────────────────────────────────────────────────
+  src/Orders.App/Orders.App.csproj         7.0.1     packagesConfig       0
+  src/Orders/Orders.csproj                 7.0.1     packagesConfig       3
+  tests/Orders.Tests/Orders.Tests.csproj   7.0.1     packagesConfig       0
+
+
+  Rule      Where                         What
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  OFR3702   src/Orders/OrderCodec.cs:13   Newtonsoft.Json.JsonSerializerSettings.TypeNameAssemblyFormat is obsolete in
+                                          the target (CS0618: 'JsonSerializerSettings.TypeNameAssemblyFormat' is
+                                          obsolete: 'TypeNameAssemblyFormat is obsolete. Use
+                                          TypeNameAssemblyFormatHandling instead.'); use
+                                          TypeNameAssemblyFormatHandling.
+  OFR3709   src/Orders/Comment.cs:17      Contoso.Orders.Comment contains itself, and site
+                                          Contoso.Orders.CommentCodec.Read#1 reads it without MaxDepth: the target
+                                          stops at 64 levels.
+
+
+! OFR3702 src/Orders/OrderCodec.cs:13:13 Newtonsoft.Json.JsonSerializerSettings.TypeNameAssemblyFormat is obsolete in
+the target (CS0618: 'JsonSerializerSettings.TypeNameAssemblyFormat' is obsolete: 'TypeNameAssemblyFormat is obsolete.
+Use TypeNameAssemblyFormatHandling instead.'); use TypeNameAssemblyFormatHandling.
+! OFR3709 src/Orders/Comment.cs:17:20 Contoso.Orders.Comment contains itself, and site
+Contoso.Orders.CommentCodec.Read#1 reads it without MaxDepth: the target stops at 64 levels.
+· OFR0016 No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.
+
+2 warning(s), 1 info
+
+---
+# Newtonsoft.Json: 3 projects, 3 sites, target 13.0.4
+
+| Project | Release | Referenced as | Sites |
+|---|---|---|---:|
+| src/Orders.App/Orders.App.csproj | 7.0.1 | packagesConfig | 0 |
+| src/Orders/Orders.csproj | 7.0.1 | packagesConfig | 3 |
+| tests/Orders.Tests/Orders.Tests.csproj | 7.0.1 | packagesConfig | 0 |
+
+| Rule | Severity | Where | What |
+|---|---|---|---|
+| OFR3702 | warning | src/Orders/OrderCodec.cs:13 | Newtonsoft.Json.JsonSerializerSettings.TypeNameAssemblyFormat is obsolete in the target (CS0618: 'JsonSerializerSettings.TypeNameAssemblyFormat' is obsolete: 'TypeNameAssemblyFormat is obsolete. Use TypeNameAssemblyFormatHandling instead.'); use TypeNameAssemblyFormatHandling. |
+| OFR3709 | warning | src/Orders/Comment.cs:17 | Contoso.Orders.Comment contains itself, and site Contoso.Orders.CommentCodec.Read#1 reads it without MaxDepth: the target stops at 64 levels. |

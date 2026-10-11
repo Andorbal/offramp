@@ -5,6 +5,8 @@
 
   <ItemGroup>
     <PackageReference Include="Spectre.Console.Testing" />
+    <!-- newtonsoft scan's trial compilation reads the target from the global packages folder. -->
+    <PackageDownload Include="Newtonsoft.Json" Version="[13.0.4]" />
   </ItemGroup>
 
   <ItemGroup>

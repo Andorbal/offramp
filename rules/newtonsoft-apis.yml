@@ -1,0 +1,29 @@
+# Newtonsoft.Json calls that are serialization sites (docs/spec/commands/newtonsoft.md, "Site").
+#
+# `api` is a documentation ID without parameters: every overload matches. `direction` is
+# serialize, deserialize, or dom. `payload` says where the payload type comes from:
+#   argument:<name>  the static type of that argument (followed to callers when it is object)
+#   type             the method's type argument, else a typeof(...) passed for its Type parameter
+#   anonymous        the type of the anonymous-type template argument
+#   none             DOM parsing: the payload is the JSON itself
+# Settings are found by parameter type (JsonSerializerSettings, JsonSerializer, JsonConverter[])
+# and, for JsonSerializer's instance methods, the serializer the call is made on.
+apis:
+  - { api: "M:Newtonsoft.Json.JsonConvert.SerializeObject", direction: serialize, payload: "argument:value" }
+  - { api: "M:Newtonsoft.Json.JsonConvert.DeserializeObject", direction: deserialize, payload: type }
+  - { api: "M:Newtonsoft.Json.JsonConvert.DeserializeAnonymousType", direction: deserialize, payload: anonymous }
+  - { api: "M:Newtonsoft.Json.JsonConvert.PopulateObject", direction: deserialize, payload: "argument:target" }
+  - { api: "M:Newtonsoft.Json.JsonSerializer.Serialize", direction: serialize, payload: "argument:value" }
+  - { api: "M:Newtonsoft.Json.JsonSerializer.Deserialize", direction: deserialize, payload: type }
+  - { api: "M:Newtonsoft.Json.JsonSerializer.Populate", direction: deserialize, payload: "argument:target" }
+  - { api: "M:Newtonsoft.Json.Linq.JToken.FromObject", direction: serialize, payload: "argument:o" }
+  - { api: "M:Newtonsoft.Json.Linq.JObject.FromObject", direction: serialize, payload: "argument:o" }
+  - { api: "M:Newtonsoft.Json.Linq.JArray.FromObject", direction: serialize, payload: "argument:o" }
+  - { api: "M:Newtonsoft.Json.Linq.JToken.ToObject", direction: deserialize, payload: type }
+  - { api: "M:Newtonsoft.Json.Linq.JToken.Parse", direction: dom, payload: none }
+  - { api: "M:Newtonsoft.Json.Linq.JObject.Parse", direction: dom, payload: none }
+  - { api: "M:Newtonsoft.Json.Linq.JArray.Parse", direction: dom, payload: none }
+  - { api: "M:Newtonsoft.Json.Linq.JToken.Load", direction: dom, payload: none }
+  - { api: "M:Newtonsoft.Json.Linq.JObject.Load", direction: dom, payload: none }
+  - { api: "M:Newtonsoft.Json.Linq.JArray.Load", direction: dom, payload: none }
+  - { api: "M:Newtonsoft.Json.Linq.JToken.ReadFrom", direction: dom, payload: none }

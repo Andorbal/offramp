@@ -66,6 +66,24 @@
         },
         "verify": "end"
       },
+      "newtonsoft": {
+        "hermetic": {
+          "nonHermetic": []
+        },
+        "onDiff": "keep",
+        "samples": null,
+        "target": "[13.0,14.0)",
+        "tests": {
+          "command": null,
+          "entryDepth": 4,
+          "folder": "NewtonsoftCharacterization",
+          "objectDepth": 3,
+          "projects": {},
+          "runs": 2,
+          "samplesPerType": 3,
+          "timeoutSeconds": 1800
+        }
+      },
       "paths": {
         "exclude": [],
         "state": ".offramp"

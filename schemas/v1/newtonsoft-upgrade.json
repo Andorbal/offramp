@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/newtonsoft-upgrade.json",
+  "title": "offramp newtonsoft upgrade result",
+  "description": "The result of `offramp newtonsoft upgrade`. See docs/spec/commands/newtonsoft.md#newtonsoft-upgrade.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["to", "from", "projects", "redirects", "findings", "verify", "probes", "onDiff", "applied", "journal", "rolledBack", "preview"],
+  "properties": {
+    "to": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+" },
+    "from": {
+      "type": "object",
+      "description": "The releases in use before, with the projects on each.",
+      "additionalProperties": { "$ref": "workspace.json#/$defs/pathList" }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "from", "via", "files"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "from": { "type": "string" },
+          "via": { "enum": ["packageReference", "centralPackage", "packagesConfig", "hintPath", "looseDll", "transitive"] },
+          "files": { "$ref": "workspace.json#/$defs/pathList", "description": "The files edited for the project (empty when it follows another project)." }
+        }
+      }
+    },
+    "redirects": { "oneOf": [{ "type": "null" }, { "$ref": "redirects-sync.json" }] },
+    "findings": { "type": "array", "items": { "$ref": "newtonsoft-scan.json#/$defs/finding" } },
+    "verify": { "oneOf": [{ "type": "null" }, { "$ref": "verify.json" }], "description": "The build after the upgrade; null in a dry run." },
+    "probes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["probe", "testProject", "runtime", "status"],
+        "properties": {
+          "probe": { "type": "string" },
+          "testProject": { "$ref": "workspace.json#/$defs/relativePath" },
+          "runtime": { "enum": ["netfx", "core"] },
+          "status": { "enum": ["same", "differs", "nowThrows", "noLongerThrows", "messageOnly", "missing", "noBaseline"] },
+          "newtonsoft": { "type": "string" },
+          "diff": { "type": "string" }
+        }
+      }
+    },
+    "onDiff": { "enum": ["keep", "rollback"] },
+    "applied": { "type": "boolean" },
+    "journal": { "type": ["string", "null"] },
+    "rolledBack": { "type": "boolean" },
+    "preview": { "type": ["string", "null"] }
+  }
+}

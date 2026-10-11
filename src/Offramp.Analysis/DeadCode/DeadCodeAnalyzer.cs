@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
+using Offramp.Analysis.Symbols;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
@@ -429,34 +430,10 @@ public static class DeadCodeAnalyzer
 
             if (!_aliases.ContainsKey(id))
             {
-                _aliases[id] = [.. Aliases(method.OriginalDefinition).Select(Id).OfType<string>().Distinct(StringComparer.Ordinal)];
+                _aliases[id] = [.. SymbolIdentity.Aliases(method.OriginalDefinition).Select(Id).OfType<string>().Distinct(StringComparer.Ordinal)];
             }
 
             return id;
-        }
-
-        private static IEnumerable<IMethodSymbol> Aliases(IMethodSymbol method)
-        {
-            foreach (var implemented in method.ExplicitInterfaceImplementations)
-            {
-                yield return implemented;
-            }
-
-            if (method.ContainingType is { } type)
-            {
-                foreach (var member in type.AllInterfaces.SelectMany(i => i.GetMembers(method.Name)).OfType<IMethodSymbol>())
-                {
-                    if (SymbolEqualityComparer.Default.Equals(type.FindImplementationForInterfaceMember(member)?.OriginalDefinition, method))
-                    {
-                        yield return member;
-                    }
-                }
-            }
-
-            for (var overridden = method.OverriddenMethod; overridden is not null; overridden = overridden.OverriddenMethod)
-            {
-                yield return overridden;
-            }
         }
 
         /// <summary>

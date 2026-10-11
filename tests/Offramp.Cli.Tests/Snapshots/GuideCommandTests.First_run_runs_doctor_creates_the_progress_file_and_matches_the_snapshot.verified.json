@@ -66,6 +66,24 @@
         },
         "verify": "end"
       },
+      "newtonsoft": {
+        "hermetic": {
+          "nonHermetic": []
+        },
+        "onDiff": "keep",
+        "samples": null,
+        "target": "[13.0,14.0)",
+        "tests": {
+          "command": null,
+          "entryDepth": 4,
+          "folder": "NewtonsoftCharacterization",
+          "objectDepth": 3,
+          "projects": {},
+          "runs": 2,
+          "samplesPerType": 3,
+          "timeoutSeconds": 1800
+        }
+      },
       "paths": {
         "exclude": [],
         "state": ".offramp"
@@ -353,6 +371,43 @@
             "projects": []
           },
           {
+            "id": "newtonsoft-scan",
+            "title": "See what changes when Newtonsoft.Json moves to 13",
+            "why": "Old Newtonsoft.Json (7 to 12) is the usual reason a solution has several versions of a package and the binding redirects that hide it. This lists every place the code serializes or parses JSON, traces each to a method a test can call, and lists the API and behavior changes between the release in use and 13.x, each measured against the real releases.",
+            "command": "offramp newtonsoft scan",
+            "writes": "nothing",
+            "requires": [],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "newtonsoft-tests",
+            "title": "Record what serialization does today",
+            "why": "Characterization probes go into the test projects that already cover each project and record, on the release in use, the JSON the code writes and what it reads back. After the upgrade they show exactly what changed. Run it where the test projects can run (Windows for .NET Framework-only ones) and commit the baselines.",
+            "command": "offramp newtonsoft tests --record",
+            "writes": "repository",
+            "requires": [
+              "newtonsoft-scan"
+            ],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
+            "id": "newtonsoft-upgrade",
+            "title": "Upgrade Newtonsoft.Json to 13",
+            "why": "Moves every project (PackageReference, packages.config, HintPath) and its binding redirects to 13.x, restores, builds, and runs the probes: a failed build rolls back, and every probe that observes something new is listed for you to judge.",
+            "command": "offramp newtonsoft upgrade",
+            "writes": "repository",
+            "requires": [
+              "newtonsoft-tests"
+            ],
+            "status": "blocked",
+            "note": "Needs the workspace model: run `offramp scan`.",
+            "projects": []
+          },
+          {
             "id": "resolve-dlls",
             "title": "Replace references to loose DLLs",
             "why": "References to DLLs checked into the repository hide what you depend on, and those DLLs rarely work on net10.0. This replaces each with the project that builds it or the NuGet package that ships it, and lists the ones it cannot place.",
@@ -431,11 +486,11 @@
       }
     ],
     "counts": {
-      "steps": 23,
+      "steps": 26,
       "done": 1,
       "skipped": 0,
       "open": 1,
-      "blocked": 21,
+      "blocked": 24,
       "notApplicable": 0
     }
   },

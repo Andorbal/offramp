@@ -25,4 +25,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Offramp.Scaffolding.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The probe runtime newtonsoft tests writes into test projects  (C# 6, compiled there, not here). Not *.cs.template: MSBuild would read "cs" as a culture. -->
+    <EmbeddedResource Include="Newtonsoft\Runtime\*.template" LogicalName="Offramp.Scaffolding.Newtonsoft.Runtime.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

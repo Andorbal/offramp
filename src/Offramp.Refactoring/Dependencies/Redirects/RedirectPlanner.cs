@@ -203,10 +203,22 @@ public static class RedirectPlanner
                 Assembly = present.Assembly, PublicKeyToken = present.PublicKeyToken, Culture = present.Culture,
                 OldVersion = present.OldVersion, NewVersion = present.NewVersion, Action = RedirectAction.Unchanged,
             };
-            if (graph.Deployed.ContainsKey(present.Assembly))
+            if (graph.Deployed.TryGetValue(present.Assembly, out var deployed))
             {
-                // One version in the graph: the redirect is harmless and stays.
-                entries.Add(entry);
+                // One version in the graph: the redirect is harmless and stays, unless it points at a
+                // version the application does not deploy (left by an upgrade), which would fail to load.
+                var version = deployed.Version.ToString();
+                if (present.NewVersion != version)
+                {
+                    var oldVersion = "0.0.0.0-" + version;
+                    bindings.Change(present, oldVersion, version);
+                    entries.Add(entry with { OldVersion = oldVersion, NewVersion = version, Action = RedirectAction.Changed, Was = present.NewVersion });
+                    Report(request, DiagnosticCatalog.OFR1502, config, $"Changes the redirect for {present.Assembly} from {present.OldVersion} → {present.NewVersion} to {oldVersion} → {version}: the application deploys {version}.");
+                }
+                else
+                {
+                    entries.Add(entry);
+                }
             }
             else if (request.Prune)
             {

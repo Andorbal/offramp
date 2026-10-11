@@ -59,6 +59,9 @@ which is also the suggested order. `{N}` is the target major version.
 | `prepare` Tidy up while still on .NET Framework | `move-tests` | `offramp move tests --project {project} --create` | repository | per project: non-test projects that reference a test framework package |
 | | `csproj-modernize` | `offramp csproj modernize --all` | repository | a C# project is not SDK-style |
 | | `deps-consolidate` | `offramp deps consolidate --all` | repository | a package is referenced at more than one version |
+| | `newtonsoft-scan` | `offramp newtonsoft scan` | nothing | a project uses Newtonsoft.Json older than 13 |
+| | `newtonsoft-tests` | `offramp newtonsoft tests --record` | repository | the same; after `newtonsoft-scan` |
+| | `newtonsoft-upgrade` | `offramp newtonsoft upgrade` | repository | the same; after `newtonsoft-tests` |
 | | `resolve-dlls` | `offramp deps resolve-dlls` | repository | a project references a DLL file |
 | | `codemods` | `offramp codemod run --mod all` | repository | always |
 | `port` Port, a wave at a time | `port` | `offramp csproj modernize --project {project} --tfm {tfms}` | repository | per project: projects ready to port (`plan --frontier`) other than web and service projects |
@@ -199,7 +202,7 @@ Result (`schemas/v1/guide.json`):
           "status": "open", "note": null, "projects": [] }
       ] }
   ],
-  "counts": { "steps": 23, "done": 1, "skipped": 0, "open": 1, "blocked": 16, "notApplicable": 5 }
+  "counts": { "steps": 26, "done": 1, "skipped": 0, "open": 1, "blocked": 16, "notApplicable": 8 }
 }
 ```
 

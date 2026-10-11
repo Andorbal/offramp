@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net48</TargetFrameworks>
+    <LangVersion>7.3</LangVersion>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);NU1701;NU1903</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 18.x: 17.x's test host brings Newtonsoft.Json 13 to .NET targets and would replace 7.0.1 (ADR 0067). -->
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Newtonsoft.Json" Version="7.0.1" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
+    <!-- Newtonsoft.Json 7.0.1's net45 assembly needs it on .NET (ADR 0067). -->
+    <PackageReference Include="System.Security.Permissions" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Catalog\Catalog.csproj" />
+  </ItemGroup>
+</Project>

@@ -123,7 +123,7 @@ Code ranges:
 | OFR0100–0199 | project loading (unrecognized project, Windows-only build step) |
 | OFR1000–1999 | dependencies (`deps *`, `redirects`) |
 | OFR2000–2999 | moves (`move *`, `forwarders`, `extract`) |
-| OFR3000–3999 | audits (`audit *`, `ifdef`) with sub-ranges per audit |
+| OFR3000–3999 | audits (`audit *`, `ifdef`) with sub-ranges per audit; `newtonsoft *` is OFR3700–3799 |
 | OFR4000–4999 | scaffolding (`service`, `web`, `remote`, `seams`, `csproj`, `config`, `codemod`) |
 | OFR5000–5999 | verification |
 | OFR9000–9999 | LLM and MCP |

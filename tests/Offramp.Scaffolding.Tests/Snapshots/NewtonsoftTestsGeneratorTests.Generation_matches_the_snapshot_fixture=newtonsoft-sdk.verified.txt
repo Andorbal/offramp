@@ -1,0 +1,817 @@
+﻿{
+  "targets": [
+    {
+      "production": "src/Catalog/Catalog.csproj",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "framework": "xunit",
+      "by": "name",
+      "folder": "tests/Catalog.Tests/NewtonsoftCharacterization"
+    },
+    {
+      "production": "src/Inventory/Inventory.csproj",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "framework": "nunit",
+      "by": "name",
+      "folder": "tests/Inventory.Tests/NewtonsoftCharacterization"
+    }
+  ],
+  "probes": [
+    {
+      "id": "Contoso.Catalog.CatalogCodec.Read#1.entry.roundtrip-edge",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.CatalogCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "roundtrip-edge",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Catalog.CatalogCodec.Write#1.entry.edge",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CatalogCodec.Read#1.entry.roundtrip-empty",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.CatalogCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "roundtrip-empty",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Catalog.CatalogCodec.Write#1.entry.empty",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CatalogCodec.Read#1.entry.roundtrip-typical",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.CatalogCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "roundtrip-typical",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Catalog.CatalogCodec.Write#1.entry.typical",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CatalogCodec.Write#1.entry.edge",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.CatalogCodec.Write#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "edge",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CatalogCodec.Write#1.entry.empty",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.CatalogCodec.Write#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "empty",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CatalogCodec.Write#1.entry.typical",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.CatalogCodec.Write#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "typical",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CategoryCodec.Read#1.entry.roundtrip-edge",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.CategoryCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "roundtrip-edge",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Catalog.CategoryCodec.Read#1.input.edge",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CategoryCodec.Read#1.entry.roundtrip-empty",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.CategoryCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "roundtrip-empty",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Catalog.CategoryCodec.Read#1.input.empty",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CategoryCodec.Read#1.entry.roundtrip-typical",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.CategoryCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "roundtrip-typical",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Catalog.CategoryCodec.Read#1.input.typical",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CategoryCodec.Read#1.input.edge",
+      "kind": "type",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.CategoryCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "edge",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CategoryCodec.Read#1.input.empty",
+      "kind": "type",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.CategoryCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "empty",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.CategoryCodec.Read#1.input.typical",
+      "kind": "type",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.CategoryCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "typical",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.Envelope.Wrap#1.entry.edge",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.Envelope.Wrap#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "edge",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.Envelope.Wrap#1.entry.empty",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.Envelope.Wrap#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "empty",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.Envelope.Wrap#1.entry.typical",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.Envelope.Wrap#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "typical",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.MoneyCodec.Read#1.entry.roundtrip-edge",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.MoneyCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "roundtrip-edge",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Catalog.MoneyCodec.Write#1.entry.edge",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.MoneyCodec.Read#1.entry.roundtrip-empty",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.MoneyCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "roundtrip-empty",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Catalog.MoneyCodec.Write#1.entry.empty",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.MoneyCodec.Read#1.entry.roundtrip-typical",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Catalog.MoneyCodec.Read#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "roundtrip-typical",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Catalog.MoneyCodec.Write#1.entry.typical",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.MoneyCodec.Write#1.entry.edge",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.MoneyCodec.Write#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "edge",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.MoneyCodec.Write#1.entry.empty",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.MoneyCodec.Write#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "empty",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.MoneyCodec.Write#1.entry.typical",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.MoneyCodec.Write#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "typical",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.ProductExporter.Line#1.entry.edge",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.ProductExporter.Line#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "edge",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.ProductExporter.Line#1.entry.empty",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.ProductExporter.Line#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "empty",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.ProductExporter.Line#1.entry.typical",
+      "kind": "entry",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.ProductExporter.Line#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "typical",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.ProductStore.Save#1.type.edge",
+      "kind": "type",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.ProductStore.Save#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "edge",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.ProductStore.Save#1.type.empty",
+      "kind": "type",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.ProductStore.Save#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "empty",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Catalog.ProductStore.Save#1.type.typical",
+      "kind": "type",
+      "direction": "serialize",
+      "site": "Contoso.Catalog.ProductStore.Save#1",
+      "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "sample": "typical",
+      "input": "generated",
+      "file": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.StockSnapshotReader.Read#1.entry.roundtrip-edge",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Inventory.StockSnapshotReader.Read#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "roundtrip-edge",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Inventory.StockSnapshotWriter.Write#1.type.edge",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventoryDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.StockSnapshotReader.Read#1.entry.roundtrip-empty",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Inventory.StockSnapshotReader.Read#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "roundtrip-empty",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Inventory.StockSnapshotWriter.Write#1.type.empty",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventoryDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.StockSnapshotReader.Read#1.entry.roundtrip-typical",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Inventory.StockSnapshotReader.Read#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "roundtrip-typical",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Inventory.StockSnapshotWriter.Write#1.type.typical",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventoryDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.StockSnapshotWriter.Write#1.type.edge",
+      "kind": "type",
+      "direction": "serialize",
+      "site": "Contoso.Inventory.StockSnapshotWriter.Write#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "edge",
+      "input": "generated",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventorySerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.StockSnapshotWriter.Write#1.type.empty",
+      "kind": "type",
+      "direction": "serialize",
+      "site": "Contoso.Inventory.StockSnapshotWriter.Write#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "empty",
+      "input": "generated",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventorySerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.StockSnapshotWriter.Write#1.type.typical",
+      "kind": "type",
+      "direction": "serialize",
+      "site": "Contoso.Inventory.StockSnapshotWriter.Write#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "typical",
+      "input": "generated",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventorySerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.SupplierFeed.Parse#1.entry.roundtrip-edge",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Inventory.SupplierFeed.Parse#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "roundtrip-edge",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Inventory.SupplierFeed.Parse#1.input.edge",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventoryDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.SupplierFeed.Parse#1.entry.roundtrip-empty",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Inventory.SupplierFeed.Parse#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "roundtrip-empty",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Inventory.SupplierFeed.Parse#1.input.empty",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventoryDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.SupplierFeed.Parse#1.entry.roundtrip-typical",
+      "kind": "entry",
+      "direction": "deserialize",
+      "site": "Contoso.Inventory.SupplierFeed.Parse#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "roundtrip-typical",
+      "input": "roundtrip",
+      "inputFrom": "probe:Contoso.Inventory.SupplierFeed.Parse#1.input.typical",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventoryDeserializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.SupplierFeed.Parse#1.input.edge",
+      "kind": "type",
+      "direction": "deserialize",
+      "site": "Contoso.Inventory.SupplierFeed.Parse#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "edge",
+      "input": "generated",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventorySerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.SupplierFeed.Parse#1.input.empty",
+      "kind": "type",
+      "direction": "deserialize",
+      "site": "Contoso.Inventory.SupplierFeed.Parse#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "empty",
+      "input": "generated",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventorySerializeProbes.cs"
+    },
+    {
+      "id": "Contoso.Inventory.SupplierFeed.Parse#1.input.typical",
+      "kind": "type",
+      "direction": "deserialize",
+      "site": "Contoso.Inventory.SupplierFeed.Parse#1",
+      "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "sample": "typical",
+      "input": "generated",
+      "file": "tests/Inventory.Tests/NewtonsoftCharacterization/InventorySerializeProbes.cs"
+    }
+  ],
+  "uncovered": [
+    {
+      "site": "Contoso.Catalog.PriceReader.TryRead#1",
+      "project": "src/Catalog/Catalog.csproj",
+      "reason": "noInput",
+      "detail": "a DOM site reads JSON of no known type; there is no payload to give it"
+    },
+    {
+      "site": "Contoso.Catalog.PriceReader.TryRead#2",
+      "project": "src/Catalog/Catalog.csproj",
+      "reason": "noInput",
+      "detail": "no sample payload for System.Decimal and nothing writes it with the same settings"
+    },
+    {
+      "site": "Contoso.Inventory.Reorder.Plan#1",
+      "project": "src/Inventory/Inventory.csproj",
+      "reason": "payloadNotGeneratable",
+      "detail": "its payload type cannot be written as C#"
+    }
+  ],
+  "files": [
+    {
+      "path": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs",
+      "action": "create"
+    },
+    {
+      "path": "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs",
+      "action": "create"
+    },
+    {
+      "path": "tests/Catalog.Tests/NewtonsoftCharacterization/OfframpObjectDump.cs",
+      "action": "create"
+    },
+    {
+      "path": "tests/Catalog.Tests/NewtonsoftCharacterization/OfframpProbe.cs",
+      "action": "create"
+    },
+    {
+      "path": "tests/Inventory.Tests/NewtonsoftCharacterization/InventoryDeserializeProbes.cs",
+      "action": "create"
+    },
+    {
+      "path": "tests/Inventory.Tests/NewtonsoftCharacterization/InventorySerializeProbes.cs",
+      "action": "create"
+    },
+    {
+      "path": "tests/Inventory.Tests/NewtonsoftCharacterization/OfframpObjectDump.cs",
+      "action": "create"
+    },
+    {
+      "path": "tests/Inventory.Tests/NewtonsoftCharacterization/OfframpProbe.cs",
+      "action": "create"
+    }
+  ],
+  "coverage": {
+    "sites": 14,
+    "withEntryProbe": 9,
+    "withTypeProbe": 2,
+    "uncovered": {
+      "noInput": 2,
+      "payloadNotGeneratable": 1
+    }
+  },
+  "preview": null,
+  "applied": false,
+  "journal": null,
+  "mode": "generate",
+  "runs": [],
+  "outcomes": [],
+  "baselineJournal": null
+}
+
+OFR3731 src/Inventory/Inventory.csproj Site Contoso.Inventory.Reorder.Plan#1 has no probe (payloadNotGeneratable): its payload type cannot be written as C#.
+OFR3732 src/Catalog/Catalog.csproj Site Contoso.Catalog.PriceReader.TryRead#1 has no probe (noInput): a DOM site reads JSON of no known type; there is no payload to give it. (2 sites in the project; the first is shown.)
+=== tests/Catalog.Tests/NewtonsoftCharacterization/CatalogDeserializeProbes.cs
+// <auto-generated>
+//   Written by `offramp newtonsoft tests` (docs/spec/commands/newtonsoft.md) and rewritten on every
+//   run. Remove this header to keep your own changes; Offramp then leaves the file alone.
+// </auto-generated>
+#pragma warning disable CS0618, CS0612, CS1591, CS8600, CS8601, CS8602, CS8603, CS8604, CS8618, CS8625
+namespace Catalog.Tests.NewtonsoftCharacterization
+{
+    public class CatalogDeserializeProbes
+    {
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CatalogCodec_Read_1_entry_roundtrip_typical()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CatalogCodec.Read#1.entry.roundtrip-typical", () => global::Contoso.Catalog.CatalogCodec.Read(OfframpProbe.Input("probe:Contoso.Catalog.CatalogCodec.Write#1.entry.typical")));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CatalogCodec_Read_1_entry_roundtrip_empty()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CatalogCodec.Read#1.entry.roundtrip-empty", () => global::Contoso.Catalog.CatalogCodec.Read(OfframpProbe.Input("probe:Contoso.Catalog.CatalogCodec.Write#1.entry.empty")));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CatalogCodec_Read_1_entry_roundtrip_edge()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CatalogCodec.Read#1.entry.roundtrip-edge", () => global::Contoso.Catalog.CatalogCodec.Read(OfframpProbe.Input("probe:Contoso.Catalog.CatalogCodec.Write#1.entry.edge")));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CategoryCodec_Read_1_entry_roundtrip_typical()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CategoryCodec.Read#1.entry.roundtrip-typical", () => global::Contoso.Catalog.CategoryCodec.Read(OfframpProbe.Input("probe:Contoso.Catalog.CategoryCodec.Read#1.input.typical")));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CategoryCodec_Read_1_entry_roundtrip_empty()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CategoryCodec.Read#1.entry.roundtrip-empty", () => global::Contoso.Catalog.CategoryCodec.Read(OfframpProbe.Input("probe:Contoso.Catalog.CategoryCodec.Read#1.input.empty")));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CategoryCodec_Read_1_entry_roundtrip_edge()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CategoryCodec.Read#1.entry.roundtrip-edge", () => global::Contoso.Catalog.CategoryCodec.Read(OfframpProbe.Input("probe:Contoso.Catalog.CategoryCodec.Read#1.input.edge")));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_MoneyCodec_Read_1_entry_roundtrip_typical()
+        {
+            OfframpProbe.Check("Contoso.Catalog.MoneyCodec.Read#1.entry.roundtrip-typical", () => global::Contoso.Catalog.MoneyCodec.Read(OfframpProbe.Input("probe:Contoso.Catalog.MoneyCodec.Write#1.entry.typical")));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_MoneyCodec_Read_1_entry_roundtrip_empty()
+        {
+            OfframpProbe.Check("Contoso.Catalog.MoneyCodec.Read#1.entry.roundtrip-empty", () => global::Contoso.Catalog.MoneyCodec.Read(OfframpProbe.Input("probe:Contoso.Catalog.MoneyCodec.Write#1.entry.empty")));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_MoneyCodec_Read_1_entry_roundtrip_edge()
+        {
+            OfframpProbe.Check("Contoso.Catalog.MoneyCodec.Read#1.entry.roundtrip-edge", () => global::Contoso.Catalog.MoneyCodec.Read(OfframpProbe.Input("probe:Contoso.Catalog.MoneyCodec.Write#1.entry.edge")));
+        }
+    }
+}
+=== tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs
+// <auto-generated>
+//   Written by `offramp newtonsoft tests` (docs/spec/commands/newtonsoft.md) and rewritten on every
+//   run. Remove this header to keep your own changes; Offramp then leaves the file alone.
+// </auto-generated>
+#pragma warning disable CS0618, CS0612, CS1591, CS8600, CS8601, CS8602, CS8603, CS8604, CS8618, CS8625
+namespace Catalog.Tests.NewtonsoftCharacterization
+{
+    public class CatalogSerializeProbes
+    {
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CatalogCodec_Write_1_entry_typical()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CatalogCodec.Write#1.entry.typical", () => global::Contoso.Catalog.CatalogCodec.Write(new global::Contoso.Catalog.Product() { Id = (int)69, Name = "Name 57", SKUCode = "SKUCode 91", Price = 780.25m, Created = new global::System.DateTime(2024, 3, 4, 9, 30, 0, global::System.DateTimeKind.Utc), Link = new global::System.Uri("https://example.com/items/39"), Tags = new global::System.Collections.Generic.List<string> { "Tags 76", "Tags 50" }, Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int> { { global::Contoso.Catalog.Color.Red, (int)100 }, { global::Contoso.Catalog.Color.DarkBlue, (int)80 } }, LegacyCode = "LegacyCode 65", Attributes = new global::System.Collections.Generic.Dictionary<string, string> { { "key0 84", "value0 17" }, { "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", "value1 37" } } }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CatalogCodec_Write_1_entry_empty()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CatalogCodec.Write#1.entry.empty", () => global::Contoso.Catalog.CatalogCodec.Write(new global::Contoso.Catalog.Product() { Id = (int)0, Name = null, SKUCode = null, Price = 0m, Created = default(global::System.DateTime), Link = null, Tags = new global::System.Collections.Generic.List<string>(), Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int>(), LegacyCode = null, Attributes = new global::System.Collections.Generic.Dictionary<string, string>() }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CatalogCodec_Write_1_entry_edge()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CatalogCodec.Write#1.entry.edge", () => global::Contoso.Catalog.CatalogCodec.Write(new global::Contoso.Catalog.Product() { Id = int.MaxValue, Name = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", SKUCode = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Price = 1.10m, Created = new global::System.DateTime(2024, 2, 29, 23, 59, 59, 999, global::System.DateTimeKind.Unspecified), Link = new global::System.Uri("https://example.com/a b?c=\u00e4&d=%20", global::System.UriKind.RelativeOrAbsolute), Tags = new global::System.Collections.Generic.List<string> { "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603" }, Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int> { { global::Contoso.Catalog.Color.Red, int.MaxValue } }, LegacyCode = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Attributes = new global::System.Collections.Generic.Dictionary<string, string> { { "key0 84", "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603" } } }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_Envelope_Wrap_1_entry_typical()
+        {
+            OfframpProbe.Check("Contoso.Catalog.Envelope.Wrap#1.entry.typical", () => global::Contoso.Catalog.ProductFeed.Publish(new global::Contoso.Catalog.Product() { Id = (int)69, Name = "Name 57", SKUCode = "SKUCode 91", Price = 780.25m, Created = new global::System.DateTime(2024, 3, 4, 9, 30, 0, global::System.DateTimeKind.Utc), Link = new global::System.Uri("https://example.com/items/39"), Tags = new global::System.Collections.Generic.List<string> { "Tags 76", "Tags 50" }, Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int> { { global::Contoso.Catalog.Color.Red, (int)100 }, { global::Contoso.Catalog.Color.DarkBlue, (int)80 } }, LegacyCode = "LegacyCode 65", Attributes = new global::System.Collections.Generic.Dictionary<string, string> { { "key0 84", "value0 17" }, { "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", "value1 37" } } }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_Envelope_Wrap_1_entry_empty()
+        {
+            OfframpProbe.Check("Contoso.Catalog.Envelope.Wrap#1.entry.empty", () => global::Contoso.Catalog.ProductFeed.Publish(new global::Contoso.Catalog.Product() { Id = (int)0, Name = null, SKUCode = null, Price = 0m, Created = default(global::System.DateTime), Link = null, Tags = new global::System.Collections.Generic.List<string>(), Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int>(), LegacyCode = null, Attributes = new global::System.Collections.Generic.Dictionary<string, string>() }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_Envelope_Wrap_1_entry_edge()
+        {
+            OfframpProbe.Check("Contoso.Catalog.Envelope.Wrap#1.entry.edge", () => global::Contoso.Catalog.ProductFeed.Publish(new global::Contoso.Catalog.Product() { Id = int.MaxValue, Name = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", SKUCode = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Price = 1.10m, Created = new global::System.DateTime(2024, 2, 29, 23, 59, 59, 999, global::System.DateTimeKind.Unspecified), Link = new global::System.Uri("https://example.com/a b?c=\u00e4&d=%20", global::System.UriKind.RelativeOrAbsolute), Tags = new global::System.Collections.Generic.List<string> { "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603" }, Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int> { { global::Contoso.Catalog.Color.Red, int.MaxValue } }, LegacyCode = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Attributes = new global::System.Collections.Generic.Dictionary<string, string> { { "key0 84", "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603" } } }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_MoneyCodec_Write_1_entry_typical()
+        {
+            OfframpProbe.Check("Contoso.Catalog.MoneyCodec.Write#1.entry.typical", () => global::Contoso.Catalog.MoneyCodec.Write(new global::Contoso.Catalog.Money(876.25m, "currency 2")));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_MoneyCodec_Write_1_entry_empty()
+        {
+            OfframpProbe.Check("Contoso.Catalog.MoneyCodec.Write#1.entry.empty", () => global::Contoso.Catalog.MoneyCodec.Write(new global::Contoso.Catalog.Money(0m, null)));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_MoneyCodec_Write_1_entry_edge()
+        {
+            OfframpProbe.Check("Contoso.Catalog.MoneyCodec.Write#1.entry.edge", () => global::Contoso.Catalog.MoneyCodec.Write(new global::Contoso.Catalog.Money(1.10m, "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603")));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_ProductExporter_Line_1_entry_typical()
+        {
+            OfframpProbe.Check("Contoso.Catalog.ProductExporter.Line#1.entry.typical", () => new global::Contoso.Catalog.ProductExporter().Export(new global::System.Collections.Generic.List<global::Contoso.Catalog.Product> { new global::Contoso.Catalog.Product() { Id = (int)69, Name = "Name 57", SKUCode = "SKUCode 91", Price = 780.25m, Created = new global::System.DateTime(2024, 3, 4, 9, 30, 0, global::System.DateTimeKind.Utc), Link = new global::System.Uri("https://example.com/items/39"), Tags = new global::System.Collections.Generic.List<string> { "Tags 76", "Tags 50" }, Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int> { { global::Contoso.Catalog.Color.Red, (int)100 }, { global::Contoso.Catalog.Color.DarkBlue, (int)80 } }, LegacyCode = "LegacyCode 65", Attributes = new global::System.Collections.Generic.Dictionary<string, string> { { "key0 84", "value0 17" }, { "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", "value1 37" } } }, new global::Contoso.Catalog.Product() { Id = (int)69, Name = "Name 57", SKUCode = "SKUCode 91", Price = 780.25m, Created = new global::System.DateTime(2024, 3, 4, 9, 30, 0, global::System.DateTimeKind.Utc), Link = new global::System.Uri("https://example.com/items/39"), Tags = new global::System.Collections.Generic.List<string> { "Tags 76", "Tags 50" }, Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int> { { global::Contoso.Catalog.Color.Red, (int)100 }, { global::Contoso.Catalog.Color.DarkBlue, (int)80 } }, LegacyCode = "LegacyCode 65", Attributes = new global::System.Collections.Generic.Dictionary<string, string> { { "key0 84", "value0 17" }, { "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", "value1 37" } } } }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_ProductExporter_Line_1_entry_empty()
+        {
+            OfframpProbe.Check("Contoso.Catalog.ProductExporter.Line#1.entry.empty", () => new global::Contoso.Catalog.ProductExporter().Export(new global::System.Collections.Generic.List<global::Contoso.Catalog.Product>()));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_ProductExporter_Line_1_entry_edge()
+        {
+            OfframpProbe.Check("Contoso.Catalog.ProductExporter.Line#1.entry.edge", () => new global::Contoso.Catalog.ProductExporter().Export(new global::System.Collections.Generic.List<global::Contoso.Catalog.Product> { new global::Contoso.Catalog.Product() { Id = int.MaxValue, Name = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", SKUCode = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Price = 1.10m, Created = new global::System.DateTime(2024, 2, 29, 23, 59, 59, 999, global::System.DateTimeKind.Unspecified), Link = new global::System.Uri("https://example.com/a b?c=\u00e4&d=%20", global::System.UriKind.RelativeOrAbsolute), Tags = new global::System.Collections.Generic.List<string> { "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603" }, Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int> { { global::Contoso.Catalog.Color.Red, int.MaxValue } }, LegacyCode = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Attributes = new global::System.Collections.Generic.Dictionary<string, string> { { "key0 84", "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603" } } } }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_ProductStore_Save_1_type_typical()
+        {
+            OfframpProbe.Check("Contoso.Catalog.ProductStore.Save#1.type.typical", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Catalog.Product() { Id = (int)69, Name = "Name 57", SKUCode = "SKUCode 91", Price = 780.25m, Created = new global::System.DateTime(2024, 3, 4, 9, 30, 0, global::System.DateTimeKind.Utc), Link = new global::System.Uri("https://example.com/items/39"), Tags = new global::System.Collections.Generic.List<string> { "Tags 76", "Tags 50" }, Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int> { { global::Contoso.Catalog.Color.Red, (int)100 }, { global::Contoso.Catalog.Color.DarkBlue, (int)80 } }, LegacyCode = "LegacyCode 65", Attributes = new global::System.Collections.Generic.Dictionary<string, string> { { "key0 84", "value0 17" }, { "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", "value1 37" } } }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_ProductStore_Save_1_type_empty()
+        {
+            OfframpProbe.Check("Contoso.Catalog.ProductStore.Save#1.type.empty", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Catalog.Product() { Id = (int)0, Name = null, SKUCode = null, Price = 0m, Created = default(global::System.DateTime), Link = null, Tags = new global::System.Collections.Generic.List<string>(), Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int>(), LegacyCode = null, Attributes = new global::System.Collections.Generic.Dictionary<string, string>() }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_ProductStore_Save_1_type_edge()
+        {
+            OfframpProbe.Check("Contoso.Catalog.ProductStore.Save#1.type.edge", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Catalog.Product() { Id = int.MaxValue, Name = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", SKUCode = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Price = 1.10m, Created = new global::System.DateTime(2024, 2, 29, 23, 59, 59, 999, global::System.DateTimeKind.Unspecified), Link = new global::System.Uri("https://example.com/a b?c=\u00e4&d=%20", global::System.UriKind.RelativeOrAbsolute), Tags = new global::System.Collections.Generic.List<string> { "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603" }, Stock = new global::System.Collections.Generic.Dictionary<global::Contoso.Catalog.Color, int> { { global::Contoso.Catalog.Color.Red, int.MaxValue } }, LegacyCode = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Attributes = new global::System.Collections.Generic.Dictionary<string, string> { { "key0 84", "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603" } } }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CategoryCodec_Read_1_input_typical()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CategoryCodec.Read#1.input.typical", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Catalog.Category() { Name = "Name 14", Children = new global::System.Collections.Generic.List<global::Contoso.Catalog.Category> { new global::Contoso.Catalog.Category() { Name = "Name 14", Children = new global::System.Collections.Generic.List<global::Contoso.Catalog.Category> { null, null } }, new global::Contoso.Catalog.Category() { Name = "Name 14", Children = new global::System.Collections.Generic.List<global::Contoso.Catalog.Category> { null, null } } } }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CategoryCodec_Read_1_input_empty()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CategoryCodec.Read#1.input.empty", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Catalog.Category() { Name = null, Children = new global::System.Collections.Generic.List<global::Contoso.Catalog.Category>() }));
+        }
+
+        [global::Xunit.Fact]
+        [global::Xunit.Trait("Category", "NewtonsoftCharacterization")]
+        public void Probe_Contoso_Catalog_CategoryCodec_Read_1_input_edge()
+        {
+            OfframpProbe.Check("Contoso.Catalog.CategoryCodec.Read#1.input.edge", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Catalog.Category() { Name = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Children = new global::System.Collections.Generic.List<global::Contoso.Catalog.Category> { new global::Contoso.Catalog.Category() { Name = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", Children = new global::System.Collections.Generic.List<global::Contoso.Catalog.Category> { null } } } }));
+        }
+    }
+}
+=== tests/Inventory.Tests/NewtonsoftCharacterization/InventoryDeserializeProbes.cs
+// <auto-generated>
+//   Written by `offramp newtonsoft tests` (docs/spec/commands/newtonsoft.md) and rewritten on every
+//   run. Remove this header to keep your own changes; Offramp then leaves the file alone.
+// </auto-generated>
+#pragma warning disable CS0618, CS0612, CS1591, CS8600, CS8601, CS8602, CS8603, CS8604, CS8618, CS8625
+namespace Inventory.Tests.NewtonsoftCharacterization
+{
+    [global::NUnit.Framework.TestFixture]
+    public class InventoryDeserializeProbes
+    {
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_StockSnapshotReader_Read_1_entry_roundtrip_typical()
+        {
+            OfframpProbe.Check("Contoso.Inventory.StockSnapshotReader.Read#1.entry.roundtrip-typical", () => global::Contoso.Inventory.StockSnapshotReader.Read(OfframpProbe.Input("probe:Contoso.Inventory.StockSnapshotWriter.Write#1.type.typical")));
+        }
+
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_StockSnapshotReader_Read_1_entry_roundtrip_empty()
+        {
+            OfframpProbe.Check("Contoso.Inventory.StockSnapshotReader.Read#1.entry.roundtrip-empty", () => global::Contoso.Inventory.StockSnapshotReader.Read(OfframpProbe.Input("probe:Contoso.Inventory.StockSnapshotWriter.Write#1.type.empty")));
+        }
+
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_StockSnapshotReader_Read_1_entry_roundtrip_edge()
+        {
+            OfframpProbe.Check("Contoso.Inventory.StockSnapshotReader.Read#1.entry.roundtrip-edge", () => global::Contoso.Inventory.StockSnapshotReader.Read(OfframpProbe.Input("probe:Contoso.Inventory.StockSnapshotWriter.Write#1.type.edge")));
+        }
+
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_SupplierFeed_Parse_1_entry_roundtrip_typical()
+        {
+            OfframpProbe.Check("Contoso.Inventory.SupplierFeed.Parse#1.entry.roundtrip-typical", () => global::Contoso.Inventory.SupplierFeed.Parse(OfframpProbe.Input("probe:Contoso.Inventory.SupplierFeed.Parse#1.input.typical")));
+        }
+
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_SupplierFeed_Parse_1_entry_roundtrip_empty()
+        {
+            OfframpProbe.Check("Contoso.Inventory.SupplierFeed.Parse#1.entry.roundtrip-empty", () => global::Contoso.Inventory.SupplierFeed.Parse(OfframpProbe.Input("probe:Contoso.Inventory.SupplierFeed.Parse#1.input.empty")));
+        }
+
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_SupplierFeed_Parse_1_entry_roundtrip_edge()
+        {
+            OfframpProbe.Check("Contoso.Inventory.SupplierFeed.Parse#1.entry.roundtrip-edge", () => global::Contoso.Inventory.SupplierFeed.Parse(OfframpProbe.Input("probe:Contoso.Inventory.SupplierFeed.Parse#1.input.edge")));
+        }
+    }
+}
+=== tests/Inventory.Tests/NewtonsoftCharacterization/InventorySerializeProbes.cs
+// <auto-generated>
+//   Written by `offramp newtonsoft tests` (docs/spec/commands/newtonsoft.md) and rewritten on every
+//   run. Remove this header to keep your own changes; Offramp then leaves the file alone.
+// </auto-generated>
+#pragma warning disable CS0618, CS0612, CS1591, CS8600, CS8601, CS8602, CS8603, CS8604, CS8618, CS8625
+namespace Inventory.Tests.NewtonsoftCharacterization
+{
+    [global::NUnit.Framework.TestFixture]
+    public class InventorySerializeProbes
+    {
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_StockSnapshotWriter_Write_1_type_typical()
+        {
+            OfframpProbe.Check("Contoso.Inventory.StockSnapshotWriter.Write#1.type.typical", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Inventory.StockSnapshot() { TakenAt = new global::System.DateTime(2024, 3, 7, 9, 30, 0, global::System.DateTimeKind.Utc), Levels = new global::System.Collections.Generic.Dictionary<string, int> { { "key0 5", (int)10 }, { "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", (int)23 } } }));
+        }
+
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_StockSnapshotWriter_Write_1_type_empty()
+        {
+            OfframpProbe.Check("Contoso.Inventory.StockSnapshotWriter.Write#1.type.empty", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Inventory.StockSnapshot() { TakenAt = default(global::System.DateTime), Levels = new global::System.Collections.Generic.Dictionary<string, int>() }));
+        }
+
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_StockSnapshotWriter_Write_1_type_edge()
+        {
+            OfframpProbe.Check("Contoso.Inventory.StockSnapshotWriter.Write#1.type.edge", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Inventory.StockSnapshot() { TakenAt = new global::System.DateTime(2024, 2, 29, 23, 59, 59, 999, global::System.DateTimeKind.Unspecified), Levels = new global::System.Collections.Generic.Dictionary<string, int> { { "key0 5", int.MaxValue } } }));
+        }
+
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_SupplierFeed_Parse_1_input_typical()
+        {
+            OfframpProbe.Check("Contoso.Inventory.SupplierFeed.Parse#1.input.typical", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::System.Collections.Generic.List<global::Contoso.Inventory.Supplier> { new global::Contoso.Inventory.Supplier() { Name = "Name 15", MinimumOrder = 229.25m }, new global::Contoso.Inventory.Supplier() { Name = "Name 15", MinimumOrder = 229.25m } }));
+        }
+
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_SupplierFeed_Parse_1_input_empty()
+        {
+            OfframpProbe.Check("Contoso.Inventory.SupplierFeed.Parse#1.input.empty", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::System.Collections.Generic.List<global::Contoso.Inventory.Supplier>()));
+        }
+
+        [global::NUnit.Framework.Test]
+        [global::NUnit.Framework.Category("NewtonsoftCharacterization")]
+        public void Probe_Contoso_Inventory_SupplierFeed_Parse_1_input_edge()
+        {
+            OfframpProbe.Check("Contoso.Inventory.SupplierFeed.Parse#1.input.edge", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::System.Collections.Generic.List<global::Contoso.Inventory.Supplier> { new global::Contoso.Inventory.Supplier() { Name = "\u00dcnic\u00f8de \"quoted\" \\ tab\t\u2603", MinimumOrder = 1.10m } }));
+        }
+    }
+}

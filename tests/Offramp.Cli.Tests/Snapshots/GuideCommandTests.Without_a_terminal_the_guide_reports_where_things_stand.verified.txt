@@ -24,6 +24,9 @@ Started the guide; progress is kept in .offramp/guide.json.
   · Move test code out of production projects
   · Convert legacy project files to SDK style
   · Use one version of each package
+  · See what changes when Newtonsoft.Json moves to 13
+  · Record what serialization does today
+  · Upgrade Newtonsoft.Json to 13
   · Replace references to loose DLLs
   · Apply the automatic rewrites
     Port, a wave at a time

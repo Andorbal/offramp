@@ -48,6 +48,9 @@ public sealed record OfframpConfig
 
     public DeadCodeConfig DeadCode { get; init; } = new();
 
+    /// <summary><c>newtonsoft:</c>, the Newtonsoft.Json upgrade (docs/spec/commands/newtonsoft.md).</summary>
+    public NewtonsoftConfig Newtonsoft { get; init; } = new();
+
     /// <summary>Where a .NET Framework project's portable code lives (docs/spec/commands/ide.md#counterparts-and-the-project-map).</summary>
     public IReadOnlyList<ProjectMapEntry> ProjectMap { get; init; } = [];
 
@@ -365,6 +368,58 @@ public sealed record DeadCodeConfig
 {
     /// <summary>Assembly names other repositories consume; their public symbols are never above <c>medium</c>.</summary>
     public IReadOnlyList<string> ExternalConsumers { get; init; } = [];
+}
+
+/// <summary><c>newtonsoft:</c> (docs/spec/commands/newtonsoft.md#configuration).</summary>
+public sealed record NewtonsoftConfig
+{
+    /// <summary>A NuGet version range; the newest stable release in it that supports every target framework is the target.</summary>
+    public string Target { get; init; } = "[13.0,14.0)";
+
+    /// <summary><c>keep</c> or <c>rollback</c>: what <c>newtonsoft upgrade</c> does when probes observe a change.</summary>
+    public string OnDiff { get; init; } = "keep";
+
+    /// <summary>A folder of real payloads named <c>&lt;payload type full name&gt;[.&lt;label&gt;].json</c>, repository-relative; null for none.</summary>
+    public string? Samples { get; init; }
+
+    public NewtonsoftTestsConfig Tests { get; init; } = new();
+
+    public NewtonsoftHermeticConfig Hermetic { get; init; } = new();
+}
+
+/// <summary><c>newtonsoft.tests:</c>, the characterization probes.</summary>
+public sealed record NewtonsoftTestsConfig
+{
+    /// <summary>How many callers up from a site the entry-point search goes.</summary>
+    public int EntryDepth { get; init; } = 4;
+
+    /// <summary>The folder probes are generated into, in each test project.</summary>
+    public string Folder { get; init; } = "NewtonsoftCharacterization";
+
+    /// <summary>Production project (path or name) to the test project (path or name) its probes go into.</summary>
+    public IReadOnlyDictionary<string, string> Projects { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>Generated samples per type: 1 (typical), 2 (and empty), or 3 (and edge).</summary>
+    public int SamplesPerType { get; init; } = 3;
+
+    /// <summary>How deep generated samples nest objects before null.</summary>
+    public int ObjectDepth { get; init; } = 3;
+
+    /// <summary>How many times recording runs every probe; results that differ between runs are quarantined.</summary>
+    public int Runs { get; init; } = 2;
+
+    /// <summary>Replaces <c>dotnet test</c>: placeholders {project}, {assembly}, {framework}, {filter}, {results}.</summary>
+    public string? Command { get; init; }
+
+    /// <summary>The limit for one test run.</summary>
+    public int TimeoutSeconds { get; init; } = 1800;
+}
+
+/// <summary><c>newtonsoft.hermetic:</c>, what makes a method unsuitable as a probe's entry point.</summary>
+public sealed record NewtonsoftHermeticConfig
+{
+    /// <summary>Documentation IDs (N:, T:, M:, P:) added to rules/newtonsoft-hermetic.yml.</summary>
+    public IReadOnlyList<string> NonHermetic { get; init; } = [];
 }
 
 /// <summary>One <c>projectMap:</c> entry: the projects <see cref="From"/> matches keep their portable code in <see cref="To"/>.</summary>

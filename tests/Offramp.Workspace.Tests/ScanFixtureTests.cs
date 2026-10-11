@@ -15,7 +15,7 @@ namespace Offramp.Workspace.Tests;
 /// </summary>
 public sealed class ScanFixtureTests
 {
-    public static TheoryData<string> Fixtures => ["netfx-only", "dual-target", "cycle", "windows-only-build-steps", "versions", "tests-in-prod", "move-cases", "loose-dlls", "cpm-shadowing", "legacy-csproj", "webforms", "plugin-host"];
+    public static TheoryData<string> Fixtures => ["netfx-only", "dual-target", "cycle", "windows-only-build-steps", "versions", "tests-in-prod", "move-cases", "loose-dlls", "cpm-shadowing", "legacy-csproj", "webforms", "plugin-host", "newtonsoft-sdk", "newtonsoft-legacy"];
 
     [Theory]
     [MemberData(nameof(Fixtures))]
