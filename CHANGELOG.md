@@ -22,7 +22,9 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `offramp newtonsoft scan` (roadmap M18, ADRs 0066, 0068, 0069): for every project that uses
   Newtonsoft.Json, how it references it (PackageReference, central versions, packages.config,
   HintPath, a loose DLL, or transitively) and its own binding redirects; every call that
-  serializes, deserializes, or parses JSON, with its payload types and where its settings come from;
+  serializes, deserializes, or parses JSON, with its payload types and where its settings come from
+  (followed through locals, `JsonSerializer.Create`, `Lazy<T>` factories, and readonly fields set
+  once; ADR 0073);
   and what changes between the release in use and the target (the newest stable release in
   `newtonsoft.target`, default `[13.0,14.0)`, that supports every target framework, or `--version`).
   API changes come from compiling the project against the target's assembly (OFR3701 removed,
@@ -42,7 +44,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   a parameter. Configuration `newtonsoft.tests.entryDepth` and `newtonsoft.hermetic.nonHermetic`.
 - `offramp newtonsoft tests [--project P ...] [--to T] [--samples DIR] [--apply]` (ADR 0071)
   generates characterization probes into the test projects that already cover each production
-  project (xunit, NUnit, MSTest v1 and v2; legacy projects at C# 6 included, with Compile items):
+  project (xunit, NUnit 2 to 4, MSTest v1 and v2; legacy projects at C# 6 included, with Compile items):
   entry probes that call each site's entry point with generated arguments, type probes that call
   Newtonsoft.Json with a site's own settings where there is no entry point, and reading probes fed
   real payloads and what the code's own writing probes record. A probe runtime written into the
@@ -50,7 +52,11 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   Newtonsoft.Json version that ran and, outside recording, compares it with its baseline, so the
   probes fail in any test runner when the behavior changes. Everything is compiled into the test
   project's recorded compilation before it is written; probes that do not compile are dropped
-  (OFR3735). JSON contract `schemas/v1/newtonsoft-tests.json`; diagnostics OFR3731–3737, OFR3742,
+  (OFR3735), and a test project left without probes gets no files at all (ADR 0073). Generated
+  values never use a copy constructor and write a null argument as `default(T)`, so overloaded
+  constructors compile (`XElement` on MassTransit did not). A site without a payload type says so
+  instead of asking for a sample of no type, and one whose type cannot be written names it. JSON
+  contract `schemas/v1/newtonsoft-tests.json`; diagnostics OFR3731–3737, OFR3742,
   OFR3743; configuration `newtonsoft.samples` and `newtonsoft.tests.folder|projects|samplesPerType|objectDepth`.
 - `newtonsoft tests --record` and `--verify` (ADR 0067) build the test projects and run their
   writing probes, then their reading probes, with `dotnet test` (or `newtonsoft.tests.command`), and
@@ -61,7 +67,9 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   test projects do) records nothing (OFR3745). Verifying compares one run with the baselines:
   `same`, `differs`, `nowThrows`, `noLongerThrows` (OFR3762, an error, with a line diff),
   `messageOnly` (OFR3763), `missing` (OFR3741), `noBaseline` (OFR3744). .NET Framework-only test
-  projects run on Windows and are skipped elsewhere with the command to run there (OFR3739); probes
+  projects run on Windows and are skipped elsewhere with the command to run there (OFR3739), once
+  per command; a legacy test project without a VSTest adapter in its output folder is not run, and
+  OFR3747 names the package to add (`NUnitTestAdapter` for NUnit 2; ADR 0073); probes
   out of date with generation are OFR3746. Configuration `newtonsoft.tests.runs|command|timeoutSeconds`.
 - `offramp newtonsoft upgrade [--project P ...] [--version V] [--on-diff keep|rollback] [--apply]`
   (ADR 0072) moves every project that uses Newtonsoft.Json, test projects included, to the target
@@ -70,7 +78,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   - the `packages.config` version, edited in place, with every other byte kept;
   - the `Reference` identity and the `HintPath`'s package and `lib/` folders, read from the
     target package;
-  - binding redirects through `redirects sync` over the upgraded model.
+  - binding redirects through `redirects sync` over the upgraded model, for Newtonsoft.Json only
+    (ADR 0073; other out-of-date redirects are left to `redirects sync`).
 
   It then restores and builds, rolling everything back when either fails (OFR3766, OFR3761, the
   latter naming the OFR3701 findings that predicted it), and compares the probes with their
@@ -82,7 +91,23 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `newtonsoft-upgrade` when a project uses Newtonsoft.Json older than 13, and the migration skill
   has a reference for them (`skills/offramp-migration/references/newtonsoft.md`).
 
+- A field test of the `newtonsoft` commands on MassTransit 3.3.5, a real codebase on Newtonsoft.Json
+  7.0.1 with NUnit 2 tests (`docs/field-tests/2026-10-masstransit-3.3.5.md`), and the corpus test
+  that pins what it found (`masstransit` in `tests/Offramp.Corpus.Tests`): the standard sweep, then
+  `newtonsoft scan`, `tests`, `tests --record`, and `upgrade --apply`.
+
 ### Fixed
+- `doctor --fix` makes `dotnet build` of legacy projects work on Windows (ADR 0073, MassTransit field
+  test): the legacy section of the compile-only block (the .NET Framework reference assemblies as a
+  package) now applies to every build by .NET's MSBuild, not only off Windows, since Visual Studio
+  2022 installs no targeting pack older than 4.6.2 (MSB3644); a section an earlier Offramp wrote is
+  widened in place. NuGet 2's `RestorePackages` is conditioned on .NET Framework's MSBuild instead
+  of on Windows, since its `NuGet.targets` downloads NuGet.exe with a `CodeTaskFactory` task that
+  .NET's MSBuild lacks on Windows too (MSB4801).
+- `scan` no longer takes the project `Offramp.PackagesConfig.targets` writes to download missing
+  `packages.config` packages (`obj/offramp-packages-config/download.csproj`) for one of the
+  repository's: a build that ran it, as `dotnet build` on Windows does, added it to the model as a
+  partial project (MassTransit field test).
 - `redirects sync` moves a redirect that points at a version the application no longer deploys (as
   an upgrade leaves `0.0.0.0-7.0.0.0 → 7.0.0.0` once 13.0.0.0 deploys) to the deployed version
   (OFR1502). It used to keep it as harmless, and anything built against the older release then

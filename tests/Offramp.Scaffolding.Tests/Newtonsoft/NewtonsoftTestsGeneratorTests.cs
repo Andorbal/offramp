@@ -179,6 +179,118 @@ public sealed class NewtonsoftTestsGeneratorTests
         Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR3735" && d.Project == CatalogTests);
     }
 
+    [Fact]
+    public async Task A_test_project_left_without_probes_gets_no_files_and_loses_old_ones()
+    {
+        // MassTransit field test P1 #4: three test projects got the probe runtime and Compile items, and no probes.
+        const string tests = "tests/Orders.Tests/Orders.Tests.csproj";
+        const string runtime = "tests/Orders.Tests/NewtonsoftCharacterization/OfframpProbe.cs";
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-legacy");
+        var noOrders = (NewtonsoftTestsRequest r) => r with
+        {
+            Compilations = new EditedCompilation(r.RepositoryRoot, tests, c => c.RemoveReferences(c.References.Where(x => c.GetAssemblyOrModuleSymbol(x) is IAssemblySymbol { Name: "Orders" }))),
+        };
+
+        var (fresh, freshChanges, _) = Generate(scanned, noOrders);
+        var (earlier, earlierChanges, _) = Generate(scanned);
+        Write(scanned.Root, earlierChanges!);
+        var (again, againChanges, _) = Generate(scanned, noOrders);
+
+        Assert.Contains(fresh.Targets, t => t.TestProject == tests);
+        Assert.DoesNotContain(fresh.Probes, p => p.TestProject == tests);
+        Assert.DoesNotContain(fresh.Files, f => f.Path.StartsWith("tests/Orders.Tests/", StringComparison.Ordinal));
+        Assert.True(freshChanges is null || (freshChanges.Creates.Count == 0 && freshChanges.Edits.All(e => e.Path != tests)));
+        Assert.Contains(earlier.Files, f => f.Path == runtime && f.Action == "create");
+        Assert.Contains(again.Files, f => f.Path == runtime && f.Action == "delete");
+        Assert.Contains(againChanges!.Deletes, d => d.Path == runtime);
+        var project = Encoding.UTF8.GetString(againChanges.Edits.Single(e => e.Path == tests).After);
+        Assert.DoesNotContain("NewtonsoftCharacterization", project, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Constructor_arguments_compile_whatever_the_overloads()
+    {
+        // MassTransit field test P1 #5: `new XElement(null)` from its copy constructor did not compile (OFR3735).
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-sdk", (root, request) =>
+        {
+            File.WriteAllText(Path.Combine(root, "src", "Catalog", "Tags.cs"), """
+                using Newtonsoft.Json;
+
+                namespace Contoso.Catalog
+                {
+                    public sealed class Tag
+                    {
+                        public Tag(string name) { Name = name; }
+
+                        public Tag(System.Uri link) { Name = link == null ? null : link.ToString(); }
+
+                        public string Name { get; }
+                    }
+
+                    public static class Tags
+                    {
+                        public static string Write(Tag tag) => JsonConvert.SerializeObject(tag);
+
+                        public static string Root(System.Xml.Linq.XElement root) => JsonConvert.SerializeObject(root);
+                    }
+                }
+                """);
+            return request;
+        });
+
+        var (result, changeSet, diagnostics) = Generate(scanned);
+
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR3735");
+        // Tag(System.Uri) sorts first; its empty sample is a typed null.
+        Assert.Contains(result.Probes, p => p.Id == "Contoso.Catalog.Tags.Write#1.entry.empty");
+        var probes = Encoding.UTF8.GetString(changeSet!.Creates.Single(c => c.Path == "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs").Content);
+        Assert.Contains("new global::Contoso.Catalog.Tag(default(global::System.Uri))", probes, StringComparison.Ordinal);
+        // XElement can only be copied from another XElement: nothing a probe can write.
+        Assert.DoesNotContain(result.Probes, p => p.Site == "Contoso.Catalog.Tags.Root#1");
+        Assert.Contains(result.Uncovered, u => u.Site == "Contoso.Catalog.Tags.Root#1" && u.Reason != "doesNotCompile");
+    }
+
+    [Fact]
+    public async Task A_site_without_a_payload_type_says_so()
+    {
+        // MassTransit field test P2 #6: "no sample payload for  and nothing writes it", with no type to name.
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-sdk", (root, request) =>
+        {
+            File.WriteAllText(Path.Combine(root, "src", "Catalog", "Untyped.cs"), """
+                using System;
+                using Newtonsoft.Json;
+
+                namespace Contoso.Catalog
+                {
+                    public static class Untyped
+                    {
+                        private static object last = new object();
+
+                        // Private and never called (Catalog's internals are visible to its tests): only a type probe could cover them.
+                        private static string Write() => JsonConvert.SerializeObject(last);
+
+                        private static object Read(string json, Type type) => JsonConvert.DeserializeObject(json, type);
+
+                        private static string WriteHidden() => JsonConvert.SerializeObject(new Hidden());
+
+                        private sealed class Hidden { public int Id { get; set; } }
+                    }
+                }
+                """);
+            return request;
+        });
+
+        var (result, _, _) = Generate(scanned);
+
+        var details = result.Uncovered.ToDictionary(u => u.Site, u => (u.Reason, u.Detail));
+        Assert.Equal("payloadNotGeneratable", details["Contoso.Catalog.Untyped.Write#1"].Reason);
+        Assert.StartsWith("its payload type is not known", details["Contoso.Catalog.Untyped.Write#1"].Detail, StringComparison.Ordinal);
+        Assert.Equal("noInput", details["Contoso.Catalog.Untyped.Read#1"].Reason);
+        Assert.StartsWith("its payload type is not known", details["Contoso.Catalog.Untyped.Read#1"].Detail, StringComparison.Ordinal);
+        Assert.Equal("its payload type (Contoso.Catalog.Untyped.Hidden) cannot be written as C#", details["Contoso.Catalog.Untyped.WriteHidden#1"].Detail);
+        Assert.DoesNotContain(result.Uncovered, u => u.Detail.Contains("for  and", StringComparison.Ordinal));
+    }
+
     private static void Write(string root, Offramp.Refactoring.ChangeSets.ChangeSet changeSet)
     {
         foreach (var create in changeSet.Creates)

@@ -102,7 +102,8 @@ public static class BinlogReader
         var tfmByEvaluation = new Dictionary<int, string?>();
         foreach (var evaluation in evaluations.OrderBy(e => e.Id))
         {
-            if (evaluation.ProjectFile is null || evaluation.ProjectFile.EndsWith(".metaproj", StringComparison.OrdinalIgnoreCase))
+            if (evaluation.ProjectFile is null || evaluation.ProjectFile.EndsWith(".metaproj", StringComparison.OrdinalIgnoreCase)
+                || evaluation.ProjectFile.Replace('\\', '/').EndsWith(Doctor.PackagesConfigRestore.DownloadProjectSuffix, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

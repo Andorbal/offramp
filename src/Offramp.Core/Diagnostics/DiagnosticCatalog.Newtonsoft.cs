@@ -292,6 +292,14 @@ public static partial class DiagnosticCatalog
         "Use Microsoft.NET.Test.Sdk 18.x or later, or reference the production project's Newtonsoft.Json from the test project.",
         NewtonsoftArea);
 
+    public static readonly DiagnosticDescriptor OFR3747 = new(
+        "OFR3747", Severity.Warning,
+        "test project has no VSTest adapter",
+        "A legacy test project runs as `dotnet test <assembly> --test-adapter-path <output folder>`, and VSTest finds tests only through an adapter there (a `*.testadapter.dll`). Its output folder has none, so no probe would run; it is not run. The message names the package that brings the adapter for its framework.",
+        "NUnit 2 and MSTest v1 projects that ran under Visual Studio's own runner or a console runner (`NUnit.Runners`) and never had an adapter package.",
+        "Add the named package to the test project (`NUnitTestAdapter` 2.x for NUnit 2), or set `newtonsoft.tests.command` to run its tests another way.",
+        NewtonsoftArea);
+
     public static readonly DiagnosticDescriptor OFR3746 = new(
         "OFR3746", Severity.Error,
         "generated probes are out of date",

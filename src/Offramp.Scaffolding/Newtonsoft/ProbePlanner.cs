@@ -22,6 +22,8 @@ internal sealed record SampleFile(string Name, string Source, string TypeKey, st
 /// </summary>
 internal sealed class ProbePlanner
 {
+    private const string UnknownPayload = "its payload type is not known (object, an interface, or a Type chosen at run time, and no caller narrows it; OFR3720)";
+
     private readonly ScannedProject _production;
     private readonly ProjectInfo _test;
     private readonly WorkspaceModel _model;
@@ -89,7 +91,10 @@ internal sealed class ProbePlanner
         }
 
         var payloads = site.Payloads.Where(p => _generator.Expression(p, "typical") is not null).ToList();
-        if (TypeProbeBlocked(site, payloads.Count > 0 ? null : "its payload type cannot be written as C#") is { } blocked)
+        var problem = payloads.Count > 0 ? null
+            : site.Site.PayloadTypes.Count == 0 ? UnknownPayload
+            : $"its payload type ({string.Join(", ", site.Site.PayloadTypes)}) cannot be written as C#";
+        if (TypeProbeBlocked(site, problem) is { } blocked)
         {
             Uncover(site, blocked.Reason, blocked.Detail);
             return;
@@ -112,6 +117,7 @@ internal sealed class ProbePlanner
         {
             Uncover(site, "noInput", site.Site.Direction == SiteDirection.Dom
                 ? "a DOM site reads JSON of no known type; there is no payload to give it"
+                : site.Site.PayloadTypes.Count == 0 ? UnknownPayload
                 : $"no sample payload for {string.Join(", ", site.Site.PayloadTypes)} and nothing writes it with the same settings");
             return;
         }

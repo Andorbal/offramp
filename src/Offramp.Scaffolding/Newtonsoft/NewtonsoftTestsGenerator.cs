@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using NuGet.Versioning;
 using Offramp.Analysis.Compilations;
 using Offramp.Analysis.Newtonsoft;
 using Offramp.Core.Diagnostics;
@@ -134,7 +135,9 @@ public static class NewtonsoftTestsGenerator
                 }
             }
 
-            foreach (var sample in group.SelectMany(p => p.Planner.UsedSamples).Distinct().OrderBy(s => s.Name, StringComparer.Ordinal))
+            var read = group.SelectMany(p => p.Planner.Serialize.Concat(p.Planner.Deserialize))
+                .Where(p => !dropped.ContainsKey(p.Probe.Id)).Select(p => p.Probe.InputFrom).ToHashSet(StringComparer.Ordinal);
+            foreach (var sample in group.SelectMany(p => p.Planner.UsedSamples).Distinct().Where(s => read.Contains("Inputs/" + s.Name)).OrderBy(s => s.Name, StringComparer.Ordinal))
             {
                 written[folder + "/Inputs/" + sample.Name] = File.ReadAllText(sample.Source);
             }
@@ -354,6 +357,12 @@ public static class NewtonsoftTestsGenerator
             }
         }
 
+        // Without probes the runtime serves nothing, unless a file the user took over still uses it.
+        if (files.Count == 2 && kept.Count == 0)
+        {
+            files.Clear();
+        }
+
         foreach (var path in kept.Where(files.ContainsKey).ToList())
         {
             diagnostics?.Report(DiagnosticCatalog.OFR3742, $"{path} no longer has Offramp's header; it is left as it is.", new DiagnosticLocation(test.Id, path));
@@ -528,5 +537,23 @@ internal static class TestFrameworks
         return names.Overlaps(["MSTest.TestFramework", "MSTest", "Microsoft.VisualStudio.TestPlatform.TestFramework", "Microsoft.VisualStudio.QualityTools.UnitTestFramework"])
             ? ProbeFramework.Mstest
             : null;
+    }
+
+    /// <summary>The package that brings the VSTest adapter for the project's framework (NUnit 2 has its own).</summary>
+    public static string AdapterPackage(ProjectInfo project, ProbeFramework framework) => framework switch
+    {
+        ProbeFramework.Xunit => "xunit.runner.visualstudio",
+        ProbeFramework.Nunit => NUnitMajor(project) is 2 ? "NUnitTestAdapter" : "NUnit3TestAdapter",
+        _ => "MSTest.TestAdapter",
+    };
+
+    private static int? NUnitMajor(ProjectInfo project)
+    {
+        static bool Is(string id) => string.Equals(id, "NUnit", StringComparison.OrdinalIgnoreCase);
+        var version = (project.PackagesConfigPackages ?? []).FirstOrDefault(p => Is(p.Id))?.Version
+            ?? project.PackageReferences.FirstOrDefault(p => Is(p.Id))?.Version
+            ?? project.Resolved.Values.SelectMany(r => r.Packages).FirstOrDefault(p => Is(p.Id))?.Version
+            ?? project.AssemblyReferences.FirstOrDefault(r => string.Equals(r.Name, "nunit.framework", StringComparison.OrdinalIgnoreCase))?.Metadata?.AssemblyVersion;
+        return version is not null && NuGetVersion.TryParse(version, out var parsed) ? parsed.Major : null;
     }
 }

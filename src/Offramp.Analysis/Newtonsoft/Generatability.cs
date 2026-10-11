@@ -38,10 +38,13 @@ internal static class Generatability
         type.SpecialType == SpecialType.System_String
         || type.ToDisplayString() is "System.IO.TextReader" or "System.IO.StringReader" or "System.IO.Stream" or "System.IO.MemoryStream";
 
-    /// <summary>The constructor a probe uses: the accessible one with the fewest parameters, all generatable; null when there is none.</summary>
+    /// <summary>
+    /// The constructor a probe uses: the accessible one with the fewest parameters, all generatable,
+    /// and none of the type itself (a copy constructor can only ever be given null); null when there is none.
+    /// </summary>
     public static IMethodSymbol? Constructor(INamedTypeSymbol type, Func<ISymbol, bool> accessible) =>
         type.InstanceConstructors
-            .Where(c => accessible(c) && c.Parameters.All(p => p.RefKind == RefKind.None && IsGeneratable(p.Type, accessible)))
+            .Where(c => Usable(c, type, accessible, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default)))
             .OrderBy(c => c.Parameters.Length)
             .ThenBy(c => c.ToDisplayString(), StringComparer.Ordinal)
             .FirstOrDefault();
@@ -78,12 +81,15 @@ internal static class Generatability
                     return true;
                 }
 
-                var constructible = named.TypeKind == TypeKind.Struct || named.InstanceConstructors.Any(c => accessible(c)
-                    && c.Parameters.All(p => p.RefKind == RefKind.None && IsGeneratable(p.Type, accessible, visiting)));
+                var constructible = named.TypeKind == TypeKind.Struct || named.InstanceConstructors.Any(c => Usable(c, named, accessible, visiting));
                 visiting.Remove(named);
                 return constructible;
             default:
                 return false;
         }
     }
+
+    private static bool Usable(IMethodSymbol constructor, INamedTypeSymbol type, Func<ISymbol, bool> accessible, HashSet<ITypeSymbol> visiting) =>
+        accessible(constructor) && constructor.Parameters.All(p => p.RefKind == RefKind.None
+            && !SymbolEqualityComparer.Default.Equals(p.Type, type) && IsGeneratable(p.Type, accessible, visiting));
 }

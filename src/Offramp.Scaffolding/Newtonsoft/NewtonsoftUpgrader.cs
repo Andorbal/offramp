@@ -378,6 +378,8 @@ public static class NewtonsoftUpgrader
         {
             RepositoryRoot = request.RepositoryRoot,
             Model = Upgraded(request.Model, request.Target),
+            // The upgrade changes Newtonsoft.Json only: another assembly's redirect that is out of date was so before (ADR 0073).
+            Assemblies = [Id],
             Diagnostics = new DiagnosticBag(),
         });
         foreach (var edit in plan.ChangeSet?.Edits ?? [])

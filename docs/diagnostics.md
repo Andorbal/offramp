@@ -258,6 +258,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3744](#ofr3744) | warning | newtonsoft | probe has no baseline |
 | [OFR3745](#ofr3745) | error | newtonsoft | probe ran another Newtonsoft.Json than the production project uses |
 | [OFR3746](#ofr3746) | error | newtonsoft | generated probes are out of date |
+| [OFR3747](#ofr3747) | warning | newtonsoft | test project has no VSTest adapter |
 | [OFR3760](#ofr3760) | error | newtonsoft | no target Newtonsoft.Json release |
 | [OFR3761](#ofr3761) | error | newtonsoft | build failed after the Newtonsoft.Json upgrade; rolled back |
 | [OFR3762](#ofr3762) | error | newtonsoft | probe observes a behavior change |
@@ -2405,6 +2406,15 @@ Recording or verifying runs the probes on disk, but generating them again would 
 
 - **Typical cause:** Sites added or changed since `newtonsoft tests --apply`.
 - **Fix:** Run `offramp newtonsoft tests --apply` (or `--record --apply`, which writes them first).
+
+### OFR3747
+
+**test project has no VSTest adapter** · warning · newtonsoft
+
+A legacy test project runs as `dotnet test <assembly> --test-adapter-path <output folder>`, and VSTest finds tests only through an adapter there (a `*.testadapter.dll`). Its output folder has none, so no probe would run; it is not run. The message names the package that brings the adapter for its framework.
+
+- **Typical cause:** NUnit 2 and MSTest v1 projects that ran under Visual Studio's own runner or a console runner (`NUnit.Runners`) and never had an adapter package.
+- **Fix:** Add the named package to the test project (`NUnitTestAdapter` 2.x for NUnit 2), or set `newtonsoft.tests.command` to run its tests another way.
 
 ### OFR3760
 

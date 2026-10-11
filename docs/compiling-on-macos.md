@@ -72,17 +72,17 @@ Put this in the repository's root `Directory.Build.props` (`offramp doctor
 <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' == 'true' And '$(VSToolsPath)' != ''">
   <PackageReference Include="MSBuild.Microsoft.VisualStudio.Web.targets" Version="14.0.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
 </ItemGroup>
-<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects (added by offramp doctor). -->
-<PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'">
+<!-- Legacy (non-SDK) projects built by .NET's MSBuild (macOS/Linux, and dotnet build on Windows): the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects (added by offramp doctor). -->
+<PropertyGroup Condition="'$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' != 'true'">
   <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
   <OfframpLegacyPackages>true</OfframpLegacyPackages>
 </PropertyGroup>
-<ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'">
+<ItemGroup Condition="'$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' != 'true'">
   <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
   <PackageReference Include="MSBuild.Microsoft.VisualStudio.Web.targets" Version="14.0.0.3" IsImplicitlyDefined="true" PrivateAssets="all" />
   <Reference Include="Microsoft.VisualBasic" Condition="'$(MSBuildProjectExtension)' == '.vbproj'" />
 </ItemGroup>
-<Target Name="OfframpLegacyVisualBasicRuntime" BeforeTargets="CoreCompile" Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true' And '$(Language)' == 'VB' And '$(VBRuntime)' == ''">
+<Target Name="OfframpLegacyVisualBasicRuntime" BeforeTargets="CoreCompile" Condition="'$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' != 'true' And '$(Language)' == 'VB' And '$(VBRuntime)' == ''">
   <PropertyGroup>
     <VBRuntime Condition="'%(ReferencePath.FileName)' == 'Microsoft.VisualBasic'">%(ReferencePath.Identity)</VBRuntime>
     <DisableSdkPath>true</DisableSdkPath>
@@ -112,6 +112,10 @@ The last section comes only when the solution has `packages.config` projects
 which runs the same .NET MSBuild as on macOS and Linux and so lacks what they
 lack: with it, a solution that builds with `dotnet build` on a Mac builds with
 `dotnet build` on Windows too (`docs/decisions/0064-dotnet-build-and-packages-config-without-offramp.md`).
+The legacy section applies to `dotnet build` on Windows as well: Visual Studio
+2022 installs no .NET Framework targeting pack older than 4.6.2, so a legacy
+project on 4.5.2 or earlier fails there with MSB3644 unless it takes the
+reference assemblies from the package, as it does on a Mac (ADR 0073).
 Visual Studio and MSBuild.exe report `MSBuildRuntimeType` `Full` and are
 unaffected.
 
@@ -125,7 +129,8 @@ plain `dotnet build` does not get them, so keep that list empty once the files
 carry the conditions; `doctor` warns while it is not (`OFR0026`).
 
 If your `Directory.Build.props` has sections from an earlier Offramp,
-`offramp doctor --fix` adds only the ones it lacks.
+`offramp doctor --fix` adds only the ones it lacks, and widens a legacy section
+written for macOS/Linux only to every build by .NET's MSBuild.
 
 MSBuild imports `Directory.Build.props` from `Microsoft.Common.props`, so the
 block reaches only projects that import that file. Outside Windows, `scan`
@@ -171,15 +176,17 @@ they import (`docs/decisions/0063-condition-windows-only-settings-in-project-fil
 <MvcBuildViews Condition="'$(MSBuildRuntimeType)' != 'Core'">true</MvcBuildViews>
 <PostBuildEvent Condition="'$(OS)' == 'Windows_NT'">xcopy /y "$(TargetDir)*.dll" "$(SolutionDir)deploy\"</PostBuildEvent>
 <Exec Condition="'$(OS)' == 'Windows_NT'" Command="copy /y &quot;$(TargetPath)&quot; ..\drop\" />
-<RestorePackages Condition="'$(OS)' == 'Windows_NT'">true</RestorePackages>
+<RestorePackages Condition="'$(MSBuildRuntimeType)' != 'Core'">true</RestorePackages>
 <MSBuildExtensionsPath Condition="'$(OS)' == 'Windows_NT'">$(MSBuildToolsPath)\MsBuildExtensions</MSBuildExtensionsPath>
 ```
 
-sgen and `AspNetCompiler` are kept for .NET Framework's MSBuild (Visual Studio,
-Build Tools), which is what they need: `dotnet build` cannot run them on
-Windows either. Build events, cmd.exe commands (`.exe`, `.bat`, `xcopy`,
-`copy`, `del`, `%VAR%`), NuGet 2's `RestorePackages`, and an
-`MSBuildExtensionsPath` override are kept for Windows. An `Exec` that runs
+sgen, `AspNetCompiler`, and NuGet 2's `RestorePackages` are kept for .NET
+Framework's MSBuild (Visual Studio, Build Tools), which is what they need:
+`dotnet build` cannot run them on Windows either (NuGet 2's `NuGet.targets`
+downloads `NuGet.exe` with a `CodeTaskFactory` task, MSB4801; .NET's MSBuild
+restores `packages.config` through `Offramp.PackagesConfig.targets` instead).
+Build events, cmd.exe commands (`.exe`, `.bat`, `xcopy`, `copy`, `del`,
+`%VAR%`), and an `MSBuildExtensionsPath` override are kept for Windows. An `Exec` that runs
 `dotnet`, `npm`, or `git` is left alone, as is anything already conditioned on
 `$(OS)`, `IsOSPlatform`, `$(MSBuildRuntimeType)`, or `$(OfframpCompileOnly)`.
 An existing condition is kept inside the new one. Visual Studio's build on
