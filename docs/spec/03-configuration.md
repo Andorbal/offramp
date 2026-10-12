@@ -97,6 +97,23 @@ deadCode:
                               # their public types. Packable projects, projects a .nuspec packs, and libraries no application
                               # in the solution uses count without being listed (commands/audit.md, ADR 0041)
 
+newtonsoft:
+  target: "[13.0,14.0)"       # the newest stable release in this range that supports every target framework
+  samples: null              # a folder of real payloads named <payload type full name>[.<label>].json
+  onDiff: keep                # keep | rollback: newtonsoft upgrade when probes observe a change
+  tests:
+    entryDepth: 4             # how many callers up from a site the entry-point search goes
+    folder: NewtonsoftCharacterization   # generated into each test project's folder
+    projects: { }             # production project -> test project, when the choice is not obvious
+    samplesPerType: 3         # 1 typical, 2 and empty, 3 and edge
+    objectDepth: 3            # how deep generated samples nest objects before null
+    runs: 2                   # recording runs every probe this many times; disagreeing probes are quarantined
+    command: null             # replaces dotnet test: {project} {assembly} {framework} {filter} {results}
+    timeoutSeconds: 1800      # per test run
+  hermetic:
+    nonHermetic: [ ]          # documentation IDs (N:, T:, M:, P:) that disqualify an entry point, added to
+                              # rules/newtonsoft-hermetic.yml (commands/newtonsoft.md#configuration has every key)
+
 rules:                        # audit/behavior/serialization rule overrides
   OFR3105: { severity: none, reason: "We never run on Linux" }        # disable
   OFR3210: { severity: error }                                          # promote

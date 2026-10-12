@@ -255,6 +255,52 @@ public sealed class ProjectFileEditor
         return matches.Count;
     }
 
+    /// <summary>
+    /// Moves every <c>Reference</c> to the assembly to another release of its package: the identity's
+    /// <c>Version=</c> becomes <paramref name="assemblyVersion"/> (its other parts kept), and a
+    /// <c>HintPath</c> through the <paramref name="oldFolder"/> package folder goes through
+    /// <paramref name="newFolder"/> instead, with the <c>lib/</c> folder after it set to
+    /// <paramref name="libFolder"/> when one is given. Separators and the relative prefix are kept.
+    /// Returns how many items changed.
+    /// </summary>
+    public int RewriteReference(string assemblyName, string assemblyVersion, string oldFolder, string newFolder, string? libFolder)
+    {
+        var changed = 0;
+        foreach (var item in _root.ItemGroups.SelectMany(g => g.Items)
+            .Where(i => string.Equals(i.ItemType, "Reference", StringComparison.OrdinalIgnoreCase) && NamesAssembly(i.Include, assemblyName)))
+        {
+            var parts = item.Include.Split(',');
+            var include = string.Join(",", parts.Select(p => p.TrimStart().StartsWith("Version=", StringComparison.OrdinalIgnoreCase)
+                ? p[..p.IndexOf('V', StringComparison.OrdinalIgnoreCase)] + "Version=" + assemblyVersion
+                : p));
+            var touched = include != item.Include;
+            item.Include = include;
+            foreach (var hint in item.Metadata.Where(m => string.Equals(m.Name, "HintPath", StringComparison.OrdinalIgnoreCase)))
+            {
+                var separator = hint.Value.Contains('\\', StringComparison.Ordinal) ? '\\' : '/';
+                var segments = hint.Value.Split('\\', '/');
+                var at = Array.FindIndex(segments, s => string.Equals(s, oldFolder, StringComparison.OrdinalIgnoreCase));
+                if (at < 0)
+                {
+                    continue;
+                }
+
+                segments[at] = newFolder;
+                if (libFolder is not null && at + 2 < segments.Length && string.Equals(segments[at + 1], "lib", StringComparison.OrdinalIgnoreCase))
+                {
+                    segments[at + 2] = libFolder;
+                }
+
+                hint.Value = string.Join(separator, segments);
+                touched = true;
+            }
+
+            changed += touched ? 1 : 0;
+        }
+
+        return changed;
+    }
+
     public void AddEmbeddedResource(string include) => AddItem("EmbeddedResource", include.Replace('/', '\\'), null);
 
     /// <summary>

@@ -46,6 +46,9 @@ estimates, since no field test ran those commands. Use them to set timeouts, not
 | `deps resolve-dlls` | repo | 5 s | checked-in DLL → package proposals; blockers |
 | `deps gac` | nothing | 1 min | GAC and framework references and what replaces them |
 | `redirects sync [--prune]` | repo | 2 s | changed, stale, and unchanged redirects per application |
+| `newtonsoft scan` | nothing | 30 s | sites with their entry points or the reason there is none; API changes (OFR3701/3702) and measured behavior changes (OFR3703–3719) |
+| `newtonsoft tests [--record\|--verify]` | repo | 2 min * | probes per test project, uncovered sites by reason; with `--record`, baselines (quarantined ones, OFR3738); with `--verify`, differences (OFR3762) |
+| `newtonsoft upgrade` | repo | 3 min * | the edits per project and redirects; after `--apply`, the build and every probe that observes something new |
 
 ## Audits (read-only)
 

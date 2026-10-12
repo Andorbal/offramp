@@ -4,6 +4,7 @@ using Offramp.Analysis.ApiCompat;
 using Offramp.Analysis.Audits;
 using Offramp.Analysis.Conditional;
 using Offramp.Analysis.DeadCode;
+using Offramp.Analysis.Newtonsoft;
 using Offramp.Analysis.Seams;
 
 namespace Offramp.Analysis;
@@ -22,6 +23,7 @@ namespace Offramp.Analysis;
 [JsonSerializable(typeof(DeadCodeResult))]
 [JsonSerializable(typeof(ApiCompatResult))]
 [JsonSerializable(typeof(SeamsResult))]
+[JsonSerializable(typeof(NewtonsoftScanResult))]
 public sealed partial class AnalysisJsonContext : JsonSerializerContext
 {
 }

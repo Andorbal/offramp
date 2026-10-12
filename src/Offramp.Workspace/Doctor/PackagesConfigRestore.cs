@@ -29,6 +29,12 @@ public static class PackagesConfigRestore
 {
     public const string TargetsFileName = "Offramp.PackagesConfig.targets";
 
+    /// <summary>
+    /// Where the targets write the project that downloads missing packages (<c>obj/</c> under the solution's folder):
+    /// a build that runs it logs it, and it is Offramp's, never one of the repository's projects.
+    /// </summary>
+    public const string DownloadProjectSuffix = "/obj/offramp-packages-config/download.csproj";
+
     public const string SolutionTargetsFileName = "Directory.Solution.targets";
 
     /// <summary>The file Offramp writes; it replaces an older one on the next <c>doctor --fix</c>.</summary>

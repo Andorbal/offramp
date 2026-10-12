@@ -197,13 +197,14 @@ public static class WindowsOnlyBuildSteps
 
     /// <summary>
     /// Paths spelled in another letter case than on disk: every one the project's files name
-    /// (<see cref="ProjectFileChecks"/>), and those only the build's errors show, such as a path a target copies.
+    /// (<see cref="ProjectFileChecks"/>), and those only the build's errors show, such as a path a target copies or a
+    /// project a solution lists (MSB3202).
     /// </summary>
     private static WindowsOnlyStep? PathCase(IReadOnlyList<BuildError> errors, ProjectFileFindings files)
     {
         var mismatches = files.CaseMismatches
             .Concat(errors
-                .Where(e => e.Code is "MSB4019" or "CS2001" or "MSB3030" or "CS0006")
+                .Where(e => e.Code is "MSB4019" or "CS2001" or "MSB3030" or "CS0006" or "MSB3202")
                 .Select(e => QuotedPath(e.Message))
                 .OfType<string>()
                 .Select(CaseMismatch.Find)
@@ -329,7 +330,7 @@ public static class WindowsOnlyBuildSteps
     }
 
     /// <summary>The first quoted path in an error message: <c>"..."</c> for MSBuild, <c>'...'</c> for the compiler.</summary>
-    private static string? QuotedPath(string message)
+    internal static string? QuotedPath(string message)
     {
         foreach (var quote in new[] { '"', '\'' })
         {

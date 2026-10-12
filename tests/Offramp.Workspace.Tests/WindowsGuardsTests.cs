@@ -43,7 +43,7 @@ public sealed class WindowsGuardsTests : IDisposable
               <PropertyGroup>
                 <GenerateSerializationAssemblies Condition="'$(MSBuildRuntimeType)' != 'Core'">On</GenerateSerializationAssemblies>
                 <MvcBuildViews Condition="'$(MSBuildRuntimeType)' != 'Core'">true</MvcBuildViews>
-                <RestorePackages Condition="'$(OS)' == 'Windows_NT'">true</RestorePackages>
+                <RestorePackages Condition="'$(MSBuildRuntimeType)' != 'Core'">true</RestorePackages>
                 <MSBuildExtensionsPath Condition="'$(OS)' == 'Windows_NT'">$(MSBuildThisFileDirectory)tools\msbuild</MSBuildExtensionsPath>
               </PropertyGroup>
               <Target Name="AfterBuild">

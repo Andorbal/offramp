@@ -222,6 +222,51 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3602](#ofr3602) | warning | audit | finding does not match the source |
 | [OFR3603](#ofr3603) | warning | audit | conditional region depends on other symbols |
 | [OFR3604](#ofr3604) | error | audit | findings file missing or invalid |
+| [OFR3701](#ofr3701) | error | newtonsoft | API removed or changed in the target Newtonsoft.Json |
+| [OFR3702](#ofr3702) | warning | newtonsoft | API obsolete in the target Newtonsoft.Json |
+| [OFR3703](#ofr3703) | warning | newtonsoft | camel-cased JSON name changes |
+| [OFR3704](#ofr3704) | warning | newtonsoft | ISerializable type without [Serializable] changes shape |
+| [OFR3705](#ofr3705) | warning | newtonsoft | enum dictionary keys use [EnumMember] values |
+| [OFR3706](#ofr3706) | info | newtonsoft | decimal scale when read differs |
+| [OFR3707](#ofr3707) | warning | newtonsoft | caught exception is no longer the one thrown |
+| [OFR3708](#ofr3708) | warning | newtonsoft | stricter integer handling in StringEnumConverter |
+| [OFR3709](#ofr3709) | warning | newtonsoft | reading stops at a depth of 64 |
+| [OFR3710](#ofr3710) | info | newtonsoft | serializer's DateTimeZoneHandling applies in ToObject |
+| [OFR3711](#ofr3711) | info | newtonsoft | [DataContract] collection written as an object in 11.0.1 |
+| [OFR3712](#ofr3712) | warning | newtonsoft | exception without [Serializable] could not be written in 11.x |
+| [OFR3713](#ofr3713) | info | newtonsoft | immutable interfaces deserialize to the hash variants |
+| [OFR3719](#ofr3719) | info | newtonsoft | behavior change that depends on data |
+| [OFR3720](#ofr3720) | warning | newtonsoft | payload type unknown |
+| [OFR3721](#ofr3721) | info | newtonsoft | settings cannot be reproduced |
+| [OFR3722](#ofr3722) | warning | newtonsoft | several Newtonsoft.Json versions in the solution |
+| [OFR3723](#ofr3723) | warning | newtonsoft | loose Newtonsoft.Json DLL |
+| [OFR3724](#ofr3724) | info | newtonsoft | already at the target Newtonsoft.Json |
+| [OFR3725](#ofr3725) | warning | newtonsoft | target Newtonsoft.Json unavailable; API changes not computed |
+| [OFR3731](#ofr3731) | warning | newtonsoft | site has no probe |
+| [OFR3732](#ofr3732) | warning | newtonsoft | reading site without a payload to read |
+| [OFR3733](#ofr3733) | error | newtonsoft | no test project covers the production project |
+| [OFR3734](#ofr3734) | error | newtonsoft | several test projects cover the production project |
+| [OFR3735](#ofr3735) | warning | newtonsoft | generated probe does not compile; dropped |
+| [OFR3736](#ofr3736) | warning | newtonsoft | test framework not supported |
+| [OFR3737](#ofr3737) | warning | newtonsoft | sample file matches no payload type or is not JSON |
+| [OFR3738](#ofr3738) | warning | newtonsoft | probe output differs between runs; quarantined |
+| [OFR3739](#ofr3739) | warning | newtonsoft | .NET Framework tests cannot run on this OS |
+| [OFR3740](#ofr3740) | error | newtonsoft | test build or run failed |
+| [OFR3741](#ofr3741) | warning | newtonsoft | probe did not run |
+| [OFR3742](#ofr3742) | info | newtonsoft | generated file taken over; left alone |
+| [OFR3743](#ofr3743) | warning | newtonsoft | test project binds another Newtonsoft.Json; type probes skipped |
+| [OFR3744](#ofr3744) | warning | newtonsoft | probe has no baseline |
+| [OFR3745](#ofr3745) | error | newtonsoft | probe ran another Newtonsoft.Json than the production project uses |
+| [OFR3746](#ofr3746) | error | newtonsoft | generated probes are out of date |
+| [OFR3747](#ofr3747) | warning | newtonsoft | test project has no VSTest adapter |
+| [OFR3760](#ofr3760) | error | newtonsoft | no target Newtonsoft.Json release |
+| [OFR3761](#ofr3761) | error | newtonsoft | build failed after the Newtonsoft.Json upgrade; rolled back |
+| [OFR3762](#ofr3762) | error | newtonsoft | probe observes a behavior change |
+| [OFR3763](#ofr3763) | info | newtonsoft | only an exception message changed |
+| [OFR3764](#ofr3764) | warning | newtonsoft | allowedVersions in packages.config leaves out the target |
+| [OFR3765](#ofr3765) | warning | newtonsoft | a package's dependency leaves out the target Newtonsoft.Json |
+| [OFR3766](#ofr3766) | error | newtonsoft | restore failed after the Newtonsoft.Json upgrade; rolled back |
+| [OFR3767](#ofr3767) | warning | newtonsoft | no characterization baselines; the upgrade was checked by the compiler only |
 | [OFR4001](#ofr4001) | warning | seams | no seam found |
 | [OFR4002](#ofr4002) | warning | seams | seam member not wire-friendly |
 | [OFR4003](#ofr4003) | warning | seams | static member on the boundary |
@@ -719,9 +764,9 @@ An ASP.NET (System.Web) project imports `$(VSToolsPath)/WebApplications/Microsof
 
 **build step needs a case-insensitive file system** · warning · project loading
 
-An import, source file, or copied file is spelled in another letter case than the file on disk. Windows and macOS file systems ignore case by default; Linux does not, so the build fails there (MSB4019, CS2001, MSB3030). The message names the first differing path segment and counts the rest.
+An import, source file, copied file, or a project the solution lists is spelled in another letter case than the file on disk. Windows and macOS file systems ignore case by default; Linux does not, so the build fails there (MSB4019, CS2001, MSB3030, MSB3202). The message names the first differing path segment and counts the rest.
 
-- **Typical cause:** `..\Build\` in a project file for a folder named `build`, or a `Compile` item written as `Default.aspx.CS`.
+- **Typical cause:** `..\Build\` in a project file for a folder named `build`, a `Compile` item written as `Default.aspx.CS`, or a solution entry for `AutofacIntegration` when the folder is `AutoFacIntegration`.
 - **Fix:** Rename the reference to the spelling on disk (or the file to the reference's spelling). Offramp does not edit either.
 
 ### OFR0118
@@ -2037,6 +2082,411 @@ The location an audit finding names no longer holds the symbol it reports, so `i
 
 - **Typical cause:** A wrong path, or a file that is not the output of `offramp audit api --format json` (or its `--json` envelope).
 - **Fix:** Write the findings with `offramp audit api --format json --out audit.json` and pass that file.
+
+### OFR3701
+
+**API removed or changed in the target Newtonsoft.Json** · error · newtonsoft
+
+The project's own compilation, with the target release's Newtonsoft.Json.dll in place of the one it uses, has an error the original does not. The message names the member and the compiler's first message; the finding lists every place.
+
+- **Typical cause:** Members removed in 10.0.1 (JsonConvert's async methods, JsonConverter.GetSchema, the JsonContract callbacks, DefaultContractResolver's obsolete constructor), or an override of a member whose signature changed.
+- **Fix:** Replace the member before upgrading; the message names the replacement where the rule pack knows one.
+
+### OFR3702
+
+**API obsolete in the target Newtonsoft.Json** · warning · newtonsoft
+
+The project's compilation against the target release reports CS0618 or CS0612 for a member that is not obsolete in the release it uses.
+
+- **Typical cause:** TypeNameAssemblyFormat, the Binder properties, SerializationBinder, and Newtonsoft.Json.Bson, obsolete from 10.0.1.
+- **Fix:** Move to the replacement (TypeNameAssemblyFormatHandling, SerializationBinder of type ISerializationBinder, the Newtonsoft.Json.Bson package); with warnings as errors the upgrade does not build until then.
+
+### OFR3703
+
+**camel-cased JSON name changes** · warning · newtonsoft
+
+A camel-case contract resolver or naming strategy writes a payload member's name differently in the target than in the release in use (names with spaces after capitals: 'URL VALUE' became 'url VALUE' in 11.0.1, 'A B' became 'a B' in 8.0.3). The finding lists each old and new name.
+
+- **Typical cause:** [JsonProperty] names with spaces under CamelCasePropertyNamesContractResolver.
+- **Fix:** Pin the name ([JsonProperty] with the naming strategy's OverrideSpecifiedNames off) if consumers depend on it, or update the consumers.
+
+### OFR3704
+
+**ISerializable type without [Serializable] changes shape** · warning · newtonsoft
+
+A payload type implements ISerializable without [Serializable]. Before 11.0.1 it is written and read through GetObjectData and its serialization constructor; from 11.0.1 through its public members, so the JSON and what is read back change.
+
+- **Typical cause:** Types that implement ISerializable for BinaryFormatter or remoting and are also sent as JSON.
+- **Fix:** Add [Serializable] to keep the ISerializable shape, or accept the member shape and convert stored data.
+
+### OFR3705
+
+**enum dictionary keys use [EnumMember] values** · warning · newtonsoft
+
+A payload member is a dictionary keyed by an enum with [EnumMember]. From 11.0.1 keys are written as the [EnumMember] values instead of the names (and reading those values stops throwing).
+
+- **Typical cause:** Enums with [EnumMember] for their string form, used as dictionary keys.
+- **Fix:** Make stored JSON and consumers accept the [EnumMember] values, or remove [EnumMember].
+
+### OFR3706
+
+**decimal scale when read differs** · info · newtonsoft
+
+A deserialize site reads decimal members, and the release in use and the target disagree on whether 1.10 (or 0.00) keeps its scale: 10.x drops it, 13.0.2 drops it for zero, the others keep it.
+
+- **Typical cause:** Projects on 10.x or 13.0.2.
+- **Fix:** Compare decimals numerically and format them explicitly where the text matters.
+
+### OFR3707
+
+**caught exception is no longer the one thrown** · warning · newtonsoft
+
+A catch clause catches the exception the release in use throws from a call in its try block, and the target throws another (JToken.ToObject of a mismatched token: InvalidCastException became JsonSerializationException in 13.0.1; an invalid \u escape: FormatException became JsonReaderException in 10.0.1).
+
+- **Typical cause:** Code that relies on the exception type to detect bad input.
+- **Fix:** Catch the type the target throws (both while both versions run).
+
+### OFR3708
+
+**stricter integer handling in StringEnumConverter** · warning · newtonsoft
+
+A StringEnumConverter with AllowIntegerValues = false. From 10.0.1 it also rejects integer strings ("1") when reading and enum values without a name when writing.
+
+- **Typical cause:** Payloads that carry enums as numeric strings, or flags and out-of-range values.
+- **Fix:** Accept the values explicitly or clean the data before upgrading.
+
+### OFR3709
+
+**reading stops at a depth of 64** · warning · newtonsoft
+
+A deserialize site reads a type that contains itself, and its settings do not set MaxDepth. From 13.0.1 readers stop at 64 levels with a JsonReaderException.
+
+- **Typical cause:** Trees, threads of replies, nested categories.
+- **Fix:** Set MaxDepth on the settings if real payloads nest deeper than 64 levels.
+
+### OFR3710
+
+**serializer's DateTimeZoneHandling applies in ToObject** · info · newtonsoft
+
+JToken.ToObject with a serializer, for a type with DateTime members. From 12.0.1 the serializer's DateTimeZoneHandling applies, so the DateTime.Kind read back can change.
+
+- **Typical cause:** ToObject(JsonSerializer.Create(settings)) with DateTimeZoneHandling set.
+- **Fix:** Check the Kind the code expects after ToObject.
+
+### OFR3711
+
+**[DataContract] collection written as an object in 11.0.1** · info · newtonsoft
+
+A payload type with [DataContract] implements IEnumerable. 11.0.1 alone writes it as an object; other releases as an array.
+
+- **Typical cause:** Projects on 11.0.1.
+- **Fix:** JSON written by 11.0.1 has the object shape; the target writes an array again.
+
+### OFR3712
+
+**exception without [Serializable] could not be written in 11.x** · warning · newtonsoft
+
+A payload type is an exception without [Serializable]. 11.x throws when serializing it; other releases write it.
+
+- **Typical cause:** Projects on 11.x that serialize exceptions.
+- **Fix:** Code that worked around the 11.x failure can be removed on the target.
+
+### OFR3713
+
+**immutable interfaces deserialize to the hash variants** · info · newtonsoft
+
+A payload member is IImmutableSet<T> or IImmutableDictionary<K,V>. From 12.0.3 they deserialize to ImmutableHashSet and ImmutableDictionary instead of the sorted variants, so iteration order changes.
+
+- **Typical cause:** Code that iterates a deserialized immutable set or dictionary in order.
+- **Fix:** Sort explicitly where order matters.
+
+### OFR3719
+
+**behavior change that depends on data** · info · newtonsoft
+
+The release in use and the target behave differently for some input, and no code pattern shows whether the project's data has it: comments inside parsed JSON arrays (before 8.0.1), negative zero (13.0.2), decimal overflow (10.x, 11.x). Reported once per project and change.
+
+- **Typical cause:** Projects that parse or read JSON whose content Offramp cannot see.
+- **Fix:** Record characterization probes with real payloads (`offramp newtonsoft tests --samples`) before upgrading.
+
+### OFR3720
+
+**payload type unknown** · warning · newtonsoft
+
+A serialization site's payload type could not be determined: an object, interface, or type-parameter argument that does not come from a parameter, or a non-generic deserialize without a typeof or a cast.
+
+- **Typical cause:** Generic helpers, values held in object fields, DeserializeObject(string) used as a DOM.
+- **Fix:** The behavior rules cannot judge the site; give it a typed overload, or record probes through its callers.
+
+### OFR3721
+
+**settings cannot be reproduced** · info · newtonsoft
+
+A site's settings come from a parameter, an instance member, a local assigned more than once, or anything else a test cannot recreate; or the project assigns JsonConvert.DefaultSettings, which changes every call without settings.
+
+- **Typical cause:** Settings built in several statements or injected.
+- **Fix:** Probes of the site use the settings they can reproduce; move the settings to a static member to make them reproducible.
+
+### OFR3722
+
+**several Newtonsoft.Json versions in the solution** · warning · newtonsoft
+
+Projects in the solution use different releases of Newtonsoft.Json; each project is judged against its own.
+
+- **Typical cause:** packages.config projects updated one at a time, binding redirects hiding the difference.
+- **Fix:** Upgrade them together (`offramp newtonsoft upgrade`).
+
+### OFR3723
+
+**loose Newtonsoft.Json DLL** · warning · newtonsoft
+
+The project references a Newtonsoft.Json.dll that no package provides; its version is read from the assembly, and the upgrade cannot edit it.
+
+- **Typical cause:** A lib/ folder checked into the repository.
+- **Fix:** Turn it into a package reference first (`offramp deps resolve-dlls`).
+
+### OFR3724
+
+**already at the target Newtonsoft.Json** · info · newtonsoft
+
+The project already uses the target release; nothing changes for it.
+
+- **Typical cause:** Projects upgraded earlier.
+- **Fix:** None.
+
+### OFR3725
+
+**target Newtonsoft.Json unavailable; API changes not computed** · warning · newtonsoft
+
+Neither the global packages folder nor the configured feeds have the target release, so the trial compilation (OFR3701, OFR3702) did not run.
+
+- **Typical cause:** No network, or feeds that do not mirror nuget.org.
+- **Fix:** Restore the target once (any project referencing it), or configure a feed that has it.
+
+### OFR3731
+
+**site has no probe** · warning · newtonsoft
+
+No characterization probe exercises the site: no member a test can call reaches it (the scan's reason), its payload or settings cannot be written down, or its probe did not compile. The message gives the reason; the result lists every uncovered site.
+
+- **Typical cause:** Sites behind file or network access, in classes that need injected dependencies, or with settings built in several statements.
+- **Fix:** Give the site a hermetic, public entry point (or settings in a static member), or accept that the upgrade checks it by compilation only.
+
+### OFR3732
+
+**reading site without a payload to read** · warning · newtonsoft
+
+A deserialize or DOM site has no real payload (--samples) for its type and nothing in the solution writes that type with the same settings, so a probe would read JSON the code never sees.
+
+- **Typical cause:** JSON that arrives from outside: an API response, a file, a queue message.
+- **Fix:** Put a real payload in the samples folder as <payload type full name>[.<label>].json and run again.
+
+### OFR3733
+
+**no test project covers the production project** · error · newtonsoft
+
+No test project references the production project or is named after it, so its probes have nowhere to go. Test projects are not created.
+
+- **Typical cause:** Production projects without tests.
+- **Fix:** Create a test project that references it, or name one with --to or newtonsoft.tests.projects.
+
+### OFR3734
+
+**several test projects cover the production project** · error · newtonsoft
+
+More than one test project references the production project (or is named after it); the candidates are listed.
+
+- **Typical cause:** A unit and an integration test project for the same library.
+- **Fix:** Choose one with --to (with a single --project) or newtonsoft.tests.projects.
+
+### OFR3735
+
+**generated probe does not compile; dropped** · warning · newtonsoft
+
+A probe compiled into the test project's recorded compilation has an error; it is left out (with probes that read what it writes), and the first error is shown.
+
+- **Typical cause:** Members the test project cannot see, types the generated code names ambiguously, or a C# version older than 6.
+- **Fix:** Report the error with the probe; the site stays uncovered.
+
+### OFR3736
+
+**test framework not supported** · warning · newtonsoft
+
+The test project uses none of xunit, NUnit, or MSTest (v1 or v2), so no probes are generated into it.
+
+- **Typical cause:** TUnit, MbUnit, or a framework Offramp cannot see in the project's references.
+- **Fix:** Name another test project with --to or newtonsoft.tests.projects.
+
+### OFR3737
+
+**sample file matches no payload type or is not JSON** · warning · newtonsoft
+
+A file in the samples folder is not named <payload type full name>[.<label>].json for a type some deserialize site reads, or does not parse as JSON; it is not copied.
+
+- **Typical cause:** A typo in the type name, a payload of a type no site reads, or a file that is not JSON.
+- **Fix:** Rename or fix the file.
+
+### OFR3738
+
+**probe output differs between runs; quarantined** · warning · newtonsoft
+
+Recording ran every probe more than once and this probe observed something different each time, so no baseline is written for it; the differing lines are shown.
+
+- **Typical cause:** Hash-ordered collections (HashSet<string> of strings, whose order changes per process), the clock or random numbers the hermetic check could not see, shared static state.
+- **Fix:** Make the output deterministic (sort, inject the clock), or accept that the site is checked by compilation only.
+
+### OFR3739
+
+**.NET Framework tests cannot run on this OS** · warning · newtonsoft
+
+The test project targets only .NET Framework, which runs on Windows; its probes were not run here. The message gives the command for a Windows machine or agent.
+
+- **Typical cause:** Recording or verifying a legacy solution on macOS or Linux.
+- **Fix:** Run the same `offramp newtonsoft tests` on Windows, or add a modern .NET target to the test project.
+
+### OFR3740
+
+**test build or run failed** · error · newtonsoft
+
+The test projects did not build, or a test run timed out, could not start, or failed while recording; the command and the end of its output are shown.
+
+- **Typical cause:** A test project that does not build, a missing test adapter, or a Newtonsoft.Json assembly that does not load (7.x on .NET needs System.Security.Permissions).
+- **Fix:** Fix the build or the run the message shows, then run again.
+
+### OFR3741
+
+**probe did not run** · warning · newtonsoft
+
+A generated probe wrote no result: the test run did not reach it (a filter, a crash, a configured command that runs fewer tests).
+
+- **Typical cause:** A newtonsoft.tests.command that runs a subset, or a test host that stopped early.
+- **Fix:** Run the probes the command left out, or regenerate them.
+
+### OFR3742
+
+**generated file taken over; left alone** · info · newtonsoft
+
+A file in the generated folder no longer starts with Offramp's <auto-generated> header, so it belongs to the user: it is not rewritten or deleted, and the probes it would hold are not written.
+
+- **Typical cause:** Probes edited by hand.
+- **Fix:** None; restore the header (or delete the file) to have Offramp manage it again.
+
+### OFR3743
+
+**test project binds another Newtonsoft.Json; type probes skipped** · warning · newtonsoft
+
+Type probes call Newtonsoft.Json from the test project, so they need it to compile against the same assembly as the production project; it does not (or has none), and only entry probes are generated.
+
+- **Typical cause:** A test project that references another Newtonsoft.Json version, or none.
+- **Fix:** Reference the production project's Newtonsoft.Json from the test project, or rely on entry probes.
+
+### OFR3744
+
+**probe has no baseline** · warning · newtonsoft
+
+Verifying found a probe with nothing to compare with: it was generated after the last recording.
+
+- **Typical cause:** New sites or regenerated probes since `--record`.
+- **Fix:** Record it on the current release (`offramp newtonsoft tests --record --apply`) before upgrading.
+
+### OFR3745
+
+**probe ran another Newtonsoft.Json than the production project uses** · error · newtonsoft
+
+The test project loaded a different Newtonsoft.Json than its production project references, so its baselines would describe another release; nothing is written for it.
+
+- **Typical cause:** Microsoft.NET.Test.Sdk 17.x, whose test host brings Newtonsoft.Json 13 to .NET targets; a test project that references another version.
+- **Fix:** Use Microsoft.NET.Test.Sdk 18.x or later, or reference the production project's Newtonsoft.Json from the test project.
+
+### OFR3746
+
+**generated probes are out of date** · error · newtonsoft
+
+Recording or verifying runs the probes on disk, but generating them again would change them (the code or the configuration changed since).
+
+- **Typical cause:** Sites added or changed since `newtonsoft tests --apply`.
+- **Fix:** Run `offramp newtonsoft tests --apply` (or `--record --apply`, which writes them first).
+
+### OFR3747
+
+**test project has no VSTest adapter** · warning · newtonsoft
+
+A legacy test project runs as `dotnet test <assembly> --test-adapter-path <output folder>`, and VSTest finds tests only through an adapter there (a `*.testadapter.dll`). Its output folder has none, so no probe would run; it is not run. The message names the package that brings the adapter for its framework.
+
+- **Typical cause:** NUnit 2 and MSTest v1 projects that ran under Visual Studio's own runner or a console runner (`NUnit.Runners`) and never had an adapter package.
+- **Fix:** Add the named package to the test project (`NUnitTestAdapter` 2.x for NUnit 2), or set `newtonsoft.tests.command` to run its tests another way.
+
+### OFR3760
+
+**no target Newtonsoft.Json release** · error · newtonsoft
+
+No stable, listed release of Newtonsoft.Json in newtonsoft.target (or the --version given) supports every target framework of the projects that use it, or the release asked for does not exist.
+
+- **Typical cause:** A range or version with a typo, or feeds that do not mirror nuget.org.
+- **Fix:** Fix newtonsoft.target or --version, or configure a feed that has the release.
+
+### OFR3761
+
+**build failed after the Newtonsoft.Json upgrade; rolled back** · error · newtonsoft
+
+The solution does not build with every project on the target; every edit was undone from the journal. The first error is shown, with the OFR3701 findings that predicted it.
+
+- **Typical cause:** A member removed in 10.0.1, or an override of a member whose signature changed (`newtonsoft scan` lists them as OFR3701).
+- **Fix:** Fix what OFR3701 lists on the old release, then upgrade again.
+
+### OFR3762
+
+**probe observes a behavior change** · error · newtonsoft
+
+A probe's observation differs from its baseline: another value, or it throws where it returned (or the reverse). The first difference is shown as removed (baseline) and added (now) lines.
+
+- **Typical cause:** A behavior change between the recorded release and the one running, as `newtonsoft scan` predicts, or a change in the code under test.
+- **Fix:** Decide whether the change is acceptable; if it is, record the new baseline (`--record --apply`).
+
+### OFR3763
+
+**only an exception message changed** · info · newtonsoft
+
+The probe throws the same exception type as its baseline, with another message.
+
+- **Typical cause:** Reworded messages between releases.
+- **Fix:** None, unless code parses the message.
+
+### OFR3764
+
+**allowedVersions in packages.config leaves out the target** · warning · newtonsoft
+
+The project's packages.config constrains Newtonsoft.Json with allowedVersions, and the target is outside it; the project is not upgraded.
+
+- **Typical cause:** A constraint added long ago to stop an accidental upgrade.
+- **Fix:** Widen or remove allowedVersions, then upgrade again.
+
+### OFR3765
+
+**a package's dependency leaves out the target Newtonsoft.Json** · warning · newtonsoft
+
+A package the project uses depends on Newtonsoft.Json with a range that excludes the target, so restore reports NU1608 or fails.
+
+- **Typical cause:** Old releases of packages built on Newtonsoft.Json with an upper bound.
+- **Fix:** Upgrade that package as well (`offramp deps audit` lists releases that allow the target).
+
+### OFR3766
+
+**restore failed after the Newtonsoft.Json upgrade; rolled back** · error · newtonsoft
+
+`dotnet restore` (or the packages.config restore) failed with every project on the target; every edit was undone from the journal.
+
+- **Typical cause:** A feed without the target, a package whose dependencies conflict with it, or no network.
+- **Fix:** Fix what restore reports, then upgrade again.
+
+### OFR3767
+
+**no characterization baselines; the upgrade was checked by the compiler only** · warning · newtonsoft
+
+The solution builds on the target, but no test project has recorded probe baselines, so behavior changes were not looked for.
+
+- **Typical cause:** Upgrading without `offramp newtonsoft tests --record --apply` first.
+- **Fix:** Roll back (`offramp move rollback`), record baselines on the old release, and upgrade again.
 
 ### OFR4001
 

@@ -53,12 +53,13 @@ public sealed record ProjectFileFix
 /// </summary>
 public static class WindowsGuards
 {
-    /// <summary>For what needs Windows itself: cmd.exe build events and commands, NuGet 2 restore, machine-wide MSBuild paths.</summary>
+    /// <summary>For what needs Windows itself: cmd.exe build events and commands, machine-wide MSBuild paths.</summary>
     public const string OnWindows = "'$(OS)' == 'Windows_NT'";
 
     /// <summary>
-    /// For tasks only .NET Framework's MSBuild has (<c>SGen</c>, <c>AspNetCompiler</c>): <c>dotnet build</c> cannot run
-    /// them on Windows either (MSB3474, MSB4803), so they are kept for MSBuild.exe, Visual Studio's build.
+    /// For tasks only .NET Framework's MSBuild has (<c>SGen</c>, <c>AspNetCompiler</c>, NuGet 2's inline <c>DownloadNuGet</c>):
+    /// <c>dotnet build</c> cannot run them on Windows either (MSB3474, MSB4803, MSB4801), so they are kept for
+    /// MSBuild.exe, Visual Studio's build.
     /// </summary>
     public const string OnFrameworkMsbuild = "'$(MSBuildRuntimeType)' != 'Core'";
 
@@ -267,8 +268,10 @@ public static class WindowsGuards
                 // Visual Studio runs build events as batch files; elsewhere MSBuild hands them to /bin/sh.
                 "PreBuildEvent" or "PostBuildEvent" when value.Length > 0 => (name, "build-event", OnWindows),
 
-                // A NuGet 2 .nuget/NuGet.targets runs NuGet.exe, through Mono outside Windows.
-                "RestorePackages" when value.Equals("true", StringComparison.OrdinalIgnoreCase) => (name, "nuget-restore", OnWindows),
+                // A NuGet 2 .nuget/NuGet.targets runs NuGet.exe, which it downloads with a CodeTaskFactory task: .NET
+                // Framework's MSBuild only, on Windows too. .NET's MSBuild restores packages.config through
+                // Offramp.PackagesConfig.targets instead (MassTransit field test).
+                "RestorePackages" when value.Equals("true", StringComparison.OrdinalIgnoreCase) => (name, "nuget-restore", OnFrameworkMsbuild),
 
                 // Hides Microsoft.Common.props, and with it Directory.Build.props (OFR0122).
                 "MSBuildExtensionsPath" or "MSBuildExtensionsPath32" or "MSBuildExtensionsPath64" when value.Length > 0 => (name, "msbuild-extensions-path", OnWindows),

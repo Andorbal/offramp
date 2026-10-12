@@ -1,0 +1,600 @@
+﻿{
+  "target": "13.0.4",
+  "projects": [
+    {
+      "project": "src/Catalog/Catalog.csproj",
+      "targetFramework": "net48",
+      "newtonsoft": {
+        "version": "7.0.1",
+        "via": "packageReference"
+      },
+      "redirects": [],
+      "sites": [
+        {
+          "id": "Contoso.Catalog.CatalogCodec.Write#1",
+          "file": "src/Catalog/CatalogCodec.cs",
+          "line": 16,
+          "member": "M:Contoso.Catalog.CatalogCodec.Write(Contoso.Catalog.Product)",
+          "api": "M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object,Newtonsoft.Json.JsonSerializerSettings)",
+          "direction": "serialize",
+          "payloadTypes": [
+            "Contoso.Catalog.Product"
+          ],
+          "settings": {
+            "kind": "member",
+            "symbol": "F:Contoso.Catalog.CatalogCodec.Settings",
+            "file": "src/Catalog/CatalogCodec.cs",
+            "line": 10
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Catalog.CatalogCodec.Write(Contoso.Catalog.Product)",
+            "project": "src/Catalog/Catalog.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Catalog.CatalogCodec.Write(Contoso.Catalog.Product)"
+            ]
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Catalog.CatalogCodec.Read#1",
+          "file": "src/Catalog/CatalogCodec.cs",
+          "line": 18,
+          "member": "M:Contoso.Catalog.CatalogCodec.Read(System.String)",
+          "api": "M:Newtonsoft.Json.JsonConvert.DeserializeObject``1(System.String,Newtonsoft.Json.JsonSerializerSettings)",
+          "direction": "deserialize",
+          "payloadTypes": [
+            "Contoso.Catalog.Product"
+          ],
+          "settings": {
+            "kind": "member",
+            "symbol": "F:Contoso.Catalog.CatalogCodec.Settings",
+            "file": "src/Catalog/CatalogCodec.cs",
+            "line": 10
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Catalog.CatalogCodec.Read(System.String)",
+            "project": "src/Catalog/Catalog.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Catalog.CatalogCodec.Read(System.String)"
+            ],
+            "input": "json"
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Catalog.CategoryCodec.Read#1",
+          "file": "src/Catalog/Category.cs",
+          "line": 15,
+          "member": "M:Contoso.Catalog.CategoryCodec.Read(System.String)",
+          "api": "M:Newtonsoft.Json.JsonConvert.DeserializeObject``1(System.String)",
+          "direction": "deserialize",
+          "payloadTypes": [
+            "Contoso.Catalog.Category"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Catalog.CategoryCodec.Read(System.String)",
+            "project": "src/Catalog/Catalog.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Catalog.CategoryCodec.Read(System.String)"
+            ],
+            "input": "json"
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Catalog.Envelope.Wrap#1",
+          "file": "src/Catalog/Envelope.cs",
+          "line": 8,
+          "member": "M:Contoso.Catalog.Envelope.Wrap(System.Object)",
+          "api": "M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object)",
+          "direction": "serialize",
+          "payloadTypes": [
+            "Contoso.Catalog.Product"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Catalog.ProductFeed.Publish(Contoso.Catalog.Product)",
+            "project": "src/Catalog/Catalog.csproj",
+            "depth": 1,
+            "path": [
+              "M:Contoso.Catalog.ProductFeed.Publish(Contoso.Catalog.Product)",
+              "M:Contoso.Catalog.Envelope.Wrap(System.Object)"
+            ]
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Catalog.MoneyCodec.Write#1",
+          "file": "src/Catalog/Money.cs",
+          "line": 34,
+          "member": "M:Contoso.Catalog.MoneyCodec.Write(Contoso.Catalog.Money)",
+          "api": "M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object)",
+          "direction": "serialize",
+          "payloadTypes": [
+            "Contoso.Catalog.Money"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Catalog.MoneyCodec.Write(Contoso.Catalog.Money)",
+            "project": "src/Catalog/Catalog.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Catalog.MoneyCodec.Write(Contoso.Catalog.Money)"
+            ]
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Catalog.MoneyCodec.Read#1",
+          "file": "src/Catalog/Money.cs",
+          "line": 36,
+          "member": "M:Contoso.Catalog.MoneyCodec.Read(System.String)",
+          "api": "M:Newtonsoft.Json.JsonConvert.DeserializeObject``1(System.String)",
+          "direction": "deserialize",
+          "payloadTypes": [
+            "Contoso.Catalog.Money"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Catalog.MoneyCodec.Read(System.String)",
+            "project": "src/Catalog/Catalog.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Catalog.MoneyCodec.Read(System.String)"
+            ],
+            "input": "json"
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Catalog.PriceReader.TryRead#1",
+          "file": "src/Catalog/PriceReader.cs",
+          "line": 11,
+          "member": "M:Contoso.Catalog.PriceReader.TryRead(System.String)",
+          "api": "M:Newtonsoft.Json.Linq.JObject.Parse(System.String)",
+          "direction": "dom",
+          "payloadTypes": [],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Catalog.PriceReader.TryRead(System.String)",
+            "project": "src/Catalog/Catalog.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Catalog.PriceReader.TryRead(System.String)"
+            ],
+            "input": "json"
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Catalog.PriceReader.TryRead#2",
+          "file": "src/Catalog/PriceReader.cs",
+          "line": 14,
+          "member": "M:Contoso.Catalog.PriceReader.TryRead(System.String)",
+          "api": "M:Newtonsoft.Json.Linq.JToken.ToObject``1",
+          "direction": "deserialize",
+          "payloadTypes": [
+            "System.Decimal"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Catalog.PriceReader.TryRead(System.String)",
+            "project": "src/Catalog/Catalog.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Catalog.PriceReader.TryRead(System.String)"
+            ],
+            "input": "json"
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Catalog.ProductExporter.Line#1",
+          "file": "src/Catalog/ProductExporter.cs",
+          "line": 22,
+          "member": "M:Contoso.Catalog.ProductExporter.Line(Contoso.Catalog.Product)",
+          "api": "M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object,Newtonsoft.Json.JsonSerializerSettings)",
+          "direction": "serialize",
+          "payloadTypes": [
+            "Contoso.Catalog.Product"
+          ],
+          "settings": {
+            "kind": "inline",
+            "file": "src/Catalog/ProductExporter.cs",
+            "line": 22
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Catalog.ProductExporter.Export(System.Collections.Generic.IEnumerable{Contoso.Catalog.Product})",
+            "project": "src/Catalog/Catalog.csproj",
+            "depth": 1,
+            "path": [
+              "M:Contoso.Catalog.ProductExporter.Export(System.Collections.Generic.IEnumerable{Contoso.Catalog.Product})",
+              "M:Contoso.Catalog.ProductExporter.Line(Contoso.Catalog.Product)"
+            ]
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Catalog.ProductStore.Save#1",
+          "file": "src/Catalog/ProductStore.cs",
+          "line": 18,
+          "member": "M:Contoso.Catalog.ProductStore.Save(Contoso.Catalog.Product)",
+          "api": "M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object)",
+          "direction": "serialize",
+          "payloadTypes": [
+            "Contoso.Catalog.Product"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": null,
+          "uncovered": {
+            "reason": "nonHermetic",
+            "detail": "System.IO.File.WriteAllText(string, string) (T:System.IO.File) at src/Catalog/ProductStore.cs:18",
+            "candidates": [
+              {
+                "member": "M:Contoso.Catalog.ProductStore.Save(Contoso.Catalog.Product)",
+                "reason": "nonHermetic",
+                "detail": "System.IO.File.WriteAllText(string, string) (T:System.IO.File) at src/Catalog/ProductStore.cs:18"
+              }
+            ]
+          }
+        }
+      ],
+      "configuration": [
+        {
+          "kind": "settings",
+          "file": "src/Catalog/CatalogCodec.cs",
+          "line": 10,
+          "symbol": "F:Contoso.Catalog.CatalogCodec.Settings"
+        },
+        {
+          "kind": "settings",
+          "file": "src/Catalog/JsonDefaults.cs",
+          "line": 10,
+          "symbol": "M:Contoso.Catalog.JsonDefaults.Install"
+        },
+        {
+          "kind": "defaultSettings",
+          "file": "src/Catalog/JsonDefaults.cs",
+          "line": 10,
+          "symbol": "M:Contoso.Catalog.JsonDefaults.Install"
+        },
+        {
+          "kind": "settings",
+          "file": "src/Catalog/ProductExporter.cs",
+          "line": 22,
+          "symbol": "M:Contoso.Catalog.ProductExporter.Line(Contoso.Catalog.Product)"
+        }
+      ]
+    },
+    {
+      "project": "src/Inventory/Inventory.csproj",
+      "targetFramework": "net48",
+      "newtonsoft": {
+        "version": "7.0.1",
+        "via": "packageReference"
+      },
+      "redirects": [],
+      "sites": [
+        {
+          "id": "Contoso.Inventory.StockSnapshotWriter.Write#1",
+          "file": "src/Inventory/StockSnapshot.cs",
+          "line": 29,
+          "member": "M:Contoso.Inventory.StockSnapshotWriter.Write(System.Collections.Generic.IDictionary{System.String,System.Int32})",
+          "api": "M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object)",
+          "direction": "serialize",
+          "payloadTypes": [
+            "Contoso.Inventory.StockSnapshot"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": null,
+          "uncovered": {
+            "reason": "notConstructible",
+            "detail": "Contoso.Inventory.StockSnapshotWriter has no constructor a probe can call",
+            "candidates": [
+              {
+                "member": "M:Contoso.Inventory.StockSnapshotWriter.Write(System.Collections.Generic.IDictionary{System.String,System.Int32})",
+                "reason": "notConstructible",
+                "detail": "Contoso.Inventory.StockSnapshotWriter has no constructor a probe can call"
+              }
+            ]
+          }
+        },
+        {
+          "id": "Contoso.Inventory.StockSnapshotReader.Read#1",
+          "file": "src/Inventory/StockSnapshot.cs",
+          "line": 34,
+          "member": "M:Contoso.Inventory.StockSnapshotReader.Read(System.String)",
+          "api": "M:Newtonsoft.Json.JsonConvert.DeserializeObject``1(System.String)",
+          "direction": "deserialize",
+          "payloadTypes": [
+            "Contoso.Inventory.StockSnapshot"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Inventory.StockSnapshotReader.Read(System.String)",
+            "project": "src/Inventory/Inventory.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Inventory.StockSnapshotReader.Read(System.String)"
+            ],
+            "input": "json"
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Inventory.SupplierFeed.Parse#1",
+          "file": "src/Inventory/Suppliers.cs",
+          "line": 16,
+          "member": "M:Contoso.Inventory.SupplierFeed.Parse(System.String)",
+          "api": "M:Newtonsoft.Json.JsonConvert.DeserializeObject``1(System.String)",
+          "direction": "deserialize",
+          "payloadTypes": [
+            "System.Collections.Generic.List<Contoso.Inventory.Supplier>"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Inventory.SupplierFeed.Parse(System.String)",
+            "project": "src/Inventory/Inventory.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Inventory.SupplierFeed.Parse(System.String)"
+            ],
+            "input": "json"
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Inventory.Reorder.Plan#1",
+          "file": "src/Inventory/Suppliers.cs",
+          "line": 23,
+          "member": "M:Contoso.Inventory.Reorder.Plan(Contoso.Catalog.Product,System.Int32)",
+          "api": "M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object)",
+          "direction": "serialize",
+          "payloadTypes": [
+            "System.Collections.Generic.Dictionary<System.String, System.Object>"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": null,
+          "uncovered": {
+            "reason": "notAccessible",
+            "detail": "Contoso.Inventory.Reorder.Plan(Contoso.Catalog.Product, int) is not visible to a test project",
+            "candidates": [
+              {
+                "member": "M:Contoso.Inventory.Reorder.Plan(Contoso.Catalog.Product,System.Int32)",
+                "reason": "notAccessible",
+                "detail": "Contoso.Inventory.Reorder.Plan(Contoso.Catalog.Product, int) is not visible to a test project"
+              }
+            ]
+          }
+        }
+      ],
+      "configuration": []
+    },
+    {
+      "project": "tests/Catalog.Tests/Catalog.Tests.csproj",
+      "targetFramework": "net48",
+      "newtonsoft": {
+        "version": "7.0.1",
+        "via": "packageReference"
+      },
+      "redirects": [],
+      "sites": [],
+      "configuration": []
+    },
+    {
+      "project": "tests/Inventory.Tests/Inventory.Tests.csproj",
+      "targetFramework": "net48",
+      "newtonsoft": {
+        "version": "7.0.1",
+        "via": "transitive"
+      },
+      "redirects": [],
+      "sites": [],
+      "configuration": []
+    }
+  ],
+  "findings": [
+    {
+      "rule": "OFR3703",
+      "case": "names-with-spaces",
+      "severity": "warning",
+      "overridden": false,
+      "project": "src/Catalog/Catalog.csproj",
+      "file": "src/Catalog/CatalogCodec.cs",
+      "line": 16,
+      "column": 56,
+      "symbol": "Contoso.Catalog.Product.LegacyCode",
+      "message": "Contoso.Catalog.Product.LegacyCode is written as 'legacY CODE' and becomes 'legacy CODE' on the target (camel case, site Contoso.Catalog.CatalogCodec.Write#1).",
+      "recommendation": "Pin the JSON name with [JsonProperty] (and NamingStrategy overrides off) if consumers depend on the old casing, or update them.",
+      "note": "8.0.3: Fixed converting some property names to camel case; 11.0.1: Changed camel casing logic for all caps words to not leave last character capitalized",
+      "current": "old",
+      "target": "lowercase-all-caps-word",
+      "details": {
+        "name": "LEGACY CODE",
+        "new": "legacy CODE",
+        "old": "legacY CODE",
+        "site": "Contoso.Catalog.CatalogCodec.Write#1"
+      }
+    },
+    {
+      "rule": "OFR3704",
+      "case": "iserializable-contract",
+      "severity": "warning",
+      "overridden": false,
+      "project": "src/Catalog/Catalog.csproj",
+      "file": "src/Catalog/Money.cs",
+      "line": 34,
+      "column": 52,
+      "symbol": "Contoso.Catalog.Money",
+      "message": "Contoso.Catalog.Money implements ISerializable without [Serializable], and site Contoso.Catalog.MoneyCodec.Write#1 carries it.",
+      "recommendation": "Add [Serializable] to keep GetObjectData and the serialization constructor in use, or accept the public-member shape and convert stored data.",
+      "note": "11.0.1: Types that implement ISerializable but don't have [SerializableAttribute] are not serialized using ISerializable",
+      "current": "get-object-data",
+      "target": "public-members",
+      "details": {
+        "site": "Contoso.Catalog.MoneyCodec.Write#1",
+        "type": "Contoso.Catalog.Money"
+      }
+    },
+    {
+      "rule": "OFR3705",
+      "case": "enum-member-keys",
+      "severity": "warning",
+      "overridden": false,
+      "project": "src/Catalog/Catalog.csproj",
+      "file": "src/Catalog/CatalogCodec.cs",
+      "line": 16,
+      "column": 56,
+      "symbol": "Contoso.Catalog.Product.Stock",
+      "message": "Contoso.Catalog.Product.Stock is a dictionary keyed by an enum with [EnumMember], and site Contoso.Catalog.CatalogCodec.Write#1 carries it.",
+      "recommendation": "Stored JSON and consumers that use the enum names as keys must accept the [EnumMember] values, or remove [EnumMember] from the enum.",
+      "note": "11.0.1: Changed enum serialization in dictionary keys to use EnumMemberAttribute",
+      "current": "names",
+      "target": "enum-member-values",
+      "details": {
+        "member": "Contoso.Catalog.Product.Stock",
+        "site": "Contoso.Catalog.CatalogCodec.Write#1"
+      }
+    },
+    {
+      "rule": "OFR3707",
+      "case": "to-object-mismatch",
+      "severity": "warning",
+      "overridden": false,
+      "project": "src/Catalog/Catalog.csproj",
+      "file": "src/Catalog/PriceReader.cs",
+      "line": 16,
+      "column": 20,
+      "symbol": "M:Newtonsoft.Json.Linq.JToken.ToObject",
+      "message": "This catches System.InvalidCastException from Newtonsoft.Json.Linq.JToken.ToObject<decimal>(), which throws Newtonsoft.Json.JsonSerializationException on the target.",
+      "recommendation": "Catch the exception the target throws (or both, while both versions are in use).",
+      "note": "13.0.1: Change InvalidCastException to JsonSerializationException on mismatched JToken",
+      "current": "invalid-cast",
+      "target": "json-serialization",
+      "details": {
+        "caught": "T:System.InvalidCastException",
+        "thrown": "T:Newtonsoft.Json.JsonSerializationException"
+      }
+    },
+    {
+      "rule": "OFR3708",
+      "case": "allow-integer-values",
+      "severity": "warning",
+      "overridden": false,
+      "project": "src/Catalog/Catalog.csproj",
+      "file": "src/Catalog/CatalogCodec.cs",
+      "line": 13,
+      "column": 54,
+      "symbol": "Newtonsoft.Json.Converters.StringEnumConverter.AllowIntegerValues",
+      "message": "A StringEnumConverter with AllowIntegerValues = false rejects integer strings and unnamed enum values on the target.",
+      "recommendation": "Payloads with integer strings (\"1\") for enums, or enum values without a name, now fail; accept them explicitly or clean the data.",
+      "note": "10.0.1: Changed StringEnumConverter.AllowIntegerValues to also reject reading integer strings / writing enum values with no name",
+      "current": "lenient",
+      "target": "strict",
+      "details": {}
+    },
+    {
+      "rule": "OFR3709",
+      "case": "max-depth",
+      "severity": "warning",
+      "overridden": false,
+      "project": "src/Catalog/Catalog.csproj",
+      "file": "src/Catalog/Category.cs",
+      "line": 15,
+      "column": 53,
+      "symbol": "Contoso.Catalog.Category",
+      "message": "Contoso.Catalog.Category contains itself, and site Contoso.Catalog.CategoryCodec.Read#1 reads it without MaxDepth: the target stops at 64 levels.",
+      "recommendation": "Set MaxDepth on the settings (or the reader) if payloads can nest deeper than 64 levels.",
+      "note": "13.0.1: JsonReader and JsonSerializer MaxDepth defaults to 64",
+      "current": "unlimited",
+      "target": "sixty-four",
+      "details": {
+        "site": "Contoso.Catalog.CategoryCodec.Read#1",
+        "type": "Contoso.Catalog.Category"
+      }
+    },
+    {
+      "rule": "OFR3719",
+      "case": "names-with-spaces",
+      "severity": "info",
+      "overridden": false,
+      "project": "src/Catalog/Catalog.csproj",
+      "file": "src/Catalog/CatalogCodec.cs",
+      "line": 16,
+      "column": 56,
+      "symbol": "Contoso.Catalog.Product.Attributes",
+      "message": "Site Contoso.Catalog.CatalogCodec.Write#1 camel-cases the keys of Contoso.Catalog.Product.Attributes; keys with spaces after capitals change on the target ('URL VALUE' was 'urL VALUE', becomes 'url VALUE').",
+      "recommendation": "No code pattern shows whether the data is affected; the characterization probes with real payloads (`newtonsoft tests --samples`) will.",
+      "note": "8.0.3: Fixed converting some property names to camel case; 11.0.1: Changed camel casing logic for all caps words to not leave last character capitalized",
+      "current": "old",
+      "target": "lowercase-all-caps-word",
+      "details": {
+        "site": "Contoso.Catalog.CatalogCodec.Write#1"
+      }
+    },
+    {
+      "rule": "OFR3719",
+      "case": "jarray-comments",
+      "severity": "info",
+      "overridden": false,
+      "project": "src/Catalog/Catalog.csproj",
+      "file": "src/Catalog/PriceReader.cs",
+      "line": 11,
+      "column": 25,
+      "symbol": "jarray-comments",
+      "message": "8.0.1: Changed parsing JArrays to not include comments by default: the release in use (comments-are-items) and the target (comments-skipped) differ for some input; the project has dom sites, the first is Contoso.Catalog.PriceReader.TryRead#1.",
+      "recommendation": "No code pattern shows whether the data is affected; the characterization probes with real payloads (`newtonsoft tests --samples`) will.",
+      "note": "8.0.1: Changed parsing JArrays to not include comments by default",
+      "current": "comments-are-items",
+      "target": "comments-skipped",
+      "details": {
+        "site": "Contoso.Catalog.PriceReader.TryRead#1"
+      }
+    }
+  ],
+  "summary": {
+    "projects": 4,
+    "sites": 14,
+    "findings": {
+      "error": 0,
+      "info": 2,
+      "warning": 6
+    }
+  },
+  "skipped": []
+}
+
+OFR3703 warning src/Catalog/Catalog.csproj src/Catalog/CatalogCodec.cs:16 Contoso.Catalog.Product.LegacyCode is written as 'legacY CODE' and becomes 'legacy CODE' on the target (camel case, site Contoso.Catalog.CatalogCodec.Write#1).
+OFR3704 warning src/Catalog/Catalog.csproj src/Catalog/Money.cs:34 Contoso.Catalog.Money implements ISerializable without [Serializable], and site Contoso.Catalog.MoneyCodec.Write#1 carries it.
+OFR3705 warning src/Catalog/Catalog.csproj src/Catalog/CatalogCodec.cs:16 Contoso.Catalog.Product.Stock is a dictionary keyed by an enum with [EnumMember], and site Contoso.Catalog.CatalogCodec.Write#1 carries it.
+OFR3707 warning src/Catalog/Catalog.csproj src/Catalog/PriceReader.cs:16 This catches System.InvalidCastException from Newtonsoft.Json.Linq.JToken.ToObject<decimal>(), which throws Newtonsoft.Json.JsonSerializationException on the target.
+OFR3708 warning src/Catalog/Catalog.csproj src/Catalog/CatalogCodec.cs:13 A StringEnumConverter with AllowIntegerValues = false rejects integer strings and unnamed enum values on the target.
+OFR3709 warning src/Catalog/Catalog.csproj src/Catalog/Category.cs:15 Contoso.Catalog.Category contains itself, and site Contoso.Catalog.CategoryCodec.Read#1 reads it without MaxDepth: the target stops at 64 levels.
+OFR3719 info src/Catalog/Catalog.csproj src/Catalog/CatalogCodec.cs:16 Site Contoso.Catalog.CatalogCodec.Write#1 camel-cases the keys of Contoso.Catalog.Product.Attributes; keys with spaces after capitals change on the target ('URL VALUE' was 'urL VALUE', becomes 'url VALUE'). (2 findings in the project; the first is shown.)
+OFR3721 info src/Catalog/Catalog.csproj src/Catalog/JsonDefaults.cs:10 JsonConvert.DefaultSettings is assigned: every call without settings depends on whether this ran first, which probes cannot reproduce.

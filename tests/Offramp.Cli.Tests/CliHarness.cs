@@ -41,6 +41,16 @@ public sealed class CliHarness : IDisposable
         return this;
     }
 
+    /// <summary>Lets <c>dotnet test</c> run for real (newtonsoft tests' probes), with git and builds.</summary>
+    public CliHarness WithRealTests()
+    {
+        WithRealGitAndBuilds();
+        Machine.Setup.Add(r => r
+            .On("dotnet", ["test"], spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult())
+            .On(spec => spec.FileName is "/bin/sh" or "cmd.exe", spec => ProcessRunner.Instance.RunAsync(spec).GetAwaiter().GetResult()));
+        return this;
+    }
+
     /// <summary>Lets the SDK's version query, tool installation, and installed tools (ApiCompat) run for real.</summary>
     public CliHarness WithRealTools()
     {

@@ -38,5 +38,15 @@
     "solution": "src/managed/writer.sln",
     "timeoutMinutes": 80,
     "fieldTest": "docs/field-tests/2026-09-open-live-writer-0.6.3.md"
+  },
+  {
+    "name": "masstransit",
+    "title": "MassTransit 3.3.5",
+    "repository": "https://github.com/MassTransit/MassTransit.git",
+    "commit": "16cd51721a19ce75e5db95663921caa1488257cc",
+    "ref": "v3.3.5",
+    "solution": "src/MassTransit.sln",
+    "timeoutMinutes": 45,
+    "fieldTest": "docs/field-tests/2026-10-masstransit-3.3.5.md"
   }
 ]

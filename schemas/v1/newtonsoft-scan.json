@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://offramp.dev/schemas/v1/newtonsoft-scan.json",
+  "title": "offramp newtonsoft scan result",
+  "description": "The result of `offramp newtonsoft scan`. See docs/spec/commands/newtonsoft.md#newtonsoft-scan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["target", "projects", "findings", "summary", "skipped"],
+  "properties": {
+    "target": { "$ref": "#/$defs/version", "description": "The release the projects are judged against." },
+    "projects": {
+      "type": "array",
+      "description": "C# projects that use Newtonsoft.Json, by id.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "targetFramework", "newtonsoft", "redirects", "sites", "configuration"],
+        "properties": {
+          "project": { "$ref": "workspace.json#/$defs/relativePath" },
+          "targetFramework": { "type": "string", "minLength": 1, "description": "The target framework whose compilation was read." },
+          "newtonsoft": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["version", "via"],
+            "properties": {
+              "version": { "type": "string" },
+              "via": { "enum": ["packageReference", "centralPackage", "packagesConfig", "hintPath", "looseDll", "transitive"] },
+              "hintPath": { "$ref": "workspace.json#/$defs/relativePath" }
+            }
+          },
+          "redirects": {
+            "type": "array",
+            "description": "Newtonsoft.Json's binding redirects in the project's own app.config (web.config for web projects).",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["file", "oldVersion", "newVersion"],
+              "properties": {
+                "file": { "$ref": "workspace.json#/$defs/relativePath" },
+                "oldVersion": { "type": "string" },
+                "newVersion": { "type": "string" }
+              }
+            }
+          },
+          "sites": { "type": "array", "items": { "$ref": "#/$defs/site" }, "description": "In file and position order." },
+          "configuration": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "file", "line", "symbol"],
+              "properties": {
+                "kind": { "enum": ["settings", "serializer", "defaultSettings", "converter", "contractResolver", "namingStrategy", "binder"] },
+                "file": { "$ref": "workspace.json#/$defs/relativePath" },
+                "line": { "type": "integer", "minimum": 1 },
+                "symbol": { "type": "string", "minLength": 1, "description": "The member that configures, or the type declared." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" }, "description": "Sorted by rule, project, file, line, column, case, symbol." },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projects", "sites", "findings"],
+      "properties": {
+        "projects": { "type": "integer", "minimum": 0 },
+        "sites": { "type": "integer", "minimum": 0 },
+        "findings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["error", "warning", "info"],
+          "properties": {
+            "error": { "type": "integer", "minimum": 0 },
+            "warning": { "type": "integer", "minimum": 0 },
+            "info": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "skipped": { "type": "array", "items": { "type": "string" }, "description": "Projects that use Newtonsoft.Json but could not be read, with why." }
+  },
+  "$defs": {
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?(-[0-9A-Za-z.-]+)?$" },
+    "site": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "file", "line", "member", "api", "direction", "payloadTypes", "settings", "entryPoint", "uncovered"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^.+#[1-9][0-9]*$", "description": "<containing type>.<member name>#<n>." },
+        "file": { "$ref": "workspace.json#/$defs/relativePath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "member": { "type": "string", "minLength": 1, "description": "The containing member's documentation ID." },
+        "api": { "type": "string", "pattern": "^M:Newtonsoft\\.Json\\." },
+        "direction": { "enum": ["serialize", "deserialize", "dom"] },
+        "payloadTypes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Fully qualified; empty for DOM sites and when unknown (OFR3720)." },
+        "settings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "enum": ["none", "inline", "member", "unknown"] },
+            "symbol": { "type": "string", "description": "For member: the static field or property, as a documentation ID." },
+            "file": { "$ref": "workspace.json#/$defs/relativePath" },
+            "line": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "entryPoint": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["member", "project", "depth", "path"],
+              "properties": {
+                "member": { "type": "string", "minLength": 1, "description": "The member a test calls, as a documentation ID." },
+                "project": { "$ref": "workspace.json#/$defs/relativePath" },
+                "depth": { "type": "integer", "minimum": 0 },
+                "path": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "From the entry point down to the site's member." },
+                "input": { "type": "string", "description": "For deserialize and DOM sites: the parameter that carries the JSON." }
+              }
+            }
+          ]
+        },
+        "uncovered": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["reason", "detail", "candidates"],
+              "properties": {
+                "reason": { "$ref": "#/$defs/reason" },
+                "detail": { "type": "string" },
+                "candidates": {
+                  "type": "array",
+                  "maxItems": 10,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["member", "reason", "detail"],
+                    "properties": {
+                      "member": { "type": "string" },
+                      "reason": { "$ref": "#/$defs/reason" },
+                      "detail": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "reason": { "enum": ["notAccessible", "notConstructible", "typeNotGeneratable", "nonHermetic", "notObservable", "inputNotParameter", "depthExceeded"] },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "severity", "overridden", "project", "file", "line", "column", "symbol", "message", "recommendation", "details"],
+      "properties": {
+        "rule": { "type": "string", "pattern": "^OFR37[0-9]{2}$" },
+        "case": { "type": "string", "minLength": 1, "description": "The rule's case, for behavior changes." },
+        "severity": { "enum": ["error", "warning", "info"] },
+        "overridden": { "type": "boolean", "description": "True when offramp.yml changed the rule's severity." },
+        "project": { "$ref": "workspace.json#/$defs/relativePath" },
+        "file": { "$ref": "workspace.json#/$defs/relativePath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "symbol": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "recommendation": { "type": "string", "minLength": 1 },
+        "note": { "type": "string", "description": "The release-note line(s) the case comes from." },
+        "current": { "type": "string", "description": "The behavior's label for the release in use." },
+        "target": { "type": "string", "description": "The behavior's label for the target." },
+        "details": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    }
+  }
+}

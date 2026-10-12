@@ -11,6 +11,119 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-12
+
+### Added
+- The specification of `offramp newtonsoft scan|tests|upgrade` (`docs/spec/commands/newtonsoft.md`,
+  roadmap M18, ADRs 0065–0068): upgrading Newtonsoft.Json from versions as old as 7 to 13.x with
+  characterization tests recorded on the old version first. Two fixtures for it,
+  `newtonsoft-sdk` (SDK-style `net48;net10.0` projects with xunit and NUnit tests that run
+  Newtonsoft.Json 7.0.1 on every OS) and `newtonsoft-legacy` (`packages.config`, `HintPath`, a
+  binding redirect, and a legacy MSTest project at C# 6), scanned by the fixture model tests.
+- `offramp newtonsoft scan` (roadmap M18, ADRs 0066, 0068, 0069): for every project that uses
+  Newtonsoft.Json, how it references it (PackageReference, central versions, packages.config,
+  HintPath, a loose DLL, or transitively) and its own binding redirects; every call that
+  serializes, deserializes, or parses JSON, with its payload types and where its settings come from
+  (followed through locals, `JsonSerializer.Create`, `Lazy<T>` factories, and readonly fields set
+  once; ADR 0073);
+  and what changes between the release in use and the target (the newest stable release in
+  `newtonsoft.target`, default `[13.0,14.0)`, that supports every target framework, or `--version`).
+  API changes come from compiling the project against the target's assembly (OFR3701 removed,
+  OFR3702 obsolete, with the replacement); behavior changes from `rules/newtonsoft-breaking.yml`
+  (OFR3703–3713, OFR3719), whose every case was measured against all 17 releases from 7.0.1 to
+  13.0.4 and is rechecked by a differential test. Several release notes did not reproduce (camel
+  casing of names without spaces, `DateTime` kinds) and several changes were reverted later
+  (decimal scale in 10.x), so a rule fires only where the two releases really behave differently.
+  `--format table|json|markdown`. JSON contract `schemas/v1/newtonsoft-scan.json`; diagnostics
+  OFR3701–3725 and OFR3760; configuration `newtonsoft.target`.
+- `newtonsoft scan` gives each site the member a test can call to exercise it, or the reason
+  there is none (ADR 0070): breadth first up a method-level call graph of the whole solution
+  (through lambdas, accessors, interface members, and overrides), the nearest member that is
+  accessible to a test project, constructible, callable with generatable arguments, hermetic
+  (nothing within six calls is in `rules/newtonsoft-hermetic.yml`: files, network, databases, the
+  clock, random numbers, the environment), observable, and for reading sites fed the JSON through
+  a parameter. Configuration `newtonsoft.tests.entryDepth` and `newtonsoft.hermetic.nonHermetic`.
+- `offramp newtonsoft tests [--project P ...] [--to T] [--samples DIR] [--apply]` (ADR 0071)
+  generates characterization probes into the test projects that already cover each production
+  project (xunit, NUnit 2 to 4, MSTest v1 and v2; legacy projects at C# 6 included, with Compile items):
+  entry probes that call each site's entry point with generated arguments, type probes that call
+  Newtonsoft.Json with a site's own settings where there is no entry point, and reading probes fed
+  real payloads and what the code's own writing probes record. A probe runtime written into the
+  test project (`OfframpProbe`, `OfframpObjectDump`, BCL only) records each observation with the
+  Newtonsoft.Json version that ran and, outside recording, compares it with its baseline, so the
+  probes fail in any test runner when the behavior changes. Everything is compiled into the test
+  project's recorded compilation before it is written; probes that do not compile are dropped
+  (OFR3735), and a test project left without probes gets no files at all (ADR 0073). Generated
+  values never use a copy constructor and write a null argument as `default(T)`, so overloaded
+  constructors compile (`XElement` on MassTransit did not). A site without a payload type says so
+  instead of asking for a sample of no type, and one whose type cannot be written names it. JSON
+  contract `schemas/v1/newtonsoft-tests.json`; diagnostics OFR3731–3737, OFR3742,
+  OFR3743; configuration `newtonsoft.samples` and `newtonsoft.tests.folder|projects|samplesPerType|objectDepth`.
+- `newtonsoft tests --record` and `--verify` (ADR 0067) build the test projects and run their
+  writing probes, then their reading probes, with `dotnet test` (or `newtonsoft.tests.command`), and
+  judge the result files the probes write, not the test run's verdict. Recording runs every probe
+  twice and writes what both runs agree on as `Baseline/<netfx|core>/<probe>.txt` through its own
+  journal; a probe that changes between runs is quarantined (OFR3738), and a test project that ran
+  another Newtonsoft.Json than its production project (as `Microsoft.NET.Test.Sdk` 17.x makes .NET
+  test projects do) records nothing (OFR3745). Verifying compares one run with the baselines:
+  `same`, `differs`, `nowThrows`, `noLongerThrows` (OFR3762, an error, with a line diff),
+  `messageOnly` (OFR3763), `missing` (OFR3741), `noBaseline` (OFR3744). .NET Framework-only test
+  projects run on Windows and are skipped elsewhere with the command to run there (OFR3739), once
+  per command; a legacy test project without a VSTest adapter in its output folder is not run, and
+  OFR3747 names the package to add (`NUnitTestAdapter` for NUnit 2; ADR 0073); probes
+  out of date with generation are OFR3746. Configuration `newtonsoft.tests.runs|command|timeoutSeconds`.
+- `offramp newtonsoft upgrade [--project P ...] [--version V] [--on-diff keep|rollback] [--apply]`
+  (ADR 0072) moves every project that uses Newtonsoft.Json, test projects included, to the target
+  as one change set:
+  - PackageReference and central versions;
+  - the `packages.config` version, edited in place, with every other byte kept;
+  - the `Reference` identity and the `HintPath`'s package and `lib/` folders, read from the
+    target package;
+  - binding redirects through `redirects sync` over the upgraded model, for Newtonsoft.Json only
+    (ADR 0073; other out-of-date redirects are left to `redirects sync`).
+
+  It then restores and builds, rolling everything back when either fails (OFR3766, OFR3761, the
+  latter naming the OFR3701 findings that predicted it), and compares the probes with their
+  baselines (OFR3762 for each test project with changes; `--on-diff rollback` undoes the upgrade
+  then). Without baselines it says the compiler alone checked the upgrade (OFR3767).
+  `allowedVersions` that excludes the target (OFR3764) and package dependency ranges that do
+  (OFR3765) are named. JSON contract `schemas/v1/newtonsoft-upgrade.json`; configuration
+  `newtonsoft.onDiff`. The guide offers `newtonsoft-scan`, `newtonsoft-tests`, and
+  `newtonsoft-upgrade` when a project uses Newtonsoft.Json older than 13, and the migration skill
+  has a reference for them (`skills/offramp-migration/references/newtonsoft.md`).
+
+- A field test of the `newtonsoft` commands on MassTransit 3.3.5, a real codebase on Newtonsoft.Json
+  7.0.1 with NUnit 2 tests (`docs/field-tests/2026-10-masstransit-3.3.5.md`), and the corpus test
+  that pins what it found (`masstransit` in `tests/Offramp.Corpus.Tests`): the standard sweep, then
+  `newtonsoft scan`, `tests`, `tests --record`, and `upgrade --apply`.
+
+### Fixed
+- `doctor --fix` makes `dotnet build` of legacy projects work on Windows (ADR 0073, MassTransit field
+  test): the legacy section of the compile-only block (the .NET Framework reference assemblies as a
+  package) now applies to every build by .NET's MSBuild, not only off Windows, since Visual Studio
+  2022 installs no targeting pack older than 4.6.2 (MSB3644); a section an earlier Offramp wrote is
+  widened in place. NuGet 2's `RestorePackages` is conditioned on .NET Framework's MSBuild instead
+  of on Windows, since its `NuGet.targets` downloads NuGet.exe with a `CodeTaskFactory` task that
+  .NET's MSBuild lacks on Windows too (MSB4801).
+- `scan` names a project the solution lists in another letter case than on disk (OFR0117). On Linux, MSBuild stopped
+  before building any project (MSB3202) and every project was only "not built"; MassTransit 3.3.5's solution lists
+  `Containers\MassTransit.AutofacIntegration`, whose folder is `AutoFacIntegration`. Found by the corpus's first run
+  of MassTransit on Linux, which now applies the links OFR0117 prescribes as the other corpus tests do.
+- `scan` no longer takes the project `Offramp.PackagesConfig.targets` writes to download missing
+  `packages.config` packages (`obj/offramp-packages-config/download.csproj`) for one of the
+  repository's: a build that ran it, as `dotnet build` on Windows does, added it to the model as a
+  partial project (MassTransit field test).
+- `redirects sync` moves a redirect that points at a version the application no longer deploys (as
+  an upgrade leaves `0.0.0.0-7.0.0.0 → 7.0.0.0` once 13.0.0.0 deploys) to the deployed version
+  (OFR1502). It used to keep it as harmless, and anything built against the older release then
+  failed to load.
+
+### Changed
+- `audit serialization`'s tracing of `object` arguments to their callers moved into a shared
+  helper that `newtonsoft scan` also uses, and `audit dead-code`'s reading of interface
+  implementations and overrides into another that the call graph uses; their results are
+  unchanged.
+
 ## [0.17.0] - 2026-10-01
 
 ### Added
@@ -1516,7 +1629,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `Directory.Build.props` no longer produces a separate symbols package: PDBs
   are embedded, so `dotnet pack` failed with NU5017 when asked for a `.snupkg`.
 
-[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/Andorbal/offramp/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/Andorbal/offramp/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/Andorbal/offramp/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/Andorbal/offramp/compare/68f5511b14b047def139a5de50f8f0dd7919174e...v0.15.0

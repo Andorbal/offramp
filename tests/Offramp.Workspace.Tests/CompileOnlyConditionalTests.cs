@@ -208,6 +208,36 @@ public sealed class CompileOnlyConditionalTests : IDisposable
                 TestContext.Current.CancellationToken);
             Assert.Equal(expected, value.StandardOutput.Trim());
         }
+
+        // A legacy project takes the reference assemblies from the package with dotnet build on Windows too (ADR 0073):
+        // Visual Studio 2022 installs no targeting pack older than 4.6.2.
+        _repo.Write("L/L.csproj", """
+            <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+              <PropertyGroup><TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion></PropertyGroup>
+              <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+            </Project>
+            """);
+        var legacy = await Offramp.Core.Processes.ProcessRunner.Instance.RunAsync(
+            new Offramp.Core.Processes.ProcessSpec("dotnet", ["msbuild", "L/L.csproj", "-getProperty:OfframpLegacyPackages", "-nologo"]) { WorkingDirectory = _repo.Path },
+            TestContext.Current.CancellationToken);
+        Assert.Equal("true", legacy.StandardOutput.Trim());
+    }
+
+    [Fact]
+    public void A_legacy_section_for_macos_and_linux_only_is_widened_in_place()
+    {
+        // What doctor wrote before ADR 0073: the legacy section off Windows only.
+        var widened = "<Project>\n" + string.Concat(CompileOnlyConditional.BlockLines().Select(l => "  " + l + "\n")) + "</Project>\n";
+        var earlier = widened
+            .Replace(CompileOnlyConditional.LegacyLines[0], "<!-- Legacy (non-SDK) projects on macOS/Linux: the .NET Framework reference assemblies and the web targets come from packages, as for SDK-style projects (added by offramp doctor). -->", StringComparison.Ordinal)
+            .Replace("'$(MSBuildRuntimeType)' == 'Core' And '$(UsingMicrosoftNETSdk)' != 'true'", "!$([MSBuild]::IsOSPlatform('Windows')) And '$(UsingMicrosoftNETSdk)' != 'true'", StringComparison.Ordinal);
+        Assert.NotEqual(widened, earlier);
+
+        Assert.False(CompileOnlyConditional.IsPresent(earlier));
+        Assert.Equal(widened, CompileOnlyConditional.Apply(earlier));
+        Assert.True(CompileOnlyConditional.IsPresent(widened));
+        Assert.Null(CompileOnlyConditional.Apply(widened));
     }
 
     private static void AssertValidProject(string content)

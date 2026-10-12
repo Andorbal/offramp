@@ -7,4 +7,13 @@
     <ProjectReference Include="..\..\src\Offramp.Analysis\Offramp.Analysis.csproj" />
     <ProjectReference Include="..\Offramp.Fixtures\Offramp.Fixtures.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Every Newtonsoft.Json release from 7.0.1 to the newest 13.x, for the differential tests of
+      rules/newtonsoft-breaking.yml (ADRs 0066 and 0068). Keep in step with NewtonsoftReleases.All.
+    -->
+    <PackageDownload Include="Newtonsoft.Json" Version="[7.0.1];[8.0.1];[8.0.2];[8.0.3];[9.0.1];[10.0.1];[10.0.2];[10.0.3];[11.0.1];[11.0.2];[12.0.1];[12.0.2];[12.0.3];[13.0.1];[13.0.2];[13.0.3];[13.0.4]" />
+    <PackageReference Include="System.Security.Permissions" />
+  </ItemGroup>
 </Project>

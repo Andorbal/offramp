@@ -89,6 +89,9 @@ public sealed record RedirectsRequest
 
     public bool Prune { get; init; }
 
+    /// <summary>Assembly names whose redirects are synced (case-insensitive); null for every assembly.</summary>
+    public IReadOnlyCollection<string>? Assemblies { get; init; }
+
     public required DiagnosticBag Diagnostics { get; init; }
 }
 
@@ -169,13 +172,14 @@ public static class RedirectPlanner
         // A configuration file can name an assembly twice; the first entry is the one compared.
         var existing = bindings.Redirects.GroupBy(r => r.Assembly, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        foreach (var (assembly, older) in graph.Older.OrderBy(n => n.Key, StringComparer.OrdinalIgnoreCase))
+        bool Synced(string assembly) => request.Assemblies is null || request.Assemblies.Contains(assembly, StringComparer.OrdinalIgnoreCase);
+        foreach (var (assembly, older) in graph.Older.Where(n => Synced(n.Key)).OrderBy(n => n.Key, StringComparer.OrdinalIgnoreCase))
         {
             Report(request, DiagnosticCatalog.OFR1505, config,
                 $"The application deploys {assembly} {older.Deployed}, older than the {older.Highest} other assemblies reference (referenced as {string.Join(", ", older.Referenced)}); no redirect is written. Update the package that ships it.");
         }
 
-        foreach (var (assembly, needed) in graph.Needed.OrderBy(n => n.Key, StringComparer.OrdinalIgnoreCase))
+        foreach (var (assembly, needed) in graph.Needed.Where(n => Synced(n.Key)).OrderBy(n => n.Key, StringComparer.OrdinalIgnoreCase))
         {
             var oldVersion = "0.0.0.0-" + needed.Highest;
             if (!existing.TryGetValue(assembly, out var present))
@@ -196,17 +200,29 @@ public static class RedirectPlanner
             }
         }
 
-        foreach (var present in bindings.Redirects.Where(r => !graph.Needed.ContainsKey(r.Assembly)).OrderBy(r => r.Assembly, StringComparer.OrdinalIgnoreCase))
+        foreach (var present in bindings.Redirects.Where(r => Synced(r.Assembly) && !graph.Needed.ContainsKey(r.Assembly)).OrderBy(r => r.Assembly, StringComparer.OrdinalIgnoreCase))
         {
             var entry = new RedirectEntry
             {
                 Assembly = present.Assembly, PublicKeyToken = present.PublicKeyToken, Culture = present.Culture,
                 OldVersion = present.OldVersion, NewVersion = present.NewVersion, Action = RedirectAction.Unchanged,
             };
-            if (graph.Deployed.ContainsKey(present.Assembly))
+            if (graph.Deployed.TryGetValue(present.Assembly, out var deployed))
             {
-                // One version in the graph: the redirect is harmless and stays.
-                entries.Add(entry);
+                // One version in the graph: the redirect is harmless and stays, unless it points at a
+                // version the application does not deploy (left by an upgrade), which would fail to load.
+                var version = deployed.Version.ToString();
+                if (present.NewVersion != version)
+                {
+                    var oldVersion = "0.0.0.0-" + version;
+                    bindings.Change(present, oldVersion, version);
+                    entries.Add(entry with { OldVersion = oldVersion, NewVersion = version, Action = RedirectAction.Changed, Was = present.NewVersion });
+                    Report(request, DiagnosticCatalog.OFR1502, config, $"Changes the redirect for {present.Assembly} from {present.OldVersion} → {present.NewVersion} to {oldVersion} → {version}: the application deploys {version}.");
+                }
+                else
+                {
+                    entries.Add(entry);
+                }
             }
             else if (request.Prune)
             {

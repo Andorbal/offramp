@@ -109,6 +109,28 @@ public sealed class RedirectTests
     }
 
     [Fact]
+    public async Task A_redirect_to_a_version_the_application_does_not_deploy_is_moved_to_the_deployed_one()
+    {
+        // Left by an upgrade: the App.config still sends 0.0.0.0-12.0.0.0 to 12.0.0.0, but 13.0.3
+        // (13.0.0.0) deploys, so anything built against 12 would fail to load.
+        var scanned = await ScannedFixtures.ScanAsync("legacy-csproj");
+        using var _ = scanned.Repository;
+        var config = Path.Combine(scanned.Root, "src", "Billing.Tool", "App.config");
+        var text = File.ReadAllText(config);
+        var start = text.IndexOf("<bindingRedirect", text.IndexOf("Newtonsoft.Json", StringComparison.Ordinal), StringComparison.Ordinal);
+        var end = text.IndexOf("/>", start, StringComparison.Ordinal) + 2;
+        File.WriteAllText(config, text[..start] + "<bindingRedirect oldVersion=\"0.0.0.0-12.0.0.0\" newVersion=\"12.0.0.0\" />" + text[end..]);
+        var diagnostics = new DiagnosticBag();
+
+        var plan = RedirectPlanner.Plan(Request(scanned.Root, scanned.Outcome.Model!, diagnostics, prune: false) with { Apps = ["src/Billing.Tool/Billing.Tool.csproj"] });
+
+        var redirect = Assert.Single(Assert.Single(plan.Result.Apps).Redirects);
+        Assert.Equal((RedirectAction.Changed, "0.0.0.0-13.0.0.0", "13.0.0.0", "12.0.0.0"), (redirect.Action, redirect.OldVersion, redirect.NewVersion, redirect.Was));
+        Assert.Contains("newVersion=\"13.0.0.0\"", System.Text.Encoding.UTF8.GetString(Assert.Single(plan.ChangeSet!.Edits).After), StringComparison.Ordinal);
+        Assert.True(diagnostics.Contains("OFR1502"));
+    }
+
+    [Fact]
     [ProducesDiagnostic("OFR1506")]
     public async Task An_application_with_a_partial_model_is_left_alone_even_with_prune()
     {
@@ -185,6 +207,28 @@ public sealed class RedirectTests
         Assert.Equal([("Newtonsoft.Json", RedirectAction.Unchanged)], site.Redirects.Select(r => (r.Assembly, r.Action)));
         Assert.Null(plan.ChangeSet);
         Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR1507" && d.Project == "src/Plugins/Tax/Tax.csproj");
+    }
+
+    [Fact]
+    public async Task Only_the_named_assemblies_are_synced()
+    {
+        // newtonsoft upgrade syncs Newtonsoft.Json only (ADR 0073): MassTransit's stale log4net redirects rode along.
+        var fixture = await ScannedFixtures.GetAsync("versions");
+        using var copy = await FixtureRepository.CreateAsync("versions", git: false);
+        var path = Path.Combine(copy.Path, "src", "Customer.Api", "web.config");
+        var original = File.ReadAllText(path);
+        var wrong = original
+            .Replace("newVersion=\"9.0.0.0\"", "newVersion=\"8.0.0.0\"", StringComparison.Ordinal)
+            .Replace("newVersion=\"5.2.3.0\"", "newVersion=\"5.2.2.0\"", StringComparison.Ordinal);
+        File.WriteAllText(path, wrong);
+
+        var plan = RedirectPlanner.Plan(Request(copy.Path, fixture.Outcome.Model!, new DiagnosticBag(), prune: true) with { Assemblies = ["newtonsoft.json"] });
+
+        var app = Assert.Single(plan.Result.Apps);
+        Assert.Equal([("Newtonsoft.Json", RedirectAction.Changed)], app.Redirects.Select(r => (r.Assembly, r.Action)));
+        // System.Net.Http.Formatting stays wrong and the stale System.Web.Mvc entry stays, though prune is on.
+        var expected = wrong.Replace("newVersion=\"8.0.0.0\"", "newVersion=\"9.0.0.0\"", StringComparison.Ordinal);
+        Assert.Equal(expected, System.Text.Encoding.UTF8.GetString(Assert.Single(plan.ChangeSet!.Edits).After));
     }
 
     private static RedirectsRequest Request(string root, WorkspaceModel model, DiagnosticBag diagnostics, bool prune) => new()

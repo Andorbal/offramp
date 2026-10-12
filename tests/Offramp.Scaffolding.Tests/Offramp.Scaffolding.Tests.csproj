@@ -11,5 +11,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <!-- newtonsoft upgrade reads the target's lib/ folders from its package. -->
+    <PackageDownload Include="Newtonsoft.Json" Version="[13.0.4]" />
   </ItemGroup>
 </Project>

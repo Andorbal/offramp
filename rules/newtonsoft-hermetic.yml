@@ -1,0 +1,44 @@
+# APIs that make a method unsuitable as a probe's entry point (docs/spec/commands/newtonsoft.md,
+# "Entry points"): their results depend on the machine, the clock, the network, or a database, or
+# they change the world. Documentation IDs: N: a namespace, T: a type and its members, M:/P: a
+# member (without parameters: every overload). offramp.yml adds to them with
+# newtonsoft.hermetic.nonHermetic.
+nonHermetic:
+  - T:System.IO.File
+  - T:System.IO.Directory
+  - T:System.IO.FileStream
+  - T:System.IO.FileInfo
+  - T:System.IO.DirectoryInfo
+  - T:System.IO.FileSystemWatcher
+  - M:System.IO.StreamReader.#ctor(System.String)
+  - M:System.IO.StreamWriter.#ctor(System.String)
+  - M:System.IO.StreamWriter.#ctor(System.String,System.Boolean)
+  - N:System.Net
+  - N:System.Net.Http
+  - N:System.Net.Sockets
+  - N:System.Data.SqlClient
+  - N:Microsoft.Data.SqlClient
+  - T:System.Data.Common.DbConnection
+  - T:System.Data.Common.DbCommand
+  - T:System.Data.IDbConnection
+  - T:System.Data.IDbCommand
+  - P:System.DateTime.Now
+  - P:System.DateTime.UtcNow
+  - P:System.DateTime.Today
+  - P:System.DateTimeOffset.Now
+  - P:System.DateTimeOffset.UtcNow
+  - M:System.Guid.NewGuid
+  - T:System.Random
+  - T:System.Environment
+  - T:System.Diagnostics.Process
+  - T:System.Diagnostics.Stopwatch
+  - M:System.Threading.Thread.Sleep
+  - M:System.Threading.Tasks.Task.Delay
+  - P:System.Console.In
+  - M:System.Console.Read
+  - M:System.Console.ReadLine
+  - M:System.Console.ReadKey
+  - T:System.Configuration.ConfigurationManager
+  - T:System.Web.HttpContext
+  - T:Microsoft.Win32.Registry
+  - T:Microsoft.Win32.RegistryKey
