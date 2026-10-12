@@ -63,7 +63,8 @@ The gaps are in what the tests can see and in what the commands touch:
 On Windows, after the fixes, the whole loop works on this codebase: the probes record on 7.0.1, the
 upgrade builds on 13.0.4, and the probes catch a real behavior change in MassTransit's XML serializer
 ([below](#on-windows-the-whole-loop)). Getting there found three more P1s, in `doctor` and `scan`
-for `dotnet build` on Windows (#9 to #11).
+for `dotnet build` on Windows (#9 to #11). The corpus's first run on Linux found one more, in
+`scan`: a project the solution lists in the wrong letter case (#12).
 
 Coverage is low (1 of 51 production sites gets a probe), and most of that is MassTransit, not
 Offramp: a message bus serializes `object` and internal envelope types, which no test can construct
@@ -71,7 +72,7 @@ and no rule can type. The report says where Offramp could do better (finding #6)
 
 ## Status after the fixes
 
-All eight P1s and two of the three P2s are fixed on the branch that carries this report, and all
+All nine P1s and two of the three P2s are fixed on the branch that carries this report, and all
 are general. The numbers are from a fresh checkout after the fixes; the corpus test `masstransit`
 (`tests/Offramp.Corpus.Tests/Codebases/MassTransitTests.cs`) pins them.
 
@@ -87,6 +88,7 @@ are general. The numbers are from a fresh checkout after the fixes; the corpus t
 | P1 #9 no targeting pack for `dotnet build` on Windows | `cd971ef` | the legacy section applies to every build by .NET's MSBuild; all 36 projects build on `windows-latest` |
 | P1 #10 NuGet 2 restore under .NET's MSBuild on Windows | `cd971ef` | `RestorePackages` conditioned on `'$(MSBuildRuntimeType)' != 'Core'` |
 | P1 #11 the packages.config download project in the model | `cb0cb38` | 36 projects on Windows too (was 37, one of them partial) |
+| P1 #12 the solution's project in the wrong letter case is not named | `e69c94c` | on Linux the first scan names all three paths in the wrong letter case (`OFR0117`), the solution's among them; with the links it prescribes, all 36 projects build |
 
 Still open:
 
@@ -310,6 +312,27 @@ missing from the global packages folder, or built with `dotnet build -bl` and sc
 `--no-build`.
 
 **Fix.** `BinlogReader` skips it, as it skips `.metaproj` files.
+
+## Found by the corpus on Linux
+
+### P1 #12: a project the solution lists in the wrong letter case is not named
+
+**What happened.** The corpus's first run in CI, on `ubuntu-latest`, loaded none of the 36 projects:
+each was "not built: MSBuild stopped before building any project (MSB3202: The project file
+"src/Containers/MassTransit.AutofacIntegration/MassTransit.AutofacIntegration.csproj" was not found.)".
+`MassTransit.sln` (and two `ProjectReference`s) spell the folder `AutofacIntegration`; git has
+`AutoFacIntegration`. macOS ignores the difference, which is why the field test and the corpus test,
+both run on macOS, never saw it. `scan` named the two `Compile` items in the wrong letter case
+(`OFR0117`) but not the solution's entry: the error that shows it, MSB3202, belongs to the solution,
+not to the project it names, and was not among the errors read for letter case.
+
+**Would another codebase hit this?** Any solution whose entry for a project differs in letter case
+from the folder or file on disk, built on Linux.
+
+**Fix.** MSB3202 is read for letter case like MSB4019 and CS2001, and is matched to the project it
+names when the project has no evaluation of its own. The corpus test now applies the links `OFR0117`
+prescribes on Linux, as SmartStoreNET's and Open Live Writer's do; `CaseLinks` links a folder in the
+wrong case, not just the file, so the files beside the project still resolve.
 
 ## Command log
 
