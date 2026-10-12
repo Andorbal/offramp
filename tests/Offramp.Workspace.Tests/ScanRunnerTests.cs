@@ -428,6 +428,45 @@ public sealed class ScanRunnerTests : IDisposable
     private static OfframpConfig MsbuildConfig(string? path) =>
         new() { Scan = new ScanConfig { Builder = ScanConfig.Msbuild, MsbuildPath = path } };
 
+    [Fact]
+    [ProducesDiagnostic("OFR0117")]
+    public async Task A_project_the_solution_lists_in_another_letter_case_is_named_on_a_case_sensitive_file_system()
+    {
+        // MassTransit 3.3.5 on Linux: the solution's Containers\MassTransit.AutofacIntegration is AutoFacIntegration on
+        // disk, restore stopped the whole build (MSB3202), and every project was "not built" without OFR0117.
+        _repo.Write("Directory.Build.props", "<Project />");
+        _repo.Write("Directory.Build.targets", "<Project />");
+        _repo.Write("IoC/IoC.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>");
+        Assert.SkipWhen(Directory.Exists(_repo.Combine("IOC")), "This file system ignores letter case (Windows, macOS), so every spelling exists.");
+        _repo.Write("All.sln", """
+            Microsoft Visual Studio Solution File, Format Version 12.00
+            # Visual Studio Version 17
+            VisualStudioVersion = 17.0.31903.59
+            MinimumVisualStudioVersion = 10.0.40219.1
+            Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IoC", "Ioc\Ioc.csproj", "{11111111-1111-1111-1111-111111111111}"
+            EndProject
+            Global
+            	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+            		Debug|Any CPU = Debug|Any CPU
+            	EndGlobalSection
+            	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+            		{11111111-1111-1111-1111-111111111111}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+            		{11111111-1111-1111-1111-111111111111}.Debug|Any CPU.Build.0 = Debug|Any CPU
+            	EndGlobalSection
+            EndGlobal
+
+            """);
+
+        var outcome = await RunAsync(r => r with { Processes = ProcessRunner.Instance });
+
+        Assert.False(outcome.Result!.BuildSucceeded);
+        var diagnostics = _diagnostics.ToSortedList();
+        var step = Assert.Single(diagnostics, d => d.Code == "OFR0117");
+        Assert.Equal("Ioc/Ioc.csproj", step.Project);
+        Assert.Equal("Does not build on a case-sensitive file system: Ioc/Ioc.csproj: 'Ioc' is 'IoC' on disk.", step.Message);
+        Assert.Equal("[\"Ioc/Ioc.csproj\"]", step.Data["paths"]!.ToJsonString());
+    }
+
     private Task<ScanOutcome> RunAsync(Func<ScanRequest, ScanRequest>? customize = null)
     {
         var request = ScannedFixtures.Request(_repo.Path, _diagnostics, new FakeProcessRunner());

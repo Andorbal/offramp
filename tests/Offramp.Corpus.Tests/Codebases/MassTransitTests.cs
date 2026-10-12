@@ -22,9 +22,27 @@ public sealed class MassTransitTests
     {
         await using var corpus = await CorpusRun.OpenAsync("masstransit");
 
+        // A fresh checkout: on Linux, MassTransit's own paths in the wrong letter case stop the build, and the first
+        // scan names all three: two Compile items and the solution's AutofacIntegration folder, which is AutoFacIntegration
+        // on disk (MSB3202 before any project built; the corpus's first run on Linux found it unnamed).
+        await corpus.RunAsync("doctor", "doctor", "--fix", "--apply", "--yes");
+        var fresh = await corpus.RunAsync("scan", "scan");
+        if (OperatingSystem.IsLinux())
+        {
+            var spelled = fresh.Diagnostics("OFR0117").SelectMany(d => d["data"]!["paths"]!.AsArray()).Select(p => p!.GetValue<string>()).ToList();
+            Assert.Contains("src/Containers/MassTransit.AutofacIntegration/MassTransit.AutofacIntegration.csproj", spelled);
+            Assert.Contains("src/MassTransit/Transports/FanoutSendEndpoint.cs", spelled);
+            Assert.Contains("src/MassTransit.RabbitMqTransport/RabbitMqHeaders.cs", spelled);
+        }
+
+        // Harness adjustment, the fix the diagnostics above prescribe: links for the paths in the wrong letter case
+        // (OFR0117, Linux only).
+        var linked = CaseLinks.Apply(fresh, corpus.Repository.Path);
+        Assert.Equal(OperatingSystem.IsLinux() ? 3 : 0, linked.Count);
+
         var sweep = await corpus.SweepAsync();
 
-        // Out of the box: doctor --fix is all it takes for every project to build outside Windows.
+        // Then doctor --fix is all it takes for every project to build outside Windows.
         Assert.Equal(36, sweep.Scan.Result["projects"]!.GetValue<int>());
         Assert.Empty(sweep.Scan.Result["notLoaded"]!.AsArray());
         Assert.Empty(sweep.Scan.Result["partial"]!.AsArray());

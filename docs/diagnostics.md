@@ -764,9 +764,9 @@ An ASP.NET (System.Web) project imports `$(VSToolsPath)/WebApplications/Microsof
 
 **build step needs a case-insensitive file system** · warning · project loading
 
-An import, source file, or copied file is spelled in another letter case than the file on disk. Windows and macOS file systems ignore case by default; Linux does not, so the build fails there (MSB4019, CS2001, MSB3030). The message names the first differing path segment and counts the rest.
+An import, source file, copied file, or a project the solution lists is spelled in another letter case than the file on disk. Windows and macOS file systems ignore case by default; Linux does not, so the build fails there (MSB4019, CS2001, MSB3030, MSB3202). The message names the first differing path segment and counts the rest.
 
-- **Typical cause:** `..\Build\` in a project file for a folder named `build`, or a `Compile` item written as `Default.aspx.CS`.
+- **Typical cause:** `..\Build\` in a project file for a folder named `build`, a `Compile` item written as `Default.aspx.CS`, or a solution entry for `AutofacIntegration` when the folder is `AutoFacIntegration`.
 - **Fix:** Rename the reference to the spelling on disk (or the file to the reference's spelling). Offramp does not edit either.
 
 ### OFR0118
