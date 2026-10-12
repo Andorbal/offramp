@@ -11,6 +11,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-12
+
 ### Added
 - The specification of `offramp newtonsoft scan|tests|upgrade` (`docs/spec/commands/newtonsoft.md`,
   roadmap M18, ADRs 0065–0068): upgrading Newtonsoft.Json from versions as old as 7 to 13.x with
@@ -18,7 +20,6 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   `newtonsoft-sdk` (SDK-style `net48;net10.0` projects with xunit and NUnit tests that run
   Newtonsoft.Json 7.0.1 on every OS) and `newtonsoft-legacy` (`packages.config`, `HintPath`, a
   binding redirect, and a legacy MSTest project at C# 6), scanned by the fixture model tests.
-  The commands themselves follow in later releases.
 - `offramp newtonsoft scan` (roadmap M18, ADRs 0066, 0068, 0069): for every project that uses
   Newtonsoft.Json, how it references it (PackageReference, central versions, packages.config,
   HintPath, a loose DLL, or transitively) and its own binding redirects; every call that
@@ -1628,7 +1629,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `Directory.Build.props` no longer produces a separate symbols package: PDBs
   are embedded, so `dotnet pack` failed with NU5017 when asked for a `.snupkg`.
 
-[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/Andorbal/offramp/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/Andorbal/offramp/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/Andorbal/offramp/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/Andorbal/offramp/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/Andorbal/offramp/compare/68f5511b14b047def139a5de50f8f0dd7919174e...v0.15.0
