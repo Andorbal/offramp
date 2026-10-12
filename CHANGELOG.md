@@ -104,6 +104,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   widened in place. NuGet 2's `RestorePackages` is conditioned on .NET Framework's MSBuild instead
   of on Windows, since its `NuGet.targets` downloads NuGet.exe with a `CodeTaskFactory` task that
   .NET's MSBuild lacks on Windows too (MSB4801).
+- `scan` names a project the solution lists in another letter case than on disk (OFR0117). On Linux, MSBuild stopped
+  before building any project (MSB3202) and every project was only "not built"; MassTransit 3.3.5's solution lists
+  `Containers\MassTransit.AutofacIntegration`, whose folder is `AutoFacIntegration`. Found by the corpus's first run
+  of MassTransit on Linux, which now applies the links OFR0117 prescribes as the other corpus tests do.
 - `scan` no longer takes the project `Offramp.PackagesConfig.targets` writes to download missing
   `packages.config` packages (`obj/offramp-packages-config/download.csproj`) for one of the
   repository's: a build that ran it, as `dotnet build` on Windows does, added it to the model as a

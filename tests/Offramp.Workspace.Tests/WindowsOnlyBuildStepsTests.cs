@@ -105,6 +105,25 @@ public sealed class WindowsOnlyBuildStepsTests
     }
 
     [Fact]
+    [ProducesDiagnostic("OFR0117")]
+    public void A_project_the_solution_lists_in_another_letter_case_is_named()
+    {
+        // MassTransit 3.3.5: MassTransit.sln lists Containers\MassTransit.AutofacIntegration\..., the folder is
+        // AutoFacIntegration, and on Linux restore stopped the whole build with MSB3202.
+        using var repo = new ScratchDirectory("path-case");
+        repo.Write("src/IoC/IoC.csproj", "<Project />");
+        Assert.SkipWhen(Directory.Exists(Path.Combine(repo.Path, "src", "IOC")), "This file system ignores letter case (Windows, macOS), so every spelling exists.");
+        var listed = Path.Combine(repo.Path, "src", "Ioc", "Ioc.csproj");
+        BuildError[] errors = [new("MSB3202", $"The project file \"{listed}\" was not found.", "/repo/src/All.sln", null, null, null)];
+
+        var step = Assert.Single(WindowsOnlyBuildSteps.Detect("src/Ioc/Ioc.csproj", [], errors));
+
+        Assert.Equal("OFR0117", step.Descriptor.Code);
+        Assert.Equal($"{listed}: 'Ioc' is 'IoC' on disk", step.Evidence);
+        Assert.Equal([listed.Replace('\\', '/')], step.Paths);
+    }
+
+    [Fact]
     public void A_path_missing_in_every_letter_case_is_not_a_case_mismatch()
     {
         using var repo = new ScratchDirectory("path-case");

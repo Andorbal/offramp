@@ -547,7 +547,7 @@ public static class ScanRunner
             }
 
             // Without an evaluation, the evaluation error and the project's own files are the evidence.
-            BuildError[] error = EvaluationError(data, mapper, missing.Project) is { } first ? [first] : [];
+            BuildError[] error = (EvaluationError(data, mapper, missing.Project) ?? NotFoundError(data, mapper, missing.Project)) is { } first ? [first] : [];
             foreach (var step in WindowsOnlyBuildSteps.Detect(missing.Project, [], error, StepContext(missing.Project)))
             {
                 loading.Add(ReportStep(request, step, missing.Project, mapper));
@@ -924,6 +924,15 @@ public static class ScanRunner
     private static BuildError? EvaluationError(BinlogData data, CapturePathMapper mapper, string project) =>
         data.Errors.FirstOrDefault(e => e.ProjectFile is not null
             && string.Equals(mapper.ToRelative(e.ProjectFile), project, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// MSBuild's "project file was not found" (MSB3202) for a project the solution lists, as one spelled in another
+    /// letter case than on disk is on Linux: the message names the project, the error belongs to the solution.
+    /// </summary>
+    private static BuildError? NotFoundError(BinlogData data, CapturePathMapper mapper, string project) =>
+        data.Errors.FirstOrDefault(e => e.Code == "MSB3202"
+            && WindowsOnlyBuildSteps.QuotedPath(e.Message) is { } path
+            && string.Equals(mapper.ToRelative(path), project, StringComparison.Ordinal));
 
     /// <summary>One <c>OFR0121</c> per reference from a portable target to a framework-only project.</summary>
     internal static IEnumerable<Diagnostic> FrameworkOnlyReferences(DiagnosticBag diagnostics, IReadOnlyList<ProjectInfo> projects, ProjectGraph graph)
