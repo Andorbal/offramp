@@ -447,6 +447,10 @@ public static partial class ScanRunner
         }
     }
 
+    /// <summary>True when this scan builds with <c>dotnet build</c>, rather than with MSBuild.exe or not at all (it reads a log).</summary>
+    private static bool BuiltWithDotnet(ScanRequest request) =>
+        request.BinlogPath is null && request.ComplogPath is null && !request.NoBuild && !UsesMsbuild(request.Config);
+
     /// <summary>A missing file at an absolute path of the other kind of OS: <c>/Users/…</c> on Windows, <c>C:\…</c> elsewhere.</summary>
     private static Regex ForeignPath() => OperatingSystem.IsWindows() ? WindowsForeignPath() : UnixForeignPath();
 
@@ -908,7 +912,7 @@ public static partial class ScanRunner
         var evidence = WindowsOnlyBuildSteps.Shorten(Scrub(step.Evidence, mapper));
         var message = step.Id == "path-case"
             ? $"Does not build on a case-sensitive file system: {evidence}."
-            : OperatingSystem.IsWindows() && !UsesMsbuild(request.Config) && !WindowsOnlyBuildSteps.DotnetBuildOnWindows.Contains(step.Id)
+            : OperatingSystem.IsWindows() && BuiltWithDotnet(request) && !WindowsOnlyBuildSteps.DotnetBuildOnWindows.Contains(step.Id)
                 ? $"Needs Visual Studio's MSBuild to build, which `dotnet build` is not (`offramp scan --msbuild`): {evidence}."
                 : $"Needs Windows to build: {evidence}.";
         List<KeyValuePair<string, JsonNode?>> data = [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", evidence)];

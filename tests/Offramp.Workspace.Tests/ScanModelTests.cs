@@ -299,12 +299,15 @@ public sealed class ScanModelTests
 
         var reported = ScanRunner.ReportStep(request, resources, "src/A/A.csproj", CapturePathMapper.Local(root));
         var msbuild = ScanRunner.ReportStep(request with { Config = request.Config with { Scan = request.Config.Scan with { Builder = "msbuild" } } }, resources, "src/A/A.csproj", CapturePathMapper.Local(root));
+        var log = ScanRunner.ReportStep(request with { BinlogPath = Path.Combine(root, "msbuild.binlog") }, resources, "src/A/A.csproj", CapturePathMapper.Local(root));
         var guarded = ScanRunner.ReportStep(request, sgen, "src/A/A.csproj", CapturePathMapper.Local(root));
 
         Assert.Equal(OperatingSystem.IsWindows()
             ? "Needs Visual Studio's MSBuild to build, which `dotnet build` is not (`offramp scan --msbuild`): 2 non-string resource(s) in Icons.resx."
             : "Needs Windows to build: 2 non-string resource(s) in Icons.resx.", reported.Message);
         Assert.Equal("Needs Windows to build: 2 non-string resource(s) in Icons.resx.", msbuild.Message);
+        // A log read rather than built says nothing about the builder (the windows-only-build-steps fixture's).
+        Assert.Equal("Needs Windows to build: 2 non-string resource(s) in Icons.resx.", log.Message);
         Assert.Equal("Needs Windows to build: GenerateSerializationAssemblies=On.", guarded.Message);
     }
 

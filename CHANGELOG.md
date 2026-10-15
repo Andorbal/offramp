@@ -37,7 +37,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `newtonsoft tests` loads each compilation once, skips the behavior detectors whose findings it
   discarded, and with `--project` finds only those projects' sites (the call graph still spans every
   project); `newtonsoft scan` reuses the call graph's compilations too (issue #54, ADR 0075).
-- On Windows with the `dotnet` builder, a build step only Visual Studio's MSBuild runs
+- On Windows, when `scan` builds with `dotnet build`, a build step only Visual Studio's MSBuild runs
   (non-string resources, COM references, EDMX, T4, ...) says to `offramp scan --msbuild`, which is
   also the next step; `offramp doctor --fix` stays the next step elsewhere and for the steps it
   fixes. `OFR0119`'s and `OFR0130`'s fixes say so (issue #56, ADR 0076).

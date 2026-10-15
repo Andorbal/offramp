@@ -126,7 +126,7 @@ succeeded, and marks the rest `partial: true`), `OFR0131` build timed out,
 path of the other kind of OS, the message says the build read another
 machine's paths, from `obj/` folders or packages copied or synced from it).
 `OFR0110`–`0119` and `OFR0124`–`0126` say "Needs Windows to build", except
-that a scan on Windows with the `dotnet` builder says a step only Visual
+that a scan on Windows that builds with `dotnet build` says a step only Visual
 Studio's MSBuild runs (non-string resources, COM references, EDMX, T4, Fakes,
 inline tasks, MSTest v1, SSDT) needs `offramp scan --msbuild`.
 

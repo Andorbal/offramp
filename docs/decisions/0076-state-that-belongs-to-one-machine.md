@@ -31,9 +31,10 @@ file-sync tool (issues #55, #56). Several things went wrong without saying why:
   a model exists, it says the model was built before the change, and its next step is
   `offramp scan`. Staleness stays as ADR 0009 has it: content hashes, nothing else.
 - **On Windows, a step `dotnet build` cannot run points to MSBuild.** For non-string resources, COM
-  references, EDMX, T4, Fakes, inline tasks, MSTest v1, and SSDT, a scan on Windows with the
-  `dotnet` builder says the step "needs Visual Studio's MSBuild to build, which `dotnet build` is
-  not (`offramp scan --msbuild`)", and the next step is `offramp scan --msbuild`. The steps
+  references, EDMX, T4, Fakes, inline tasks, MSTest v1, and SSDT, a scan on Windows that builds
+  with `dotnet build` says the step "needs Visual Studio's MSBuild to build, which `dotnet build` is
+  not (`offramp scan --msbuild`)", and the next step is `offramp scan --msbuild`. A scan that reads
+  a log (`--binlog`, `--complog`, `--no-build`) says nothing about a builder it did not run. The steps
   `doctor --fix` conditions for `dotnet build` on Windows (sgen, web targets, `MvcBuildViews`,
   Bcl.Build; ADR 0064), and those Windows needs nothing for (build events, letter case), keep
   `offramp doctor --fix`. After an MSBuild build on Windows there is no next step. `OFR0119`'s and
