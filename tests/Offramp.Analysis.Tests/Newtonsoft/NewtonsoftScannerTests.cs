@@ -279,6 +279,41 @@ public sealed class NewtonsoftScannerTests
     }
 
     [Fact]
+    public async Task Without_findings_the_sites_are_the_same_and_nothing_is_judged()
+    {
+        // Issue #54: `newtonsoft tests` ran the behavior detectors and threw their findings away.
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var (full, _) = Scan(scanned);
+        var (sites, _) = Scan(scanned, r => r with { Findings = false });
+
+        Assert.NotEmpty(full.Findings);
+        Assert.Empty(sites.Findings);
+        Assert.Equal(OfframpJson.Serialize(full with { Findings = [], Summary = full.Summary with { Findings = sites.Summary.Findings } }, AnalysisJsonContext.Default.NewtonsoftScanResult),
+            OfframpJson.Serialize(sites, AnalysisJsonContext.Default.NewtonsoftScanResult));
+    }
+
+    [Fact]
+    public async Task A_site_in_a_test_project_says_its_project_is_a_test_project()
+    {
+        // Issue #52: "the site's member is not declared in source", for members declared in source.
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var model = scanned.Outcome.Model!;
+        var (result, _) = Scan(scanned, r => r with
+        {
+            Model = model with { Projects = [.. model.Projects.Select(p => p.Id == Catalog ? p with { Kind = ProjectKind.Test, KindEvidence = "PackageReference NUnit" } : p)] },
+        });
+
+        var sites = result.Projects.Single(p => p.Project == Catalog).Sites;
+        Assert.NotEmpty(sites);
+        Assert.All(sites, s =>
+        {
+            Assert.Null(s.EntryPoint);
+            Assert.Equal(UncoveredReason.NotAccessible, s.Uncovered!.Reason);
+            Assert.Equal($"{Catalog} is a test project (PackageReference NUnit), and test code is not searched for entry points; if it is production code, set its kind in offramp.yml", s.Uncovered.Detail);
+        });
+    }
+
+    [Fact]
     public async Task A_public_caller_is_the_entry_point_and_the_depth_bounds_the_search()
     {
         // Reorder.Plan is internal to Inventory; a public caller in Inventory reaches it, and with

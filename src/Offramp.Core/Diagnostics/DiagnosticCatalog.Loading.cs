@@ -93,6 +93,14 @@ public static partial class DiagnosticCatalog
         "Nothing to do. The folder is `nuget restore`'s, which `.gitignore` files of such repositories exclude.",
         ScanArea);
 
+    public static readonly DiagnosticDescriptor OFR0107 = new(
+        "OFR0107", Severity.Warning,
+        "test project an application uses",
+        "The project says it is a test project (`IsTestProject=true` or the test ProjectTypeGuid), and an application (a web, service, Windows Forms, or WPF project) references it, directly or through other projects. What an application references ships with it, so it is probably production code: as a test project it is left out of entry-point search, `newtonsoft tests`, dead-code analysis, `report`, and `plan`. A project that is a test project only by a test framework it references is classified by its other evidence when an application uses it (ADR 0074); this one says so explicitly, so it is kept.",
+        "`Microsoft.NET.Test.Sdk` (which sets `IsTestProject`) or a test framework added to every project through `Directory.Build.props`, or tests kept inside a production library.",
+        "If it is production code, set its kind in `offramp.yml`: `projects: [{ path: ..., kind: library }]`, then scan again.",
+        LoadingArea);
+
     public static readonly DiagnosticDescriptor OFR0110 = new(
         "OFR0110", Severity.Warning,
         "build step needs Windows: sgen",
@@ -170,7 +178,7 @@ public static partial class DiagnosticCatalog
         "build step needs Windows: non-string resources",
         "A `.resx` file holds non-string resources (images, icons, serialized objects). .NET's MSBuild embeds those only as preserialized resources (MSB3822, MSB3823).",
         "Images or icons in a WinForms or Web Forms `.resx` file.",
-        "Set `GenerateResourceUsePreserializedResources` to `true` and reference the `System.Resources.Extensions` package, which .NET Framework applications then need at run time.",
+        "On Windows, scan with Visual Studio's MSBuild (`offramp scan --msbuild`, or `scan.builder: msbuild` in `offramp.yml`), which embeds them as Visual Studio does; `doctor --fix` does not change this step. To build with `dotnet build`, set `GenerateResourceUsePreserializedResources` to `true` and reference the `System.Resources.Extensions` package, which .NET Framework applications then need at run time.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0120 = new(
@@ -234,7 +242,7 @@ public static partial class DiagnosticCatalog
         "analysis build failed; model partial",
         "The build `scan` ran (or the log it read) has errors, so some projects have no compiler call. The model is written anyway; affected projects are marked `partial: true`.",
         "A compile error, a missing SDK or package, or a Windows-only build step on macOS or Linux.",
-        "Fix the first errors listed, add the compile-only block for Windows-only steps (`offramp doctor --fix`), or scan a log captured on Windows.",
+        "Fix the first errors listed. For Windows-only steps: outside Windows, add the compile-only block (`offramp doctor --fix`) or scan a log captured on Windows; on Windows, scan with Visual Studio's MSBuild (`offramp scan --msbuild`) for steps only it runs (non-string resources, COM references, EDMX, T4).",
         ScanArea);
 
     public static readonly DiagnosticDescriptor OFR0131 = new(

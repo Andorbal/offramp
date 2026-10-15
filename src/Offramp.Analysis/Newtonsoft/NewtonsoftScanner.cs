@@ -41,6 +41,12 @@ public sealed record NewtonsoftScanRequest
 
     /// <summary>Where compilations come from; null for the recorded compiler logs.</summary>
     public ICompilationSource? Compilations { get; init; }
+
+    /// <summary>
+    /// False when only the sites and their entry points are wanted (<c>newtonsoft tests</c>): the behavior detectors
+    /// and the trial compilation against the target, whose findings would be thrown away, are not run (issue #54).
+    /// </summary>
+    internal bool Findings { get; init; } = true;
 }
 
 /// <summary>A scanned project with what <c>newtonsoft tests</c> generates probes from.</summary>
@@ -58,7 +64,9 @@ public static class NewtonsoftScanner
         var projectsScanned = new List<ScannedProject>();
         scanned = projectsScanned;
         using var owned = request.Compilations is null ? new CompilationLoader(request.RepositoryRoot) : null;
-        var compilations = request.Compilations ?? owned!;
+
+        // The call graph loads every project's compilation; the scan of each project reuses it (issue #54).
+        var compilations = SharedCompilations.Over(request.Compilations ?? owned!);
         var candidates = request.Model.Projects
             .Where(p => p.Language == "csharp" && (request.Projects.Count == 0 || request.Projects.Contains(p.Id, StringComparer.Ordinal)))
             .Select(p => (Project: p, Tfm: CompilationLoader.PreferredTarget(p)))
@@ -138,7 +146,7 @@ public static class NewtonsoftScanner
     }
 
     /// <summary>Every C# project's compilation for its preferred target, test projects aside (their calls are not entry points).</summary>
-    private static IEnumerable<(ProjectInfo, Compilation)> Compilations(NewtonsoftScanRequest request, ICompilationSource compilations)
+    private static IEnumerable<(ProjectInfo, Compilation)> Compilations(NewtonsoftScanRequest request, SharedCompilations compilations)
     {
         foreach (var project in request.Model.Projects.Where(p => p.Language == "csharp" && !p.IsTestProject && p.Kind != ProjectKind.Test).OrderBy(p => p.Id, StringComparer.Ordinal))
         {
@@ -156,7 +164,15 @@ public static class NewtonsoftScanner
         finder.Find();
         for (var i = 0; i < finder.Sites.Count; i++)
         {
-            var (entry, uncovered) = entryPoints.Find(finder.Sites[i]);
+            // A test project's code is not in the call graph: say why, not that the member is missing (issue #52).
+            var (entry, uncovered) = project.IsTestProject || project.Kind == ProjectKind.Test
+                ? (null, new SiteUncovered
+                {
+                    Reason = UncoveredReason.NotAccessible,
+                    Detail = $"{project.Id} is a test project ({project.KindEvidence}), and test code is not searched for entry points; if it is production code, set its kind in offramp.yml",
+                    Candidates = [],
+                })
+                : entryPoints.Find(finder.Sites[i]);
             finder.Sites[i] = finder.Sites[i] with { Site = finder.Sites[i].Site with { EntryPoint = entry, Uncovered = uncovered } };
         }
 
@@ -171,6 +187,11 @@ public static class NewtonsoftScanner
         };
 
         SiteDiagnostics(request, project, finder);
+        if (!request.Findings)
+        {
+            return (report, [], finder.Sites);
+        }
+
         var current = NewtonsoftReferences.Release(reference);
         if (reference.Via == NewtonsoftReferenceKind.LooseDll)
         {

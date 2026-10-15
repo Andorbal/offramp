@@ -67,18 +67,24 @@ public static class NewtonsoftTestsGenerator
     public static (NewtonsoftTestsResult Result, ChangeSet? ChangeSet) Generate(NewtonsoftTestsRequest request, CancellationToken cancellationToken = default)
     {
         using var owned = request.Compilations is null ? new CompilationLoader(request.RepositoryRoot) : null;
-        var compilations = request.Compilations ?? owned!;
-        // The scan's own findings are `newtonsoft scan`'s to report.
+
+        // Planning and the trial compilation load the compilations the scan's call graph loaded (issue #54).
+        var compilations = SharedCompilations.Over(request.Compilations ?? owned!);
+
+        // The scan's own findings are `newtonsoft scan`'s to report, so they are not computed. The call graph spans
+        // every project (callers anywhere are entry points); the sites are only those of the projects asked for.
         NewtonsoftScanner.Scan(new NewtonsoftScanRequest
         {
             RepositoryRoot = request.RepositoryRoot,
             Model = request.Model,
             Target = NewtonsoftRules.Measured,
+            Projects = request.Projects,
             Diagnostics = new DiagnosticBag(),
             Progress = request.Progress,
             Compilations = compilations,
             EntryDepth = request.EntryDepth,
             NonHermetic = request.NonHermetic,
+            Findings = false,
         }, out var scanned, cancellationToken);
 
         var productions = scanned
@@ -121,7 +127,16 @@ public static class NewtonsoftTestsGenerator
             var test = request.Model.Projects.Single(p => p.Id == group.Key);
             var folder = group.First().Target.Folder;
             var kept = KeptFiles(request.RepositoryRoot, folder);
-            var dropped = TrialCompile(request, compilations, test, group.ToList(), folder, kept);
+            var (dropped, failure) = TrialCompile(request, compilations, test, group.ToList(), folder, kept);
+            if (failure is not null)
+            {
+                // Nothing is written or deleted for the test project; its sites stay uncovered.
+                request.Diagnostics.Report(DiagnosticCatalog.OFR3748,
+                    $"The generated probes do not compile in {test.Id}, and no single probe accounts for the error, so nothing is generated for it: {failure}", new DiagnosticLocation(test.Id));
+                uncovered.AddRange(group.SelectMany(p => p.Planner.Serialize.Concat(p.Planner.Deserialize).Select(c => new UncoveredSite(c.Probe.Site, p.Production.Project.Id, "doesNotCompile", failure))));
+                continue;
+            }
+
             var written = Render(test, group.ToList(), folder, kept, dropped, request.Diagnostics);
             foreach (var probe in group.SelectMany(p => p.Planner.Serialize.Concat(p.Planner.Deserialize)))
             {
@@ -193,11 +208,22 @@ public static class NewtonsoftTestsGenerator
             (chosen, by) = (selected.Project, selected.ByReference ? "reference" : "name");
         }
 
+        // A project nobody asked for by name is only left uncovered; one named with --project is an error (issue #53).
+        var severity = request.Projects.Contains(production.Id, StringComparer.Ordinal) ? Severity.Error : Severity.Warning;
         if (chosen is null || request.Model.Projects.FirstOrDefault(p => p.Id == chosen) is not { } test)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR3733,
                 $"No test project covers {production.Id}; create one that references it, or name one with --to or newtonsoft.tests.projects.",
-                new DiagnosticLocation(production.Id));
+                new DiagnosticLocation(production.Id), severity: severity);
+            return null;
+        }
+
+        if (test.Id == production.Id)
+        {
+            // Probes in the production project would ship with it.
+            request.Diagnostics.Report(DiagnosticCatalog.OFR3733,
+                $"{production.Id} is named as its own test project ({(by == "config" ? "newtonsoft.tests.projects" : "--to")}); probes are not generated into production code. Name a test project that references it.",
+                new DiagnosticLocation(production.Id), severity: Severity.Error);
             return null;
         }
 
@@ -234,7 +260,9 @@ public static class NewtonsoftTestsGenerator
             if (key is null || !IsJson(path))
             {
                 request.Diagnostics.Report(DiagnosticCatalog.OFR3737,
-                    key is null ? $"{name} is not named <payload type full name>[.<label>].json for a type any reading site uses; it is not copied." : $"{name} is not JSON; it is not copied.",
+                    key is null
+                        ? $"{name} is not named <payload type full name>[.<label>].json for a type any reading site {(request.Projects.Count == 0 ? "" : "of the projects asked for ")}uses; it is not copied."
+                        : $"{name} is not JSON; it is not copied.",
                     data: [KeyValuePair.Create<string, JsonNode?>("file", name)]);
                 continue;
             }
@@ -260,42 +288,59 @@ public static class NewtonsoftTestsGenerator
     }
 
     /// <summary>
-    /// Compiles the generated files into each of the test project's recorded compilations (earlier
-    /// generated files replaced); a probe with an error is dropped, with every probe that reads what
-    /// it writes, until the rest compiles. Returns the dropped probes with the first error.
+    /// Compiles the generated files into each of the test project's recorded compilations, in place of
+    /// the files there under the generated folder (an earlier run's, matched by path: under the folder
+    /// here, or ending in its repository-relative path when the compiler log was recorded in another
+    /// checkout), with the files the user took over as they are on disk. A probe whose code does not
+    /// parse, or that has an error, is dropped with every probe that reads what it writes, until the
+    /// rest compiles. Returns the dropped probes with the first error, and the error no probe accounts
+    /// for, if there is one (nothing is generated for the test project then).
     /// </summary>
-    private static Dictionary<string, string> TrialCompile(NewtonsoftTestsRequest request, ICompilationSource compilations, ProjectInfo test,
+    private static (Dictionary<string, string> Dropped, string? Failure) TrialCompile(NewtonsoftTestsRequest request, SharedCompilations compilations, ProjectInfo test,
         List<(ProbeTarget Target, ProbePlanner Planner, ScannedProject Production)> group, string folder, HashSet<string> kept)
     {
         var dropped = new Dictionary<string, string>(StringComparer.Ordinal);
         var recorded = test.CompilerCalls.Keys.Order(StringComparer.Ordinal)
-            .Select(tfm => compilations.LoadForProject(test, tfm)).OfType<CSharpCompilation>().ToList();
+            .Select(tfm => compilations.LoadForProject(test, tfm)).OfType<CSharpCompilation>()
+            .Select(c => c.RemoveSyntaxTrees(c.SyntaxTrees.Where(t => InFolder(t.FilePath, request.RepositoryRoot, folder))))
+            .ToList();
         if (recorded.Count == 0)
         {
-            return dropped;
+            return (dropped, null);
         }
 
-        var absolute = RepoPaths.ToAbsolute(request.RepositoryRoot, folder);
-        for (var attempt = 0; attempt < 10; attempt++)
+        var probes = group.SelectMany(p => p.Planner.Serialize.Concat(p.Planner.Deserialize)).ToList();
+        foreach (var probe in probes)
+        {
+            if (SyntaxError(probe.Body, ParseOptions(recorded[0])) is { } error)
+            {
+                Drop(group, probe.Probe.Id, "its code does not parse: " + error, dropped);
+            }
+        }
+
+        // Each pass drops at least one probe, so this ends.
+        while (true)
         {
             var files = Render(test, group, folder, kept, dropped, null);
             var errors = new List<(string Probe, string Message)>();
             foreach (var compilation in recorded)
             {
-                var options = compilation.SyntaxTrees.FirstOrDefault()?.Options as CSharpParseOptions ?? CSharpParseOptions.Default;
+                var options = ParseOptions(compilation);
                 var trees = files.Where(f => f.Key.EndsWith(".cs", StringComparison.Ordinal))
                     .Select(f => CSharpSyntaxTree.ParseText(f.Value, options, RepoPaths.ToAbsolute(request.RepositoryRoot, f.Key), Encoding.UTF8))
                     .ToList();
-                var trial = compilation
-                    .RemoveSyntaxTrees(compilation.SyntaxTrees.Where(t => Path.GetFullPath(t.FilePath).StartsWith(absolute, StringComparison.Ordinal)))
-                    .AddSyntaxTrees(trees);
-                foreach (var error in trial.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree is { } t && trees.Contains(t)))
+                var trial = compilation.AddSyntaxTrees(trees).AddSyntaxTrees(kept.Order(StringComparer.Ordinal)
+                    .Select(k => RepoPaths.ToAbsolute(request.RepositoryRoot, k))
+                    .Select(k => CSharpSyntaxTree.ParseText(File.ReadAllText(k), options, k, Encoding.UTF8)));
+                // By place: a compilation binds method bodies concurrently, so the order it reports errors in varies.
+                foreach (var error in trial.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree is { } t && trees.Contains(t))
+                    .OrderBy(d => d.Location.SourceTree!.FilePath, StringComparer.Ordinal).ThenBy(d => d.Location.SourceSpan.Start).ThenBy(d => d.Id, StringComparer.Ordinal))
                 {
                     var method = error.Location.SourceTree!.GetRoot().FindNode(error.Location.SourceSpan).AncestorsAndSelf().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-                    var probe = group.SelectMany(p => p.Planner.Serialize.Concat(p.Planner.Deserialize)).FirstOrDefault(p => p.Method == method?.Identifier.Text);
+                    var probe = probes.FirstOrDefault(p => !dropped.ContainsKey(p.Probe.Id) && p.Method == method?.Identifier.Text);
                     if (probe is null)
                     {
-                        throw new InvalidOperationException($"The generated probe runtime does not compile in {test.Id}: {error}");
+                        return (dropped, Unaccounted(request.RepositoryRoot, trial, trees, error));
                     }
 
                     errors.Add((probe.Probe.Id, error.GetMessage(System.Globalization.CultureInfo.InvariantCulture)));
@@ -318,7 +363,63 @@ public static class NewtonsoftTestsGenerator
             request.Diagnostics.Report(DiagnosticCatalog.OFR3735, $"Probe {probe} does not compile in {test.Id} and is left out: {message}", new DiagnosticLocation(test.Id));
         }
 
-        return dropped;
+        return (dropped, null);
+    }
+
+    private static CSharpParseOptions ParseOptions(Compilation compilation) =>
+        compilation.SyntaxTrees.FirstOrDefault()?.Options as CSharpParseOptions ?? CSharpParseOptions.Default;
+
+    /// <summary>
+    /// True for a recorded source file in the generated folder: under it here (letter case ignored
+    /// where the file system ignores it), or, for a compiler log recorded in another checkout or on
+    /// another OS, in a folder whose path ends with the generated folder's repository-relative path.
+    /// </summary>
+    internal static bool InFolder(string path, string root, string folder)
+    {
+        var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var normalized = path.Replace('\\', '/');
+        var directory = normalized.Contains('/', StringComparison.Ordinal) ? normalized[..normalized.LastIndexOf('/')] : "";
+        if (directory.EndsWith("/" + folder, comparison))
+        {
+            return true;
+        }
+
+        return Path.IsPathFullyQualified(path)
+            && Path.GetFullPath(path).StartsWith(RepoPaths.ToAbsolute(root, folder) + Path.DirectorySeparatorChar, comparison);
+    }
+
+    /// <summary>The first syntax error in a probe's code, with the code before it, or null when it parses.</summary>
+    internal static string? SyntaxError(string body, CSharpParseOptions options)
+    {
+        if (SyntaxFactory.ParseExpression(body, options: options).GetDiagnostics().FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error) is not { } error)
+        {
+            return null;
+        }
+
+        var at = Math.Min(body.Length, error.Location.SourceSpan.Start);
+        var from = Math.Max(0, at - 60);
+        return $"{error.GetMessage(System.Globalization.CultureInfo.InvariantCulture)} after `{(from > 0 ? "..." : "")}{body[from..at]}`";
+    }
+
+    /// <summary>An error in the generated files outside every probe: where it is, and the other file declaring the same type when that is the error.</summary>
+    private static string Unaccounted(string root, Compilation trial, List<SyntaxTree> generated, Microsoft.CodeAnalysis.Diagnostic error)
+    {
+        var tree = error.Location.SourceTree!;
+        var position = error.Location.GetLineSpan().StartLinePosition;
+        var message = $"{Display(root, tree.FilePath)}({position.Line + 1},{position.Character + 1}): {error.Id}: {error.GetMessage(System.Globalization.CultureInfo.InvariantCulture)}";
+        var declaration = tree.GetRoot().FindNode(error.Location.SourceSpan).AncestorsAndSelf().OfType<BaseTypeDeclarationSyntax>().FirstOrDefault();
+        var others = declaration is null ? [] : trial.GetSemanticModel(tree).GetDeclaredSymbol(declaration)?.Locations
+            .Where(l => l.SourceTree is { } t && !generated.Contains(t))
+            .Select(l => Display(root, l.SourceTree!.FilePath))
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList() ?? [];
+        return others.Count == 0 ? message : $"{message} (also declared in {string.Join(", ", others)})";
+    }
+
+    /// <summary>A recorded path, repository-relative when it is in the repository, else as recorded.</summary>
+    private static string Display(string root, string path)
+    {
+        var relative = Path.IsPathFullyQualified(path) ? Path.GetRelativePath(root, path) : null;
+        return relative is null || relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathFullyQualified(relative) ? path : RepoPaths.Normalize(relative);
     }
 
     private static void Drop(List<(ProbeTarget Target, ProbePlanner Planner, ScannedProject Production)> group, string probe, string message, Dictionary<string, string> dropped)

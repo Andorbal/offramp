@@ -68,6 +68,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR0104](#ofr0104) | warning | project loading | package graph unavailable |
 | [OFR0105](#ofr0105) | warning | scan | packages.config package not restored |
 | [OFR0106](#ofr0106) | info | scan | packages.config packages restored |
+| [OFR0107](#ofr0107) | warning | project loading | test project an application uses |
 | [OFR0110](#ofr0110) | warning | project loading | build step needs Windows: sgen |
 | [OFR0111](#ofr0111) | warning | project loading | build step needs Windows: COM reference |
 | [OFR0112](#ofr0112) | warning | project loading | build step needs Windows: EDMX EntityDeploy |
@@ -244,7 +245,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3725](#ofr3725) | warning | newtonsoft | target Newtonsoft.Json unavailable; API changes not computed |
 | [OFR3731](#ofr3731) | warning | newtonsoft | site has no probe |
 | [OFR3732](#ofr3732) | warning | newtonsoft | reading site without a payload to read |
-| [OFR3733](#ofr3733) | error | newtonsoft | no test project covers the production project |
+| [OFR3733](#ofr3733) | warning | newtonsoft | no test project covers the production project |
 | [OFR3734](#ofr3734) | error | newtonsoft | several test projects cover the production project |
 | [OFR3735](#ofr3735) | warning | newtonsoft | generated probe does not compile; dropped |
 | [OFR3736](#ofr3736) | warning | newtonsoft | test framework not supported |
@@ -259,6 +260,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3745](#ofr3745) | error | newtonsoft | probe ran another Newtonsoft.Json than the production project uses |
 | [OFR3746](#ofr3746) | error | newtonsoft | generated probes are out of date |
 | [OFR3747](#ofr3747) | warning | newtonsoft | test project has no VSTest adapter |
+| [OFR3748](#ofr3748) | error | newtonsoft | generated probes do not compile in the test project; nothing generated |
 | [OFR3760](#ofr3760) | error | newtonsoft | no target Newtonsoft.Json release |
 | [OFR3761](#ofr3761) | error | newtonsoft | build failed after the Newtonsoft.Json upgrade; rolled back |
 | [OFR3762](#ofr3762) | error | newtonsoft | probe observes a behavior change |
@@ -697,6 +699,15 @@ Outside Windows, `scan` restored the packages that `packages.config` files list 
 - **Typical cause:** A legacy solution scanned on macOS or Linux for the first time.
 - **Fix:** Nothing to do. The folder is `nuget restore`'s, which `.gitignore` files of such repositories exclude.
 
+### OFR0107
+
+**test project an application uses** · warning · project loading
+
+The project says it is a test project (`IsTestProject=true` or the test ProjectTypeGuid), and an application (a web, service, Windows Forms, or WPF project) references it, directly or through other projects. What an application references ships with it, so it is probably production code: as a test project it is left out of entry-point search, `newtonsoft tests`, dead-code analysis, `report`, and `plan`. A project that is a test project only by a test framework it references is classified by its other evidence when an application uses it (ADR 0074); this one says so explicitly, so it is kept.
+
+- **Typical cause:** `Microsoft.NET.Test.Sdk` (which sets `IsTestProject`) or a test framework added to every project through `Directory.Build.props`, or tests kept inside a production library.
+- **Fix:** If it is production code, set its kind in `offramp.yml`: `projects: [{ path: ..., kind: library }]`, then scan again.
+
 ### OFR0110
 
 **build step needs Windows: sgen** · warning · project loading
@@ -785,7 +796,7 @@ A target defines a task with `CodeTaskFactory` (or another task factory only .NE
 A `.resx` file holds non-string resources (images, icons, serialized objects). .NET's MSBuild embeds those only as preserialized resources (MSB3822, MSB3823).
 
 - **Typical cause:** Images or icons in a WinForms or Web Forms `.resx` file.
-- **Fix:** Set `GenerateResourceUsePreserializedResources` to `true` and reference the `System.Resources.Extensions` package, which .NET Framework applications then need at run time.
+- **Fix:** On Windows, scan with Visual Studio's MSBuild (`offramp scan --msbuild`, or `scan.builder: msbuild` in `offramp.yml`), which embeds them as Visual Studio does; `doctor --fix` does not change this step. To build with `dotnet build`, set `GenerateResourceUsePreserializedResources` to `true` and reference the `System.Resources.Extensions` package, which .NET Framework applications then need at run time.
 
 ### OFR0120
 
@@ -857,7 +868,7 @@ The solution has an ASP.NET Web Site project: a folder without a project file, w
 The build `scan` ran (or the log it read) has errors, so some projects have no compiler call. The model is written anyway; affected projects are marked `partial: true`.
 
 - **Typical cause:** A compile error, a missing SDK or package, or a Windows-only build step on macOS or Linux.
-- **Fix:** Fix the first errors listed, add the compile-only block for Windows-only steps (`offramp doctor --fix`), or scan a log captured on Windows.
+- **Fix:** Fix the first errors listed. For Windows-only steps: outside Windows, add the compile-only block (`offramp doctor --fix`) or scan a log captured on Windows; on Windows, scan with Visual Studio's MSBuild (`offramp scan --msbuild`) for steps only it runs (non-string resources, COM references, EDMX, T4).
 
 ### OFR0131
 
@@ -2283,9 +2294,9 @@ A deserialize or DOM site has no real payload (--samples) for its type and nothi
 
 ### OFR3733
 
-**no test project covers the production project** · error · newtonsoft
+**no test project covers the production project** · warning · newtonsoft
 
-No test project references the production project or is named after it, so its probes have nowhere to go. Test projects are not created.
+No test project references the production project or is named after it, so its probes have nowhere to go and its sites stay uncovered; the other projects are generated as usual. Test projects are not created. Reported as an error for a project named with --project, and for a project named as its own test project (probes are not generated into production code).
 
 - **Typical cause:** Production projects without tests.
 - **Fix:** Create a test project that references it, or name one with --to or newtonsoft.tests.projects.
@@ -2415,6 +2426,15 @@ A legacy test project runs as `dotnet test <assembly> --test-adapter-path <outpu
 
 - **Typical cause:** NUnit 2 and MSTest v1 projects that ran under Visual Studio's own runner or a console runner (`NUnit.Runners`) and never had an adapter package.
 - **Fix:** Add the named package to the test project (`NUnitTestAdapter` 2.x for NUnit 2), or set `newtonsoft.tests.command` to run its tests another way.
+
+### OFR3748
+
+**generated probes do not compile in the test project; nothing generated** · error · newtonsoft
+
+Compiled into the test project's recorded compilation, the generated files have an error that no single probe accounts for (in the probe runtime, or a class or namespace the files declare), so nothing is generated or changed for that test project. The error is shown, with the other file that declares the same name when that is the error. Other test projects are generated as usual.
+
+- **Typical cause:** A compiler log that still holds generated files under paths the run cannot match, a type of the same name in the test project, or a test project below C# 6.
+- **Fix:** Run `offramp scan` on this machine so the recorded compilation matches the files on disk, or rename the type the message names; report anything else.
 
 ### OFR3760
 

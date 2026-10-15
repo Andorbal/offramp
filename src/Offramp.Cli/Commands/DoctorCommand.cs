@@ -106,7 +106,7 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
         }
 
         output.Write(table);
-        RenderFix(result.Fix, output);
+        RenderFix(result.Fix, File.Exists(context.WorkspacePath), output);
     }
 
     private static bool Confirm(CompileOnlyFix plan, CommandContext context)
@@ -156,7 +156,7 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
         return parts.Count <= 2 ? string.Join(" and ", parts) : string.Join(", ", parts[..^1]) + ", and " + parts[^1];
     }
 
-    private static void RenderFix(CompileOnlyFix? fix, HumanOutput output)
+    private static void RenderFix(CompileOnlyFix? fix, bool modelExists, HumanOutput output)
     {
         if (fix is null)
         {
@@ -186,6 +186,12 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
 
             var added = parts.Count <= 2 ? string.Join(" and ", parts) : string.Join(", ", parts[..^1]) + ", and " + parts[^1];
             output.MarkupLine($"[{Theme.ReadyStyle}]Added {Markup.Escape(added)}.[/] Commit them with your next change.");
+            if (modelExists)
+            {
+                // The model hashed these files before they changed: every later command would call it stale (issue #55).
+                output.MarkupLine("The workspace model was built before these changes; run `offramp scan` so it describes them.");
+            }
+
             return;
         }
 
@@ -209,6 +215,11 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
             return "offramp doctor --fix --apply";
         }
 
+        if (Wrote(result.Fix) && File.Exists(context.WorkspacePath))
+        {
+            return "offramp scan";
+        }
+
         if (result.Summary.Fail > 0)
         {
             return null;
@@ -221,6 +232,10 @@ public sealed class DoctorCommand : ICommandHandler<DoctorOptions, DoctorReport>
 
         return result.Checks.Any(c => c.Id == "workspace" && c.Status == CheckStatus.Warn) ? "offramp scan" : null;
     }
+
+    /// <summary>True when the fix wrote a file in this run: the props block, a project file, or a restore file.</summary>
+    private static bool Wrote(CompileOnlyFix? fix) =>
+        fix is not null && (fix.Applied || fix.ProjectFiles.Any(f => f.Applied) || fix.PackagesConfigFiles.Any(f => f.Applied));
 
     private static string StatusIcon(CheckStatus status, bool unicode) => status switch
     {

@@ -81,15 +81,26 @@ internal sealed class SampleGenerator(Compilation compilation, Func<ISymbol, boo
 
     private static string Enumeration(INamedTypeSymbol type, string label, int n)
     {
-        var members = type.GetMembers().OfType<IFieldSymbol>().Where(f => f.HasConstantValue).ToList();
+        var members = type.GetMembers().OfType<IFieldSymbol>().Where(f => f.HasConstantValue && CSharp6.Name(f.Name) is not null).ToList();
         var name = CSharp6.Type(type);
         return label switch
         {
             "empty" => $"default({name})",
             // A value with no name: what StringEnumConverter's integer handling is about.
-            "edge" => $"({name})" + (members.Select(f => Convert.ToInt64(f.ConstantValue, CultureInfo.InvariantCulture)).DefaultIfEmpty(0).Max() + 1).ToString(CultureInfo.InvariantCulture),
-            _ => members.Count == 0 ? $"default({name})" : $"{name}.{members[n % members.Count].Name}",
+            "edge" => $"({name})" + Unnamed(members),
+            _ => members.Count == 0 ? $"default({name})" : $"{name}.{CSharp6.Name(members[n % members.Count].Name)}",
         };
+    }
+
+    /// <summary>
+    /// One more than the largest member's value, in parentheses when negative (<c>(T)-1</c> reads as a
+    /// subtraction from the type); 0 when it would overflow (a <c>ulong</c> enum ending at its maximum).
+    /// </summary>
+    private static string Unnamed(List<IFieldSymbol> members)
+    {
+        var next = members.Select(f => Convert.ToDecimal(f.ConstantValue, CultureInfo.InvariantCulture)).DefaultIfEmpty(0).Max() + 1;
+        var text = next > ulong.MaxValue ? "0" : next.ToString(CultureInfo.InvariantCulture);
+        return next < 0 ? "(" + text + ")" : text;
     }
 
     private static string? ValueLike(INamedTypeSymbol type, string label, int n) => type.ToDisplayString() switch
@@ -139,7 +150,7 @@ internal sealed class SampleGenerator(Compilation compilation, Func<ISymbol, boo
 
         // Distinct keys: the enum's members in order, or values from different seeds.
         List<string?> keys = key is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumeration
-            ? [.. enumeration.GetMembers().OfType<IFieldSymbol>().Where(f => f.HasConstantValue).Take(label == "edge" ? 1 : 2).Select(f => $"{CSharp6.Type(enumeration)}.{f.Name}")]
+            ? [.. enumeration.GetMembers().OfType<IFieldSymbol>().Where(f => f.HasConstantValue && CSharp6.Name(f.Name) is not null).Take(label == "edge" ? 1 : 2).Select(f => $"{CSharp6.Type(enumeration)}.{CSharp6.Name(f.Name)}")]
             : [.. Enumerable.Range(0, label == "edge" ? 1 : 2).Select(i => Value(key, i == 0 ? "typical" : "edge", seed + ".key" + i, depth + 1)).Distinct()];
         var entries = keys.Select((k, i) => (Key: k, Value: Value(value, label, seed + ".value" + i, depth + 1))).ToList();
         return entries.Any(e => e.Key is null || e.Value is null)
@@ -174,7 +185,7 @@ internal sealed class SampleGenerator(Compilation compilation, Func<ISymbol, boo
             var memberType = member is IPropertySymbol property ? property.Type : ((IFieldSymbol)member).Type;
             if (Value(memberType, label, CSharp6.Type(type) + "." + member.Name, depth + 1) is { } value)
             {
-                assigned.Add($"{member.Name} = {value}");
+                assigned.Add($"{CSharp6.Name(member.Name)} = {value}");
             }
         }
 
@@ -182,13 +193,13 @@ internal sealed class SampleGenerator(Compilation compilation, Func<ISymbol, boo
         return assigned.Count == 0 ? creation : $"{creation} {{ {string.Join(", ", assigned)} }}";
     }
 
-    /// <summary>Public instance properties with an accessible setter, and writable public fields, in name order.</summary>
+    /// <summary>Public instance properties with an accessible setter, and writable public fields, whose names C# can spell, in name order.</summary>
     private IEnumerable<ISymbol> Settable(INamedTypeSymbol type)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
         {
-            foreach (var member in current.GetMembers().Where(m => !m.IsStatic && accessible(m) && seen.Add(m.Name)))
+            foreach (var member in current.GetMembers().Where(m => !m.IsStatic && accessible(m) && seen.Add(m.Name) && CSharp6.Name(m.Name) is not null))
             {
                 if (member is IPropertySymbol { IsIndexer: false, SetMethod: { } setter } && accessible(setter) && !setter.IsInitOnly
                     || member is IFieldSymbol { IsReadOnly: false, IsConst: false, IsImplicitlyDeclared: false })

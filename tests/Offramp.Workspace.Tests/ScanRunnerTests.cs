@@ -108,6 +108,22 @@ public sealed class ScanRunnerTests : IDisposable
     }
 
     [Fact]
+    [ProducesDiagnostic("OFR0130")]
+    public async Task A_build_that_writes_no_log_does_not_read_an_earlier_one()
+    {
+        // Issue #56: a log left in .offramp/ (by an earlier run, or synced from another machine) must not stand in for this build's.
+        _repo.Write("App.sln", "");
+        _repo.Write(".offramp/msbuild.binlog", "an earlier build's log");
+        var runner = new FakeProcessRunner().On("dotnet", ["build"], 1, "", "MSBUILD : error MSB1009: Project file does not exist.\n");
+
+        var outcome = await RunAsync(r => r with { Processes = runner });
+
+        Assert.Equal(ScanFailure.Environment, outcome.Failure);
+        Assert.Contains("produced no binary log", Assert.Single(_diagnostics.ToSortedList(), d => d.Code == "OFR0130").Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_diagnostics.ToSortedList(), d => d.Code == "OFR0004");
+    }
+
+    [Fact]
     [ProducesDiagnostic("OFR0010")]
     public async Task A_missing_dotnet_is_reported()
     {
@@ -291,6 +307,54 @@ public sealed class ScanRunnerTests : IDisposable
         var diagnostic = Assert.Single(outcome.Model!.Diagnostics, d => d.Code == "OFR0102");
         Assert.Equal("Odd/Odd.csproj", diagnostic.Project);
         Assert.Equal(["Odd/Odd.csproj"], outcome.Result!.Unrecognized);
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0107")]
+    public async Task A_test_project_an_application_uses_is_production_code_or_named()
+    {
+        // Issue #52: libraries carrying NUnit were `test`, so newtonsoft scan left all their sites uncovered.
+        _repo.Write("Directory.Build.props", "<Project />");
+        _repo.Write("Directory.Build.targets", "<Project />");
+        _repo.Write("Core/Core.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup><PackageReference Include="NUnit" Version="3.14.0" /></ItemGroup>
+            </Project>
+            """);
+        _repo.Write("Core/Code.cs", "namespace Core; public static class Code { }\n");
+        _repo.Write("Helpers/Helpers.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework><IsTestProject>true</IsTestProject></PropertyGroup>
+            </Project>
+            """);
+        _repo.Write("Helpers/Code.cs", "namespace Helpers; public static class Code { }\n");
+        _repo.Write("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup>
+                <ProjectReference Include="../Core/Core.csproj" />
+                <ProjectReference Include="../Helpers/Helpers.csproj" />
+              </ItemGroup>
+            </Project>
+            """);
+        _repo.Write("App/Program.cs", "System.Console.WriteLine(typeof(Core.Code));\n");
+        var solution = await RunDotnetAsync(_repo.Path, "new", "sln", "--name", "All", "--format", "slnx");
+        Assert.True(solution.Succeeded, solution.StandardError);
+        var add = await RunDotnetAsync(_repo.Path, "sln", "All.slnx", "add", "Core/Core.csproj", "Helpers/Helpers.csproj", "App/App.csproj");
+        Assert.True(add.Succeeded, add.StandardError);
+
+        var outcome = await RunAsync(r => r with { Processes = ProcessRunner.Instance });
+
+        Assert.Equal(ScanFailure.None, outcome.Failure);
+        var core = outcome.Model!.Projects.Single(p => p.Id == "Core/Core.csproj");
+        Assert.Equal(Offramp.Core.Model.ProjectKind.Library, core.Kind);
+        Assert.Equal("OutputType=Library (PackageReference NUnit ignored: the application App/App.csproj uses it)", core.KindEvidence);
+        // IsTestProject says so in so many words: kept, and named.
+        Assert.Equal(Offramp.Core.Model.ProjectKind.Test, outcome.Model.Projects.Single(p => p.Id == "Helpers/Helpers.csproj").Kind);
+        var named = Assert.Single(outcome.Model.Diagnostics, d => d.Code == "OFR0107");
+        Assert.Equal("Helpers/Helpers.csproj", named.Project);
+        Assert.Contains("the application App/App.csproj uses it", named.Message, StringComparison.Ordinal);
     }
 
     [Fact]

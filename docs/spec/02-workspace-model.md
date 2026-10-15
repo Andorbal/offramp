@@ -112,9 +112,9 @@ Evaluated in order; first match wins; the evidence is recorded.
 
 | Kind | Evidence |
 |---|---|
-| `test` | `IsTestProject=true`, or a PackageReference to a known test framework (xunit, NUnit, MSTest.TestFramework, TUnit) or adapter, or the same in `packages.config`, or legacy test ProjectTypeGuid |
+| `test` | `IsTestProject=true`, or legacy test ProjectTypeGuid |
 | `web` | `Sdk=Microsoft.NET.Sdk.Web`, or legacy web ProjectTypeGuid, or `Reference Include="System.Web"` with `OutputType=Library` and a `web.config` |
-| `test` | a `Reference` to a test framework's assembly (`nunit.framework`, `xunit`, `xunit.core`, `MbUnit.Framework`, the MSTest assemblies, `TUnit.Core`), usually a checked-in DLL, with `OutputType=Library`. It comes after `web` because a web application project is a library too |
+| `test` | a PackageReference to a known test framework (xunit, NUnit, MSTest.TestFramework, TUnit) or adapter, or the same in `packages.config`, or a `Reference` to a test framework's assembly (`nunit.framework`, `xunit`, `xunit.core`, `MbUnit.Framework`, the MSTest assemblies, `TUnit.Core`), usually a checked-in DLL, with `OutputType=Library`. It comes after `web` because a web application that references a test framework (tests kept in the application) is still the application; for the same reason an `Exe` or `WinExe` with the `winforms`, `wpf`, or `service` evidence below is that kind |
 | `winforms` | `UseWindowsForms=true`, or `Reference Include="System.Windows.Forms"` with `OutputType=WinExe` |
 | `wpf` | `UseWPF=true`, or `Sdk=Microsoft.NET.Sdk.WindowsDesktop` with `PresentationFramework` reference |
 | `service` | `Reference Include="System.ServiceProcess"` with `OutputType=Exe`, or a PackageReference to Topshelf or `Microsoft.Extensions.Hosting.WindowsServices` (or either in the `packages.config` of an `OutputType=Exe` project), or `Sdk=Microsoft.NET.Sdk.Worker` |
@@ -122,7 +122,18 @@ Evaluated in order; first match wins; the evidence is recorded.
 | `library` | `OutputType=Library` |
 | `unknown` | anything else; emits `OFR0102` |
 
-Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`).
+What an application ships is not a test project. After every project is classified, a project
+that is `test` only by a test framework it references (the second `test` row), and that an
+application (a `web`, `service`, `winforms`, or `wpf` project that is not a test project)
+references, directly or through other projects, is classified again without that evidence; its
+evidence names the framework and the application (`OutputType=Library (PackageReference NUnit
+ignored: the application src/Web/Web.csproj uses it)`). A library or console application that
+references a test project does not count (it may be a test project nothing marks, or a test
+runner). A project that is `test` by `IsTestProject` or the ProjectTypeGuid and that an application
+uses stays `test` and emits `OFR0107` (ADR 0074).
+
+Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`); the override also
+sets `isTestProject` (true for `test`, false for any other kind).
 
 ## Hosted projects
 

@@ -47,9 +47,12 @@ public sealed class ScanFileChecksTests
         Assert.Equal("[\"src/SharedAssemblyInfo.cs\"]", missing.Data["gitIgnored"]!.ToJsonString());
         Assert.Contains("git-ignored, so the repository's own build", missing.Message, StringComparison.Ordinal);
 
-        // Named from the file, whether or not the build reached the resource step.
+        // Named from the file, whether or not the build reached the resource step; on Windows, `dotnet build`
+        // cannot embed them either, so the step names the builder that can (ADR 0076).
         var resources = Assert.Single(model.Diagnostics, d => d.Code == "OFR0119");
-        Assert.Equal("Needs Windows to build: 1 non-string resource(s) in src/Billing/Images.resx.", resources.Message);
+        Assert.Equal(OperatingSystem.IsWindows()
+            ? "Needs Visual Studio's MSBuild to build, which `dotnet build` is not (`offramp scan --msbuild`): 1 non-string resource(s) in src/Billing/Images.resx."
+            : "Needs Windows to build: 1 non-string resource(s) in src/Billing/Images.resx.", resources.Message);
         Assert.Equal("[\"src/Billing/Images.resx\"]", resources.Data["paths"]!.ToJsonString());
 
         var billing = model.Projects.Single(p => p.Id == "src/Billing/Billing.csproj");

@@ -277,14 +277,14 @@ internal sealed class ProbePlanner
             : Generatability.Constructor(member.ContainingType, Accessible) is { } constructor && Arguments(constructor.Parameters, label) is { } ctorArguments
                 ? $"new {CSharp6.Type(member.ContainingType)}({ctorArguments})"
                 : member.ContainingType.IsValueType ? $"default({CSharp6.Type(member.ContainingType)})" : null;
-        if (receiver is null)
+        if (receiver is null || CSharp6.Name(member.Name) is not { } memberName)
         {
             return null;
         }
 
-        if (member is IPropertySymbol property)
+        if (member is IPropertySymbol)
         {
-            return $"() => {receiver}.{property.Name}";
+            return $"() => {receiver}.{memberName}";
         }
 
         var method = (IMethodSymbol)member;
@@ -328,7 +328,7 @@ internal sealed class ProbePlanner
             }
         }
 
-        var call = $"{receiver}.{method.Name}({string.Join(", ", arguments)})";
+        var call = $"{receiver}.{memberName}({string.Join(", ", arguments)})";
         if (outputs.Count == 0)
         {
             return method.ReturnsVoid ? null : $"() => {call}";
