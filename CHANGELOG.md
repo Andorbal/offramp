@@ -11,6 +11,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-15
+
 ### Added
 - `OFR0107` (warning): a project marked a test project in so many words (`IsTestProject=true`, the
   test ProjectTypeGuid) that an application (web, service, Windows Forms, WPF) uses; set its kind in
