@@ -267,6 +267,50 @@ public sealed class ScanModelTests
         Assert.DoesNotContain(bag.ToSortedList(), d => d.Message.Contains(root, StringComparison.Ordinal));
     }
 
+    [Fact]
+    [ProducesDiagnostic("OFR0132")]
+    public void A_build_that_read_another_machines_paths_says_where_they_come_from()
+    {
+        // Issue #56: obj/ synced from a Mac gave the Windows build /Users/... package paths.
+        var root = OperatingSystem.IsWindows() ? @"C:\repo" : "/home/me/repo";
+        var foreign = OperatingSystem.IsWindows() ? "/Users/me/.nuget/packages/netstandard.library/2.0.3/build/netstandard2.0/ref/Microsoft.Win32.Primitives.dll" : @"C:\Users\me\.nuget\packages\x.dll";
+        var local = Path.Combine(root, "packages", "x.dll");
+        var bag = new DiagnosticBag();
+        var request = ScannedFixtures.Request(root, bag);
+
+        ScanRunner.ReportConversionProblems(request, new ConversionReport(false,
+            [$"Error adding {root}/src/A/A.csproj: Missing file, either build did not happen on this machine or the environment has changed: {foreign}"]), CapturePathMapper.Local(root));
+        ScanRunner.ReportConversionProblems(request, new ConversionReport(false,
+            [$"Error adding {root}/src/B/B.csproj: Missing file, either build did not happen on this machine or the environment has changed: {local}"]), CapturePathMapper.Local(root));
+
+        var messages = bag.ToSortedList().Where(d => d.Code == "OFR0132").Select(d => d.Message).ToList();
+        Assert.Single(messages, m => m.Contains("another machine's paths", StringComparison.Ordinal) && m.Contains("delete the obj/ folders", StringComparison.Ordinal));
+        Assert.Single(messages, m => !m.Contains("another machine's paths", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_step_dotnet_build_cannot_run_on_windows_points_to_msbuild_there()
+    {
+        // Issue #56: on Windows "Needs Windows to build" said nothing useful; the fix is building with Visual Studio's MSBuild.
+        var root = OperatingSystem.IsWindows() ? @"C:\repo" : "/home/me/repo";
+        var request = ScannedFixtures.Request(root, new DiagnosticBag());
+        var resources = new WindowsOnlyStep("resources", Offramp.Core.Diagnostics.DiagnosticCatalog.OFR0119, "2 non-string resource(s) in Icons.resx");
+        var sgen = new WindowsOnlyStep("sgen", Offramp.Core.Diagnostics.DiagnosticCatalog.OFR0110, "GenerateSerializationAssemblies=On");
+
+        var reported = ScanRunner.ReportStep(request, resources, "src/A/A.csproj", CapturePathMapper.Local(root));
+        var msbuild = ScanRunner.ReportStep(request with { Config = request.Config with { Scan = request.Config.Scan with { Builder = "msbuild" } } }, resources, "src/A/A.csproj", CapturePathMapper.Local(root));
+        var log = ScanRunner.ReportStep(request with { BinlogPath = Path.Combine(root, "msbuild.binlog") }, resources, "src/A/A.csproj", CapturePathMapper.Local(root));
+        var guarded = ScanRunner.ReportStep(request, sgen, "src/A/A.csproj", CapturePathMapper.Local(root));
+
+        Assert.Equal(OperatingSystem.IsWindows()
+            ? "Needs Visual Studio's MSBuild to build, which `dotnet build` is not (`offramp scan --msbuild`): 2 non-string resource(s) in Icons.resx."
+            : "Needs Windows to build: 2 non-string resource(s) in Icons.resx.", reported.Message);
+        Assert.Equal("Needs Windows to build: 2 non-string resource(s) in Icons.resx.", msbuild.Message);
+        // A log read rather than built says nothing about the builder (the windows-only-build-steps fixture's).
+        Assert.Equal("Needs Windows to build: 2 non-string resource(s) in Icons.resx.", log.Message);
+        Assert.Equal("Needs Windows to build: GenerateSerializationAssemblies=On.", guarded.Message);
+    }
+
     private sealed class RecordingProgress : Core.Progress.IProgressSink
     {
         private readonly List<string> _reports = [];

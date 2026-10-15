@@ -270,7 +270,7 @@
       "rootNamespace": "Contoso.Orders.Tests",
       "language": "csharp",
       "kind": "test",
-      "kindEvidence": "packages.config MSTest.TestFramework",
+      "kindEvidence": "ProjectTypeGuids {3AC096D0-A1C2-E12C-1390-A8335801FDAB}",
       "sdkStyle": false,
       "sdk": null,
       "targetFrameworks": [

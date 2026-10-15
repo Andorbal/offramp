@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Offramp.Core.Caching;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
@@ -23,7 +24,7 @@ namespace Offramp.Workspace.Scanning;
 /// it to a compiler log, and write the workspace model and a ledger snapshot.
 /// See docs/spec/02-workspace-model.md and docs/spec/commands/workspace.md#scan.
 /// </summary>
-public static class ScanRunner
+public static partial class ScanRunner
 {
     public const string BinlogFileName = "msbuild.binlog";
     public const string ComplogFileName = "build.complog";
@@ -288,7 +289,13 @@ public static class ScanRunner
             request.Progress.Log(ProgressLevel.Info, $"Building with {msbuild} ({Describe(location.Source)}).");
         }
 
+        // A build that writes no log must not leave an earlier one (another run's, or another machine's) to be read.
         Directory.CreateDirectory(Path.GetDirectoryName(binlog)!);
+        if (File.Exists(binlog))
+        {
+            File.Delete(binlog);
+        }
+
         var result = await request.Processes.RunAsync(BuildCommand(request, msbuild, solution, binlog) with { OnOutputLine = onOutputLine }, cancellationToken);
 
         if (result.NotFound && msbuild is not null)
@@ -408,6 +415,12 @@ public static class ScanRunner
         }
         else
         {
+            // A conversion that writes nothing must not leave an earlier compiler log to be read.
+            if (File.Exists(complog))
+            {
+                File.Delete(complog);
+            }
+
             ReportConversionProblems(request, CompilerLogIngest.Convert(binlog, complog), mapper);
 
             if (!File.Exists(complog))
@@ -424,11 +437,28 @@ public static class ScanRunner
     {
         if (report.Problems.Count > 0)
         {
+            // Issue #56: obj/ synced from a Mac gave a Windows build the Mac's package folder.
+            var foreign = report.Problems.Any(p => ForeignPath().IsMatch(p))
+                ? " The build read files at another machine's paths, which come from obj/ folders (project.assets.json, *.nuget.g.props) or packages copied or synced from it: delete the obj/ folders and scan again."
+                : "";
             request.Diagnostics.Report(DiagnosticCatalog.OFR0132,
-                $"{report.Problems.Count} problem(s) converting the build log; affected projects have no compiler call. First: {Scrub(report.Problems[0], mapper)}",
+                $"{report.Problems.Count} problem(s) converting the build log; affected projects have no compiler call. First: {Scrub(report.Problems[0], mapper)}{foreign}",
                 data: [KeyValuePair.Create<string, JsonNode?>("problems", new JsonArray([.. report.Problems.Take(20).Select(p => (JsonNode?)Scrub(p, mapper))]))]);
         }
     }
+
+    /// <summary>True when this scan builds with <c>dotnet build</c>, rather than with MSBuild.exe or not at all (it reads a log).</summary>
+    private static bool BuiltWithDotnet(ScanRequest request) =>
+        request.BinlogPath is null && request.ComplogPath is null && !request.NoBuild && !UsesMsbuild(request.Config);
+
+    /// <summary>A missing file at an absolute path of the other kind of OS: <c>/Users/…</c> on Windows, <c>C:\…</c> elsewhere.</summary>
+    private static Regex ForeignPath() => OperatingSystem.IsWindows() ? WindowsForeignPath() : UnixForeignPath();
+
+    [GeneratedRegex(@"Missing file[^:]*:\s*/")]
+    private static partial Regex WindowsForeignPath();
+
+    [GeneratedRegex(@"Missing file[^:]*:\s*[A-Za-z]:[\\/]")]
+    private static partial Regex UnixForeignPath();
 
     private static bool IsLocalCapture(CapturePathMapper mapper, string repositoryRoot) =>
         string.Equals(mapper.CaptureRoot, repositoryRoot.Replace('\\', '/').TrimEnd('/'),
@@ -491,6 +521,7 @@ public static class ScanRunner
         BuildStepContext StepContext(string project) => files.TryGetValue(project, out var found) ? steps with { Files = found } : steps;
 
         var projects = new List<ProjectInfo>();
+        var facts = new Dictionary<string, ProjectFacts>(StringComparer.Ordinal);
         var others = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var group in data.Evaluations.GroupBy(e => e.ProjectFile, StringComparer.Ordinal))
         {
@@ -506,11 +537,13 @@ public static class ScanRunner
                 continue;
             }
 
-            projects.Add(ProjectModelBuilder.Build(id, [.. group], context));
+            projects.Add(ProjectModelBuilder.Build(id, [.. group], context, out var projectFacts));
+            facts[id] = projectFacts;
         }
 
         projects.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
-        projects = Hosting.Detect(projects, root, Hosting.CopiedTo(data.AssemblyCopies, mapper));
+        var (classified, keptTests) = ReferencedTestProjects.Apply(projects, facts);
+        projects = Hosting.Detect([.. classified], root, Hosting.CopiedTo(data.AssemblyCopies, mapper));
         var notLoaded = FindNotLoaded(request, data, mapper, projects, listed);
 
         // Projects that are not C#, Visual Basic, or F# are named once, evaluated or not, and never loaded.
@@ -556,6 +589,13 @@ public static class ScanRunner
 
         loading.AddRange(await ReportMissingSourcesAsync(request, files, cancellationToken));
         loading.AddRange(ReportCompileOnlyGaps(request, data, mapper, projects));
+
+        foreach (var (test, application) in keptTests)
+        {
+            loading.Add(request.Diagnostics.Report(DiagnosticCatalog.OFR0107,
+                $"Classified test ({test.KindEvidence}), but the application {application} uses it; if it is production code, set its kind in offramp.yml.",
+                new DiagnosticLocation(Project: test.Id), [KeyValuePair.Create<string, JsonNode?>("application", application)])!);
+        }
 
         foreach (var project in projects)
         {
@@ -872,7 +912,9 @@ public static class ScanRunner
         var evidence = WindowsOnlyBuildSteps.Shorten(Scrub(step.Evidence, mapper));
         var message = step.Id == "path-case"
             ? $"Does not build on a case-sensitive file system: {evidence}."
-            : $"Needs Windows to build: {evidence}.";
+            : OperatingSystem.IsWindows() && BuiltWithDotnet(request) && !WindowsOnlyBuildSteps.DotnetBuildOnWindows.Contains(step.Id)
+                ? $"Needs Visual Studio's MSBuild to build, which `dotnet build` is not (`offramp scan --msbuild`): {evidence}."
+                : $"Needs Windows to build: {evidence}.";
         List<KeyValuePair<string, JsonNode?>> data = [KeyValuePair.Create<string, JsonNode?>("step", step.Id), KeyValuePair.Create<string, JsonNode?>("evidence", evidence)];
         if (step.Paths.Count > 0)
         {

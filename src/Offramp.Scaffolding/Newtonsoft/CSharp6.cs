@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace Offramp.Scaffolding.Newtonsoft;
 
@@ -44,7 +45,8 @@ internal static class CSharp6
         decimal number => number.ToString(CultureInfo.InvariantCulture) + "m",
         double number => double.IsNaN(number) ? "double.NaN" : double.IsPositiveInfinity(number) ? "double.PositiveInfinity" : double.IsNegativeInfinity(number) ? "double.NegativeInfinity"
             : number == 0 && double.IsNegative(number) ? "-0.0" : number.ToString("R", CultureInfo.InvariantCulture) + "d",
-        float number => float.IsNaN(number) ? "float.NaN" : number == 0 && float.IsNegative(number) ? "-0.0f" : number.ToString("R", CultureInfo.InvariantCulture) + "f",
+        float number => float.IsNaN(number) ? "float.NaN" : float.IsPositiveInfinity(number) ? "float.PositiveInfinity" : float.IsNegativeInfinity(number) ? "float.NegativeInfinity"
+            : number == 0 && float.IsNegative(number) ? "-0.0f" : number.ToString("R", CultureInfo.InvariantCulture) + "f",
         long number => number == long.MinValue ? "long.MinValue" : number.ToString(CultureInfo.InvariantCulture) + "L",
         ulong number => number.ToString(CultureInfo.InvariantCulture) + "UL",
         uint number => number.ToString(CultureInfo.InvariantCulture) + "U",
@@ -52,6 +54,15 @@ internal static class CSharp6
         short or ushort or byte or sbyte => "(" + Keyword(value) + ")" + Convert.ToString(value, CultureInfo.InvariantCulture),
         _ => null,
     };
+
+    /// <summary>
+    /// A member's name as C# source: a keyword gets <c>@</c> (a property declared <c>@event</c> is
+    /// <c>event</c> in the symbol), and a name C# cannot spell (another language's) is null.
+    /// </summary>
+    public static string? Name(string name) =>
+        !SyntaxFacts.IsValidIdentifier(name) ? null
+        : SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None ? "@" + name
+        : name;
 
     /// <summary>A method name or test name made of letters, digits, and underscores.</summary>
     public static string Identifier(string text)

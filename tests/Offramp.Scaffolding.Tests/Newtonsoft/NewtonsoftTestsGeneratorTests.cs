@@ -99,9 +99,26 @@ public sealed class NewtonsoftTestsGeneratorTests
     {
         var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
         var (result, _, diagnostics) = Generate(scanned, r => r with { Model = Without(r.Model, CatalogTests) });
+        var (_, _, named) = Generate(scanned, r => r with { Model = Without(r.Model, CatalogTests), Projects = [Catalog] });
 
         Assert.DoesNotContain(result.Targets, t => t.Production == Catalog);
-        Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR3733" && d.Project == Catalog);
+        Assert.Contains(result.Targets, t => t.Production != Catalog);
+        // Issue #53: an untested project among the rest leaves the run a success; one asked for by name does not.
+        Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR3733" && d.Project == Catalog && d.Severity == Severity.Warning);
+        Assert.Contains(named.ToSortedList(), d => d.Code == "OFR3733" && d.Project == Catalog && d.Severity == Severity.Error);
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3733")]
+    public async Task A_production_project_is_not_its_own_test_project()
+    {
+        // Issue #52: newtonsoft.tests.projects mapping a project to itself put probes into production code.
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var (result, _, diagnostics) = Generate(scanned, r => r with { TestProjects = new Dictionary<string, string> { [Catalog] = Catalog } });
+
+        Assert.DoesNotContain(result.Targets, t => t.Production == Catalog);
+        Assert.DoesNotContain(result.Probes, p => p.TestProject == Catalog);
+        Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR3733" && d.Project == Catalog && d.Severity == Severity.Error && d.Message.Contains("its own test project", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -291,6 +308,136 @@ public sealed class NewtonsoftTestsGeneratorTests
         Assert.DoesNotContain(result.Uncovered, u => u.Detail.Contains("for  and", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task Members_named_after_keywords_are_written_with_an_at_sign()
+    {
+        // Issue #50: `new Notice() { event = ... }` did not parse (CS1513), and the run stopped with OFR0099.
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-sdk", (root, request) =>
+        {
+            File.WriteAllText(Path.Combine(root, "src", "Catalog", "Notices.cs"), """
+                using Newtonsoft.Json;
+
+                namespace Contoso.Catalog
+                {
+                    public enum Audience { @public, @internal }
+
+                    public sealed class Notice
+                    {
+                        public string @event { get; set; }
+
+                        public Audience @class { get; set; }
+                    }
+
+                    public static class Notices
+                    {
+                        public static string Write(Notice notice) => JsonConvert.SerializeObject(notice);
+                    }
+                }
+                """);
+            return request;
+        });
+
+        var (result, changeSet, diagnostics) = Generate(scanned);
+
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code is "OFR3735" or "OFR3748");
+        Assert.Contains(result.Probes, p => p.Id == "Contoso.Catalog.Notices.Write#1.entry.typical");
+        var probes = Encoding.UTF8.GetString(changeSet!.Creates.Single(c => c.Path == "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs").Content);
+        Assert.Contains("@event = ", probes, StringComparison.Ordinal);
+        Assert.Contains("@class = global::Contoso.Catalog.Audience.@", probes, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("() => new global::A.B() { event = 1 }", "Identifier expected; 'event' is a keyword after `() => new global::A.B() { `")]
+    [InlineData("() => global::A.B.Write(1", ") expected")]
+    [InlineData("() => new global::A.B() { @event = 1 }", null)]
+    public void A_probe_whose_code_does_not_parse_is_found_before_compiling(string body, string? error)
+    {
+        var found = NewtonsoftTestsGenerator.SyntaxError(body, Microsoft.CodeAnalysis.CSharp.CSharpParseOptions.Default);
+
+        if (error is null)
+        {
+            Assert.Null(found);
+        }
+        else
+        {
+            Assert.StartsWith(error, found, StringComparison.Ordinal);
+        }
+    }
+
+    [Theory]
+    [InlineData("/home/me/repo/tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs", true)]
+    [InlineData("/Users/someone/src/repo/tests/Catalog.Tests/NewtonsoftCharacterization/OfframpProbe.cs", true)]
+    [InlineData(@"C:\src\repo\tests\Catalog.Tests\NewtonsoftCharacterization\OfframpProbe.cs", true)]
+    [InlineData("/home/me/repo/tests/Catalog.Tests/NewtonsoftCharacterizationOld/OfframpProbe.cs", false)]
+    [InlineData("/home/me/repo/tests/Catalog.Tests/CatalogCodecTests.cs", false)]
+    [InlineData("/home/me/repo/tests/Inventory.Tests/NewtonsoftCharacterization/OfframpProbe.cs", false)]
+    public void Earlier_generated_files_are_found_by_path_wherever_the_log_was_recorded(string recorded, bool generated) =>
+        Assert.Equal(generated, NewtonsoftTestsGenerator.InFolder(recorded, "/home/me/repo", "tests/Catalog.Tests/NewtonsoftCharacterization"));
+
+    [Fact]
+    public async Task A_compiler_log_recorded_in_another_checkout_has_its_generated_files_replaced()
+    {
+        // Issue #51: generated files recorded under another root stayed in the trial compilation next to the new ones (CS0101).
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var (first, changes, _) = Generate(scanned);
+        var elsewhere = OperatingSystem.IsWindows() ? @"D:\elsewhere\repo" : "/elsewhere/repo";
+        var recorded = changes!.Creates.Where(c => c.Path.StartsWith("tests/Catalog.Tests/", StringComparison.Ordinal))
+            .Select(c => Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(Encoding.UTF8.GetString(c.Content), path: Path.Combine(elsewhere, c.Path.Replace('/', Path.DirectorySeparatorChar)), encoding: Encoding.UTF8))
+            .ToList();
+        Assert.NotEmpty(recorded);
+
+        var (again, _, diagnostics) = Generate(scanned, r => r with
+        {
+            Compilations = new EditedCompilation(r.RepositoryRoot, CatalogTests, c => c.AddSyntaxTrees([.. recorded.Select(t => t.WithRootAndOptions(t.GetRoot(), c.SyntaxTrees.First().Options))])),
+        });
+
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code is "OFR3735" or "OFR3748");
+        Assert.Equal(first.Probes.Select(p => p.Id), again.Probes.Select(p => p.Id));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3748")]
+    public async Task An_error_no_probe_accounts_for_leaves_that_test_project_alone_and_names_the_other_file()
+    {
+        // Issue #51: CS0101 outside every probe stopped the whole run with OFR0099.
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var other = Path.Combine(scanned.Root, "tests", "Catalog.Tests", "Helpers", "OfframpProbe.cs");
+        var clash = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+            "namespace Catalog.Tests.NewtonsoftCharacterization { public static class OfframpProbe { } }", path: other, encoding: Encoding.UTF8);
+
+        var (result, changeSet, diagnostics) = Generate(scanned, r => r with
+        {
+            Compilations = new EditedCompilation(r.RepositoryRoot, CatalogTests, c => c.AddSyntaxTrees(clash.WithRootAndOptions(clash.GetRoot(), c.SyntaxTrees.First().Options))),
+        });
+
+        var error = Assert.Single(diagnostics.ToSortedList(), d => d.Code == "OFR3748");
+        Assert.Equal(CatalogTests, error.Project);
+        Assert.Contains("CS0101", error.Message, StringComparison.Ordinal);
+        Assert.Contains("also declared in tests/Catalog.Tests/Helpers/OfframpProbe.cs", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Probes, p => p.TestProject == CatalogTests);
+        Assert.DoesNotContain(changeSet!.Creates, c => c.Path.StartsWith("tests/Catalog.Tests/", StringComparison.Ordinal));
+        Assert.Contains(result.Uncovered, u => u.Project == Catalog && u.Reason == "doesNotCompile");
+        // The other test project is generated as usual.
+        Assert.Contains(result.Probes, p => p.TestProject == InventoryTests);
+    }
+
+    [Fact]
+    public async Task Each_compilation_is_loaded_once_and_only_the_projects_asked_for_are_scanned()
+    {
+        // Issue #54: the scan loaded every compilation twice, planning and the trial compilation again, and
+        // `--project` still scanned every project's sites.
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var counting = new CountingCompilations(scanned.Root);
+        var progress = new PhaseProgress();
+
+        var (result, _, _) = Generate(scanned, r => r with { Compilations = counting, Projects = [Catalog], Progress = progress });
+
+        Assert.All(counting.Loads, l => Assert.Equal(1, l.Value));
+        Assert.Contains(counting.Loads.Keys, k => k.StartsWith("src/Inventory/", StringComparison.Ordinal));
+        Assert.Equal([Catalog], result.Targets.Select(t => t.Production));
+        Assert.Equal([Catalog], progress.Scanned);
+    }
+
     private static void Write(string root, Offramp.Refactoring.ChangeSets.ChangeSet changeSet)
     {
         foreach (var create in changeSet.Creates)
@@ -307,6 +454,54 @@ public sealed class NewtonsoftTestsGeneratorTests
 
     private static WorkspaceModel Without(WorkspaceModel model, string project) =>
         model with { Projects = [.. model.Projects.Where(p => p.Id != project)] };
+
+    /// <summary>The recorded compilations, counting how often each is loaded.</summary>
+    private sealed class CountingCompilations(string root) : ICompilationSource, IDisposable
+    {
+        private readonly CompilationLoader _loader = new(root);
+
+        public Dictionary<string, int> Loads { get; } = new(StringComparer.Ordinal);
+
+        public Compilation? LoadForProject(ProjectInfo info, string targetFramework)
+        {
+            Loads[info.Id + "|" + targetFramework] = Loads.GetValueOrDefault(info.Id + "|" + targetFramework) + 1;
+            return _loader.LoadForProject(info, targetFramework);
+        }
+
+        public (ImmutableArray<DiagnosticAnalyzer> Analyzers, AnalyzerOptions Options)? LoadAnalyzers(ProjectInfo info, string targetFramework) =>
+            _loader.LoadAnalyzers(info, targetFramework);
+
+        public void Dispose() => _loader.Dispose();
+    }
+
+    /// <summary>The projects the scan's second phase reports.</summary>
+    private sealed class PhaseProgress : Offramp.Core.Progress.IProgressSink
+    {
+        public List<string> Scanned { get; } = [];
+
+        public Offramp.Core.Progress.IProgressPhase BeginPhase(string name, int index, int of) => new Phase(name, name == "newtonsoft scan" ? Scanned : null);
+
+        public void Log(Offramp.Core.Progress.ProgressLevel level, string message)
+        {
+        }
+
+        private sealed class Phase(string name, List<string>? scanned) : Offramp.Core.Progress.IProgressPhase
+        {
+            public string Name => name;
+
+            public void Report(int current, int total, string? item = null)
+            {
+                if (item is not null)
+                {
+                    scanned?.Add(item);
+                }
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+    }
 
     /// <summary>The recorded compilations, one project's changed.</summary>
     private sealed class EditedCompilation(string root, string project, Func<Compilation, Compilation> edit) : ICompilationSource, IDisposable

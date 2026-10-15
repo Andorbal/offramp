@@ -61,7 +61,11 @@ public static class ProjectKindDetector
         "E3E379DF-F4C6-4180-9B81-6769533ABE47", // ASP.NET MVC 4
     ];
 
-    public static (ProjectKind Kind, string Evidence) Detect(ProjectFacts facts)
+    /// <summary>
+    /// The kind and its evidence. Without <paramref name="frameworks"/>, a test framework the project
+    /// references is no evidence: what the project is when an application uses it (ADR 0074).
+    /// </summary>
+    public static (ProjectKind Kind, string Evidence) Detect(ProjectFacts facts, bool frameworks = true)
     {
         var outputType = facts.OutputType ?? "Library";
         var isExe = outputType.Equals("Exe", StringComparison.OrdinalIgnoreCase);
@@ -72,18 +76,6 @@ public static class ProjectKindDetector
         if (facts.IsTestProject)
         {
             return (ProjectKind.Test, "IsTestProject=true");
-        }
-
-        var testPackage = TestPackages.FirstOrDefault(facts.PackageIds.Contains);
-        if (testPackage is not null)
-        {
-            return (ProjectKind.Test, $"PackageReference {testPackage}");
-        }
-
-        var installedTestPackage = TestPackages.FirstOrDefault(facts.PackagesConfigIds.Contains);
-        if (installedTestPackage is not null)
-        {
-            return (ProjectKind.Test, $"packages.config {installedTestPackage}");
         }
 
         if (HasGuid(facts, TestProjectGuid))
@@ -108,12 +100,14 @@ public static class ProjectKindDetector
             return (ProjectKind.Web, "Reference System.Web + OutputType=Library + web.config");
         }
 
-        // test, from a checked-in test framework: only a library, after the web rules, since a web application
-        // project is a library too and one that references a test framework is still the application
-        var testAssembly = TestAssemblies.FirstOrDefault(facts.AssemblyReferences.Contains);
-        if (testAssembly is not null && isLibrary)
+        // test, from a test framework the project references: after the web rules, since a web application
+        // that references a test framework (tests kept in the application) is still the application, and so is
+        // an executable with a desktop or service application's evidence (ADR 0038, 0074)
+        if (frameworks && TestFramework(facts) is { } framework)
         {
-            return (ProjectKind.Test, $"Reference {testAssembly} + OutputType=Library");
+            return (isExe || isWinExe) && Detect(facts, frameworks: false) is { Kind: ProjectKind.Winforms or ProjectKind.Wpf or ProjectKind.Service } application
+                ? application
+                : (ProjectKind.Test, framework);
         }
 
         // winforms
@@ -180,6 +174,34 @@ public static class ProjectKindDetector
 
         return (ProjectKind.Unknown, $"OutputType={outputType}");
     }
+
+    /// <summary>
+    /// The test framework evidence: a package (PackageReference or packages.config, any output type: NUnitLite
+    /// test projects are executables), or a checked-in framework assembly in a library; null when there is none.
+    /// </summary>
+    private static string? TestFramework(ProjectFacts facts)
+    {
+        if (TestPackages.FirstOrDefault(facts.PackageIds.Contains) is { } package)
+        {
+            return $"PackageReference {package}";
+        }
+
+        if (TestPackages.FirstOrDefault(facts.PackagesConfigIds.Contains) is { } installed)
+        {
+            return $"packages.config {installed}";
+        }
+
+        var isLibrary = (facts.OutputType ?? "Library").Equals("Library", StringComparison.OrdinalIgnoreCase);
+        return TestAssemblies.FirstOrDefault(facts.AssemblyReferences.Contains) is { } assembly && isLibrary
+            ? $"Reference {assembly} + OutputType=Library"
+            : null;
+    }
+
+    /// <summary>True when the evidence for a test project is only a test framework it references, which production code may carry too.</summary>
+    public static bool IsFrameworkEvidence(string evidence) =>
+        evidence.StartsWith("PackageReference ", StringComparison.Ordinal)
+        || evidence.StartsWith("packages.config ", StringComparison.Ordinal)
+        || evidence.StartsWith("Reference ", StringComparison.Ordinal);
 
     /// <summary>The SDK name from the evaluated UsingMicrosoftNETSdk* properties, or null for legacy projects.</summary>
     public static string? SdkName(Func<string, bool> isTrue)

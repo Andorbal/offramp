@@ -72,7 +72,7 @@ internal sealed class EntryPointFinder(string repositoryRoot, Graph graph, Works
         return (null, new SiteUncovered
         {
             Reason = exceeded ? UncoveredReason.DepthExceeded : nearest?.Reason ?? UncoveredReason.NotAccessible,
-            Detail = exceeded ? $"no caller within {maxDepth} levels qualifies" : nearest?.Detail ?? "the site's member is not declared in source",
+            Detail = exceeded ? $"no caller within {maxDepth} levels qualifies" : nearest?.Detail ?? "the site's member is not in the call graph of the solution's production code",
             Candidates = [.. examined.Take(ListedCandidates)],
         });
     }

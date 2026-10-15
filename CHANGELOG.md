@@ -11,6 +11,59 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- `OFR0107` (warning): a project marked a test project in so many words (`IsTestProject=true`, the
+  test ProjectTypeGuid) that an application (web, service, Windows Forms, WPF) uses; set its kind in
+  `offramp.yml` if it is production code (ADR 0074).
+- `OFR3748` (error): the generated probes do not compile in a test project for a reason no single
+  probe accounts for. It names the error and the other file that declares the same type; nothing is
+  generated for that test project, and the others are generated as usual (ADR 0075).
+- `docs/spec/commands/newtonsoft.md` and the migration skill describe generating probes on one
+  machine and recording them on Windows through the repository, and say that `.offramp/`'s logs,
+  `bin/`, `obj/`, and `packages/` are not to be synchronized between machines (ADR 0076).
+
+### Changed
+- A test framework is evidence of a test project after the `web` rules (and an executable with a
+  service's, Windows Forms', or WPF's evidence is that application), and a project that is a test
+  project only by a framework it references is classified by its other evidence when an
+  application uses it, directly or through other projects; the evidence names the application. A
+  kind set in `offramp.yml` also sets `isTestProject` (issue #52, ADR 0074).
+  **Migration:** projects whose kind changes from `test` to `library` or `web` now appear in
+  `report`, `plan`, dead-code analysis, and newtonsoft entry-point search; rescan.
+- `OFR3733` (no test project covers a production project) is a warning, so `newtonsoft tests`
+  exits 0 when it generated everything it could; it stays an error for a project named with
+  `--project`, and naming a production project as its own test project is now `OFR3733` (error)
+  instead of generating probes into production code (issues #53, #52).
+- `newtonsoft tests` loads each compilation once, skips the behavior detectors whose findings it
+  discarded, and with `--project` finds only those projects' sites (the call graph still spans every
+  project); `newtonsoft scan` reuses the call graph's compilations too (issue #54, ADR 0075).
+- On Windows, when `scan` builds with `dotnet build`, a build step only Visual Studio's MSBuild runs
+  (non-string resources, COM references, EDMX, T4, ...) says to `offramp scan --msbuild`, which is
+  also the next step; `offramp doctor --fix` stays the next step elsewhere and for the steps it
+  fixes. `OFR0119`'s and `OFR0130`'s fixes say so (issue #56, ADR 0076).
+- `doctor --fix --apply` says when the files it wrote make the workspace model stale, and its next
+  step is then `offramp scan` (issue #55, ADR 0076).
+
+### Fixed
+- `newtonsoft tests` stopped with `OFR0099` when a payload member, enum member, or method was named
+  after a C# keyword (`@event`): such names are written with `@`, each probe's code is parsed on its
+  own before the trial compilation, and a probe that does not parse is dropped with `OFR3735`
+  (issue #50).
+- `newtonsoft tests` stopped with `OFR0099` (CS0101, every probe class defined twice) on a second
+  run when the compiler log named the earlier generated files under another path (another checkout
+  or OS, or another letter case): they are matched by their repository-relative folder now, and an
+  error no probe accounts for stops only its test project (issue #51).
+- `newtonsoft scan` said "the site's member is not declared in source" for every site of a project
+  classified as a test project; it now says the project is a test project and how to change that
+  (issue #52).
+- `scan` deletes the previous binary log before building and the previous compiler log before
+  converting, so a build or conversion that writes nothing no longer reads an earlier run's (or
+  another machine's) log; `OFR0132` says when the build read another machine's paths and to delete
+  the `obj/` folders (issue #56).
+- The build no longer fails NuGet audit: `System.Security.Cryptography.Pkcs`, which
+  `NuGet.Packaging` brings at 8.0.1 (GHSA-846f-f764-76mx, GHSA-2fmv-rv2c-59x7), is referenced at
+  8.0.2.
+
 ## [0.18.0] - 2026-10-12
 
 ### Added

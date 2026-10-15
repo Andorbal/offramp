@@ -44,7 +44,11 @@ public static class ProjectModelBuilder
     /// <summary>Strong naming, recorded when <c>SignAssembly</c> is true; the key file repository-relative when it is inside the repository.</summary>
     private static readonly string[] SigningProperties = ["SignAssembly", "AssemblyOriginatorKeyFile", "DelaySign", "PublicSign"];
 
-    public static ProjectInfo Build(string projectId, IReadOnlyList<EvaluatedProject> evaluations, ProjectBuildContext context)
+    public static ProjectInfo Build(string projectId, IReadOnlyList<EvaluatedProject> evaluations, ProjectBuildContext context) =>
+        Build(projectId, evaluations, context, out _);
+
+    /// <summary>The project, and the facts its kind was detected from (<see cref="ReferencedTestProjects"/> reads them again).</summary>
+    public static ProjectInfo Build(string projectId, IReadOnlyList<EvaluatedProject> evaluations, ProjectBuildContext context, out ProjectFacts facts)
     {
         var outer = evaluations.FirstOrDefault(e => e.TargetFramework is null);
         var inner = evaluations.Where(e => e.TargetFramework is not null)
@@ -62,7 +66,7 @@ public static class ProjectModelBuilder
         var assemblies = AssemblyReferences(all, projectDirectory, context);
         var localDirectory = Path.GetDirectoryName(RepoPaths.ToAbsolute(context.Paths.RepositoryRoot, projectId))!;
         var installed = PackagesConfigReader.Read(Path.Combine(localDirectory, "packages.config"));
-        var facts = new ProjectFacts
+        facts = new ProjectFacts
         {
             Sdk = sdk,
             OutputType = first.Property("OutputType"),
@@ -116,7 +120,8 @@ public static class ProjectModelBuilder
             FrameworkClass = Tfm.Classify(tfms),
             OutputType = first.Property("OutputType") ?? "Library",
             OutputPath = OutputFolder(all, projectDirectory, context),
-            IsTestProject = facts.IsTestProject,
+            // An override decides for every reader: IsTestProject=true from shared props must not keep a library a test.
+            IsTestProject = kindOverride is null ? facts.IsTestProject : kindOverride == ProjectKind.Test,
             Properties = Properties(all, context),
             DefineConstants = DefineConstants(projectId, inner, context),
             WindowsOnlyBuildSteps = [.. WindowsOnlyBuildSteps.Detect(projectFile, evaluations, context.Errors.Where(e => string.Equals(e.ProjectFile, projectFile, StringComparison.OrdinalIgnoreCase)), context.BuildSteps.GetValueOrDefault(projectId)).Select(s => s.Id)],

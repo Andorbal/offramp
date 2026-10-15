@@ -189,9 +189,9 @@ public static partial class DiagnosticCatalog
         NewtonsoftArea);
 
     public static readonly DiagnosticDescriptor OFR3733 = new(
-        "OFR3733", Severity.Error,
+        "OFR3733", Severity.Warning,
         "no test project covers the production project",
-        "No test project references the production project or is named after it, so its probes have nowhere to go. Test projects are not created.",
+        "No test project references the production project or is named after it, so its probes have nowhere to go and its sites stay uncovered; the other projects are generated as usual. Test projects are not created. Reported as an error for a project named with --project, and for a project named as its own test project (probes are not generated into production code).",
         "Production projects without tests.",
         "Create a test project that references it, or name one with --to or newtonsoft.tests.projects.",
         NewtonsoftArea);
@@ -298,6 +298,14 @@ public static partial class DiagnosticCatalog
         "A legacy test project runs as `dotnet test <assembly> --test-adapter-path <output folder>`, and VSTest finds tests only through an adapter there (a `*.testadapter.dll`). Its output folder has none, so no probe would run; it is not run. The message names the package that brings the adapter for its framework.",
         "NUnit 2 and MSTest v1 projects that ran under Visual Studio's own runner or a console runner (`NUnit.Runners`) and never had an adapter package.",
         "Add the named package to the test project (`NUnitTestAdapter` 2.x for NUnit 2), or set `newtonsoft.tests.command` to run its tests another way.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3748 = new(
+        "OFR3748", Severity.Error,
+        "generated probes do not compile in the test project; nothing generated",
+        "Compiled into the test project's recorded compilation, the generated files have an error that no single probe accounts for (in the probe runtime, or a class or namespace the files declare), so nothing is generated or changed for that test project. The error is shown, with the other file that declares the same name when that is the error. Other test projects are generated as usual.",
+        "A compiler log that still holds generated files under paths the run cannot match, a type of the same name in the test project, or a test project below C# 6.",
+        "Run `offramp scan` on this machine so the recorded compilation matches the files on disk, or rename the type the message names; report anything else.",
         NewtonsoftArea);
 
     public static readonly DiagnosticDescriptor OFR3746 = new(

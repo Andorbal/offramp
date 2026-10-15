@@ -21,6 +21,11 @@ Read-only. For every project that uses Newtonsoft.Json it reports:
 Check findings before reporting them (`checking-results.md`). For OFR3703, look at the
 `[JsonProperty]` name. For OFR3709, check whether real payloads nest past 64 levels.
 
+If most sites are `notAccessible` because their project "is a test project", check its kind in
+the model: a library that carries a test framework is a test project unless an application (web,
+service, desktop) uses it (OFR0107 names one marked `IsTestProject` that an application uses). Set its
+kind in `offramp.yml` (`projects: [{ path: ..., kind: library }]`) and scan again.
+
 ## 2. Record what the code does today: `newtonsoft tests`
 
 1. `newtonsoft tests` (dry run) shows the probes it would write into each test project:
@@ -35,6 +40,9 @@ Check findings before reporting them (`checking-results.md`). For OFR3703, look 
 3. `newtonsoft tests --record --apply` writes the probes, builds, runs them twice, and writes the
    baselines.
    - **Where to run it.** Test projects that target only .NET Framework run on Windows only (OFR3739). Record on Windows, or on a CI agent there.
+   - **Moving between machines.** Go through the repository, never a synchronized folder: `.offramp/`'s logs, `bin/`, `obj/`, and `packages/` belong to the machine that built them. Generate and commit the probes; on Windows pull, run `offramp scan` (add `--msbuild` when `scan` says a step needs Visual Studio's MSBuild), then `newtonsoft tests --record --apply`, and commit `Baseline/netfx/`. OFR0132 naming another machine's paths means `obj/` came from elsewhere: delete the `obj/` folders and scan again.
+   - **Projects without tests.** OFR3733 is a warning for a project nobody asked for: its sites stay uncovered and the rest is generated. Never name a production project as its own test project.
+   - **OFR3748** means the generated files do not compile in a test project for a reason no single probe explains (often a type of the same name elsewhere); nothing is generated for that project. Read the file it names.
    - **Adapters.** A legacy test project needs a VSTest adapter in its output folder (OFR3747 names the package; NUnit 2 projects often have only `NUnit.Runners` and need `NUnitTestAdapter`). Add it before going to Windows: the check runs on every OS.
    - **OFR3745** means the test project loaded another Newtonsoft.Json than production. With `Microsoft.NET.Test.Sdk` 17.x on .NET targets, update it to 18.x.
    - **OFR3738** quarantines probes whose output changes between runs.

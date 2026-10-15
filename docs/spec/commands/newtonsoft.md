@@ -216,13 +216,19 @@ offramp newtonsoft tests [--project P ...] [--to TESTPROJECT] [--samples DIR]
 ```
 
 Generates probes for the selected production projects (default: every project
-`scan` finds sites in), records baselines, or checks them.
+`scan` finds sites in), records baselines, or checks them. The scan behind it finds
+sites and entry points only (no findings), each compilation is loaded once per run,
+and with `--project` only those projects' sites are found; the call graph still
+spans every project (ADR 0075).
 
 **Test project.** For each production project, the project in
 `newtonsoft.tests.projects`, else `--to` (only with a single `--project`), else
 the test project that references it, chosen as `move tests` chooses (ADR 0045):
-several is `OFR3734` (error, candidates listed), none is `OFR3733` (error). Test
-projects are not created. The framework is detected from the test project's
+several is `OFR3734` (error, candidates listed), none is `OFR3733` (a warning: the
+project's sites are only uncovered and the other projects are generated; an error
+for a project named with `--project`; ADR 0075). Naming the production project as
+its own test project is `OFR3733` (error): probes are not generated into production
+code (ADR 0074). Test projects are not created. The framework is detected from the test project's
 references: xunit (2 and 3), NUnit (2, 3 and 4), MSTest (v1
 `Microsoft.VisualStudio.QualityTools.UnitTestFramework` and v2); anything else
 is `OFR3736` and the project is skipped.
@@ -251,9 +257,19 @@ longer produced (baselines are never touched), and leaves the rest untouched, so
 a second run with the same inputs changes nothing. Legacy (non-SDK) test projects
 get `Compile` items for the `.cs` files; nothing else is added to any project
 file. Before anything is written, the generated files are compiled into each of
-the test project's recorded compilations (earlier generated files replaced): a
-probe that does not compile is dropped with every probe that reads what it
-writes (`OFR3735`, with the first error), never written.
+the test project's recorded compilations, in place of the recorded files in the
+generated folder (under it here, letter case ignored where the file system ignores
+it, or in a folder whose path ends with its repository-relative path, for a
+compiler log recorded in another checkout or on another OS), with the files the
+user took over as they are on disk. Each probe's code is parsed on its own first. A
+probe that does not parse or compile is dropped with every probe that reads what
+it writes (`OFR3735`, with the first error), never written. An error no single
+probe accounts for (in the runtime, or a class the files declare twice) is
+`OFR3748` (error), naming the other file that declares the type when that is the
+error: nothing is generated, changed, or deleted for that test project, its sites
+are uncovered (`doesNotCompile`), and the other test projects are generated as
+usual (ADR 0075). Member, enum member, and method names that are C# keywords are
+written with `@`; a name C# cannot spell is not used.
 
 **Which probes.** A site with an entry point gets *entry probes*: they call the
 entry point (static, or on an instance made with its cheapest constructor) with
@@ -389,6 +405,23 @@ legacy test project whose output folder has none is not run, on any OS, and is
 framework (`NUnitTestAdapter` for NUnit 2, `NUnit3TestAdapter`,
 `xunit.runner.visualstudio`, `MSTest.TestAdapter`; ADR 0073). A project that
 cannot run is reported once per command, not once per recording pass.
+**Recording on another machine.** Generation works on any OS; recording and
+verifying a test project that targets only .NET Framework need Windows. Move
+between the two through the repository, not by copying or synchronizing the
+working folder: `.offramp/`'s logs, `bin/`, `obj/`, and `packages/` belong to the
+machine that built them (a synchronized `obj/` gives a Windows build the Mac's
+package folder, `OFR0132`; ADR 0076).
+
+1. Where you generate: `offramp newtonsoft tests --apply`, then commit the
+   generated folders.
+2. On Windows: pull, `offramp scan` (with `--msbuild` when `scan` says a step needs
+   Visual Studio's MSBuild), then `offramp newtonsoft tests --record --apply`
+   (which first rewrites any probe that generating it here changes; `git diff`
+   shows them), and commit `Baseline/netfx/`.
+3. Back where you generate: pull. `--verify` there checks the projects it can run
+   and skips the others with `OFR3739`; the upgrade's own check runs on Windows the
+   same way.
+
 `newtonsoft.tests.command` replaces both, run through the shell (placeholders
 `{project}`, `{assembly}`, `{framework}`, `{filter}`, `{results}`), with the same
 environment. The pass or fail of the test run is not the verdict: the result
@@ -497,7 +530,7 @@ newtonsoft:
 | OFR3725 | warning | target package unavailable; API changes not computed |
 | OFR3731 | warning | site has no probe (reason) |
 | OFR3732 | warning | deserialize-only site without a sample payload |
-| OFR3733 | error | no test project covers the production project |
+| OFR3733 | warning | no test project covers the production project (error for a project named with `--project`, or named as its own test project) |
 | OFR3734 | error | several test projects cover the production project |
 | OFR3735 | warning | generated probe does not compile; dropped |
 | OFR3736 | warning | test framework not supported |
@@ -511,6 +544,8 @@ newtonsoft:
 | OFR3744 | warning | probe has no baseline |
 | OFR3745 | error | probe ran under another Newtonsoft.Json version than production |
 | OFR3746 | error | generated probes are out of date |
+| OFR3747 | warning | legacy test project has no VSTest adapter; not run |
+| OFR3748 | error | generated probes do not compile in the test project; nothing generated for it |
 | OFR3760 | error | no target version supports every framework |
 | OFR3761 | error | build failed after the upgrade; rolled back |
 | OFR3762 | error | probe observes a behavior change |
