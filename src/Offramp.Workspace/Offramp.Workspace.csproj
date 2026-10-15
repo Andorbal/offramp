@@ -22,6 +22,8 @@
     <PackageReference Include="Microsoft.CodeAnalysis" />
     <PackageReference Include="Microsoft.VisualStudio.SolutionPersistence" />
     <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
+    <!-- Lifts NuGet.Packaging's vulnerable dependency to the fixed release (Directory.Packages.props). -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
   </ItemGroup>
 
   <ItemGroup>

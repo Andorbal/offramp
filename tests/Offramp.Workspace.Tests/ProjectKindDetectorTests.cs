@@ -11,7 +11,13 @@ public sealed class ProjectKindDetectorTests
         { "test-package", Facts(packages: ["xunit"]), ProjectKind.Test, "PackageReference xunit" },
         { "test-package-in-packages-config", new ProjectFacts { PackagesConfigIds = Set("NUnit") }, ProjectKind.Test, "packages.config NUnit" },
         { "test-guid", new ProjectFacts { ProjectTypeGuids = "{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}" }, ProjectKind.Test, "ProjectTypeGuids {3AC096D0-A1C2-E12C-1390-A8335801FDAB}" },
-        { "test-beats-web", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", PackageIds = Set("NUnit") }, ProjectKind.Test, "PackageReference NUnit" },
+        { "web-beats-test-package", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", PackageIds = Set("NUnit") }, ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web" },
+        { "web-guid-beats-installed-test-package", new ProjectFacts { ProjectTypeGuids = "{349C5851-65DF-11DA-9384-00065B846F21}", PackagesConfigIds = Set("NUnit") }, ProjectKind.Web, "ProjectTypeGuids {349C5851-65DF-11DA-9384-00065B846F21}" },
+        { "is-test-project-beats-web", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", IsTestProject = true }, ProjectKind.Test, "IsTestProject=true" },
+        { "test-package-exe-is-test", Facts(packages: ["NUnit"], outputType: "Exe"), ProjectKind.Test, "PackageReference NUnit" },
+        { "service-beats-test-package", new ProjectFacts { AssemblyReferences = Set("System.ServiceProcess"), PackageIds = Set("NUnit"), OutputType = "Exe" }, ProjectKind.Service, "Reference System.ServiceProcess + OutputType=Exe" },
+        { "winforms-app-beats-test-package", new ProjectFacts { UseWindowsForms = true, PackagesConfigIds = Set("NUnit"), OutputType = "WinExe" }, ProjectKind.Winforms, "UseWindowsForms=true" },
+        { "wpf-test-library-is-test", new ProjectFacts { UseWpf = true, PackageIds = Set("xunit") }, ProjectKind.Test, "PackageReference xunit" },
         { "web-sdk", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", OutputType = "Exe" }, ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web" },
         { "web-guid", new ProjectFacts { ProjectTypeGuids = "{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}" }, ProjectKind.Web, "ProjectTypeGuids {349C5851-65DF-11DA-9384-00065B846F21}" },
         { "web-config", new ProjectFacts { AssemblyReferences = Set("System.Web"), HasWebConfig = true }, ProjectKind.Web, "Reference System.Web + OutputType=Library + web.config" },
@@ -45,6 +51,14 @@ public sealed class ProjectKindDetectorTests
 
         Assert.Equal(kind, detected.Kind);
         Assert.Equal(evidence, detected.Evidence);
+    }
+
+    [Fact]
+    public void Without_test_frameworks_a_project_is_what_its_other_evidence_says()
+    {
+        Assert.Equal((ProjectKind.Library, "OutputType=Library"), ProjectKindDetector.Detect(Facts(packages: ["NUnit"]), frameworks: false));
+        Assert.Equal((ProjectKind.Library, "OutputType=Library"), ProjectKindDetector.Detect(new ProjectFacts { AssemblyReferences = Set("nunit.framework") }, frameworks: false));
+        Assert.Equal((ProjectKind.Test, "IsTestProject=true"), ProjectKindDetector.Detect(new ProjectFacts { IsTestProject = true, PackageIds = Set("xunit") }, frameworks: false));
     }
 
     [Fact]

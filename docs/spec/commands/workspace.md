@@ -53,6 +53,10 @@ offramp scan [--solution PATH] [--binlog PATH [--complog PATH] | --complog PATH 
   `OFR0101` and `OFR0126` (`docs/decisions/0048-web-sites-bcl-build-and-mstest-v1-outside-windows.md`).
 - Converts the binlog to a complog (`.offramp/build.complog`) so compilations
   can be rebuilt without MSBuild. With `--complog`, copies that one instead.
+  The build deletes the previous `.offramp/msbuild.binlog` first, and the
+  conversion the previous `.offramp/build.complog`, so a build or conversion
+  that writes nothing never leaves an earlier run's (or another machine's) log
+  to be read (`docs/decisions/0076-state-that-belongs-to-one-machine.md`).
 - `--no-build` reuses `.offramp/msbuild.binlog` from the previous scan
   (`OFR0003` when there is none); it cannot be combined with `--binlog` or
   `--complog` (exit 2).
@@ -118,7 +122,17 @@ projects each affects in the message and `data.projectsByCode`, an error
 without a code labeled `restore` when the restore logged it, and the first N
 distinct errors with repository-relative paths; scan still produces a model for projects whose compiler call
 succeeded, and marks the rest `partial: true`), `OFR0131` build timed out,
-`OFR0132` compiler calls unavailable.
+`OFR0132` compiler calls unavailable (when a missing file is at an absolute
+path of the other kind of OS, the message says the build read another
+machine's paths, from `obj/` folders or packages copied or synced from it).
+`OFR0110`–`0119` and `OFR0124`–`0126` say "Needs Windows to build", except
+that a scan on Windows with the `dotnet` builder says a step only Visual
+Studio's MSBuild runs (non-string resources, COM references, EDMX, T4, Fakes,
+inline tasks, MSTest v1, SSDT) needs `offramp scan --msbuild`.
+
+The next step after Windows-only build steps is `offramp scan --msbuild` on
+Windows when the `dotnet` builder met such a step, nothing after an MSBuild
+build on Windows, and `offramp doctor --fix` otherwise (ADR 0076).
 
 ## `doctor`
 
@@ -152,6 +166,8 @@ Checks, each with pass/warn/fail and a remedy:
   --apply` writes them (asking first on a terminal unless `--yes`), keeping
   every other byte of each file (`docs/decisions/0012-doctor-fix-and-slice.md`,
   `docs/decisions/0063-condition-windows-only-settings-in-project-files.md`).
+  When it writes a file and a workspace model exists, it says the model was
+  built before the change, and the next step is `offramp scan` (ADR 0076).
   The files are the model's projects (before the first scan, the solution's),
   the `Directory.Build.props`/`.targets` files above them, the repository files
   they import by a path readable without evaluation, and a settings file named

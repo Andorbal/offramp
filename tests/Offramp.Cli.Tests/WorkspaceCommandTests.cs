@@ -1,6 +1,8 @@
 using System.Text.Json.Nodes;
+using Offramp.Cli.Commands;
 using Offramp.Core.Processes;
 using Offramp.Fixtures;
+using Offramp.Workspace.Scanning;
 
 namespace Offramp.Cli.Tests;
 
@@ -265,6 +267,25 @@ public sealed class WorkspaceCommandTests : IDisposable
         Assert.Contains("Dry run: this would add the compile-only block to Directory.Build.props and 2 Windows conditions to 1 project file", preview.Out, StringComparison.Ordinal);
         Assert.Contains("+++ b/src/Soap/Soap.csproj", preview.Out, StringComparison.Ordinal);
         Assert.Contains("Added the compile-only block to Directory.Build.props and 2 Windows conditions to src/Soap/Soap.csproj.", applied.Out, StringComparison.Ordinal);
+        // Issue #55: the files the model was built from changed under it; say so before the next command calls it stale.
+        Assert.Contains("The workspace model was built before these changes; run `offramp scan`", applied.Out, StringComparison.Ordinal);
+        Assert.Contains("offramp scan", applied.Out[applied.Out.LastIndexOf("Next", StringComparison.Ordinal)..], StringComparison.Ordinal);
+        var next = await _cli.RunAsync("doctor", "--json");
+        Assert.Contains("src/Soap/Soap.csproj", Diagnostic(next, "OFR0002")["message"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("resources", false, "dotnet", "offramp doctor --fix")]
+    [InlineData("resources", true, "dotnet", "offramp scan --msbuild")]
+    [InlineData("com", true, "dotnet", "offramp scan --msbuild")]
+    [InlineData("sgen", true, "dotnet", "offramp doctor --fix")]
+    [InlineData("resources", true, "msbuild", null)]
+    [InlineData("resources", true, null, "offramp doctor --fix")]
+    public void After_windows_only_steps_the_next_step_depends_on_the_os_and_the_builder(string step, bool windows, string? builder, string? next)
+    {
+        // Issue #56: on Windows, `doctor --fix` does nothing for non-string resources; Visual Studio's MSBuild builds them.
+        Assert.Equal(next, ScanCommand.NextStep([new WindowsOnlyProject("src/A/A.csproj", [step])], windows, builder));
+        Assert.Null(ScanCommand.NextStep([], windows, builder));
     }
 
     [Fact]

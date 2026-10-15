@@ -1,0 +1,521 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/workspace.json",
+  "version": 1,
+  "createdAt": "{CreatedAt}",
+  "repositoryRoot": "{RepositoryRoot}",
+  "solution": "NewtonsoftLegacy.sln",
+  "source": {
+    "kind": "build",
+    "path": ".offramp/msbuild.binlog",
+    "sha256": null,
+    "complog": null
+  },
+  "sdk": {
+    "version": "{SdkVersion}",
+    "os": "{Os}"
+  },
+  "projects": [
+    {
+      "id": "src/Orders.App/Orders.App.csproj",
+      "name": "Orders.App",
+      "assemblyName": "Orders.App",
+      "rootNamespace": "Contoso.Orders.App",
+      "language": "csharp",
+      "kind": "console",
+      "kindEvidence": "OutputType=Exe",
+      "sdkStyle": false,
+      "sdk": null,
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Exe",
+      "outputPath": "src/Orders.App/bin/Debug",
+      "isTestProject": false,
+      "properties": {
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "DEBUG",
+          "TRACE"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": true,
+      "packagesConfigPackages": [
+        {
+          "id": "Newtonsoft.Json",
+          "version": "7.0.1",
+          "targetFramework": "net48",
+          "developmentDependency": false
+        }
+      ],
+      "compile": [
+        "src/Orders.App/Program.cs",
+        "src/Orders.App/Properties/AssemblyInfo.cs"
+      ],
+      "compileExplicit": true,
+      "projectReferences": [
+        "src/Orders/Orders.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NETFramework.ReferenceAssemblies",
+          "version": "1.0.3",
+          "versionOverride": null,
+          "privateAssets": "all",
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "Newtonsoft.Json",
+          "hintPath": "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "7.0.0.0",
+            "targetFramework": ".NETFramework,Version=v4.5",
+            "publicKeyToken": "30ad4fe6b2a6aeed"
+          }
+        },
+        {
+          "name": "System",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Runtime.Serialization",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Xml",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies",
+              "version": "1.0.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+                  "range": "[1.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+              "version": "1.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "project": "src/Orders.App/Orders.App.csproj",
+          "targetFramework": null
+        }
+      },
+      "loc": 18,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "src/Orders/Orders.csproj",
+      "name": "Orders",
+      "assemblyName": "Orders",
+      "rootNamespace": "Contoso.Orders",
+      "language": "csharp",
+      "kind": "library",
+      "kindEvidence": "OutputType=Library",
+      "sdkStyle": false,
+      "sdk": null,
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "outputPath": "src/Orders/bin/Debug",
+      "isTestProject": false,
+      "properties": {
+        "LangVersion": "7.3",
+        "ManagePackageVersionsCentrally": "false"
+      },
+      "defineConstants": {
+        "net48": [
+          "DEBUG",
+          "TRACE"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": true,
+      "packagesConfigPackages": [
+        {
+          "id": "Newtonsoft.Json",
+          "version": "7.0.1",
+          "targetFramework": "net48",
+          "developmentDependency": false
+        }
+      ],
+      "compile": [
+        "src/Orders/Comment.cs",
+        "src/Orders/Order.cs",
+        "src/Orders/OrderCodec.cs",
+        "src/Orders/Properties/AssemblyInfo.cs"
+      ],
+      "compileExplicit": true,
+      "projectReferences": [],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NETFramework.ReferenceAssemblies",
+          "version": "1.0.3",
+          "versionOverride": null,
+          "privateAssets": "all",
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "Newtonsoft.Json",
+          "hintPath": "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "7.0.0.0",
+            "targetFramework": ".NETFramework,Version=v4.5",
+            "publicKeyToken": "30ad4fe6b2a6aeed"
+          }
+        },
+        {
+          "name": "System",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Runtime.Serialization",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Xml",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies",
+              "version": "1.0.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+                  "range": "[1.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+              "version": "1.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "project": "src/Orders/Orders.csproj",
+          "targetFramework": null
+        }
+      },
+      "loc": 80,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    },
+    {
+      "id": "tests/Orders.Tests/Orders.Tests.csproj",
+      "name": "Orders.Tests",
+      "assemblyName": "Orders.Tests",
+      "rootNamespace": "Contoso.Orders.Tests",
+      "language": "csharp",
+      "kind": "test",
+      "kindEvidence": "ProjectTypeGuids {3AC096D0-A1C2-E12C-1390-A8335801FDAB}",
+      "sdkStyle": false,
+      "sdk": null,
+      "targetFrameworks": [
+        "net48"
+      ],
+      "frameworkClass": "framework",
+      "outputType": "Library",
+      "outputPath": "tests/Orders.Tests/bin/Debug",
+      "isTestProject": false,
+      "properties": {
+        "LangVersion": "6",
+        "ManagePackageVersionsCentrally": "false",
+        "ProjectTypeGuids": "{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}"
+      },
+      "defineConstants": {
+        "net48": [
+          "DEBUG",
+          "TRACE"
+        ]
+      },
+      "windowsOnlyBuildSteps": [],
+      "packagesConfig": true,
+      "packagesConfigPackages": [
+        {
+          "id": "MSTest.TestAdapter",
+          "version": "2.2.10",
+          "targetFramework": "net48",
+          "developmentDependency": false
+        },
+        {
+          "id": "MSTest.TestFramework",
+          "version": "2.2.10",
+          "targetFramework": "net48",
+          "developmentDependency": false
+        },
+        {
+          "id": "Newtonsoft.Json",
+          "version": "7.0.1",
+          "targetFramework": "net48",
+          "developmentDependency": false
+        }
+      ],
+      "compile": [
+        "tests/Orders.Tests/OrderCodecTests.cs",
+        "tests/Orders.Tests/Properties/AssemblyInfo.cs"
+      ],
+      "compileExplicit": true,
+      "projectReferences": [
+        "src/Orders/Orders.csproj"
+      ],
+      "packageReferences": [
+        {
+          "id": "Microsoft.NETFramework.ReferenceAssemblies",
+          "version": "1.0.3",
+          "versionOverride": null,
+          "privateAssets": "all",
+          "tfms": [
+            "net48"
+          ]
+        }
+      ],
+      "assemblyReferences": [
+        {
+          "name": "Microsoft.VisualStudio.TestPlatform.TestFramework",
+          "hintPath": "packages/MSTest.TestFramework.2.2.10/lib/net45/Microsoft.VisualStudio.TestPlatform.TestFramework.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "14.0.0.0",
+            "targetFramework": ".NETPortable,Version=v4.5,Profile=Profile259",
+            "publicKeyToken": "b03f5f7f11d50a3a"
+          }
+        },
+        {
+          "name": "Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions",
+          "hintPath": "packages/MSTest.TestFramework.2.2.10/lib/net45/Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "14.0.0.0",
+            "targetFramework": ".NETFramework,Version=v4.5",
+            "publicKeyToken": "b03f5f7f11d50a3a"
+          }
+        },
+        {
+          "name": "Newtonsoft.Json",
+          "hintPath": "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll",
+          "kind": "file",
+          "metadata": {
+            "assemblyVersion": "7.0.0.0",
+            "targetFramework": ".NETFramework,Version=v4.5",
+            "publicKeyToken": "30ad4fe6b2a6aeed"
+          }
+        },
+        {
+          "name": "System",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Runtime.Serialization",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        },
+        {
+          "name": "System.Xml",
+          "hintPath": null,
+          "kind": "framework",
+          "metadata": null
+        }
+      ],
+      "comReferences": [],
+      "internalsVisibleTo": [],
+      "resolved": {
+        "net48": {
+          "packages": [
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies",
+              "version": "1.0.3",
+              "dependencies": [
+                {
+                  "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+                  "range": "[1.0.3, )"
+                }
+              ],
+              "direct": true
+            },
+            {
+              "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",
+              "version": "1.0.3",
+              "dependencies": [],
+              "direct": false
+            }
+          ]
+        }
+      },
+      "compilerCalls": {
+        "net48": {
+          "complog": ".offramp/build.complog",
+          "project": "tests/Orders.Tests/Orders.Tests.csproj",
+          "targetFramework": null
+        }
+      },
+      "loc": 22,
+      "config": {
+        "kindOverride": null,
+        "excluded": false
+      }
+    }
+  ],
+  "graph": {
+    "edges": [
+      {
+        "from": "src/Orders.App/Orders.App.csproj",
+        "to": "src/Orders/Orders.csproj",
+        "kind": "project"
+      },
+      {
+        "from": "tests/Orders.Tests/Orders.Tests.csproj",
+        "to": "src/Orders/Orders.csproj",
+        "kind": "project"
+      }
+    ],
+    "cycles": [],
+    "topologicalOrder": [
+      "src/Orders/Orders.csproj",
+      "src/Orders.App/Orders.App.csproj",
+      "tests/Orders.Tests/Orders.Tests.csproj"
+    ]
+  },
+  "packages": {
+    "MSTest.TestAdapter": {
+      "versions": {
+        "2.2.10": [
+          "tests/Orders.Tests/Orders.Tests.csproj"
+        ]
+      }
+    },
+    "MSTest.TestFramework": {
+      "versions": {
+        "2.2.10": [
+          "tests/Orders.Tests/Orders.Tests.csproj"
+        ]
+      }
+    },
+    "Microsoft.NETFramework.ReferenceAssemblies": {
+      "versions": {
+        "1.0.3": [
+          "src/Orders.App/Orders.App.csproj",
+          "src/Orders/Orders.csproj",
+          "tests/Orders.Tests/Orders.Tests.csproj"
+        ]
+      }
+    },
+    "Newtonsoft.Json": {
+      "versions": {
+        "7.0.1": [
+          "src/Orders.App/Orders.App.csproj",
+          "src/Orders/Orders.csproj",
+          "tests/Orders.Tests/Orders.Tests.csproj"
+        ]
+      }
+    }
+  },
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Build.targets",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "NewtonsoftLegacy.sln",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Orders.App/Orders.App.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Orders.App/packages.config",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Orders/Orders.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "src/Orders/packages.config",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "tests/Orders.Tests/Orders.Tests.csproj",
+      "sha256": "{Sha256}"
+    },
+    {
+      "path": "tests/Orders.Tests/packages.config",
+      "sha256": "{Sha256}"
+    }
+  ],
+  "diagnostics": []
+}

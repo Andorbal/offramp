@@ -4,6 +4,7 @@ using Offramp.Cli.Infrastructure;
 using Offramp.Cli.Rendering;
 using Offramp.Core.Configuration;
 using Offramp.Workspace;
+using Offramp.Workspace.Model;
 using Offramp.Workspace.Scanning;
 using Spectre.Console;
 
@@ -73,13 +74,18 @@ public sealed class ScanCommand : ICommandHandler<ScanOptions, ScanResult>, INex
         return command;
     }
 
+    /// <summary>How this run built, for the next step: <c>dotnet</c>, <c>msbuild</c>, or null when it read logs.</summary>
+    private string? _builder;
+
     public async Task<CommandOutcome<ScanResult>> ExecuteAsync(ScanOptions options, CommandContext context, CancellationToken cancellationToken)
     {
         var cwd = context.Host.WorkingDirectory;
+        var config = WithBuilder(context.Config.Config, options, cwd);
+        _builder = options.Binlog is null && options.Complog is null && !options.NoBuild ? config.Scan.Builder : null;
         var outcome = await ScanRunner.RunAsync(new ScanRequest
         {
             RepositoryRoot = context.Repository.Path,
-            Config = WithBuilder(context.Config.Config, options, cwd),
+            Config = config,
             WorkspacePath = context.WorkspacePath,
             BinlogPath = options.Binlog is null ? null : Path.GetFullPath(options.Binlog, cwd),
             ComplogPath = options.Complog is null ? null : Path.GetFullPath(options.Complog, cwd),
@@ -170,5 +176,22 @@ public sealed class ScanCommand : ICommandHandler<ScanOptions, ScanResult>, INex
     }
 
     public string? NextStep(ScanResult result, CommandContext context) =>
-        result.WindowsOnlyBuildSteps.Count > 0 ? "offramp doctor --fix" : null;
+        NextStep(result.WindowsOnlyBuildSteps, context.Host.Os.StartsWith("win", StringComparison.OrdinalIgnoreCase), _builder);
+
+    /// <summary>
+    /// After Windows-only build steps: on Windows, a step only Visual Studio's MSBuild runs (non-string resources,
+    /// COM, EDMX, T4, ...) fails `dotnet build` whatever doctor's fix does, so the next step is building with MSBuild
+    /// (issue #56); elsewhere, and for the steps the fix conditions, it is the fix. Nothing after an MSBuild build on Windows.
+    /// </summary>
+    internal static string? NextStep(IReadOnlyList<WindowsOnlyProject> projects, bool windows, string? builder)
+    {
+        if (projects.Count == 0 || (windows && builder == ScanConfig.Msbuild))
+        {
+            return null;
+        }
+
+        return windows && builder == ScanConfig.Dotnet && projects.SelectMany(p => p.Steps).Any(s => !WindowsOnlyBuildSteps.DotnetBuildOnWindows.Contains(s))
+            ? "offramp scan --msbuild"
+            : "offramp doctor --fix";
+    }
 }

@@ -41,6 +41,14 @@ public static class WindowsOnlyBuildSteps
     public static readonly IReadOnlyList<string> Order =
         ["sgen", "com", "entity-deploy", "t4", "fakes", "ssdt", "build-event", "web-targets", "aspnet-compiler", "path-case", "inline-task", "resources", "bcl-build", "mstest-v1", "web-site"];
 
+    /// <summary>
+    /// The steps <c>dotnet build</c> gets past on Windows: those that need nothing but Windows (build events, letter
+    /// case), and those doctor's fix conditions for it (ADR 0064). Every other step needs Visual Studio's MSBuild on
+    /// Windows too: non-string resources, COM references, EDMX, T4, Fakes, inline tasks, MSTest v1, SSDT.
+    /// </summary>
+    public static readonly IReadOnlySet<string> DotnetBuildOnWindows =
+        new HashSet<string>(["build-event", "path-case", "sgen", "web-targets", "aspnet-compiler", "bcl-build"], StringComparer.Ordinal);
+
     /// <summary>The first and last codes of the first Windows-only build step range (OFR0110–OFR0119).</summary>
     public const string FirstCode = "OFR0110";
 

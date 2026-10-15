@@ -22,6 +22,33 @@ public interface ICompilationSource
     (ImmutableArray<DiagnosticAnalyzer> Analyzers, AnalyzerOptions Options)? LoadAnalyzers(ProjectInfo project, string targetFramework);
 }
 
+/// <summary>
+/// Each project's compilation loaded once and shared, for one command: reading a compilation from the compiler
+/// log rebuilds it and runs its source generators, and Roslyn's symbols and bindings live in the compilation, so a
+/// second load repeats all of that. Compilations are immutable, so sharing them changes no result.
+/// </summary>
+public sealed class SharedCompilations(ICompilationSource inner) : ICompilationSource
+{
+    private readonly Dictionary<(string Project, string TargetFramework), Compilation?> _loaded = [];
+
+    /// <summary>The source to share: <paramref name="source"/> itself when it already shares.</summary>
+    public static SharedCompilations Over(ICompilationSource source) => source as SharedCompilations ?? new SharedCompilations(source);
+
+    public Compilation? LoadForProject(ProjectInfo project, string targetFramework)
+    {
+        if (!_loaded.TryGetValue((project.Id, targetFramework), out var compilation))
+        {
+            compilation = inner.LoadForProject(project, targetFramework);
+            _loaded[(project.Id, targetFramework)] = compilation;
+        }
+
+        return compilation;
+    }
+
+    public (ImmutableArray<DiagnosticAnalyzer> Analyzers, AnalyzerOptions Options)? LoadAnalyzers(ProjectInfo project, string targetFramework) =>
+        inner.LoadAnalyzers(project, targetFramework);
+}
+
 public static class CompilationSourceExtensions
 {
     /// <summary>The compilation of a project for its first .NET Framework target (or its first target), or null.</summary>

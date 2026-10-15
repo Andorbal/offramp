@@ -24,8 +24,8 @@ internal static class OperationText
             : null,
         IFieldReferenceOperation { Field: { IsStatic: true } field } => field.HasConstantValue && field.ContainingType.TypeKind != TypeKind.Enum && field.ContainingType.SpecialType != SpecialType.None
             ? CSharp6.Literal(field.ConstantValue)
-            : $"{CSharp6.Type(field.ContainingType)}.{field.Name}",
-        IPropertyReferenceOperation { Property: { IsStatic: true } property, Arguments.Length: 0 } => $"{CSharp6.Type(property.ContainingType)}.{property.Name}",
+            : CSharp6.Name(field.Name) is { } name ? $"{CSharp6.Type(field.ContainingType)}.{name}" : null,
+        IPropertyReferenceOperation { Property: { IsStatic: true } property, Arguments.Length: 0 } => CSharp6.Name(property.Name) is { } name ? $"{CSharp6.Type(property.ContainingType)}.{name}" : null,
         IObjectCreationOperation { Type: { } type } creation => Creation(type, creation),
         IArrayCreationOperation { Type: IArrayTypeSymbol array } creation => creation.Initializer is null
             ? (creation.DimensionSizes.Length == 1 && Of(creation.DimensionSizes[0]) is { } size ? $"new {CSharp6.Type(array.ElementType)}[{size}]" : null)
@@ -56,8 +56,8 @@ internal static class OperationText
         {
             var text = part switch
             {
-                ISimpleAssignmentOperation { Target: IMemberReferenceOperation member } assignment => Of(assignment.Value) is { } value ? $"{member.Member.Name} = {value}" : null,
-                IMemberInitializerOperation { InitializedMember: IMemberReferenceOperation member } nested => Initializer(nested.Initializer) is { } inner ? $"{member.Member.Name} = {inner}" : null,
+                ISimpleAssignmentOperation { Target: IMemberReferenceOperation member } assignment => Of(assignment.Value) is { } value && CSharp6.Name(member.Member.Name) is { } name ? $"{name} = {value}" : null,
+                IMemberInitializerOperation { InitializedMember: IMemberReferenceOperation member } nested => Initializer(nested.Initializer) is { } inner && CSharp6.Name(member.Member.Name) is { } name ? $"{name} = {inner}" : null,
                 IInvocationOperation { Arguments.Length: 1 } add => Of(add.Arguments[0].Value),
                 IInvocationOperation add => Items(add.Arguments.Select(a => a.Value)) is { } items ? $"{{ {items} }}" : null,
                 _ => null,
