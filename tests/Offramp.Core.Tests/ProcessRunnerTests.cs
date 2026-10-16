@@ -9,7 +9,7 @@ public sealed class ProcessRunnerTests
     {
         var (file, raw) = OperatingSystem.IsWindows()
             ? ("cmd.exe", "/d /s /c \"echo \"a b\" \"c d\"\"")
-            : ("/bin/sh", "-c 'echo \"a b\" \"c d\"'");
+            : ("/bin/sh", "-c \"echo 'a b' 'c d'\"");
 
         var result = await new ProcessRunner().RunAsync(new ProcessSpec(file, []) { RawArguments = raw });
 
