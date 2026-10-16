@@ -73,6 +73,26 @@ public sealed class ReferencedTestProjectsTests
     }
 
     [Fact]
+    public void Is_test_project_only_used_by_a_console_runner_stays_test()
+    {
+        var projects = new[]
+        {
+            Project("tests/Helpers/Helpers.csproj", ProjectKind.Test, "IsTestProject=true"),
+            Project("tests/Runner/Runner.csproj", ProjectKind.Console, "OutputType=Exe", "tests/Helpers/Helpers.csproj"),
+        };
+        var facts = new Dictionary<string, ProjectFacts>(StringComparer.Ordinal)
+        {
+            ["tests/Helpers/Helpers.csproj"] = new() { IsTestProject = true },
+            ["tests/Runner/Runner.csproj"] = new(),
+        };
+
+        var (classified, kept) = ReferencedTestProjects.Apply(projects, facts);
+
+        Assert.Equal(ProjectKind.Test, classified.Single(p => p.Id == "tests/Helpers/Helpers.csproj").Kind);
+        Assert.Empty(kept);
+    }
+
+    [Fact]
     public void Test_guid_stays_test_when_a_deployed_application_uses_the_project()
     {
         var (projects, kept) = ReferencedTestProjects.Apply(
