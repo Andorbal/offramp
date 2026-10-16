@@ -74,9 +74,9 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR0017 = new(
         "OFR0017", Severity.Error,
         "MSBuild not found",
-        "`scan` was asked to build with MSBuild (`--msbuild` or `scan.builder: msbuild`), but no MSBuild.exe could be found or started, so the solution cannot be built.",
+        "`scan` or verification was asked to build with MSBuild (`--msbuild` or the configured builder), but no MSBuild.exe could be found or started, so the solution cannot be built.",
         "Neither Visual Studio nor the Build Tools for Visual Studio is installed with the MSBuild component, `--msbuild-path` or `scan.msbuildPath` names something that is neither MSBuild.exe nor a folder holding it, or the machine cannot run MSBuild.exe.",
-        "Install Visual Studio or the Build Tools with the MSBuild component, pass `--msbuild-path` (MSBuild.exe or the installation folder), or build with `dotnet` and scan a log captured on Windows with `--binlog`.",
+        "Install Visual Studio or the Build Tools with the MSBuild component. For verification, set `scan.msbuildPath`; for `scan`, pass `--msbuild-path` or set `scan.msbuildPath`. Alternatively build with `dotnet` and scan a log captured on Windows with `--binlog`.",
         EnvironmentArea);
 
     public static readonly DiagnosticDescriptor OFR0018 = new(

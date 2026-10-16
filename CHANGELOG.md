@@ -12,6 +12,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 ## [Unreleased]
 
 ### Added
+- Verification builds can use `verify.builder: msbuild` or inherit `scan.builder`, sharing the scan MSBuild locator and `scan.msbuildPath`; probe test execution remains on `dotnet test`.
 - Workspace projects now expose `hostsTests`, identifying production-kind assemblies that also reference a test framework.
 
 ### Changed

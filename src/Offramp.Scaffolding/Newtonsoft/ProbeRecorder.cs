@@ -224,6 +224,8 @@ public static class ProbeRecorder
             RepositoryRoot = request.RepositoryRoot,
             Model = request.Model,
             Config = request.Config.Verify with { Mode = "build" },
+            ScanBuilder = request.Config.Scan.Builder,
+            MsbuildPath = request.Config.Scan.MsbuildPath,
             Mode = VerifyMode.Build,
             Projects = projects,
             Scope = $"the {projects.Count} test project{(projects.Count == 1 ? "" : "s")} with probes",
@@ -239,7 +241,7 @@ public static class ProbeRecorder
 
         request.Diagnostics.Report(DiagnosticCatalog.OFR3740,
             build is null
-                ? "The test projects could not be built: the .NET SDK did not start."
+                ? "The test projects could not be built: the configured build tool did not start."
                 : $"The test projects do not build ({build.ErrorCount} error{(build.ErrorCount == 1 ? "" : "s")}; the first: {Describe(build.Errors.FirstOrDefault()?.First)})."
                     + (build.OutputTail.Count > 0 ? "\n" + string.Join("\n", build.OutputTail.TakeLast(10)) : ""));
         return false;

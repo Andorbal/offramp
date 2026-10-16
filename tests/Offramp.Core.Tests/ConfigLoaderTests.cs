@@ -33,6 +33,7 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.Equal(10, result.Config.Target.Major);
         Assert.Equal("net10.0", result.Config.TargetFramework);
         Assert.Equal("build", result.Config.Verify.Mode);
+        Assert.Equal("inherit", result.Config.Verify.Builder);
         Assert.Equal(1800, result.Config.Verify.TimeoutSeconds);
         Assert.Equal(".offramp", result.Config.Paths.State);
         Assert.Equal("dotnet", result.Config.Scan.Builder);
@@ -169,6 +170,34 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.Null(result.Effective["verfy"]);
         Assert.Equal("build", result.Config.Verify.Mode);
         Assert.Equal(9, result.Config.Target.Major);
+    }
+
+    [Fact]
+    public void The_verify_builder_can_be_configured_by_file_and_environment()
+    {
+        _repo.Write("offramp.yml", "scan:\n  builder: msbuild\nverify:\n  builder: dotnet\n");
+
+        var fromFile = Load();
+        Assert.True(fromFile.IsValid);
+        Assert.Equal("dotnet", fromFile.Config.Verify.Builder);
+
+        var fromEnvironment = Load(new Dictionary<string, string> { ["OFFRAMP_VERIFY__BUILDER"] = "msbuild" });
+        Assert.True(fromEnvironment.IsValid);
+        Assert.Equal("msbuild", fromEnvironment.Config.Verify.Builder);
+    }
+
+    [Fact]
+    public void An_unknown_verify_builder_names_the_allowed_ones()
+    {
+        _repo.Write("offramp.yml", "verify:\n  builder: xbuild\n");
+
+        var result = Load();
+
+        Assert.False(result.IsValid);
+        var error = Assert.Single(result.Diagnostics, d => d.Code == "OFR0053");
+        Assert.Contains("verify.builder", error.Message, StringComparison.Ordinal);
+        Assert.Contains("dotnet, msbuild, inherit", error.Message, StringComparison.Ordinal);
+        Assert.Equal("inherit", result.Config.Verify.Builder);
     }
 
     [Fact]
@@ -330,6 +359,7 @@ public sealed class ConfigLoaderTests : IDisposable
         Assert.True(result.IsValid, string.Join("\n", result.Diagnostics.Select(d => $"{d.Code} {d.Message}")));
         Assert.Equal(["OFR0052"], result.Diagnostics.Select(d => d.Code).Distinct());
         Assert.Equal("src/Monolith.sln", result.Config.Solution);
+        Assert.Equal("inherit", result.Config.Verify.Builder);
         Assert.Equal("9.0.1", result.Config.Deps.Pins[0].Version);
         Assert.Equal("eng/Packages.props", result.Config.Deps.Cpm.File);
         Assert.Equal(("Contoso.Charts.Core", "Contoso.Charts"), (result.Config.Deps.AssemblyPackages![0].Assembly, result.Config.Deps.AssemblyPackages[0].Package));

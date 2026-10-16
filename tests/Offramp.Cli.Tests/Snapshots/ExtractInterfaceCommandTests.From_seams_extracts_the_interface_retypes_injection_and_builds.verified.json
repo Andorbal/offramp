@@ -124,6 +124,7 @@
       "solution": null,
       "target": 10,
       "verify": {
+        "builder": "inherit",
         "command": null,
         "configuration": "Debug",
         "mode": "build",

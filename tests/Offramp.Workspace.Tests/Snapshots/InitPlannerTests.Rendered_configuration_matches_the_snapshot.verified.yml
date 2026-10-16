@@ -23,8 +23,10 @@ scan:
   msbuildPath: null
 
 verify:
+  # Builder: inherit follows scan.builder; dotnet and msbuild override it for verification.
+  builder: inherit
   # How Offramp checks each change it writes before keeping it:
-  # build: dotnet build the affected projects | command: run verify.command | none: no check
+  # build: build the affected projects | command: run verify.command | none: no check
   mode: build
   timeoutSeconds: 1800
   configuration: Debug

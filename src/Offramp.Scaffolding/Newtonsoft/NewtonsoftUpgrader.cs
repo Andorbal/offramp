@@ -202,6 +202,8 @@ public static class NewtonsoftUpgrader
             RepositoryRoot = request.RepositoryRoot,
             Model = request.Model,
             Config = request.Config.Verify,
+            ScanBuilder = request.Config.Scan.Builder,
+            MsbuildPath = request.Config.Scan.MsbuildPath,
             Mode = Enum.Parse<VerifyMode>(request.Config.Verify.Mode, ignoreCase: true),
             Projects = selection.Projects,
             Everything = selection.Everything,

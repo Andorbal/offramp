@@ -34,6 +34,7 @@ scan:
 
 verify:
   mode: build                  # build | command | none
+  builder: inherit             # inherit follows scan.builder; dotnet or msbuild overrides it
   command: null                # when mode=command: run this; exit 0 = pass; stdout may be a JSON envelope
   timeoutSeconds: 1800
   configuration: Debug
@@ -219,7 +220,7 @@ refuse answers that are not one. `init --defaults` writes without asking. It als
 | `OFFRAMP_LLM_PROVIDER`, `OFFRAMP_LLM_URL`, `OFFRAMP_LLM_MODEL`, `OFFRAMP_LLM_API_KEY` | LLM |
 | `OFFRAMP_NO_COLOR`, `NO_COLOR` | disable color |
 | `OFFRAMP_VERIFY__*` | any `verify.*` key |
-| `OFFRAMP_SCAN__BUILDER`, `OFFRAMP_SCAN__MSBUILD_PATH` | how `scan` builds, per machine |
+| `OFFRAMP_SCAN__BUILDER`, `OFFRAMP_SCAN__MSBUILD_PATH` | how `scan` builds and the MSBuild.exe location used by `scan` and `verify.builder: inherit`, per machine |
 
 In general `OFFRAMP_A__B_C` sets `a.bC`: `__` separates levels and each
 `UPPER_SNAKE` segment becomes camelCase (`OFFRAMP_MOVE__TESTS__TARGET_SUFFIX` sets

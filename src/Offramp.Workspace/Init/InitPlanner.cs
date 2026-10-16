@@ -242,8 +242,10 @@ public static partial class InitPlanner
         b.Append("  # MSBuild.exe or a Visual Studio or Build Tools folder; null: the Developer Command Prompt's, else vswhere's newest.\n");
         b.Append("  msbuildPath: null\n\n");
         b.Append("verify:\n");
+        b.Append("  # Builder: inherit follows scan.builder; dotnet and msbuild override it for verification.\n");
+        b.Append("  builder: inherit\n");
         b.Append("  # How Offramp checks each change it writes before keeping it:\n");
-        b.Append("  # build: dotnet build the affected projects | command: run verify.command | none: no check\n");
+        b.Append("  # build: build the affected projects | command: run verify.command | none: no check\n");
         b.Append("  mode: ").Append(Scalar(values.VerifyMode)).Append('\n');
         if (values.VerifyCommand is not null)
         {

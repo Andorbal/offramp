@@ -47,6 +47,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "builder": { "enum": ["dotnet", "msbuild", "inherit"], "description": "dotnet runs `dotnet build`; msbuild runs MSBuild.exe; inherit follows scan.builder." },
         "mode": { "enum": ["build", "command", "none"] },
         "command": { "type": ["string", "null"] },
         "timeoutSeconds": { "type": "integer", "minimum": 1 },

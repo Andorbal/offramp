@@ -304,9 +304,17 @@ offramp verify [--projects P1,P2,...] [--affected-by PATHS] [--all] [--mode buil
     beneath it.
   - `--all`: every project.
   An empty selection verifies nothing (`OFR5090`).
-- `mode: build`: one `dotnet build` of the solution when everything is
-  selected, else of a solution filter written to `.offramp/verify/verify.slnf`
-  (projects without a solution are built one by one), with
+- `mode: build`: one build of the solution when everything is selected, else of
+  a solution filter written to `.offramp/verify/verify.slnf` (projects without a
+  solution are built one by one). The builder is `verify.builder`: `dotnet` uses
+  `dotnet build`; `msbuild` uses MSBuild.exe; `inherit` (the default) follows
+  `scan.builder`.
+  MSBuild.exe is located with `scan.msbuildPath` and the same Visual Studio
+  discovery as `scan --msbuild`; a missing or unstartable executable is
+  `OFR0017`. The MSBuild arguments are `<target> -restore -nologo -v:minimal
+  -bl:<binlog> -p:Configuration=<verify.configuration> -p:<verify.properties>`;
+  `-restore` is omitted when `verify.restore: false`, and packages.config projects
+  are restored by MSBuild as in a Visual Studio build. `dotnet build` uses
   `-c <verify.configuration>`, `-p:` for each of `verify.properties`,
   `--no-restore` unless `verify.restore`, `-warnaserror:<warnAsError>`,
   `-nowarn:<noWarn>`, and a fresh binlog under `.offramp/verify/`. Errors come

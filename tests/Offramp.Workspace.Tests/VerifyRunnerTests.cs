@@ -116,6 +116,78 @@ public sealed class VerifyRunnerTests
     }
 
     [Fact]
+    public void Msbuild_arguments_are_native_and_carry_the_configuration()
+    {
+        var config = new VerifyConfig
+        {
+            Configuration = "Release",
+            Properties = new SortedDictionary<string, string>(StringComparer.Ordinal) { ["A"] = "1", ["TreatWarningsAsErrors"] = "false" },
+            WarnAsError = ["CS0168", "CS0219"],
+            NoWarn = ["CS1591", "NU1603"],
+        };
+
+        Assert.Equal(
+            ["App.sln", "-restore", "-nologo", "-v:minimal", "-nodeReuse:false", "-bl:.offramp/verify/verify.binlog", "-p:Configuration=Release",
+             "-p:RestorePackagesConfig=true", "-p:A=1", "-p:TreatWarningsAsErrors=false", "-warnaserror:CS0168;CS0219", "-nowarn:CS1591;NU1603"],
+            VerifyRunner.MsbuildArguments("App.sln", ".offramp/verify/verify.binlog", config));
+        Assert.DoesNotContain("-restore", VerifyRunner.MsbuildArguments("App.sln", "v.binlog", config with { Restore = false }));
+        Assert.DoesNotContain("-p:RestorePackagesConfig=true", VerifyRunner.MsbuildArguments("App.sln", "v.binlog", config with { Restore = false }));
+    }
+
+    [Theory]
+    [InlineData("inherit", "msbuild", true)]
+    [InlineData("inherit", "dotnet", false)]
+    [InlineData("msbuild", "dotnet", true)]
+    [InlineData("dotnet", "msbuild", false)]
+    public void The_verification_builder_can_override_or_inherit_the_scan_builder(string verifyBuilder, string scanBuilder, bool msbuild) =>
+        Assert.Equal(msbuild, VerifyRunner.UsesMsbuild(new VerifyConfig { Builder = verifyBuilder }, scanBuilder));
+
+    [Fact]
+    [ProducesDiagnostic("OFR0017")]
+    public async Task A_missing_msbuild_is_an_environment_failure()
+    {
+        var fixture = await ScannedFixtures.GetAsync("dual-target");
+        var diagnostics = new DiagnosticBag();
+        var runner = new FakeProcessRunner();
+
+        var result = await VerifyRunner.RunAsync(
+            Request(fixture.Root, WorkspaceStore.Read(fixture.WorkspacePath), diagnostics, runner) with
+            {
+                Config = new VerifyConfig { Builder = VerifyConfig.MsbuildBuilder },
+                MsbuildPath = "missing-msbuild-folder",
+            }, TestContext.Current.CancellationToken);
+
+        Assert.Null(result);
+        Assert.True(diagnostics.Contains("OFR0017"));
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public async Task An_inherited_msbuild_builder_uses_the_configured_locator_and_native_arguments()
+    {
+        var fixture = await ScannedFixtures.GetAsync("dual-target");
+        var model = WorkspaceStore.Read(fixture.WorkspacePath);
+        var msbuild = Path.Combine(fixture.Root, "tools", "MSBuild.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(msbuild)!);
+        File.WriteAllText(msbuild, "");
+        var runner = new FakeProcessRunner().On(msbuild, ["DualTarget.slnx"], 0, "");
+
+        var result = await VerifyRunner.RunAsync(Request(fixture.Root, model, new DiagnosticBag(), runner) with
+        {
+            ScanBuilder = ScanConfig.Msbuild,
+            MsbuildPath = msbuild,
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(VerifyStatus.Passed, result!.Status);
+        var call = Assert.Single(runner.Calls);
+        Assert.Equal("DualTarget.slnx", call.Arguments[0]);
+        Assert.Contains("-restore", call.Arguments);
+        Assert.Contains("-p:Configuration=Debug", call.Arguments);
+        Assert.Contains("-p:RestorePackagesConfig=true", call.Arguments);
+        Assert.Contains("-bl:.offramp/verify/verify.binlog", call.Arguments);
+    }
+
+    [Fact]
     [ProducesDiagnostic("OFR5002")]
     public async Task A_timeout_is_reported_and_nothing_is_verified()
     {

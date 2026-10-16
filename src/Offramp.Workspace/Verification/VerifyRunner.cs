@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -8,6 +9,7 @@ using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using Offramp.Core.Processes;
 using Offramp.Core.Progress;
+using Offramp.Workspace.Environment;
 using Offramp.Workspace.Ingest;
 using Offramp.Workspace.Slicing;
 
@@ -20,6 +22,15 @@ public sealed record VerifyRequest
     public required WorkspaceModel Model { get; init; }
 
     public required VerifyConfig Config { get; init; }
+
+    /// <summary>The scan builder, used when <c>verify.builder</c> is <c>inherit</c>.</summary>
+    public string ScanBuilder { get; init; } = ScanConfig.Dotnet;
+
+    /// <summary>The MSBuild.exe or installation path configured for scan.</summary>
+    public string? MsbuildPath { get; init; }
+
+    /// <summary>Environment variables used to locate Visual Studio when MSBuild is selected.</summary>
+    public IReadOnlyDictionary<string, string>? Environment { get; init; }
 
     public required VerifyMode Mode { get; init; }
 
@@ -49,9 +60,9 @@ public sealed record VerifyRequest
 }
 
 /// <summary>
-/// Runs the user's verification (docs/spec/commands/workspace.md#verify): the real
-/// <c>dotnet build</c> with the configured properties, or <c>verify.command</c>,
-/// then groups the errors and compares them with the recorded baseline.
+/// Runs the user's verification (docs/spec/commands/workspace.md#verify): the configured
+/// <c>dotnet build</c> or MSBuild.exe build, or <c>verify.command</c>, then groups the errors
+/// and compares them with the recorded baseline.
 /// </summary>
 public static partial class VerifyRunner
 {
@@ -59,7 +70,11 @@ public static partial class VerifyRunner
     public const string BaselineFile = Directory + "/baseline.json";
     private const int TailLines = 20;
 
-    /// <summary>The result, or null when the SDK or shell could not be started (<c>OFR0010</c>).</summary>
+    internal static bool UsesMsbuild(VerifyConfig verify, string scanBuilder) =>
+        verify.Builder == VerifyConfig.MsbuildBuilder
+        || (verify.Builder == VerifyConfig.InheritBuilder && scanBuilder == ScanConfig.Msbuild);
+
+    /// <summary>The result, or null when the selected builder or shell could not be started (<c>OFR0010</c>/<c>OFR0017</c>).</summary>
     public static async Task<VerifyResult?> RunAsync(VerifyRequest request, CancellationToken cancellationToken)
     {
         if (request.Mode == VerifyMode.None || request.Projects.Count == 0)
@@ -102,31 +117,62 @@ public static partial class VerifyRunner
             File.Delete(stale);
         }
 
+        string? msbuild = null;
+        if (UsesMsbuild(request.Config, request.ScanBuilder))
+        {
+            var environment = request.Environment ?? CurrentEnvironment();
+            var location = await MsbuildLocator.LocateAsync(
+                request.MsbuildPath, root, environment, request.Processes, cancellationToken);
+            if (location.Path is null)
+            {
+                request.Diagnostics.Report(DiagnosticCatalog.OFR0017,
+                    $"MSBuild was not found: {location.NotFound} Install Visual Studio or the Build Tools with MSBuild, or set scan.msbuildPath.");
+                return null;
+            }
+
+            msbuild = location.Path;
+        }
+
         var targets = Targets(request);
         var run = new Run([], [], []);
         var deadline = DateTimeOffset.UtcNow.AddSeconds(request.Config.TimeoutSeconds);
         for (var i = 0; i < targets.Count; i++)
         {
             var binlog = targets.Count == 1 ? $"{Directory}/verify.binlog" : string.Create(CultureInfo.InvariantCulture, $"{Directory}/verify-{i + 1}.binlog");
-            var arguments = BuildArguments(targets[i], binlog, request.Config);
+            var arguments = msbuild is null
+                ? BuildArguments(targets[i], binlog, request.Config)
+                : MsbuildArguments(targets[i], binlog, request.Config);
+            var executable = msbuild ?? "dotnet";
             ProcessResult result;
             using (request.Progress.BeginPhase($"Building {targets[i]}", i + 1, targets.Count))
             {
                 var remaining = deadline - DateTimeOffset.UtcNow;
                 result = await request.Processes.RunAsync(
-                    new ProcessSpec("dotnet", arguments) { WorkingDirectory = root, Timeout = remaining > TimeSpan.Zero ? remaining : TimeSpan.FromSeconds(1) },
+                    new ProcessSpec(executable, arguments)
+                    {
+                        WorkingDirectory = root,
+                        Timeout = remaining > TimeSpan.Zero ? remaining : TimeSpan.FromSeconds(1),
+                    },
                     cancellationToken);
             }
 
             if (result.NotFound)
             {
-                request.Diagnostics.Report(DiagnosticCatalog.OFR0010, "`dotnet` could not be started, so nothing can be verified. Install the .NET SDK.");
+                if (msbuild is null)
+                {
+                    request.Diagnostics.Report(DiagnosticCatalog.OFR0010, "`dotnet` could not be started, so nothing can be verified. Install the .NET SDK.");
+                }
+                else
+                {
+                    request.Diagnostics.Report(DiagnosticCatalog.OFR0017, $"'{msbuild}' could not be started, so nothing can be verified. Install Visual Studio or the Build Tools with MSBuild.");
+                }
+
                 return null;
             }
 
             run.Invocations.Add(new VerifyInvocation
             {
-                CommandLine = "dotnet " + string.Join(' ', arguments.Select(Quote)),
+                CommandLine = Quote(executable) + " " + string.Join(' ', arguments.Select(Quote)),
                 Binlog = File.Exists(RepoPaths.ToAbsolute(root, binlog)) ? binlog : null,
                 ExitCode = result.ExitCode,
                 TimedOut = result.TimedOut,
@@ -141,6 +187,50 @@ public static partial class VerifyRunner
 
         return run;
     }
+
+    /// <summary>Arguments accepted by MSBuild.exe for the configured verification build.</summary>
+    internal static List<string> MsbuildArguments(string target, string binlog, VerifyConfig config)
+    {
+        var arguments = new List<string> { target };
+        if (config.Restore)
+        {
+            arguments.Add("-restore");
+        }
+
+        arguments.AddRange(["-nologo", "-v:minimal", "-nodeReuse:false", "-bl:" + binlog, "-p:Configuration=" + config.Configuration]);
+        if (config.Restore)
+        {
+            arguments.Add("-p:RestorePackagesConfig=true");
+        }
+
+        arguments.AddRange(config.Properties.Select(p => $"-p:{p.Key}={p.Value}"));
+        if (config.WarnAsError.Count > 0)
+        {
+            arguments.Add("-warnaserror:" + string.Join(';', config.WarnAsError));
+        }
+
+        if (config.NoWarn.Count > 0)
+        {
+            arguments.Add("-nowarn:" + string.Join(';', config.NoWarn));
+        }
+
+        return arguments;
+    }
+
+    private static Dictionary<string, string> CurrentEnvironment()
+    {
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (DictionaryEntry entry in System.Environment.GetEnvironmentVariables())
+        {
+            if (entry.Key is string key && entry.Value is string value)
+            {
+                environment[key] = value;
+            }
+        }
+
+        return environment;
+    }
+
 
     /// <summary>The solution; a filter of it for a selection; or each project when the model has no solution.</summary>
     private static List<string> Targets(VerifyRequest request)

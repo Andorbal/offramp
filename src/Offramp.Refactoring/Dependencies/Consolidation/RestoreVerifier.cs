@@ -105,6 +105,10 @@ public static partial class RestoreVerifier
             RepositoryRoot = scratch.Path,
             Model = request.Model,
             Config = request.Config.Verify with { Mode = "build" },
+            ScanBuilder = request.Config.Scan.Builder,
+            MsbuildPath = request.Config.Scan.MsbuildPath is { } msbuildPath
+                ? Path.GetFullPath(msbuildPath, request.RepositoryRoot)
+                : null,
             Mode = VerifyMode.Build,
             Projects = projects.Count > 0 ? projects : [.. request.Model.Projects.Select(p => p.Id)],
             Everything = projects.Count == 0,

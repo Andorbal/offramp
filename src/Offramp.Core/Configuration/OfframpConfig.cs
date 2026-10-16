@@ -100,6 +100,13 @@ public sealed record ScanConfig
 
 public sealed record VerifyConfig
 {
+    public const string InheritBuilder = "inherit";
+    public const string DotnetBuilder = "dotnet";
+    public const string MsbuildBuilder = "msbuild";
+
+    /// <summary><c>dotnet</c>, <c>msbuild</c>, or <c>inherit</c> to follow <c>scan.builder</c>.</summary>
+    public string Builder { get; init; } = InheritBuilder;
+
     /// <summary><c>build</c>, <c>command</c>, or <c>none</c>.</summary>
     public string Mode { get; init; } = "build";
 

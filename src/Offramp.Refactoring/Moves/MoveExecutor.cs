@@ -97,6 +97,8 @@ public static class MoveExecutor
             RepositoryRoot = execution.RepositoryRoot,
             Model = execution.Model,
             Config = execution.Config.Verify,
+            ScanBuilder = execution.Config.Scan.Builder,
+            MsbuildPath = execution.Config.Scan.MsbuildPath,
             Mode = Enum.Parse<VerifyMode>(execution.Config.Verify.Mode, ignoreCase: true),
             Projects = projects,
             Everything = false,
