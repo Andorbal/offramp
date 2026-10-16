@@ -7,6 +7,9 @@ namespace Offramp.Core.Processes;
 /// <summary>A process to run: no shell, arguments passed as a list.</summary>
 public sealed record ProcessSpec(string FileName, IReadOnlyList<string> Arguments)
 {
+    /// <summary>A command line handed to the process as it is, with no quoting added (for `cmd.exe /c` on Windows, which parses its own).</summary>
+    public string? RawArguments { get; init; }
+
     public string? WorkingDirectory { get; init; }
 
     public IReadOnlyDictionary<string, string?> Environment { get; init; } = new Dictionary<string, string?>();
@@ -62,9 +65,16 @@ public sealed class ProcessRunner : IProcessRunner
             StandardErrorEncoding = Encoding.UTF8,
             WorkingDirectory = spec.WorkingDirectory ?? Directory.GetCurrentDirectory(),
         };
-        foreach (var argument in spec.Arguments)
+        if (spec.RawArguments is not null)
         {
-            info.ArgumentList.Add(argument);
+            info.Arguments = spec.RawArguments;
+        }
+        else
+        {
+            foreach (var argument in spec.Arguments)
+            {
+                info.ArgumentList.Add(argument);
+            }
         }
 
         // Keep tool output stable and machine-readable.

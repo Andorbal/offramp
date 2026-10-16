@@ -333,7 +333,7 @@ public static class ProbeRecorder
                 .Replace("{filter}", Quote(filter), StringComparison.Ordinal)
                 .Replace("{results}", Quote(results), StringComparison.Ordinal);
             return OperatingSystem.IsWindows()
-                ? new ProcessSpec("cmd.exe", ["/d", "/s", "/c", expanded]) { WorkingDirectory = request.RepositoryRoot, Environment = environment, Timeout = timeout }
+                ? new ProcessSpec("cmd.exe", ["/d", "/s", "/c", expanded]) { RawArguments = "/d /s /c \"" + expanded + "\"", WorkingDirectory = request.RepositoryRoot, Environment = environment, Timeout = timeout }
                 : new ProcessSpec("/bin/sh", ["-c", expanded]) { WorkingDirectory = request.RepositoryRoot, Environment = environment, Timeout = timeout };
         }
 
