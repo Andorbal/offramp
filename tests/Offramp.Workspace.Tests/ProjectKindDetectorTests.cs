@@ -65,7 +65,7 @@ public sealed class ProjectKindDetectorTests
     {
         Assert.Equal((ProjectKind.Library, "OutputType=Library"), ProjectKindDetector.Detect(Facts(packages: ["NUnit"]), frameworks: false));
         Assert.Equal((ProjectKind.Library, "OutputType=Library"), ProjectKindDetector.Detect(new ProjectFacts { AssemblyReferences = Set("nunit.framework") }, frameworks: false));
-        Assert.Equal((ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web (IsTestProject=true ignored)"), ProjectKindDetector.Detect(new ProjectFacts { IsTestProject = true, PackageIds = Set("xunit"), Sdk = "Microsoft.NET.Sdk.Web" }, frameworks: false));
+        Assert.Equal((ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web (IsTestProject=true ignored)"), ProjectKindDetector.Detect(new ProjectFacts { IsTestProject = true, PackageIds = Set("xunit"), Sdk = "Microsoft.NET.Sdk.Web", OutputType = "Exe" }, frameworks: false));
         Assert.Equal((ProjectKind.Winforms, "UseWindowsForms=true (IsTestProject=true ignored)"), ProjectKindDetector.Detect(new ProjectFacts { IsTestProject = true, UseWindowsForms = true }));
     }
 

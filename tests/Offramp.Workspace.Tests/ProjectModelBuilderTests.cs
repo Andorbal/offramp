@@ -160,7 +160,7 @@ public sealed class ProjectModelBuilderTests : IDisposable
         {
             Properties = new Dictionary<string, string>
             {
-                ["TargetFramework"] = "net48", ["UsingMicrosoftNETSdkWeb"] = "true", ["IsTestProject"] = "true",
+                ["TargetFramework"] = "net48", ["UsingMicrosoftNETSdkWeb"] = "true", ["IsTestProject"] = "true", ["OutputType"] = "Exe",
             },
             Items = new Dictionary<string, IReadOnlyList<EvaluatedItem>>
             {
