@@ -23,7 +23,8 @@ raw `IsTestProject`, and every reader asks `IsTestProject || kind == test`.
 ## Decision
 
 - **A test framework is evidence after the `web` rules**, packages as well as assemblies:
-  `IsTestProject=true` and the test ProjectTypeGuid stay first. A web application that references
+  the test ProjectTypeGuid stays first, and `IsTestProject=true` from `Microsoft.NET.Test.Sdk`
+  is demotable when application-kind evidence is present (ADR 0077). A web application that references
   NUnit is `web`, and an executable (`Exe`, `WinExe`) with a service's, Windows Forms', or WPF's
   evidence is that application. A WPF or Windows Forms *library* with a framework stays `test`.
 - **What an application uses is not a test project.** After every project is classified, a project
@@ -36,9 +37,7 @@ raw `IsTestProject`, and every reader asks `IsTestProject || kind == test`.
   A library or console application that references a test project proves nothing: a library can
   get its framework through the reference and be a test project nothing marks
   (`dead-code-evidence`'s `Specs`), and a console application can be a test runner (NUnitLite).
-- **What says so in so many words is kept, and named.** A project with `IsTestProject=true` or the
-  test ProjectTypeGuid that an application uses stays `test`, and `OFR0107` (warning) names the
-  application and says to set the kind in `offramp.yml`.
+- **The test ProjectTypeGuid is an explicit test declaration; `IsTestProject` is demotable evidence.** A test ProjectTypeGuid used by an application stays `test`, and `OFR0107` (warning) names the application. The `IsTestProject` property is often inferred by Microsoft.NET.Test.Sdk, so ADR 0077 amends this decision: application evidence can override that property, including when such a project is transitively used by an application.
 - **An override decides for every reader.** `kind:` in `offramp.yml` also sets `isTestProject`
   (true for `test`, false otherwise).
 - **A site in a test project says why it has no entry point**: `notAccessible`, "<project> is a

@@ -112,25 +112,30 @@ Evaluated in order; first match wins; the evidence is recorded.
 
 | Kind | Evidence |
 |---|---|
-| `test` | `IsTestProject=true`, or legacy test ProjectTypeGuid |
+| `test` | the legacy test ProjectTypeGuid |
 | `web` | `Sdk=Microsoft.NET.Sdk.Web`, or legacy web ProjectTypeGuid, or `Reference Include="System.Web"` with `OutputType=Library` and a `web.config` |
-| `test` | a PackageReference to a known test framework (xunit, NUnit, MSTest.TestFramework, TUnit) or adapter, or the same in `packages.config`, or a `Reference` to a test framework's assembly (`nunit.framework`, `xunit`, `xunit.core`, `MbUnit.Framework`, the MSTest assemblies, `TUnit.Core`), usually a checked-in DLL, with `OutputType=Library`. It comes after `web` because a web application that references a test framework (tests kept in the application) is still the application; for the same reason an `Exe` or `WinExe` with the `winforms`, `wpf`, or `service` evidence below is that kind |
+| `test` | a PackageReference to a known test framework (`Microsoft.NET.Test.Sdk`, xunit, NUnit, MSTest.TestFramework, TUnit) or adapter, or the same in `packages.config`, or a `Reference` to a test framework's assembly (`nunit.framework`, `xunit`, `xunit.core`, `MbUnit.Framework`, the MSTest assemblies, `TUnit.Core`), usually a checked-in DLL, with `OutputType=Library`. `IsTestProject=true` is considered here as demotable evidence: first determine the kind without it and test frameworks; if that is `web`, `service`, `winforms`, or `wpf`, keep that application kind and note `(IsTestProject=true ignored)` in evidence, otherwise classify as `test`. It comes after the `web` rules; an executable with a desktop or service application's evidence remains that kind. |
 | `winforms` | `UseWindowsForms=true`, or `Reference Include="System.Windows.Forms"` with `OutputType=WinExe` |
 | `wpf` | `UseWPF=true`, or `Sdk=Microsoft.NET.Sdk.WindowsDesktop` with `PresentationFramework` reference |
-| `service` | `Reference Include="System.ServiceProcess"` with `OutputType=Exe`, or a PackageReference to Topshelf or `Microsoft.Extensions.Hosting.WindowsServices` (or either in the `packages.config` of an `OutputType=Exe` project), or `Sdk=Microsoft.NET.Sdk.Worker` |
-| `console` | `OutputType=Exe` |
+| `service` | `Reference Include="System.ServiceProcess"` with `OutputType=Exe` or `WinExe`, or a PackageReference to Topshelf or `Microsoft.Extensions.Hosting.WindowsServices` (or either in the `packages.config` of an `OutputType=Exe` or `WinExe` project), or `Sdk=Microsoft.NET.Sdk.Worker` |
+| `console` | `OutputType=Exe` or `OutputType=WinExe` without other application evidence |
 | `library` | `OutputType=Library` |
 | `unknown` | anything else; emits `OFR0102` |
 
 What an application ships is not a test project. After every project is classified, a project
-that is `test` only by a test framework it references (the second `test` row), and that an
+that is `test` only by a test framework it references (the second `test` row), or by
+`IsTestProject=true` (including the value set by `Microsoft.NET.Test.Sdk`), and that an
 application (a `web`, `service`, `winforms`, or `wpf` project that is not a test project)
 references, directly or through other projects, is classified again without that evidence; its
-evidence names the framework and the application (`OutputType=Library (PackageReference NUnit
-ignored: the application src/Web/Web.csproj uses it)`). A library or console application that
+evidence names what was ignored and the application. A demoted project's `isTestProject` is
+false. The test ProjectTypeGuid and an `offramp.yml` `kind: test` override remain test declarations
+and emit `OFR0107` when an application references them. A library or console application that
 references a test project does not count (it may be a test project nothing marks, or a test
-runner). A project that is `test` by `IsTestProject` or the ProjectTypeGuid and that an application
-uses stays `test` and emits `OFR0107` (ADR 0074).
+runner).
+
+`hostsTests` is true for a non-test-kind project with test-framework package, `packages.config`,
+or qualifying test-assembly evidence; it is false for test-kind projects. It identifies production
+projects that also carry tests.
 
 Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`); the override also
 sets `isTestProject` (true for `test`, false for any other kind).
@@ -180,6 +185,7 @@ configuration with its packages, and `web inventory`/`web scaffold` name the hos
       "outputType": "Library",
       "outputPath": "src/Foo/bin/Debug/net48",   // OutDir of the net4x target (else the first), repo-relative; absent outside the repo
       "isTestProject": false,
+      "hostsTests": false,                         // production kind that carries a test framework
       "properties": { "LangVersion": "latest", "Nullable": "disable", "GenerateSerializationAssemblies": "On" },
       "defineConstants": { "net48": ["TRACE", "DEBUG", "NETFRAMEWORK", "NET48", "NET48_OR_GREATER"] },  // what the compiler saw
                                                   // (a legacy project's call too); without a call, DefineConstants split on ; and , as csc does

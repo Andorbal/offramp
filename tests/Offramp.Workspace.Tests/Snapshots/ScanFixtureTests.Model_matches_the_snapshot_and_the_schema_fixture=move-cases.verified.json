@@ -32,6 +32,7 @@
       "outputType": "Library",
       "outputPath": "src/Contracts/bin/Debug/netstandard2.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "latest",
@@ -101,6 +102,7 @@
       "outputType": "Library",
       "outputPath": "src/Core/bin/Debug/netstandard2.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "latest",
@@ -171,6 +173,7 @@
       "outputType": "Library",
       "outputPath": "src/Legacy/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "latest",
@@ -300,6 +303,7 @@
       "outputType": "Library",
       "outputPath": "src/Modern/bin/Debug/net10.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "14.0",
@@ -376,6 +380,7 @@
       "outputType": "Library",
       "outputPath": "src/Reports/bin/Debug/netstandard2.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "latest",

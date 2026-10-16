@@ -32,6 +32,7 @@
       "outputType": "Library",
       "outputPath": "src/Bar/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "latest",
@@ -125,6 +126,7 @@
       "outputType": "Library",
       "outputPath": "src/Foo.Tests/bin/Debug/net48",
       "isTestProject": true,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "false",
         "IsTestProject": "true",
@@ -362,6 +364,7 @@
       "outputType": "Library",
       "outputPath": "src/Foo/bin/Debug/net48",
       "isTestProject": true,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "false",
         "IsTestProject": "true",

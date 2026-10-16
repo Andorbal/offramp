@@ -33,6 +33,7 @@
       "outputType": "Library",
       "outputPath": "src/Catalog/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -180,6 +181,7 @@
       "outputType": "Library",
       "outputPath": "src/Inventory/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -315,6 +317,7 @@
       "outputType": "Exe",
       "outputPath": "tests/Catalog.Tests/bin/Debug/net48",
       "isTestProject": true,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "false",
         "IsTestProject": "true",
@@ -754,6 +757,7 @@
       "outputType": "Exe",
       "outputPath": "tests/Inventory.Tests/bin/Debug/net48",
       "isTestProject": true,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "false",
         "IsTestProject": "true",

@@ -32,6 +32,7 @@
       "outputType": "Exe",
       "outputPath": "src/Orders.App/bin/Debug",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "LangVersion": "7.3",
         "ManagePackageVersionsCentrally": "false"
@@ -156,6 +157,7 @@
       "outputType": "Library",
       "outputPath": "src/Orders/bin/Debug",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "LangVersion": "7.3",
         "ManagePackageVersionsCentrally": "false"
@@ -280,6 +282,7 @@
       "outputType": "Library",
       "outputPath": "tests/Orders.Tests/bin/Debug",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "LangVersion": "6",
         "ManagePackageVersionsCentrally": "false",

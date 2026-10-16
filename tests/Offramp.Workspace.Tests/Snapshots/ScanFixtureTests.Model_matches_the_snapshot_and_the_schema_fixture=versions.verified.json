@@ -32,6 +32,7 @@
       "outputType": "Library",
       "outputPath": "src/Billing/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -228,6 +229,7 @@
       "outputType": "Library",
       "outputPath": "src/Customer.Api/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -358,6 +360,7 @@
       "outputType": "Exe",
       "outputPath": "src/Modern.App/bin/Debug/net10.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "14.0",
@@ -506,6 +509,7 @@
       "outputType": "Library",
       "outputPath": "src/Reporting/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -740,6 +744,7 @@
       "outputType": "Library",
       "outputPath": "src/Shared/bin/Debug/netstandard2.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",

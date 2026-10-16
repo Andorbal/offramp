@@ -310,8 +310,7 @@ public sealed class ScanRunnerTests : IDisposable
     }
 
     [Fact]
-    [ProducesDiagnostic("OFR0107")]
-    public async Task A_test_project_an_application_uses_is_production_code_or_named()
+    public async Task A_test_project_property_does_not_block_demoting_a_production_project_used_by_an_application()
     {
         // Issue #52: libraries carrying NUnit were `test`, so newtonsoft scan left all their sites uncovered.
         _repo.Write("Directory.Build.props", "<Project />");
@@ -350,18 +349,49 @@ public sealed class ScanRunnerTests : IDisposable
         var core = outcome.Model!.Projects.Single(p => p.Id == "Core/Core.csproj");
         Assert.Equal(Offramp.Core.Model.ProjectKind.Library, core.Kind);
         Assert.Equal("OutputType=Library (PackageReference NUnit ignored: the application App/App.csproj uses it)", core.KindEvidence);
-        // IsTestProject says so in so many words: kept, and named.
-        Assert.Equal(Offramp.Core.Model.ProjectKind.Test, outcome.Model.Projects.Single(p => p.Id == "Helpers/Helpers.csproj").Kind);
-        var named = Assert.Single(outcome.Model.Diagnostics, d => d.Code == "OFR0107");
-        Assert.Equal("Helpers/Helpers.csproj", named.Project);
-        Assert.Contains("the application App/App.csproj uses it", named.Message, StringComparison.Ordinal);
+        Assert.Equal(Offramp.Core.Model.ProjectKind.Library, outcome.Model.Projects.Single(p => p.Id == "Helpers/Helpers.csproj").Kind);
+        Assert.False(outcome.Model.Projects.Single(p => p.Id == "Helpers/Helpers.csproj").IsTestProject);
+        Assert.DoesNotContain(outcome.Model.Diagnostics, d => d.Code == "OFR0107");
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR0107")]
+    public async Task A_legacy_test_guid_project_used_by_an_application_is_reported()
+    {
+        _repo.Write("Directory.Build.props", "<Project />");
+        _repo.Write("Directory.Build.targets", "<Project />");
+        _repo.Write("Helpers/Helpers.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework><ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB}</ProjectTypeGuids></PropertyGroup>
+            </Project>
+            """);
+        _repo.Write("Helpers/Code.cs", "namespace Helpers; public static class Code { }\n");
+        _repo.Write("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup><ProjectReference Include="../Helpers/Helpers.csproj" /></ItemGroup>
+            </Project>
+            """);
+        _repo.Write("App/Program.cs", "System.Console.WriteLine(typeof(Helpers.Code));\n");
+        var solution = await RunDotnetAsync(_repo.Path, "new", "sln", "--name", "All", "--format", "slnx");
+        Assert.True(solution.Succeeded, solution.StandardError);
+        var add = await RunDotnetAsync(_repo.Path, "sln", "All.slnx", "add", "Helpers/Helpers.csproj", "App/App.csproj");
+        Assert.True(add.Succeeded, add.StandardError);
+
+        var outcome = await RunAsync(r => r with { Processes = ProcessRunner.Instance });
+
+        Assert.Equal(ScanFailure.None, outcome.Failure);
+        var helper = outcome.Model!.Projects.Single(p => p.Id == "Helpers/Helpers.csproj");
+        Assert.Equal(Offramp.Core.Model.ProjectKind.Test, helper.Kind);
+        var warning = Assert.Single(outcome.Model.Diagnostics, d => d.Code == "OFR0107");
+        Assert.Equal("Helpers/Helpers.csproj", warning.Project);
+        Assert.Contains("ProjectTypeGuids {3AC096D0-A1C2-E12C-1390-A8335801FDAB}", warning.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     [ProducesDiagnostic("OFR0126")]
     public async Task A_web_site_project_is_left_out_of_the_build_and_named()
     {
-        // NHibernate.Everything.sln: MSB4249 on the web site stopped the whole solution with 0 projects loaded.
         _repo.Write("Directory.Build.props", "<Project />");
         _repo.Write("Directory.Build.targets", "<Project />");
         _repo.Write("App/App.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType></PropertyGroup></Project>");

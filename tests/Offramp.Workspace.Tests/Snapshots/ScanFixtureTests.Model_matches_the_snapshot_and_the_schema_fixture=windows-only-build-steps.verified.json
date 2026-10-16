@@ -32,6 +32,7 @@
       "outputType": "Library",
       "outputPath": "src/Office/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -90,6 +91,7 @@
       "outputType": "Library",
       "outputPath": "src/Soap/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "GenerateSerializationAssemblies": "On",
         "IsPackable": "true",

@@ -153,6 +153,69 @@ public sealed class ProjectModelBuilderTests : IDisposable
         Assert.Equal(["src/A/A.csproj", "src/B/B.csproj"], withoutAssets.ProjectReferences);
     }
 
+    [Fact]
+    public void Inferred_test_project_property_does_not_mark_an_application_as_a_test()
+    {
+        var evaluation = Evaluation([], ["Code.cs"]) with
+        {
+            Properties = new Dictionary<string, string>
+            {
+                ["TargetFramework"] = "net48", ["UsingMicrosoftNETSdkWeb"] = "true", ["IsTestProject"] = "true",
+            },
+            Items = new Dictionary<string, IReadOnlyList<EvaluatedItem>>
+            {
+                ["Compile"] = [new EvaluatedItem("Code.cs", new Dictionary<string, string>())],
+                ["PackageReference"] = [new EvaluatedItem("Microsoft.NET.Test.Sdk", new Dictionary<string, string> { ["Version"] = "17.0.0" })],
+            },
+        };
+
+        var project = Build(evaluation);
+
+        Assert.Equal(ProjectKind.Web, project.Kind);
+        Assert.False(project.IsTestProject);
+        Assert.True(project.HostsTests);
+    }
+
+    [Fact]
+    public void Hosts_tests_is_true_for_production_projects_with_test_framework_evidence()
+    {
+        var evaluation = Evaluation([], ["Code.cs"]) with
+        {
+            Properties = new Dictionary<string, string> { ["TargetFramework"] = "net48", ["UsingMicrosoftNETSdk"] = "true", ["UseWindowsForms"] = "true", ["OutputType"] = "WinExe" },
+            Items = new Dictionary<string, IReadOnlyList<EvaluatedItem>>
+            {
+                ["Compile"] = [new EvaluatedItem("Code.cs", new Dictionary<string, string>())],
+                ["PackageReference"] = [new EvaluatedItem("NUnit", new Dictionary<string, string> { ["Version"] = "3.14.0" })],
+            },
+        };
+
+        var project = Build(evaluation);
+
+        Assert.Equal(ProjectKind.Winforms, project.Kind);
+        Assert.True(project.HostsTests);
+        Assert.False(project.IsTestProject);
+    }
+
+
+    [Fact]
+    public void Hosts_tests_is_false_for_test_kind_projects()
+    {
+        var evaluation = Evaluation([], ["Code.cs"]) with
+        {
+            Properties = new Dictionary<string, string> { ["TargetFramework"] = "net48", ["UsingMicrosoftNETSdk"] = "true", ["IsTestProject"] = "true" },
+            Items = new Dictionary<string, IReadOnlyList<EvaluatedItem>>
+            {
+                ["Compile"] = [new EvaluatedItem("Code.cs", new Dictionary<string, string>())],
+            },
+        };
+
+        var project = Build(evaluation);
+
+        Assert.Equal(ProjectKind.Test, project.Kind);
+        Assert.False(project.HostsTests);
+        Assert.True(project.IsTestProject);
+    }
+
     private ProjectInfo Build(EvaluatedProject evaluation) =>
         ProjectModelBuilder.Build("src/Lib/Lib.csproj", [evaluation], new ProjectBuildContext
         {

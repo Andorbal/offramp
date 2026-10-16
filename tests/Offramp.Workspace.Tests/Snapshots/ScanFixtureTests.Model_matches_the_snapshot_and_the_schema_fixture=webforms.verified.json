@@ -32,6 +32,7 @@
       "outputType": "Library",
       "outputPath": "src/Portal.Controls/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -116,6 +117,7 @@
       "outputType": "Library",
       "outputPath": "src/Portal.Modules/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -207,6 +209,7 @@
       "outputType": "Library",
       "outputPath": "src/Portal.Utilities/bin/Debug",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "ManagePackageVersionsCentrally": "false"
       },

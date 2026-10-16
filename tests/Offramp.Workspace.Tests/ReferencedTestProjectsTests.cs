@@ -51,17 +51,63 @@ public sealed class ReferencedTestProjectsTests
     }
 
     [Fact]
+    public void Test_sdk_property_demotes_when_a_deployed_application_uses_the_project()
+    {
+        var projects = new[]
+        {
+            Project("src/Helpers/Helpers.csproj", ProjectKind.Test, "IsTestProject=true", "src/Core/Core.csproj"),
+            Project("src/Core/Core.csproj", ProjectKind.Library, "OutputType=Library"),
+            Project("src/Web/Web.csproj", ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web", "src/Helpers/Helpers.csproj"),
+        };
+        var facts = projects.ToDictionary(p => p.Id, p => p.Id == "src/Helpers/Helpers.csproj"
+            ? new ProjectFacts { IsTestProject = true, PackageIds = new HashSet<string>(["Microsoft.NET.Test.Sdk"], StringComparer.OrdinalIgnoreCase) }
+            : new ProjectFacts(), StringComparer.Ordinal);
+
+        var (classified, kept) = ReferencedTestProjects.Apply(projects, facts);
+        var helper = classified.Single(p => p.Id == "src/Helpers/Helpers.csproj");
+
+        Assert.Equal(ProjectKind.Library, helper.Kind);
+        Assert.False(helper.IsTestProject);
+        Assert.True(helper.HostsTests);
+        Assert.Empty(kept);
+    }
+
+    [Fact]
+    public void Test_guid_stays_test_when_a_deployed_application_uses_the_project()
+    {
+        var (projects, kept) = ReferencedTestProjects.Apply(
+            [Project("src/Helpers/Helpers.csproj", ProjectKind.Test, "ProjectTypeGuids {3AC096D0-A1C2-E12C-1390-A8335801FDAB}"),
+             Project("src/App/App.csproj", ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web", "src/Helpers/Helpers.csproj")],
+            new Dictionary<string, ProjectFacts>(StringComparer.Ordinal)
+            {
+                ["src/Helpers/Helpers.csproj"] = new() { ProjectTypeGuids = "{3AC096D0-A1C2-E12C-1390-A8335801FDAB}" },
+                ["src/App/App.csproj"] = new(),
+            });
+
+        Assert.Equal(ProjectKind.Test, projects.Single(p => p.Id == "src/Helpers/Helpers.csproj").Kind);
+        Assert.Single(kept);
+    }
+
+    [Fact]
+    public void Winexe_test_framework_with_service_evidence_is_service_and_hosts_tests()
+    {
+        var facts = new ProjectFacts { OutputType = "WinExe", PackageIds = new HashSet<string>(["NUnit"], StringComparer.OrdinalIgnoreCase), Sdk = "Microsoft.NET.Sdk.Worker" };
+        Assert.Equal((ProjectKind.Service, "Sdk=Microsoft.NET.Sdk.Worker"), ProjectKindDetector.Detect(facts));
+        Assert.NotNull(ProjectKindDetector.TestFramework(facts));
+    }
+
+    [Fact]
     public void An_explicit_test_project_or_an_override_is_kept()
     {
         var (projects, kept) = Apply(
-            Project("src/Helpers/Helpers.csproj", ProjectKind.Test, "IsTestProject=true"),
+            Project("src/Helpers/Helpers.csproj", ProjectKind.Test, "ProjectTypeGuids {3AC096D0-A1C2-E12C-1390-A8335801FDAB}"),
             Project("src/Mine/Mine.csproj", ProjectKind.Test, "offramp.yml") with { Config = new ProjectConfigState { KindOverride = ProjectKind.Test } },
             Project("src/App/App.csproj", ProjectKind.Service, "Reference System.ServiceProcess + OutputType=Exe", "src/Helpers/Helpers.csproj", "src/Mine/Mine.csproj"));
 
         Assert.All(projects.Where(p => p.Id != "src/App/App.csproj"), p => Assert.Equal(ProjectKind.Test, p.Kind));
-        var (helpers, referencer) = Assert.Single(kept);
-        Assert.Equal("src/Helpers/Helpers.csproj", helpers.Id);
-        Assert.Equal("src/App/App.csproj", referencer);
+        Assert.Equal(2, kept.Count);
+        Assert.Contains(kept, p => p.Project.Id == "src/Helpers/Helpers.csproj" && p.Referencer == "src/App/App.csproj");
+        Assert.Contains(kept, p => p.Project.Id == "src/Mine/Mine.csproj" && p.Referencer == "src/App/App.csproj");
     }
 
     private static (IReadOnlyList<ProjectInfo> Projects, IReadOnlyList<(ProjectInfo Project, string Referencer)> Kept) Apply(params ProjectInfo[] projects) =>

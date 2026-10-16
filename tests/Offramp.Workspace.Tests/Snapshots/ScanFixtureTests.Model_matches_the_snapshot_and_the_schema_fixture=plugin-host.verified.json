@@ -32,6 +32,7 @@
       "outputType": "Library",
       "outputPath": "src/Core/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -115,6 +116,7 @@
       "outputType": "Library",
       "outputPath": "src/Modules/Html/bin",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "LangVersion": "7.3",
         "ManagePackageVersionsCentrally": "false",
@@ -229,6 +231,7 @@
       "outputType": "Library",
       "outputPath": "src/Site/Plugins/Tax",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "LangVersion": "7.3",
         "ManagePackageVersionsCentrally": "false",
@@ -361,6 +364,7 @@
       "outputType": "Library",
       "outputPath": "src/Site/bin",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "LangVersion": "7.3",
         "ManagePackageVersionsCentrally": "false",
@@ -467,6 +471,7 @@
       "outputType": "Library",
       "outputPath": "src/Site/bin",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "LangVersion": "7.3",
         "ManagePackageVersionsCentrally": "false",

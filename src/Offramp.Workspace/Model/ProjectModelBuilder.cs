@@ -120,8 +120,9 @@ public static class ProjectModelBuilder
             FrameworkClass = Tfm.Classify(tfms),
             OutputType = first.Property("OutputType") ?? "Library",
             OutputPath = OutputFolder(all, projectDirectory, context),
-            // An override decides for every reader: IsTestProject=true from shared props must not keep a library a test.
-            IsTestProject = kindOverride is null ? facts.IsTestProject : kindOverride == ProjectKind.Test,
+            // IsTestProject can be a NuGet SDK inference, not an explicit test declaration.
+            IsTestProject = kindOverride is null ? kind == ProjectKind.Test && facts.IsTestProject : kindOverride == ProjectKind.Test,
+            HostsTests = (kindOverride ?? kind) != ProjectKind.Test && ProjectKindDetector.TestFramework(facts) is not null,
             Properties = Properties(all, context),
             DefineConstants = DefineConstants(projectId, inner, context),
             WindowsOnlyBuildSteps = [.. WindowsOnlyBuildSteps.Detect(projectFile, evaluations, context.Errors.Where(e => string.Equals(e.ProjectFile, projectFile, StringComparison.OrdinalIgnoreCase)), context.BuildSteps.GetValueOrDefault(projectId)).Select(s => s.Id)],

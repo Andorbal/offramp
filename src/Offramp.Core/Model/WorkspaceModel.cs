@@ -143,6 +143,9 @@ public sealed record ProjectInfo
 
     public bool IsTestProject { get; init; }
 
+    /// <summary>True when a production-kind project references a test framework and carries tests.</summary>
+    public bool HostsTests { get; init; }
+
     public SortedDictionary<string, string> Properties { get; init; } = new(StringComparer.Ordinal);
 
     /// <summary>Preprocessor symbols per target framework (they differ by target, so they are not in <see cref="Properties"/>).</summary>

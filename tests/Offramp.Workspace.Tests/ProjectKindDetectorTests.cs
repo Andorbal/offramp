@@ -8,12 +8,16 @@ public sealed class ProjectKindDetectorTests
     public static TheoryData<string, ProjectFacts, ProjectKind, string> Cases => new()
     {
         { "is-test-project", new ProjectFacts { IsTestProject = true, OutputType = "Exe" }, ProjectKind.Test, "IsTestProject=true" },
+        { "is-test-project-app-demotes", new ProjectFacts { IsTestProject = true, Sdk = "Microsoft.NET.Sdk.Web" }, ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web (IsTestProject=true ignored)" },
+        { "is-test-project-service-demotes", new ProjectFacts { IsTestProject = true, Sdk = "Microsoft.NET.Sdk.Worker" }, ProjectKind.Service, "Sdk=Microsoft.NET.Sdk.Worker (IsTestProject=true ignored)" },
         { "test-package", Facts(packages: ["xunit"]), ProjectKind.Test, "PackageReference xunit" },
+        { "test-sdk-package", Facts(packages: ["Microsoft.NET.Test.Sdk"]), ProjectKind.Test, "PackageReference Microsoft.NET.Test.Sdk" },
         { "test-package-in-packages-config", new ProjectFacts { PackagesConfigIds = Set("NUnit") }, ProjectKind.Test, "packages.config NUnit" },
         { "test-guid", new ProjectFacts { ProjectTypeGuids = "{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}" }, ProjectKind.Test, "ProjectTypeGuids {3AC096D0-A1C2-E12C-1390-A8335801FDAB}" },
+        { "is-test-project-test-guid", new ProjectFacts { IsTestProject = true, Sdk = "Microsoft.NET.Sdk.Web", ProjectTypeGuids = "{3AC096D0-A1C2-E12C-1390-A8335801FDAB}" }, ProjectKind.Test, "ProjectTypeGuids {3AC096D0-A1C2-E12C-1390-A8335801FDAB}" },
         { "web-beats-test-package", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", PackageIds = Set("NUnit") }, ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web" },
         { "web-guid-beats-installed-test-package", new ProjectFacts { ProjectTypeGuids = "{349C5851-65DF-11DA-9384-00065B846F21}", PackagesConfigIds = Set("NUnit") }, ProjectKind.Web, "ProjectTypeGuids {349C5851-65DF-11DA-9384-00065B846F21}" },
-        { "is-test-project-beats-web", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", IsTestProject = true }, ProjectKind.Test, "IsTestProject=true" },
+        { "is-test-project-beats-web", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Web", IsTestProject = true }, ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web (IsTestProject=true ignored)" },
         { "test-package-exe-is-test", Facts(packages: ["NUnit"], outputType: "Exe"), ProjectKind.Test, "PackageReference NUnit" },
         { "service-beats-test-package", new ProjectFacts { AssemblyReferences = Set("System.ServiceProcess"), PackageIds = Set("NUnit"), OutputType = "Exe" }, ProjectKind.Service, "Reference System.ServiceProcess + OutputType=Exe" },
         { "winforms-app-beats-test-package", new ProjectFacts { UseWindowsForms = true, PackagesConfigIds = Set("NUnit"), OutputType = "WinExe" }, ProjectKind.Winforms, "UseWindowsForms=true" },
@@ -32,11 +36,13 @@ public sealed class ProjectKindDetectorTests
         { "use-wpf", new ProjectFacts { UseWpf = true, OutputType = "WinExe" }, ProjectKind.Wpf, "UseWPF=true" },
         { "wpf-guid", new ProjectFacts { ProjectTypeGuids = "{60DC8134-EBA5-43B8-BCC9-BB4BC16C2548}", OutputType = "WinExe" }, ProjectKind.Wpf, "ProjectTypeGuids {60DC8134-EBA5-43B8-BCC9-BB4BC16C2548}" },
         { "service-reference", new ProjectFacts { AssemblyReferences = Set("System.ServiceProcess"), OutputType = "Exe" }, ProjectKind.Service, "Reference System.ServiceProcess + OutputType=Exe" },
+        { "service-winexe-reference", new ProjectFacts { AssemblyReferences = Set("System.ServiceProcess"), OutputType = "WinExe" }, ProjectKind.Service, "Reference System.ServiceProcess + OutputType=WinExe" },
         { "topshelf", Facts(packages: ["Topshelf"], outputType: "Exe"), ProjectKind.Service, "PackageReference Topshelf" },
         { "topshelf-in-packages-config", new ProjectFacts { PackagesConfigIds = Set("Topshelf"), OutputType = "Exe" }, ProjectKind.Service, "packages.config Topshelf + OutputType=Exe" },
         { "topshelf-library-is-library", new ProjectFacts { PackagesConfigIds = Set("Topshelf") }, ProjectKind.Library, "OutputType=Library" },
         { "worker-sdk", new ProjectFacts { Sdk = "Microsoft.NET.Sdk.Worker", OutputType = "Exe" }, ProjectKind.Service, "Sdk=Microsoft.NET.Sdk.Worker" },
         { "console", new ProjectFacts { OutputType = "Exe" }, ProjectKind.Console, "OutputType=Exe" },
+        { "winexe-fallback-console", new ProjectFacts { OutputType = "WinExe" }, ProjectKind.Console, "OutputType=WinExe" },
         { "library-default", new ProjectFacts(), ProjectKind.Library, "OutputType=Library" },
         { "module-is-unknown", new ProjectFacts { OutputType = "Module" }, ProjectKind.Unknown, "OutputType=Module" },
     };
@@ -58,7 +64,8 @@ public sealed class ProjectKindDetectorTests
     {
         Assert.Equal((ProjectKind.Library, "OutputType=Library"), ProjectKindDetector.Detect(Facts(packages: ["NUnit"]), frameworks: false));
         Assert.Equal((ProjectKind.Library, "OutputType=Library"), ProjectKindDetector.Detect(new ProjectFacts { AssemblyReferences = Set("nunit.framework") }, frameworks: false));
-        Assert.Equal((ProjectKind.Test, "IsTestProject=true"), ProjectKindDetector.Detect(new ProjectFacts { IsTestProject = true, PackageIds = Set("xunit") }, frameworks: false));
+        Assert.Equal((ProjectKind.Web, "Sdk=Microsoft.NET.Sdk.Web (IsTestProject=true ignored)"), ProjectKindDetector.Detect(new ProjectFacts { IsTestProject = true, PackageIds = Set("xunit"), Sdk = "Microsoft.NET.Sdk.Web" }, frameworks: false));
+        Assert.Equal((ProjectKind.Winforms, "UseWindowsForms=true (IsTestProject=true ignored)"), ProjectKindDetector.Detect(new ProjectFacts { IsTestProject = true, UseWindowsForms = true }));
     }
 
     [Fact]

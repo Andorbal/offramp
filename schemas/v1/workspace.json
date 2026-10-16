@@ -78,7 +78,7 @@
       "additionalProperties": false,
       "required": [
         "id", "name", "assemblyName", "rootNamespace", "language", "kind", "kindEvidence", "sdkStyle", "sdk", "targetFrameworks",
-        "frameworkClass", "outputType", "isTestProject", "properties", "defineConstants", "windowsOnlyBuildSteps", "packagesConfig",
+        "frameworkClass", "outputType", "isTestProject", "hostsTests", "properties", "defineConstants", "windowsOnlyBuildSteps", "packagesConfig",
         "compile", "compileExplicit", "projectReferences", "packageReferences", "assemblyReferences", "comReferences",
         "internalsVisibleTo", "resolved", "compilerCalls", "loc", "config"
       ],
@@ -107,6 +107,7 @@
         "outputType": { "type": ["string", "null"] },
         "outputPath": { "$ref": "#/$defs/relativePath", "description": "The folder the build writes the assembly to (OutDir), repository-relative without a trailing slash, for the .NET Framework target when there is one; absent when outside the repository or unknown." },
         "isTestProject": { "type": "boolean" },
+        "hostsTests": { "type": "boolean", "description": "True when a non-test-kind project references a test framework and carries tests." },
         "properties": { "type": "object", "additionalProperties": { "type": "string" } },
         "defineConstants": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
         "windowsOnlyBuildSteps": {

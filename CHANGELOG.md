@@ -11,6 +11,14 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Added
+- Workspace projects now expose `hostsTests`, identifying production-kind assemblies that also reference a test framework.
+
+### Changed
+- `IsTestProject=true` from `Microsoft.NET.Test.Sdk` is demotable evidence: application kinds win, and an application-used project has `isTestProject=false`. The legacy test ProjectTypeGuid and `offramp.yml` `kind: test` remain explicit test declarations; `WinExe` now defaults to `console` absent stronger service or desktop evidence (ADR 0077).
+  **Migration:** `kind`, `isTestProject`, and workspace JSON now reflect production assemblies carrying tests; rescan and update workspace consumers to accept the required `hostsTests` field.
+
+
 ## [0.19.0] - 2026-10-15
 
 ### Added

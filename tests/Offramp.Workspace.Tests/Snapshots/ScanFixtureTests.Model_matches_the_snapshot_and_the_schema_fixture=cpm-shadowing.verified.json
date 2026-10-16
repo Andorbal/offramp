@@ -32,6 +32,7 @@
       "outputType": "Library",
       "outputPath": "src/Api/bin/Debug/netstandard2.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -118,6 +119,7 @@
       "outputType": "Library",
       "outputPath": "src/Legacy/bin/Debug/netstandard2.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",
@@ -195,6 +197,7 @@
       "outputType": "Library",
       "outputPath": "src/Worker/bin/Debug/netstandard2.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "7.3",

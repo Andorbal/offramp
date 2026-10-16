@@ -96,9 +96,9 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR0107 = new(
         "OFR0107", Severity.Warning,
         "test project an application uses",
-        "The project says it is a test project (`IsTestProject=true` or the test ProjectTypeGuid), and an application (a web, service, Windows Forms, or WPF project) references it, directly or through other projects. What an application references ships with it, so it is probably production code: as a test project it is left out of entry-point search, `newtonsoft tests`, dead-code analysis, `report`, and `plan`. A project that is a test project only by a test framework it references is classified by its other evidence when an application uses it (ADR 0074); this one says so explicitly, so it is kept.",
-        "`Microsoft.NET.Test.Sdk` (which sets `IsTestProject`) or a test framework added to every project through `Directory.Build.props`, or tests kept inside a production library.",
-        "If it is production code, set its kind in `offramp.yml`: `projects: [{ path: ..., kind: library }]`, then scan again.",
+        "The project has the legacy test ProjectTypeGuid, and an application (a web, service, Windows Forms, or WPF project) references it, directly or through other projects. What an application references ships with it, so it is probably production code: as a test project it is left out of entry-point search, `newtonsoft tests`, dead-code analysis, `report`, and `plan`. `IsTestProject=true` alone (including when set by Microsoft.NET.Test.Sdk) is demotable to application evidence; only the test ProjectTypeGuid or a kind override keeps the project test and raises this warning (ADR 0077).",
+        "A legacy project has the test ProjectTypeGuid but is deployed by an application.",
+        "If it is production code, remove the test ProjectTypeGuid or set its kind in `offramp.yml`: `projects: [{ path: ..., kind: library }]`, then scan again.",
         LoadingArea);
 
     public static readonly DiagnosticDescriptor OFR0110 = new(

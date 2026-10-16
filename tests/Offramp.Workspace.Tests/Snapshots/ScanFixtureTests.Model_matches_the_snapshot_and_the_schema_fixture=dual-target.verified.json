@@ -32,6 +32,7 @@
       "outputType": "Library",
       "outputPath": "src/Contracts/bin/Debug/netstandard2.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "latest",
@@ -103,6 +104,7 @@
       "outputType": "Library",
       "outputPath": "src/Shared/bin/Debug/net48",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "IsPackable": "true",
         "LangVersion": "latest",
@@ -245,6 +247,7 @@
       "outputType": "Exe",
       "outputPath": "src/Tool/bin/Debug/net10.0",
       "isTestProject": false,
+      "hostsTests": false,
       "properties": {
         "ImplicitUsings": "enable",
         "IsPackable": "true",

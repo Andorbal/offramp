@@ -37,7 +37,7 @@ public static class ProjectKindDetector
     [
         "xunit", "xunit.core", "xunit.v3", "xunit.v3.core", "xunit.runner.visualstudio",
         "NUnit", "NUnit3TestAdapter", "NUnit4TestAdapter",
-        "MSTest", "MSTest.TestFramework", "MSTest.TestAdapter",
+        "MSTest", "MSTest.TestFramework", "MSTest.TestAdapter", "Microsoft.NET.Test.Sdk",
         "TUnit", "TUnit.Core", "TUnit.Engine",
     ];
 
@@ -70,17 +70,25 @@ public static class ProjectKindDetector
         var outputType = facts.OutputType ?? "Library";
         var isExe = outputType.Equals("Exe", StringComparison.OrdinalIgnoreCase);
         var isWinExe = outputType.Equals("WinExe", StringComparison.OrdinalIgnoreCase);
+        var isExecutable = isExe || isWinExe;
         var isLibrary = outputType.Equals("Library", StringComparison.OrdinalIgnoreCase);
 
-        // test
-        if (facts.IsTestProject)
-        {
-            return (ProjectKind.Test, "IsTestProject=true");
-        }
-
+        // The legacy test-project guid is an explicit declaration. IsTestProject is often set by
+        // Microsoft.NET.Test.Sdk, so application evidence can outweigh that property (ADR 0077).
         if (HasGuid(facts, TestProjectGuid))
         {
             return (ProjectKind.Test, $"ProjectTypeGuids {{{TestProjectGuid}}}");
+        }
+
+        if (facts.IsTestProject)
+        {
+            var withoutProperty = Detect(facts with { IsTestProject = false }, frameworks: false);
+            if (withoutProperty.Kind is ProjectKind.Web or ProjectKind.Service or ProjectKind.Winforms or ProjectKind.Wpf)
+            {
+                return (withoutProperty.Kind, $"{withoutProperty.Evidence} (IsTestProject=true ignored)");
+            }
+
+            return (ProjectKind.Test, "IsTestProject=true");
         }
 
         // web
@@ -138,9 +146,9 @@ public static class ProjectKindDetector
         }
 
         // service
-        if (facts.AssemblyReferences.Contains("System.ServiceProcess") && isExe)
+        if (facts.AssemblyReferences.Contains("System.ServiceProcess") && isExecutable)
         {
-            return (ProjectKind.Service, "Reference System.ServiceProcess + OutputType=Exe");
+            return (ProjectKind.Service, $"Reference System.ServiceProcess + OutputType={outputType}");
         }
 
         foreach (var package in new[] { "Topshelf", "Microsoft.Extensions.Hosting.WindowsServices" })
@@ -150,9 +158,9 @@ public static class ProjectKindDetector
                 return (ProjectKind.Service, $"PackageReference {package}");
             }
 
-            if (facts.PackagesConfigIds.Contains(package) && isExe)
+            if (facts.PackagesConfigIds.Contains(package) && isExecutable)
             {
-                return (ProjectKind.Service, $"packages.config {package} + OutputType=Exe");
+                return (ProjectKind.Service, $"packages.config {package} + OutputType={outputType}");
             }
         }
 
@@ -167,6 +175,11 @@ public static class ProjectKindDetector
             return (ProjectKind.Console, "OutputType=Exe");
         }
 
+        if (isWinExe)
+        {
+            return (ProjectKind.Console, "OutputType=WinExe");
+        }
+
         if (isLibrary)
         {
             return (ProjectKind.Library, "OutputType=Library");
@@ -179,7 +192,7 @@ public static class ProjectKindDetector
     /// The test framework evidence: a package (PackageReference or packages.config, any output type: NUnitLite
     /// test projects are executables), or a checked-in framework assembly in a library; null when there is none.
     /// </summary>
-    private static string? TestFramework(ProjectFacts facts)
+    public static string? TestFramework(ProjectFacts facts)
     {
         if (TestPackages.FirstOrDefault(facts.PackageIds.Contains) is { } package)
         {
