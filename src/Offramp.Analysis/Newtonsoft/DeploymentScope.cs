@@ -1,5 +1,4 @@
 using NuGet.Versioning;
-using Offramp.Analysis.Compilations;
 using Offramp.Core.Model;
 
 namespace Offramp.Analysis.Newtonsoft;
@@ -39,6 +38,18 @@ public static class NewtonsoftDeploymentScope
         foreach (var project in model.Projects.OrderBy(p => p.Id, StringComparer.Ordinal))
         {
             var deployments = memberships[project.Id];
+            if (deployments.Count == 0 && IsTest(project))
+            {
+                var referencedDeployments = project.ProjectReferences
+                    .Where(memberships.ContainsKey)
+                    .SelectMany(reference => memberships[reference])
+                    .ToList();
+                if (referencedDeployments.Count > 0)
+                {
+                    deployments = referencedDeployments;
+                }
+            }
+
             if (deployments.Count == 0 && Release(project) is { } own)
             {
                 deployments = [(project.Id, own)];
@@ -78,7 +89,11 @@ public static class NewtonsoftDeploymentScope
 
         NuGetVersion? Release(ProjectInfo project)
         {
-            var tfm = CompilationLoader.PreferredTarget(project);
+            var tfm = project.TargetFrameworks
+                .Where(target => target.StartsWith("net4", StringComparison.Ordinal))
+                .Order(StringComparer.Ordinal)
+                .FirstOrDefault()
+                ?? project.TargetFrameworks.Order(StringComparer.Ordinal).FirstOrDefault();
             return tfm is null || NewtonsoftReferences.For(project, tfm) is not { } reference ? null : NewtonsoftReferences.Release(reference);
         }
     }

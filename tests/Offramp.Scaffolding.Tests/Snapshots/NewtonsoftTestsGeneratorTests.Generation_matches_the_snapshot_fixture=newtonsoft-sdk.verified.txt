@@ -4,14 +4,14 @@
       "production": "src/Catalog/Catalog.csproj",
       "testProject": "tests/Catalog.Tests/Catalog.Tests.csproj",
       "framework": "xunit",
-      "by": "name",
+      "by": "reference",
       "folder": "tests/Catalog.Tests/NewtonsoftCharacterization"
     },
     {
       "production": "src/Inventory/Inventory.csproj",
       "testProject": "tests/Inventory.Tests/Inventory.Tests.csproj",
       "framework": "nunit",
-      "by": "name",
+      "by": "reference",
       "folder": "tests/Inventory.Tests/NewtonsoftCharacterization"
     }
   ],

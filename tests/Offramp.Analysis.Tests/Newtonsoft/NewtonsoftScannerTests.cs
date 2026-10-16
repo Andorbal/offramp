@@ -82,7 +82,6 @@ public sealed class NewtonsoftScannerTests
     }
 
     [Fact]
-    [ProducesDiagnostic("OFR3726")]
     public async Task A_shared_library_is_judged_against_the_old_deployed_application_release()
     {
         var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
@@ -107,11 +106,11 @@ public sealed class NewtonsoftScannerTests
         var (result, diagnostics) = Scan(scanned, request => request with { Model = model });
 
         var report = result.Projects.Single(p => p.Project == Catalog);
-        Assert.Contains("7.0.1", report.DeployedReleases);
-        Assert.Contains("src/Runner/Runner.csproj", report.DeployedBy);
+        Assert.Equal(["7.0.1"], report.DeployedReleases);
+        Assert.Equal(["src/Runner/Runner.csproj"], report.DeployedBy);
         Assert.True(report.InScope);
         Assert.Contains(result.Findings, f => f.Project == Catalog && f.Rule == "OFR3703" && f.Current == "old");
-        Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR3726");
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR3726");
     }
 
     [Fact]

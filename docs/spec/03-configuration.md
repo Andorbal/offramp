@@ -101,6 +101,8 @@ newtonsoft:
   target: "[13.0,14.0)"       # the newest stable release in this range that supports every target framework
   samples: null              # a folder of real payloads named <payload type full name>[.<label>].json
   onDiff: keep                # keep | rollback: newtonsoft upgrade when probes observe a change
+  scope: deployed             # deployed | all; --all-projects includes every project for one command
+  upgradeFloor: 13.0.1        # stable same-major releases at/above this floor stay unchanged unless --version is exact
   tests:
     entryDepth: 4             # how many callers up from a site the entry-point search goes
     folder: NewtonsoftCharacterization   # generated into each test project's folder
@@ -164,8 +166,11 @@ here: `auto` turns it on in repositories with an `.offramp/` directory.
 
 `offramp doctor` validates the file against `schemas/v1/config.json` and
 reports unknown keys as `OFR0050` (warning) so typos do not silently disable a
-setting. A pin without a `reason` is `OFR0051` (warning). A rule override
-without a `reason` is `OFR0052` (info) so suppression is always attributable.
+setting. `newtonsoft.scope` is `deployed` by default; set it to `all` to include every
+Newtonsoft.Json project, or pass `--all-projects` to include them for one command.
+`newtonsoft.upgradeFloor` defaults to `13.0.1`; stable same-major releases at or above
+it are left unchanged unless `--version` explicitly requests an exact release.
+A pin without a `reason` is `OFR0051` (warning). A rule override without a `reason` is `OFR0052` (info) so suppression is always attributable.
 
 Every command loads and validates the file the same way. Unknown keys are
 ignored (and never echoed in `effectiveConfig`). A value of the wrong type or

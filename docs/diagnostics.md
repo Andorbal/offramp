@@ -2262,10 +2262,10 @@ The project references a Newtonsoft.Json.dll that no package provides; its versi
 
 **already within the target range; left unchanged** · info · newtonsoft
 
-A project already on a stable release of the target major at or above `newtonsoft.upgrade.floor` is not rewritten unless `--version` explicitly requests an exact release.
+The project's stable Newtonsoft.Json release is at or above the configured upgrade floor and has the target's major version; nothing changes for it.
 
 - **Typical cause:** Projects already on a supported target-range release.
-- **Fix:** None, unless an exact `--version` is requested.
+- **Fix:** None, unless an exact --version was requested.
 
 ### OFR3725
 
@@ -2280,10 +2280,10 @@ Neither the global packages folder nor the configured feeds have the target rele
 
 **projects out of scope** · info · newtonsoft
 
-Projects reference Newtonsoft.Json but no deployed application runs a release below the target, so their sites and findings are omitted by default.
+Projects reference Newtonsoft.Json but no deployed application uses a release below the target; their sites and findings were left out.
 
-- **Typical cause:** A shared library is only used by applications already on the target release.
-- **Fix:** Use `--all-projects` or `newtonsoft.scope: all` to include every project.
+- **Typical cause:** Libraries used only by applications already on the target release.
+- **Fix:** Use --all-projects or newtonsoft.scope: all to include every project.
 
 ### OFR3731
 
@@ -2451,9 +2451,9 @@ Compiled into the test project's recorded compilation, the generated files have 
 
 **probes are generated into a project that already ships tests** · info · newtonsoft
 
-The production project hosts tests; probes generated in the same assembly are already shipped with it.
+The production project hosts tests and characterization probes are generated into it; those tests already ship with the production project.
 
-- **Typical cause:** Production code and tests live in one assembly.
+- **Typical cause:** Production code and its tests live in one assembly.
 - **Fix:** None.
 
 ### OFR3760

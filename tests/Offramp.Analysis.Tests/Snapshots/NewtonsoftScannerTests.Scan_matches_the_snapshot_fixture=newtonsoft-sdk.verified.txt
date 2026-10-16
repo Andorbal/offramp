@@ -9,6 +9,13 @@
         "via": "packageReference"
       },
       "redirects": [],
+      "deployedReleases": [
+        "7.0.1"
+      ],
+      "inScope": true,
+      "deployedBy": [
+        "src/Catalog/Catalog.csproj"
+      ],
       "sites": [
         {
           "id": "Contoso.Catalog.CatalogCodec.Write#1",
@@ -292,6 +299,13 @@
         "via": "packageReference"
       },
       "redirects": [],
+      "deployedReleases": [
+        "7.0.1"
+      ],
+      "inScope": true,
+      "deployedBy": [
+        "src/Inventory/Inventory.csproj"
+      ],
       "sites": [
         {
           "id": "Contoso.Inventory.StockSnapshotWriter.Write#1",
@@ -404,6 +418,13 @@
         "via": "packageReference"
       },
       "redirects": [],
+      "deployedReleases": [
+        "7.0.1"
+      ],
+      "inScope": true,
+      "deployedBy": [
+        "tests/Catalog.Tests/Catalog.Tests.csproj"
+      ],
       "sites": [],
       "configuration": []
     },
@@ -415,6 +436,13 @@
         "via": "transitive"
       },
       "redirects": [],
+      "deployedReleases": [
+        "7.0.1"
+      ],
+      "inScope": true,
+      "deployedBy": [
+        "tests/Inventory.Tests/Inventory.Tests.csproj"
+      ],
       "sites": [],
       "configuration": []
     }

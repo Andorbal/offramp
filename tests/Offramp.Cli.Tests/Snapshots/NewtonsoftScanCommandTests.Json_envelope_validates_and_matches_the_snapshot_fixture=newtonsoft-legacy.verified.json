@@ -72,6 +72,7 @@
         },
         "onDiff": "keep",
         "samples": null,
+        "scope": "deployed",
         "target": "[13.0,14.0)",
         "tests": {
           "command": null,
@@ -82,7 +83,8 @@
           "runs": 2,
           "samplesPerType": 3,
           "timeoutSeconds": 1800
-        }
+        },
+        "upgradeFloor": "13.0.1"
       },
       "paths": {
         "exclude": [],
@@ -155,6 +157,13 @@
             "newVersion": "7.0.0.0"
           }
         ],
+        "deployedReleases": [
+          "7.0.1"
+        ],
+        "inScope": true,
+        "deployedBy": [
+          "src/Orders.App/Orders.App.csproj"
+        ],
         "sites": [],
         "configuration": []
       },
@@ -167,6 +176,13 @@
           "hintPath": "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll"
         },
         "redirects": [],
+        "deployedReleases": [
+          "7.0.1"
+        ],
+        "inScope": true,
+        "deployedBy": [
+          "src/Orders.App/Orders.App.csproj"
+        ],
         "sites": [
           {
             "id": "Contoso.Orders.CommentCodec.Read#1",
@@ -264,6 +280,13 @@
           "hintPath": "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll"
         },
         "redirects": [],
+        "deployedReleases": [
+          "7.0.1"
+        ],
+        "inScope": true,
+        "deployedBy": [
+          "src/Orders.App/Orders.App.csproj"
+        ],
         "sites": [],
         "configuration": []
       }

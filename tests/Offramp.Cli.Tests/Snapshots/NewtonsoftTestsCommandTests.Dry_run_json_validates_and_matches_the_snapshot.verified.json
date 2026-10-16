@@ -72,6 +72,7 @@
         },
         "onDiff": "keep",
         "samples": null,
+        "scope": "deployed",
         "target": "[13.0,14.0)",
         "tests": {
           "command": null,
@@ -82,7 +83,8 @@
           "runs": 2,
           "samplesPerType": 3,
           "timeoutSeconds": 1800
-        }
+        },
+        "upgradeFloor": "13.0.1"
       },
       "paths": {
         "exclude": [],
@@ -143,7 +145,7 @@
         "production": "src/Orders/Orders.csproj",
         "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
         "framework": "mstest",
-        "by": "name",
+        "by": "reference",
         "folder": "tests/Orders.Tests/NewtonsoftCharacterization"
       }
     ],

@@ -92,7 +92,7 @@ public static class NewtonsoftScanner
                 [KeyValuePair.Create<string, JsonNode?>("projects", new JsonArray([.. outOfScope.Select(p => (JsonNode?)p.Project.Id)]))]);
         }
 
-        if (request.TargetPackage is null && candidates.Count > 0)
+        if (request.TargetPackage is null && request.Findings && candidates.Count > 0)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR3725,
                 $"Newtonsoft.Json {request.Target} is in neither the global packages folder nor the configured feeds; API changes (OFR3701, OFR3702) were not computed.");
@@ -220,7 +220,11 @@ public static class NewtonsoftScanner
             Configuration = finder.Configuration,
         };
 
-        SiteDiagnostics(request, project, finder);
+        if (request.Findings)
+        {
+            SiteDiagnostics(request, project, finder);
+        }
+
         if (!request.Findings)
         {
             return (report, [], finder.Sites);

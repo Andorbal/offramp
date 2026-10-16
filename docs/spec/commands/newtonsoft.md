@@ -516,8 +516,8 @@ The build covers what `verify.projects` selects (the solution by default).
 ```yaml
 newtonsoft:
   target: "[13.0,14.0)"        # --version overrides
-  scope: deployed              # deployed | all; --all-projects overrides
-  upgradeFloor: 13.0.1         # stable same-major releases at/above the floor stay unchanged
+  scope: deployed              # deployed | all; --all-projects overrides for one command
+  upgradeFloor: 13.0.1         # stable same-major releases at/above this floor stay unchanged unless --version explicitly requests an exact release
   samples: null                # folder of real payloads; --samples overrides
   tests:
     folder: NewtonsoftCharacterization

@@ -4,7 +4,7 @@
       "production": "src/Orders/Orders.csproj",
       "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
       "framework": "mstest",
-      "by": "name",
+      "by": "reference",
       "folder": "tests/Orders.Tests/NewtonsoftCharacterization"
     }
   ],

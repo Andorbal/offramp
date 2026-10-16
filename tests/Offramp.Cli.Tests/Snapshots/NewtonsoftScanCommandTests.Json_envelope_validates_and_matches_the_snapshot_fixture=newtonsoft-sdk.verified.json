@@ -72,6 +72,7 @@
         },
         "onDiff": "keep",
         "samples": null,
+        "scope": "deployed",
         "target": "[13.0,14.0)",
         "tests": {
           "command": null,
@@ -82,7 +83,8 @@
           "runs": 2,
           "samplesPerType": 3,
           "timeoutSeconds": 1800
-        }
+        },
+        "upgradeFloor": "13.0.1"
       },
       "paths": {
         "exclude": [],
@@ -148,6 +150,13 @@
           "via": "packageReference"
         },
         "redirects": [],
+        "deployedReleases": [
+          "7.0.1"
+        ],
+        "inScope": true,
+        "deployedBy": [
+          "src/Catalog/Catalog.csproj"
+        ],
         "sites": [
           {
             "id": "Contoso.Catalog.CatalogCodec.Write#1",
@@ -431,6 +440,13 @@
           "via": "packageReference"
         },
         "redirects": [],
+        "deployedReleases": [
+          "7.0.1"
+        ],
+        "inScope": true,
+        "deployedBy": [
+          "src/Inventory/Inventory.csproj"
+        ],
         "sites": [
           {
             "id": "Contoso.Inventory.StockSnapshotWriter.Write#1",
@@ -543,6 +559,13 @@
           "via": "packageReference"
         },
         "redirects": [],
+        "deployedReleases": [
+          "7.0.1"
+        ],
+        "inScope": true,
+        "deployedBy": [
+          "tests/Catalog.Tests/Catalog.Tests.csproj"
+        ],
         "sites": [],
         "configuration": []
       },
@@ -554,6 +577,13 @@
           "via": "transitive"
         },
         "redirects": [],
+        "deployedReleases": [
+          "7.0.1"
+        ],
+        "inScope": true,
+        "deployedBy": [
+          "tests/Inventory.Tests/Inventory.Tests.csproj"
+        ],
         "sites": [],
         "configuration": []
       }

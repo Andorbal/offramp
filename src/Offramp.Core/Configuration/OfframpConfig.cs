@@ -381,8 +381,8 @@ public sealed record NewtonsoftConfig
 
     public string Scope { get; init; } = "deployed";
 
-    /// <summary>How the upgrade handles already-compatible stable releases.</summary>
-    public NewtonsoftUpgradeConfig Upgrade { get; init; } = new();
+    /// <summary>The lowest stable release left unchanged unless an exact <c>--version</c> is requested.</summary>
+    public string UpgradeFloor { get; init; } = "13.0.1";
 
     /// <summary>A folder of real payloads named <c>&lt;payload type full name&gt;[.&lt;label&gt;].json</c>, repository-relative; null for none.</summary>
     public string? Samples { get; init; }
@@ -390,13 +390,6 @@ public sealed record NewtonsoftConfig
     public NewtonsoftTestsConfig Tests { get; init; } = new();
 
     public NewtonsoftHermeticConfig Hermetic { get; init; } = new();
-}
-
-/// <summary>Configuration for release updates for Newtonsoft.Json.</summary>
-public sealed record NewtonsoftUpgradeConfig
-{
-    /// <summary>The lowest stable release left unchanged unless an exact --version is requested.</summary>
-    public string Floor { get; init; } = "13.0.1";
 }
 
 /// <summary><c>newtonsoft.tests:</c>, the characterization probes.</summary>

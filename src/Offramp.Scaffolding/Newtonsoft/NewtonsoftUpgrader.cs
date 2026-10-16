@@ -137,7 +137,7 @@ public static class NewtonsoftUpgrader
             users.Add(project.Id);
             if (!request.ExactVersion && NuGetVersion.TryParse(reference.Version, out var current)
                 && current.IsPrerelease == false && current.Major == request.Target.Major
-                && NuGetVersion.TryParse(request.Config.Newtonsoft.Upgrade.Floor, out var floor) && current >= floor)
+                && NuGetVersion.TryParse(request.Config.Newtonsoft.UpgradeFloor, out var floor) && current >= floor)
             {
                 request.Diagnostics.Report(DiagnosticCatalog.OFR3724,
                     $"{project.Id} already within the target range at Newtonsoft.Json {current}; left unchanged.", new DiagnosticLocation(project.Id));
