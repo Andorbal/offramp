@@ -22,3 +22,7 @@ Compute each non-test web, service, console, WinForms, and WPF application's dep
 ## Consequences
 
 Scan results now expose deployment attribution and omit irrelevant sites by default. Users can request the historical all-project inventory explicitly. Tests are placed where the characterized release actually runs, or report the mismatch. Existing compatible patch references and sufficient redirects remain byte-for-byte unchanged; explicit `--version` remains exact.
+
+## Amendment
+
+When automatic test-project selection has several direct candidates resolving the deployed release, `newtonsoft tests` breaks ties before reporting OFR3734: first prefer a production project that hosts tests and itself resolves a deployed release below the target (`By=self`, OFR3749); then a candidate named `<Production>.Test` or `<Production>.Tests`; then the most downstream candidate that transitively references every other matching candidate; then a candidate of kind `test` over an application. Candidate names in any remaining OFR3734 are ordinally sorted. Type probes may also run when the test project's Newtonsoft.Json assembly identity equals the identity for any deployed production release below the target, even when that differs from the production project's own recorded compilation identity.

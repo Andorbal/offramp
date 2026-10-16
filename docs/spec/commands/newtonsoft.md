@@ -237,14 +237,20 @@ spans every project (ADR 0075).
 **Test project.** For each production project: choose `newtonsoft.tests.projects`,
 then `--to` (only with a single `--project`), then a test-capable project that
 references the production project directly and resolves the same Newtonsoft.Json
-release as the deployed release being characterized. Prefer a `<Prod>.Test(s)`
-name, then a sole matching project, then a sole project of kind `test`; unresolved
-ties are `OFR3734` and list each candidate and its resolved release. If no
-candidate matches, `OFR3733` names existing candidates and versions. If there is
-no matching direct candidate, a production project with `hostsTests: true` is a
-valid destination (also when selected explicitly), `By=self`, with `OFR3749`; a
-production project not hosting tests remains an `OFR3733` error when selected as
-its own destination. A test-capable project is kind `test` or has `hostsTests: true`.
+release as the deployed release being characterized. Resolve ties in this order:
+(1) a production project with `hostsTests: true` that itself resolves a deployed
+release below the target wins (`By=self`, `OFR3749`); (2) prefer a candidate
+named `<Production>.Test` or `<Production>.Tests`; (3) prefer the most downstream
+candidate, the one that transitively references every other matching candidate;
+(4) prefer a candidate whose kind is `test` over an application. A candidate is
+selected at a step only when it is the unique preference at that step; otherwise
+continue to the next step. Remaining ties are `OFR3734` and list candidates in
+ordinal order with each resolved release. If no candidate matches, `OFR3733`
+names existing candidates and versions. If there is no matching direct
+candidate, a production project with `hostsTests: true` is a valid destination
+(also when selected explicitly), `By=self`, with `OFR3749`; a production project
+not hosting tests remains an `OFR3733` error when selected as its own destination.
+A test-capable project is kind `test` or has `hostsTests: true`.
 Test projects are not created. The framework is detected from the destination's
 references: xunit (2 and 3), NUnit (2, 3 and 4), MSTest (v1
 `Microsoft.VisualStudio.QualityTools.UnitTestFramework` and v2); anything else
@@ -297,10 +303,13 @@ they call `JsonConvert` (`JsonSerializer` when the site's settings are a
 serializer, `JToken.FromObject`/`ToObject` when the site uses those) with the
 site's settings written out (`none`, `inline` rewritten from the creation, or the
 accessible static `member` itself) and the payload type. Type probes reference
-Newtonsoft.Json directly, so they are generated only when the test project's
-compilation binds the same Newtonsoft.Json assembly identity as the production
-project's (`OFR3743` otherwise); `upgrade` moves test projects with production
-ones, so the identities stay equal. Probe ids are `<site id>.<entry|type|input>[<k>].<sample>`
+Newtonsoft.Json directly, so they are generated when the test project's assembly
+identity equals the production project's identity, or equals the assembly
+identity of any deployed release of the production project below the target
+(the release's `<major>.<minor>.0.0` identity). Otherwise `OFR3743` names the test
+and production identities and the deployed releases, and only entry probes are
+generated; `upgrade` moves test projects with production ones, so the identities
+stay equal. Probe ids are `<site id>.<entry|type|input>[<k>].<sample>`
 (`k` numbers payload types when a site has several), made of letters, digits,
 and `. # - _` so they are file names on every OS.
 

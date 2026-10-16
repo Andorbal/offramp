@@ -118,8 +118,13 @@ public static class NewtonsoftTestsGenerator
             planner.Plan();
             if (!planner.TypeProbesAllowed && production.Sites.Any(s => s.Site.EntryPoint is null))
             {
+                var testIdentity = testCompilation is null ? "unavailable" : ProbePlanner.NewtonsoftIdentity(testCompilation)?.ToString() ?? "unavailable";
+                var deployedReleases = production.Deployment.DeployedReleases
+                    .Select(v => NuGetVersion.TryParse(v, out var parsed) ? parsed : null).OfType<NuGetVersion>()
+                    .Where(v => v < NewtonsoftRules.Measured).OrderBy(v => v, VersionComparer.VersionRelease)
+                    .Select(v => v.ToNormalizedString()).ToList();
                 request.Diagnostics.Report(DiagnosticCatalog.OFR3743,
-                    $"{test.Id} does not compile against {production.Project.Id}'s Newtonsoft.Json {production.Reference.Version}; only entry probes are generated for it.",
+                    $"{test.Id} binds Newtonsoft.Json assembly {testIdentity}, while {production.Project.Id} compiles against {ProbePlanner.NewtonsoftIdentity(production.Compilation)?.ToString() ?? "unavailable"}; its deployed releases below target are [{string.Join(", ", deployedReleases)}]. Only entry probes are generated for it.",
                     new DiagnosticLocation(test.Id));
             }
 
@@ -196,6 +201,12 @@ public static class NewtonsoftTestsGenerator
         var productionProject = production.Project;
         string? chosen = null;
         var by = "name";
+        var deployedReleases = production.Deployment.DeployedReleases
+            .Select(v => NuGetVersion.TryParse(v, out var parsed) ? parsed : null).OfType<NuGetVersion>()
+            .Where(v => v < NewtonsoftRules.Measured).OrderBy(v => v, VersionComparer.VersionRelease).ToList();
+        var selfDeployment = productionProject.HostsTests && ResolvedRelease(productionProject) is { } ownRelease
+            && deployedReleases.Any(release => release == ownRelease);
+
         if (request.TestProjects.FirstOrDefault(p => Matches(p.Key, productionProject)).Value is { } configured)
         {
             (chosen, by) = (request.Model.Projects.FirstOrDefault(p => Matches(configured, p))?.Id, "config");
@@ -204,45 +215,50 @@ public static class NewtonsoftTestsGenerator
         {
             (chosen, by) = (request.To, "option");
         }
+        else if (selfDeployment)
+        {
+            (chosen, by) = (productionProject.Id, "self");
+        }
         else
         {
             var candidates = request.Model.Projects.Where(p => p.Id != productionProject.Id && p.Language == "csharp"
                     && (IsTest(p) || p.HostsTests) && p.ProjectReferences.Contains(productionProject.Id, StringComparer.Ordinal))
                 .OrderBy(p => p.Id, StringComparer.Ordinal).ToList();
             var matching = candidates.Where(p => ResolvedRelease(p) == deployedRelease).ToList();
-            var preferredName = matching.Where(p => string.Equals(p.Name, productionProject.Name + ".Test", StringComparison.OrdinalIgnoreCase)
+            var namedCandidates = matching.Where(p => string.Equals(p.Name, productionProject.Name + ".Test", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(p.Name, productionProject.Name + ".Tests", StringComparison.OrdinalIgnoreCase)).ToList();
-            if (preferredName.Count == 1)
+            var tieCandidates = namedCandidates.Count > 0 ? namedCandidates : matching;
+            var preferredDownstream = tieCandidates.Where(candidate => tieCandidates.All(other => other.Id == candidate.Id ||
+                    ReferencesTransitively(candidate, other.Id, request.Model.Projects)))
+                .ToList();
+            if (preferredDownstream.Count == 1)
             {
-                (chosen, by) = (preferredName[0].Id, "reference");
+                (chosen, by) = (preferredDownstream[0].Id, "reference");
             }
-            else if (preferredName.Count > 1)
+            else if (preferredDownstream.Count > 1)
             {
-                ReportAmbiguous(preferredName);
-                return null;
+                tieCandidates = preferredDownstream;
             }
-            else if (matching.Count == 1)
+
+            var preferredTestKind = tieCandidates.Where(p => p.Kind == ProjectKind.Test).ToList();
+            if (chosen is null && preferredTestKind.Count == 1)
+            {
+                (chosen, by) = (preferredTestKind[0].Id, "reference");
+            }
+            else if (chosen is null && matching.Count == 1)
             {
                 (chosen, by) = (matching[0].Id, "reference");
             }
-            else if (matching.Count > 1)
+            else if (chosen is null && matching.Count > 1)
             {
-                var testCandidates = matching.Where(IsTest).ToList();
-                if (testCandidates.Count == 1)
-                {
-                    (chosen, by) = (testCandidates[0].Id, "reference");
-                }
-                else
-                {
-                    ReportAmbiguous(testCandidates.Count > 0 ? testCandidates : matching);
-                    return null;
-                }
+                ReportAmbiguous(tieCandidates);
+                return null;
             }
-            else if (productionProject.HostsTests)
+            else if (chosen is null && productionProject.HostsTests && matching.Count == 0)
             {
                 (chosen, by) = (productionProject.Id, "self");
             }
-            else if (candidates.Count > 0)
+            else if (chosen is null && candidates.Count > 0)
             {
                 request.Diagnostics.Report(DiagnosticCatalog.OFR3733,
                     $"No test-capable project directly referencing {productionProject.Id} resolves deployed Newtonsoft.Json {deployedRelease?.ToNormalizedString() ?? "unknown"}; candidates: {string.Join(", ", candidates.Select(p => $"{p.Id} ({ResolvedRelease(p)?.ToNormalizedString() ?? "unknown"})"))}.",
@@ -287,6 +303,30 @@ public static class NewtonsoftTestsGenerator
 
         var directory = test.Id.Contains('/', StringComparison.Ordinal) ? test.Id[..(test.Id.LastIndexOf('/') + 1)] : "";
         return new ProbeTarget { Production = productionProject.Id, TestProject = test.Id, Framework = framework, By = by, Folder = directory + request.Folder };
+    }
+
+    private static bool ReferencesTransitively(ProjectInfo project, string target, IReadOnlyList<ProjectInfo> projects)
+    {
+        var byId = projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>(project.ProjectReferences.OrderByDescending(id => id, StringComparer.Ordinal));
+        while (pending.TryPop(out var id))
+        {
+            if (id == target)
+            {
+                return true;
+            }
+
+            if (visited.Add(id) && byId.TryGetValue(id, out var current))
+            {
+                foreach (var reference in current.ProjectReferences.OrderByDescending(reference => reference, StringComparer.Ordinal))
+                {
+                    pending.Push(reference);
+                }
+            }
+        }
+
+        return false;
     }
 
     private static NuGetVersion? ResolvedRelease(ProjectInfo project)

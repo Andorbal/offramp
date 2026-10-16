@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using NuGet.Versioning;
 using Offramp.Analysis.Compilations;
 using Offramp.Core.Diagnostics;
 using Offramp.Core.Json;
@@ -104,14 +105,11 @@ public sealed class NewtonsoftTestsGeneratorTests
             HostsTests = true,
             PackageReferences = [.. model.Projects.Single(p => p.Id == Catalog).PackageReferences, new PackageReferenceInfo { Id = "xunit", Version = "2.9.0" }],
         };
-        model = model with
-        {
-            Projects = [.. model.Projects.Where(p => p.Id != Catalog && p.Id != CatalogTests).Select(p => p.Id == InventoryTests
-                ? p with { ProjectReferences = [.. p.ProjectReferences.Where(reference => reference != Catalog)] }
-                : p), catalog],
-        };
 
-        var (result, _, diagnostics) = Generate(scanned, request => request with { Model = model });
+        var (result, _, diagnostics) = Generate(scanned, request => request with { Model = model with
+        {
+            Projects = [.. model.Projects.Select(p => p.Id == Catalog ? catalog : p)],
+        } });
 
         Assert.Contains(result.Targets, target => target.Production == Catalog && target.TestProject == Catalog && target.By == "self");
         Assert.Contains(diagnostics.ToSortedList(), diagnostic => diagnostic.Code == "OFR3749" && diagnostic.Project == Catalog);
@@ -168,6 +166,77 @@ public sealed class NewtonsoftTestsGeneratorTests
     }
 
     [Fact]
+    public async Task A_test_project_named_after_the_production_project_wins_a_tie()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var productionName = scanned.Outcome.Model!.Projects.Single(p => p.Id == Catalog).Name;
+        var model = WithCandidates(scanned.Outcome.Model!,
+            candidate => candidate with { Name = productionName + ".Test", Kind = ProjectKind.Library, IsTestProject = false, HostsTests = true },
+            candidate => candidate with { Id = "tests/Catalog.AlsoNamed/Catalog.AlsoNamed.csproj", Name = "OtherChecks", Kind = ProjectKind.Library, IsTestProject = false, HostsTests = true });
+
+        var (result, _, diagnostics) = Generate(scanned, request => request with { Model = model });
+
+        Assert.True(result.Targets.Any(t => t.Production == Catalog), string.Join("\n", diagnostics.ToSortedList().Select(d => d.Code + ": " + d.Message)));
+        Assert.Equal(CatalogTests, result.Targets.Single(t => t.Production == Catalog).TestProject);
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR3734" && d.Project == Catalog);
+    }
+
+    [Fact]
+    public async Task A_candidate_referencing_every_other_candidate_wins_a_tie()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        const string downstream = "tests/Catalog.Downstream/Catalog.Downstream.csproj";
+        var model = WithCandidates(scanned.Outcome.Model!,
+            candidate => candidate with { Name = "FirstChecks", Kind = ProjectKind.Library, IsTestProject = false, HostsTests = true },
+            candidate => candidate with { Id = downstream, Name = "SecondChecks", Kind = ProjectKind.Library, IsTestProject = false, HostsTests = true });
+        model = model with
+        {
+            Projects = [.. model.Projects.Select(p => p.Id == downstream ? p with { ProjectReferences = [.. p.ProjectReferences, CatalogTests] } : p)],
+        };
+
+        var (result, _, diagnostics) = Generate(scanned, request => request with { Model = model });
+
+        Assert.Equal(downstream, result.Targets.Single(t => t.Production == Catalog).TestProject);
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR3734" && d.Project == Catalog);
+    }
+
+    [Fact]
+    public async Task A_test_kind_candidate_wins_over_an_application_candidate()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var model = WithCandidates(scanned.Outcome.Model!,
+            candidate => candidate with { Name = "AppChecks", Kind = ProjectKind.Web, IsTestProject = false, HostsTests = true },
+            candidate => candidate with { Id = "tests/Catalog.LibraryChecks/Catalog.LibraryChecks.csproj", Name = "LibraryChecks", Kind = ProjectKind.Test });
+
+        var (result, _, diagnostics) = Generate(scanned, request => request with { Model = model });
+
+        Assert.Equal("tests/Catalog.LibraryChecks/Catalog.LibraryChecks.csproj", result.Targets.Single(t => t.Production == Catalog).TestProject);
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR3734" && d.Project == Catalog);
+    }
+
+    [Fact]
+    public async Task A_production_project_hosting_tests_wins_before_ambiguous_candidates()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var model = WithCandidates(scanned.Outcome.Model!,
+            candidate => candidate with { Name = "FirstChecks" },
+            candidate => candidate with { Id = "tests/Catalog.OtherChecks/Catalog.OtherChecks.csproj", Name = "SecondChecks" });
+        var catalog = model.Projects.Single(p => p.Id == Catalog) with
+        {
+            HostsTests = true,
+            PackageReferences = [.. model.Projects.Single(p => p.Id == Catalog).PackageReferences, new PackageReferenceInfo { Id = "xunit", Version = "2.9.0" }],
+        };
+        model = model with { Projects = [.. model.Projects.Select(p => p.Id == Catalog ? catalog : p)] };
+
+        var (result, _, diagnostics) = Generate(scanned, request => request with { Model = model });
+
+        Assert.Equal(Catalog, result.Targets.Single(t => t.Production == Catalog).TestProject);
+        Assert.Equal("self", result.Targets.Single(t => t.Production == Catalog).By);
+        Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR3749" && d.Project == Catalog);
+        Assert.DoesNotContain(diagnostics.ToSortedList(), d => d.Code == "OFR3734" && d.Project == Catalog);
+    }
+
+    [Fact]
     [ProducesDiagnostic("OFR3736")]
     public async Task A_test_project_with_no_known_framework_gets_no_probes()
     {
@@ -202,6 +271,38 @@ public sealed class NewtonsoftTestsGeneratorTests
         Assert.Contains(result.Probes, p => p.TestProject == CatalogTests && p.Kind == ProbeKind.Entry);
         Assert.Contains(result.Uncovered, u => u.Site == "Contoso.Catalog.ProductStore.Save#1" && u.Reason == "nonHermetic");
         Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR3743" && d.Project == CatalogTests);
+    }
+
+    [Fact]
+    public async Task Type_probes_accept_a_deployed_identity_below_the_target_and_reject_others()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var assembly = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages", "newtonsoft.json", "13.0.4", "lib", "net45", "Newtonsoft.Json.dll");
+        var (result, _, diagnostics) = Generate(scanned, request => request with
+        {
+            Compilations = new NewtonsoftAssemblyCompilation(request.RepositoryRoot, Catalog, assembly),
+        });
+
+        Assert.Contains(result.Probes, probe => probe.TestProject == CatalogTests && probe.Site.StartsWith("Contoso.Catalog.", StringComparison.Ordinal) && probe.Kind == ProbeKind.Type);
+        Assert.DoesNotContain(diagnostics.ToSortedList(), diagnostic => diagnostic.Code == "OFR3743" && diagnostic.Project == CatalogTests);
+        Assert.False(ProbePlanner.CanUseTypeProbes(
+            IdentityForVersion(new Version(12, 0, 0, 0)), IdentityForVersion(new Version(13, 0, 0, 0)), ["13.0.4"], NuGetVersion.Parse("13.0.4")));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3743")]
+    public async Task A_type_probe_still_requires_a_matching_deployed_or_production_identity()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var assembly = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages", "newtonsoft.json", "13.0.4", "lib", "net6.0", "Newtonsoft.Json.dll");
+        var (result, _, diagnostics) = Generate(scanned, request => request with
+        {
+            Compilations = new NewtonsoftAssemblyCompilation(request.RepositoryRoot, CatalogTests, assembly),
+        });
+
+        Assert.DoesNotContain(result.Probes, probe => probe.TestProject == CatalogTests && probe.Kind == ProbeKind.Type);
+        Assert.Contains(result.Probes, probe => probe.TestProject == CatalogTests && probe.Kind == ProbeKind.Entry);
+        Assert.Equal("Newtonsoft.Json, Version=7.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed", diagnostics.ToSortedList().First(d => d.Code == "OFR3743").Message.Split("compiles against ", StringSplitOptions.None)[1].Split(';')[0]);
     }
 
     [Fact]
@@ -476,8 +577,30 @@ public sealed class NewtonsoftTestsGeneratorTests
         }
     }
 
+    private static WorkspaceModel WithCandidates(WorkspaceModel model, Func<ProjectInfo, ProjectInfo> first, Func<ProjectInfo, ProjectInfo> second)
+    {
+        var original = model.Projects.Single(p => p.Id == CatalogTests);
+        var firstCandidate = first(original);
+        var secondCandidate = second(original with
+        {
+            Id = "tests/Catalog.Extra/Catalog.Extra.csproj",
+            Name = "CatalogExtra",
+            IsTestProject = false,
+            Kind = ProjectKind.Library,
+            HostsTests = true,
+        });
+        return model with
+        {
+            Projects = [.. model.Projects.Where(p => p.Id != CatalogTests), firstCandidate, secondCandidate],
+        };
+    }
+
     private static WorkspaceModel Without(WorkspaceModel model, string project) =>
         model with { Projects = [.. model.Projects.Where(p => p.Id != project)] };
+
+    private static Microsoft.CodeAnalysis.AssemblyIdentity IdentityForVersion(Version version) =>
+        new("Newtonsoft.Json", version, cultureName: null, publicKeyOrToken: [], hasPublicKey: false, isRetargetable: false, contentType: System.Reflection.AssemblyContentType.Default);
+
 
     /// <summary>The recorded compilations, counting how often each is loaded.</summary>
     private sealed class CountingCompilations(string root) : ICompilationSource, IDisposable
@@ -527,7 +650,30 @@ public sealed class NewtonsoftTestsGeneratorTests
         }
     }
 
-    /// <summary>The recorded compilations, one project's changed.</summary>
+    /// <summary>The recorded compilations, with Newtonsoft.Json replaced for one project.</summary>
+    private sealed class NewtonsoftAssemblyCompilation(string root, string project, string assembly) : ICompilationSource, IDisposable
+    {
+        private readonly CompilationLoader _loader = new(root);
+
+        public Compilation? LoadForProject(ProjectInfo info, string targetFramework)
+        {
+            var compilation = _loader.LoadForProject(info, targetFramework);
+            if (compilation is null || info.Id != project)
+            {
+                return compilation;
+            }
+
+            return compilation.RemoveReferences(compilation.References.Where(reference => compilation.GetAssemblyOrModuleSymbol(reference) is IAssemblySymbol { Name: "Newtonsoft.Json" }))
+                .AddReferences(MetadataReference.CreateFromFile(assembly));
+        }
+
+        public (ImmutableArray<DiagnosticAnalyzer> Analyzers, AnalyzerOptions Options)? LoadAnalyzers(ProjectInfo info, string targetFramework) =>
+            _loader.LoadAnalyzers(info, targetFramework);
+
+        public void Dispose() => _loader.Dispose();
+    }
+
+    /// <summary>The recorded compilations, with one project's changed.</summary>
     private sealed class EditedCompilation(string root, string project, Func<Compilation, Compilation> edit) : ICompilationSource, IDisposable
     {
         private readonly CompilationLoader _loader = new(root);

@@ -21,8 +21,8 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `newtonsoft scan` reports deployed Newtonsoft.Json release scope (`deployedReleases`, `deployedBy`, `inScope`); scan/tests default to projects used by an application still on an older release, with `--all-projects` and `newtonsoft.scope: all` overrides (`OFR3726`, ADR 0078).
 - `OFR3749` explains when characterization probes are generated into a production assembly that already hosts tests; Newtonsoft-specific target selection prefers direct tests resolving the deployment release without changing `move tests` (ADR 0078).
 
-### Changed
-- `newtonsoft upgrade` leaves stable same-major package releases at or above `newtonsoft.upgradeFloor` (default `13.0.1`) unchanged unless `--version` explicitly requests an exact release. Binding redirects with a correct deployed version and a covering old-version range are preserved (`OFR3724`, ADR 0078).
+### Fixed
+- `newtonsoft tests` resolves matching test-project ties deterministically (self-hosted tests, conventional name, downstream coverage, then test kind); type probes also accept an assembly identity matching a deployed release below the target, with OFR3743 reporting both identities and deployed releases otherwise.
 - `newtonsoft` behavior findings use application-deployed releases for shared projects, while API trial compilation still uses the project's own recorded compilation.
 
 ## [0.19.0] - 2026-10-15

@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
+using NuGet.Versioning;
 using Offramp.Analysis.Compilations;
 using Offramp.Analysis.Newtonsoft;
 using Offramp.Core.Model;
@@ -46,7 +47,8 @@ internal sealed class ProbePlanner
         _labels = [.. SampleGenerator.Labels.Take(Math.Max(1, samplesPerType))];
         _serializeFile = serializeFile;
         _deserializeFile = deserializeFile;
-        _typeProbes = testCompilation is not null && SameNewtonsoft(production.Compilation, testCompilation);
+        _typeProbes = testCompilation is not null && CanUseTypeProbes(production.Compilation, testCompilation,
+            production.Deployment.DeployedReleases, NewtonsoftRules.Measured);
         _generator = new SampleGenerator(production.Compilation, Accessible, objectDepth);
     }
 
@@ -412,14 +414,41 @@ internal sealed class ProbePlanner
         assembly is not null && _model.Projects.FirstOrDefault(p => string.Equals(p.AssemblyName ?? p.Name, assembly.Name, StringComparison.OrdinalIgnoreCase)) is { } declaring
         && declaring.InternalsVisibleTo.Contains(_test.AssemblyName ?? _test.Name, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>True when the test project compiles against the same Newtonsoft.Json assembly as the production project.</summary>
-    internal static bool SameNewtonsoft(Compilation production, Compilation test)
+    /// <summary>True when the test binds the production identity or an identity used by a deployed release below the target.</summary>
+    internal static bool CanUseTypeProbes(Compilation production, Compilation test, IReadOnlyList<string> deployedReleases, NuGetVersion target)
     {
-        static AssemblyIdentity? Identity(Compilation compilation) => compilation.References
-            .Select(compilation.GetAssemblyOrModuleSymbol).OfType<IAssemblySymbol>()
-            .FirstOrDefault(a => a.Name == NewtonsoftReferences.PackageId)?.Identity;
-        return Identity(production) is { } expected && expected.Equals(Identity(test));
+        return CanUseTypeProbes(NewtonsoftIdentity(production), NewtonsoftIdentity(test), deployedReleases, target);
     }
+
+    internal static bool CanUseTypeProbes(AssemblyIdentity? expected, AssemblyIdentity? actual, IReadOnlyList<string> deployedReleases, NuGetVersion target)
+    {
+        if (expected is null || actual is null)
+        {
+            return false;
+        }
+
+        if (expected.Equals(actual))
+        {
+            return true;
+        }
+
+        return deployedReleases
+            .Select(v => NuGetVersion.TryParse(v, out var parsed) ? parsed : null).OfType<NuGetVersion>()
+            .Where(v => v < target)
+            .Any(release => SameIdentityExceptVersion(expected, actual)
+                && actual.Version == new Version(release.Major, release.Minor, 0, 0));
+    }
+
+    internal static AssemblyIdentity? NewtonsoftIdentity(Compilation compilation) => compilation.References
+        .Select(compilation.GetAssemblyOrModuleSymbol).OfType<IAssemblySymbol>()
+        .FirstOrDefault(a => a.Name == NewtonsoftReferences.PackageId)?.Identity;
+
+    private static bool SameIdentityExceptVersion(AssemblyIdentity expected, AssemblyIdentity actual) =>
+        string.Equals(expected.Name, actual.Name, StringComparison.Ordinal)
+        && string.Equals(expected.CultureName, actual.CultureName, StringComparison.OrdinalIgnoreCase)
+        && expected.IsRetargetable == actual.IsRetargetable
+        && expected.ContentType == actual.ContentType
+        && expected.PublicKeyToken.SequenceEqual(actual.PublicKeyToken);
 
     /// <summary>A deserialize call whose JSON is the payload's own text (not a token inside a DOM).</summary>
     private static bool DirectRead(FoundSite site) =>
