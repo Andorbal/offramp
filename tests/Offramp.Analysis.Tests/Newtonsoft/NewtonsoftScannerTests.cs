@@ -114,6 +114,21 @@ public sealed class NewtonsoftScannerTests
     }
 
     [Fact]
+    public async Task A_deployment_already_within_the_target_major_is_not_a_change()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var model = scanned.Outcome.Model!;
+        foreach (var project in model.Projects)
+        {
+            model = WithVersion(model, project.Id, "13.0.3");
+        }
+
+        var (result, _) = Scan(scanned, request => request with { Model = model });
+
+        Assert.DoesNotContain(result.Projects, p => p.InScope);
+    }
+
+    [Fact]
     [ProducesDiagnostic("OFR3726")]
     public async Task Projects_with_only_target_deployments_are_omitted_by_default()
     {

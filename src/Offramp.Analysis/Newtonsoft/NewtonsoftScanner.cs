@@ -30,6 +30,9 @@ public sealed record NewtonsoftScanRequest
     /// <summary>Include projects outside deployed application closures, as with <c>--all-projects</c> or <c>newtonsoft.scope: all</c>.</summary>
     public bool AllProjects { get; init; }
 
+    /// <summary>Releases of the target's major at or above this are already within range (newtonsoft.upgradeFloor).</summary>
+    public NuGetVersion? Floor { get; init; } = NuGetVersion.Parse("13.0.1");
+
     public IReadOnlyDictionary<string, SeverityOverride> Overrides { get; init; } = new Dictionary<string, SeverityOverride>();
 
     public required DiagnosticBag Diagnostics { get; init; }
@@ -73,7 +76,7 @@ public static class NewtonsoftScanner
 
         // The call graph loads every project's compilation; the scan of each project reuses it (issue #54).
         var compilations = SharedCompilations.Over(request.Compilations ?? owned!);
-        var scope = NewtonsoftDeploymentScope.Compute(request.Model, request.Target);
+        var scope = NewtonsoftDeploymentScope.Compute(request.Model, request.Target, request.Floor);
         var allCandidates = request.Model.Projects
             .Where(p => p.Language == "csharp" && (request.Projects.Count == 0 || request.Projects.Contains(p.Id, StringComparer.Ordinal)))
             .Select(p => (Project: p, Tfm: CompilationLoader.PreferredTarget(p)))

@@ -11,7 +11,7 @@ public static class NewtonsoftDeploymentScope
 {
     private static readonly HashSet<ProjectKind> ApplicationKinds = [ProjectKind.Web, ProjectKind.Service, ProjectKind.Console, ProjectKind.Winforms, ProjectKind.Wpf];
 
-    public static IReadOnlyDictionary<string, DeploymentScope> Compute(WorkspaceModel model, NuGetVersion target)
+    public static IReadOnlyDictionary<string, DeploymentScope> Compute(WorkspaceModel model, NuGetVersion target, NuGetVersion? floor = null)
     {
         var projects = model.Projects.ToDictionary(p => p.Id, StringComparer.Ordinal);
         var applications = model.Projects
@@ -56,7 +56,8 @@ public static class NewtonsoftDeploymentScope
             }
 
             var ordered = deployments.Select(d => d.Release).Distinct().OrderBy(v => v, VersionComparer.VersionRelease).ToList();
-            var inScope = ordered.Any(version => version < target);
+            // A release already in the target's major at or above the floor is left alone by `upgrade`, so it is not a change.
+            var inScope = ordered.Any(version => version < target && !(version.Major == target.Major && floor is not null && version >= floor));
             result[project.Id] = new DeploymentScope(project.Id,
                 [.. ordered.Select(v => v.ToNormalizedString())], inScope,
                 [.. deployments.Select(d => d.Application).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)]);
