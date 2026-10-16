@@ -1,0 +1,387 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "newtonsoft tests",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "NewtonsoftLegacy.sln",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "ide": {
+        "implicitCounterparts": true,
+        "newCode": {
+          "base": "auto",
+          "scope": "lines"
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "newtonsoft": {
+        "hermetic": {
+          "nonHermetic": []
+        },
+        "onDiff": "keep",
+        "samples": null,
+        "scope": "deployed",
+        "target": "[13.0,14.0)",
+        "tests": {
+          "command": null,
+          "entryDepth": 4,
+          "folder": "NewtonsoftCharacterization",
+          "objectDepth": 3,
+          "projects": {},
+          "runs": 2,
+          "samplesPerType": 3,
+          "timeoutSeconds": 1800
+        },
+        "upgrade": {
+          "floor": "13.0.1"
+        }
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projectMap": [],
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "scan": {
+        "builder": "dotnet",
+        "msbuildPath": null
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "targets": [
+      {
+        "production": "src/Orders/Orders.csproj",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "framework": "mstest",
+        "by": "reference",
+        "folder": "tests/Orders.Tests/NewtonsoftCharacterization"
+      }
+    ],
+    "probes": [
+      {
+        "id": "Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-edge",
+        "kind": "entry",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.CommentCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "roundtrip-edge",
+        "input": "roundtrip",
+        "inputFrom": "probe:Contoso.Orders.CommentCodec.Read#1.input.edge",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-empty",
+        "kind": "entry",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.CommentCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "roundtrip-empty",
+        "input": "roundtrip",
+        "inputFrom": "probe:Contoso.Orders.CommentCodec.Read#1.input.empty",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-typical",
+        "kind": "entry",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.CommentCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "roundtrip-typical",
+        "input": "roundtrip",
+        "inputFrom": "probe:Contoso.Orders.CommentCodec.Read#1.input.typical",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.CommentCodec.Read#1.entry.sample-deep",
+        "kind": "entry",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.CommentCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "sample-deep",
+        "input": "sample",
+        "inputFrom": "Inputs/Contoso.Orders.Comment.deep.json",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.CommentCodec.Read#1.input.edge",
+        "kind": "type",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.CommentCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "edge",
+        "input": "generated",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.CommentCodec.Read#1.input.empty",
+        "kind": "type",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.CommentCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "empty",
+        "input": "generated",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.CommentCodec.Read#1.input.typical",
+        "kind": "type",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.CommentCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "typical",
+        "input": "generated",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-edge",
+        "kind": "entry",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.OrderCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "roundtrip-edge",
+        "input": "roundtrip",
+        "inputFrom": "probe:Contoso.Orders.OrderCodec.Write#1.entry.edge",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-empty",
+        "kind": "entry",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.OrderCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "roundtrip-empty",
+        "input": "roundtrip",
+        "inputFrom": "probe:Contoso.Orders.OrderCodec.Write#1.entry.empty",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-typical",
+        "kind": "entry",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.OrderCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "roundtrip-typical",
+        "input": "roundtrip",
+        "inputFrom": "probe:Contoso.Orders.OrderCodec.Write#1.entry.typical",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.OrderCodec.Read#1.entry.sample",
+        "kind": "entry",
+        "direction": "deserialize",
+        "site": "Contoso.Orders.OrderCodec.Read#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "sample",
+        "input": "sample",
+        "inputFrom": "Inputs/Contoso.Orders.Order.json",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.OrderCodec.Write#1.entry.edge",
+        "kind": "entry",
+        "direction": "serialize",
+        "site": "Contoso.Orders.OrderCodec.Write#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "edge",
+        "input": "generated",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.OrderCodec.Write#1.entry.empty",
+        "kind": "entry",
+        "direction": "serialize",
+        "site": "Contoso.Orders.OrderCodec.Write#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "empty",
+        "input": "generated",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+      },
+      {
+        "id": "Contoso.Orders.OrderCodec.Write#1.entry.typical",
+        "kind": "entry",
+        "direction": "serialize",
+        "site": "Contoso.Orders.OrderCodec.Write#1",
+        "testProject": "tests/Orders.Tests/Orders.Tests.csproj",
+        "sample": "typical",
+        "input": "generated",
+        "file": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs"
+      }
+    ],
+    "uncovered": [],
+    "files": [
+      {
+        "path": "tests/Orders.Tests/NewtonsoftCharacterization/Inputs/Contoso.Orders.Comment.deep.json",
+        "action": "create"
+      },
+      {
+        "path": "tests/Orders.Tests/NewtonsoftCharacterization/Inputs/Contoso.Orders.Order.json",
+        "action": "create"
+      },
+      {
+        "path": "tests/Orders.Tests/NewtonsoftCharacterization/OfframpObjectDump.cs",
+        "action": "create"
+      },
+      {
+        "path": "tests/Orders.Tests/NewtonsoftCharacterization/OfframpProbe.cs",
+        "action": "create"
+      },
+      {
+        "path": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs",
+        "action": "create"
+      },
+      {
+        "path": "tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs",
+        "action": "create"
+      }
+    ],
+    "coverage": {
+      "sites": 3,
+      "withEntryProbe": 3,
+      "withTypeProbe": 0,
+      "uncovered": {}
+    },
+    "preview": "--- /dev/null\n+++ b/tests/Orders.Tests/NewtonsoftCharacterization/Inputs/Contoso.Orders.Comment.deep.json\n@@ -0,0 +1,1 @@\n+{\"Text\":\"level 0\",\"Replies\":[{\"Text\":\"level 1\",\"Replies\":[{\"Text\":\"level 2\",\"Replies\":[{\"Text\":\"level 3\",\"Replies\":[{\"Text\":\"level 4\",\"Replies\":[{\"Text\":\"level 5\",\"Replies\":[{\"Text\":\"level 6\",\"Replies\":[{\"Text\":\"level 7\",\"Replies\":[{\"Text\":\"level 8\",\"Replies\":[{\"Text\":\"level 9\",\"Replies\":[{\"Text\":\"level 10\",\"Replies\":[{\"Text\":\"level 11\",\"Replies\":[{\"Text\":\"level 12\",\"Replies\":[{\"Text\":\"level 13\",\"Replies\":[{\"Text\":\"level 14\",\"Replies\":[{\"Text\":\"level 15\",\"Replies\":[{\"Text\":\"level 16\",\"Replies\":[{\"Text\":\"level 17\",\"Replies\":[{\"Text\":\"level 18\",\"Replies\":[{\"Text\":\"level 19\",\"Replies\":[{\"Text\":\"level 20\",\"Replies\":[{\"Text\":\"level 21\",\"Replies\":[{\"Text\":\"level 22\",\"Replies\":[{\"Text\":\"level 23\",\"Replies\":[{\"Text\":\"level 24\",\"Replies\":[{\"Text\":\"level 25\",\"Replies\":[{\"Text\":\"level 26\",\"Replies\":[{\"Text\":\"level 27\",\"Replies\":[{\"Text\":\"level 28\",\"Replies\":[{\"Text\":\"level 29\",\"Replies\":[{\"Text\":\"level 30\",\"Replies\":[{\"Text\":\"level 31\",\"Replies\":[{\"Text\":\"level 32\",\"Replies\":[{\"Text\":\"level 33\",\"Replies\":[{\"Text\":\"level 34\",\"Replies\":[{\"Text\":\"level 35\",\"Replies\":[{\"Text\":\"level 36\",\"Replies\":[{\"Text\":\"level 37\",\"Replies\":[{\"Text\":\"level 38\",\"Replies\":[{\"Text\":\"level 39\",\"Replies\":[{\"Text\":\"level 40\",\"Replies\":[{\"Text\":\"level 41\",\"Replies\":[{\"Text\":\"level 42\",\"Replies\":[{\"Text\":\"level 43\",\"Replies\":[{\"Text\":\"level 44\",\"Replies\":[{\"Text\":\"level 45\",\"Replies\":[{\"Text\":\"level 46\",\"Replies\":[{\"Text\":\"level 47\",\"Replies\":[{\"Text\":\"level 48\",\"Replies\":[{\"Text\":\"level 49\",\"Replies\":[{\"Text\":\"level 50\",\"Replies\":[{\"Text\":\"level 51\",\"Replies\":[{\"Text\":\"level 52\",\"Replies\":[{\"Text\":\"level 53\",\"Replies\":[{\"Text\":\"level 54\",\"Replies\":[{\"Text\":\"level 55\",\"Replies\":[{\"Text\":\"level 56\",\"Replies\":[{\"Text\":\"level 57\",\"Replies\":[{\"Text\":\"level 58\",\"Replies\":[{\"Text\":\"level 59\",\"Replies\":[{\"Text\":\"level 60\",\"Replies\":[{\"Text\":\"level 61\",\"Replies\":[{\"Text\":\"level 62\",\"Replies\":[{\"Text\":\"level 63\",\"Replies\":[{\"Text\":\"level 64\",\"Replies\":[{\"Text\":\"level 65\",\"Replies\":[{\"Text\":\"level 66\",\"Replies\":[{\"Text\":\"level 67\",\"Replies\":[{\"Text\":\"level 68\",\"Replies\":[{\"Text\":\"level 69\",\"Replies\":[{\"Text\":\"leaf\",\"Replies\":[]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}\n--- /dev/null\n+++ b/tests/Orders.Tests/NewtonsoftCharacterization/Inputs/Contoso.Orders.Order.json\n@@ -0,0 +1,1 @@\n+{\"orderId\":42,\"customerName\":\"Grace\",\"total\":19.90,\"placedAt\":\"2024-03-01T09:30:00\",\"status\":1,\"lines\":[{\"sku\":\"LAMP-1\",\"quantity\":2,\"unitPrice\":9.95}]}\n--- /dev/null\n+++ b/tests/Orders.Tests/NewtonsoftCharacterization/OfframpObjectDump.cs\n@@ -0,0 +1,302 @@\n+// <auto-generated>\n+//   Written by `offramp newtonsoft tests` (docs/spec/commands/newtonsoft.md) and rewritten on every\n+//   run. Remove this header to keep your own changes; Offramp then leaves the file alone.\n+// </auto-generated>\n+using System;\n+using System.Collections;\n+using System.Collections.Generic;\n+using System.Globalization;\n+using System.Linq;\n+using System.Reflection;\n+using System.Text;\n+\n+namespace Contoso.Orders.Tests.NewtonsoftCharacterization\n+{\n+    /// <summary>\n+    /// A text form of a value that does not depend on Newtonsoft.Json, the machine, or iteration\n+    /// order: members in ordinal order, decimals with their scale, doubles round-trippable, dates\n+    /// with their kind, sets and dictionaries sorted, and the runtime type where it differs from\n+    /// the declared one.\n+    /// </summary>\n+    internal static class OfframpObjectDump\n+    {\n+        private const int MaxDepth = 8;\n+\n+        public static string Write(object value)\n+        {\n+            var text = value as string;\n+            if (text != null)\n+            {\n+                return OfframpProbe.Normalize(text);\n+            }\n+\n+            var builder = new StringBuilder();\n+            Write(builder, value, null, 0, new List<object>());\n+            return builder.ToString();\n+        }\n+\n+        private static void Write(StringBuilder builder, object value, Type declared, int depth, List<object> path)\n+        {\n+            if (value == null)\n+            {\n+                builder.Append(\"null\");\n+                return;\n+            }\n+\n+            var type = value.GetType();\n+            var scalar = Scalar(value);\n+            if (scalar != null)\n+            {\n+                builder.Append(scalar).Append(Runtime(type, declared));\n+                return;\n+            }\n+\n+            if (type.FullName != null && type.FullName.StartsWith(\"Newtonsoft.Json.Linq.\", StringComparison.Ordinal))\n+            {\n+                builder.Append(OfframpProbe.Normalize(value.ToString())).Append(Runtime(type, declared));\n+                return;\n+            }\n+\n+            if (depth >= MaxDepth)\n+            {\n+                builder.Append(\"...\");\n+                return;\n+            }\n+\n+            if (!type.IsValueType && path.Any(p => ReferenceEquals(p, value)))\n+            {\n+                builder.Append(\"(cycle)\");\n+                return;\n+            }\n+\n+            path.Add(value);\n+            try\n+            {\n+                var indent = new string(' ', 2 * (depth + 1));\n+                var dictionary = value as IDictionary;\n+                var sequence = value as IEnumerable;\n+                if (dictionary != null)\n+                {\n+                    var entries = new List<KeyValuePair<string, object>>();\n+                    foreach (DictionaryEntry entry in dictionary)\n+                    {\n+                        entries.Add(new KeyValuePair<string, object>(Key(entry.Key), entry.Value));\n+                    }\n+\n+                    builder.Append('{').Append(entries.Count.ToString(CultureInfo.InvariantCulture)).Append('}').Append(Runtime(type, declared));\n+                    foreach (var entry in entries.OrderBy(e => e.Key, StringComparer.Ordinal))\n+                    {\n+                        builder.Append('\\n').Append(indent).Append(entry.Key).Append(\": \");\n+                        Write(builder, entry.Value, null, depth + 1, path);\n+                    }\n+                }\n+                else if (sequence != null)\n+                {\n+                    var items = new List<string>();\n+                    foreach (var item in sequence)\n+                    {\n+                        var inner = new StringBuilder();\n+                        Write(inner, item, null, depth + 1, path);\n+                        items.Add(inner.ToString());\n+                    }\n+\n+                    if (IsSet(type))\n+                    {\n+                        items.Sort(StringComparer.Ordinal);\n+                    }\n+\n+                    builder.Append('[').Append(items.Count.ToString(CultureInfo.InvariantCulture)).Append(']').Append(Runtime(type, declared));\n+                    foreach (var item in items)\n+                    {\n+                        builder.Append('\\n').Append(indent).Append(\"- \").Append(item);\n+                    }\n+                }\n+                else\n+                {\n+                    builder.Append(Name(type));\n+                    foreach (var member in Members(type))\n+                    {\n+                        builder.Append('\\n').Append(indent).Append(member.Name).Append(\": \");\n+                        object memberValue;\n+                        try\n+                        {\n+                            var property = member as PropertyInfo;\n+                            memberValue = property != null ? property.GetValue(value, null) : ((FieldInfo)member).GetValue(value);\n+                        }\n+                        catch (Exception e)\n+                        {\n+                            var thrown = e is TargetInvocationException && e.InnerException != null ? e.InnerException : e;\n+                            builder.Append(\"(throws \").Append(thrown.GetType().FullName).Append(')');\n+                            continue;\n+                        }\n+\n+                        var memberType = member is PropertyInfo ? ((PropertyInfo)member).PropertyType : ((FieldInfo)member).FieldType;\n+                        Write(builder, memberValue, memberType, depth + 1, path);\n+                    }\n+                }\n+            }\n+            finally\n+            {\n+                path.RemoveAt(path.Count - 1);\n+            }\n+        }\n+\n+        private static string Scalar(object value)\n+        {\n+            if (value is bool)\n+            {\n+                return (bool)value ? \"true\" : \"false\";\n+            }\n+\n+            if (value is decimal)\n+            {\n+                return ((decimal)value).ToString(CultureInfo.InvariantCulture);\n+            }\n+\n+            if (value is double)\n+            {\n+                var number = (double)value;\n+                return number == 0 && double.IsNegativeInfinity(1 / number) ? \"-0\" : number.ToString(\"R\", CultureInfo.InvariantCulture);\n+            }\n+\n+            if (value is float)\n+            {\n+                var number = (float)value;\n+                return number == 0 && float.IsNegativeInfinity(1 / number) ? \"-0\" : number.ToString(\"R\", CultureInfo.InvariantCulture);\n+            }\n+\n+            if (value is DateTime)\n+            {\n+                var date = (DateTime)value;\n+                return date.Kind == DateTimeKind.Local\n+                    ? date.ToUniversalTime().ToString(\"o\", CultureInfo.InvariantCulture) + \" (Local)\"\n+                    : date.ToString(\"o\", CultureInfo.InvariantCulture) + \" (\" + date.Kind + \")\";\n+            }\n+\n+            if (value is DateTimeOffset)\n+            {\n+                return ((DateTimeOffset)value).ToString(\"o\", CultureInfo.InvariantCulture);\n+            }\n+\n+            if (value is TimeSpan)\n+            {\n+                return ((TimeSpan)value).ToString(\"c\", CultureInfo.InvariantCulture);\n+            }\n+\n+            if (value is Guid)\n+            {\n+                return ((Guid)value).ToString(\"D\");\n+            }\n+\n+            if (value is Enum)\n+            {\n+                var name = Enum.GetName(value.GetType(), value);\n+                return (name ?? \"(no name)\") + \" = \" + Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);\n+            }\n+\n+            var text = value as string;\n+            if (text != null)\n+            {\n+                return Quote(text);\n+            }\n+\n+            if (value is char)\n+            {\n+                return Quote(value.ToString());\n+            }\n+\n+            var bytes = value as byte[];\n+            if (bytes != null)\n+            {\n+                return \"bytes[\" + bytes.Length.ToString(CultureInfo.InvariantCulture) + \"] \" + Convert.ToBase64String(bytes);\n+            }\n+\n+            var uri = value as Uri;\n+            if (uri != null)\n+            {\n+                return uri.OriginalString;\n+            }\n+\n+            var type = value as Type;\n+            if (type != null)\n+            {\n+                return type.FullName;\n+            }\n+\n+            return value.GetType().IsPrimitive ? Convert.ToString(value, CultureInfo.InvariantCulture) : null;\n+        }\n+\n+        private static string Key(object key)\n+        {\n+            var scalar = key == null ? \"null\" : Scalar(key);\n+            return scalar ?? Convert.ToString(key, CultureInfo.InvariantCulture);\n+        }\n+\n+        private static string Quote(string text)\n+        {\n+            var builder = new StringBuilder(\"\\\"\");\n+            foreach (var c in text)\n+            {\n+                switch (c)\n+                {\n+                    case '\"': builder.Append(\"\\\\\\\"\"); break;\n+                    case '\\\\': builder.Append(\"\\\\\\\\\"); break;\n+                    case '\\n': builder.Append(\"\\\\n\"); break;\n+                    case '\\r': builder.Append(\"\\\\r\"); break;\n+                    case '\\t': builder.Append(\"\\\\t\"); break;\n+                    default:\n+                        if (c < ' ' || c > '~')\n+                        {\n+                            builder.Append(\"\\\\u\").Append(((int)c).ToString(\"x4\", CultureInfo.InvariantCulture));\n+                        }\n+                        else\n+                        {\n+                            builder.Append(c);\n+                        }\n+\n+                        break;\n+                }\n+            }\n+\n+            return builder.Append('\"').ToString();\n+        }\n+\n+        private static IEnumerable<MemberInfo> Members(Type type)\n+        {\n+            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)\n+                .Where(p => p.CanRead && p.GetIndexParameters().Length == 0)\n+                .Cast<MemberInfo>();\n+            var fields = type.GetFields(BindingFlags.Public | BindingFlags.Instance).Cast<MemberInfo>();\n+            return properties.Concat(fields).GroupBy(m => m.Name).Select(g => g.First()).OrderBy(m => m.Name, StringComparer.Ordinal);\n+        }\n+\n+        private static bool IsSet(Type type)\n+        {\n+            return type.GetInterfaces().Any(i => i.IsGenericType && (i.GetGenericTypeDefinition().FullName == \"System.Collections.Generic.ISet`1\"\n+                || i.GetGenericTypeDefinition().FullName == \"System.Collections.Immutable.IImmutableSet`1\"));\n+        }\n+\n+        /// <summary>The runtime type, when the declared type does not already say it.</summary>\n+        private static string Runtime(Type type, Type declared)\n+        {\n+            if (declared == null || declared == type || Nullable.GetUnderlyingType(declared) == type)\n+            {\n+                return \"\";\n+            }\n+\n+            return \" (\" + Name(type) + \")\";\n+        }\n+\n+        private static string Name(Type type)\n+        {\n+            if (!type.IsGenericType)\n+            {\n+                return type.FullName ?? type.Name;\n+            }\n+\n+            var definition = type.GetGenericTypeDefinition().FullName ?? type.Name;\n+            var tick = definition.IndexOf('`');\n+            return (tick < 0 ? definition : definition.Substring(0, tick)) + \"<\" + string.Join(\", \", type.GetGenericArguments().Select(Name)) + \">\";\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/tests/Orders.Tests/NewtonsoftCharacterization/OfframpProbe.cs\n@@ -0,0 +1,159 @@\n+// <auto-generated>\n+//   Written by `offramp newtonsoft tests` (docs/spec/commands/newtonsoft.md) and rewritten on every\n+//   run. Remove this header to keep your own changes; Offramp then leaves the file alone.\n+// </auto-generated>\n+using System;\n+using System.IO;\n+using System.Reflection;\n+using System.Runtime.CompilerServices;\n+using System.Text;\n+using System.Threading;\n+\n+namespace Contoso.Orders.Tests.NewtonsoftCharacterization\n+{\n+    /// <summary>\n+    /// Runs a characterization probe, writes what it observed where Offramp asks\n+    /// (OFFRAMP_NEWTONSOFT_RESULTS), and outside recording compares it with the baseline next to\n+    /// this file, so the probe also fails in any test runner when the behavior changes.\n+    /// </summary>\n+    internal static class OfframpProbe\n+    {\n+        public const string Format = \"# offramp-newtonsoft-probe 1\";\n+\n+        public static void Check(string probe, Func<object> observe, [CallerFilePath] string source = \"\")\n+        {\n+            var record = Observe(probe, observe);\n+            var runtime = Runtime();\n+            var results = Environment.GetEnvironmentVariable(\"OFFRAMP_NEWTONSOFT_RESULTS\");\n+            if (!string.IsNullOrEmpty(results))\n+            {\n+                var folder = Path.Combine(results, runtime);\n+                Directory.CreateDirectory(folder);\n+                File.WriteAllText(Path.Combine(folder, probe + \".txt\"), record, new UTF8Encoding(false));\n+            }\n+\n+            if (Environment.GetEnvironmentVariable(\"OFFRAMP_NEWTONSOFT_MODE\") == \"record\")\n+            {\n+                return;\n+            }\n+\n+            var baseline = Path.Combine(Folder(source), \"Baseline\", runtime, probe + \".txt\");\n+            if (!File.Exists(baseline))\n+            {\n+                throw new OfframpProbeMismatchException(probe + \" has no baseline at \" + baseline + \"; record one with `offramp newtonsoft tests --record --apply`.\");\n+            }\n+\n+            var expected = Observation(Normalize(File.ReadAllText(baseline)));\n+            var actual = Observation(record);\n+            if (expected != actual)\n+            {\n+                throw new OfframpProbeMismatchException(probe + \" differs from its baseline.\\n--- baseline\\n\" + expected + \"\\n--- now\\n\" + actual);\n+            }\n+        }\n+\n+        /// <summary>\n+        /// The JSON a reading probe is given: \"Inputs/&lt;file&gt;\" (a real payload next to this file), or\n+        /// \"probe:&lt;id&gt;\" (what that probe wrote: this run's result while recording, its baseline otherwise).\n+        /// </summary>\n+        public static string Input(string name, [CallerFilePath] string source = \"\")\n+        {\n+            if (!name.StartsWith(\"probe:\", StringComparison.Ordinal))\n+            {\n+                return Normalize(File.ReadAllText(Path.Combine(Folder(source), name)));\n+            }\n+\n+            var probe = name.Substring(\"probe:\".Length);\n+            var results = Environment.GetEnvironmentVariable(\"OFFRAMP_NEWTONSOFT_RESULTS\");\n+            var path = Environment.GetEnvironmentVariable(\"OFFRAMP_NEWTONSOFT_MODE\") == \"record\" && !string.IsNullOrEmpty(results)\n+                ? Path.Combine(results, Runtime(), probe + \".txt\")\n+                : Path.Combine(Folder(source), \"Baseline\", Runtime(), probe + \".txt\");\n+            var record = Normalize(File.ReadAllText(path));\n+            if (record.IndexOf(\"\\noutcome: returned\\n\", StringComparison.Ordinal) < 0)\n+            {\n+                throw new InvalidOperationException(probe + \" threw, so it wrote no JSON to read.\");\n+            }\n+\n+            return record.Substring(record.IndexOf(\"\\n---\\n\", StringComparison.Ordinal) + \"\\n---\\n\".Length).TrimEnd('\\n');\n+        }\n+\n+        private static string Observe(string probe, Func<object> observe)\n+        {\n+            var thread = Thread.CurrentThread;\n+            var culture = thread.CurrentCulture;\n+            var uiCulture = thread.CurrentUICulture;\n+            string outcome;\n+            string body;\n+            try\n+            {\n+                thread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;\n+                thread.CurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;\n+                body = OfframpObjectDump.Write(observe());\n+                outcome = \"returned\";\n+            }\n+            catch (Exception thrown)\n+            {\n+                var e = thrown;\n+                while ((e is TargetInvocationException || e is AggregateException || e is TypeInitializationException) && e.InnerException != null)\n+                {\n+                    e = e.InnerException;\n+                }\n+\n+                outcome = \"threw\";\n+                body = e.GetType().FullName + \"\\n\\n\" + Normalize(e.Message);\n+            }\n+            finally\n+            {\n+                thread.CurrentCulture = culture;\n+                thread.CurrentUICulture = uiCulture;\n+            }\n+\n+            return Format + \"\\nprobe: \" + probe + \"\\nnewtonsoft: \" + NewtonsoftVersion() + \"\\noutcome: \" + outcome + \"\\n---\\n\" + body + \"\\n\";\n+        }\n+\n+        /// <summary>What is compared: the outcome and the body, not the header that names the release.</summary>\n+        private static string Observation(string record)\n+        {\n+            var at = record.IndexOf(\"\\noutcome: \", StringComparison.Ordinal);\n+            return at < 0 ? record : record.Substring(at + 1).TrimEnd('\\n');\n+        }\n+\n+        private static string Folder(string source)\n+        {\n+            var folder = Environment.GetEnvironmentVariable(\"OFFRAMP_NEWTONSOFT_DIR\");\n+            return string.IsNullOrEmpty(folder) ? Path.GetDirectoryName(source) : folder;\n+        }\n+\n+        private static string Runtime()\n+        {\n+            return typeof(object).Assembly.GetName().Name == \"mscorlib\" ? \"netfx\" : \"core\";\n+        }\n+\n+        private static string NewtonsoftVersion()\n+        {\n+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())\n+            {\n+                var name = assembly.GetName();\n+                if (name.Name == \"Newtonsoft.Json\")\n+                {\n+                    return name.Version.ToString();\n+                }\n+            }\n+\n+            return \"none\";\n+        }\n+\n+        internal static string Normalize(string text)\n+        {\n+            return text.Replace(\"\\r\\n\", \"\\n\");\n+        }\n+    }\n+\n+    /// <summary>A probe's observation differs from its baseline.</summary>\n+    internal sealed class OfframpProbeMismatchException : Exception\n+    {\n+        public OfframpProbeMismatchException(string message)\n+            : base(message)\n+        {\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/tests/Orders.Tests/NewtonsoftCharacterization/OrdersDeserializeProbes.cs\n@@ -0,0 +1,67 @@\n+// <auto-generated>\n+//   Written by `offramp newtonsoft tests` (docs/spec/commands/newtonsoft.md) and rewritten on every\n+//   run. Remove this header to keep your own changes; Offramp then leaves the file alone.\n+// </auto-generated>\n+#pragma warning disable CS0618, CS0612, CS1591, CS8600, CS8601, CS8602, CS8603, CS8604, CS8618, CS8625\n+namespace Contoso.Orders.Tests.NewtonsoftCharacterization\n+{\n+    [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestClass]\n+    public class OrdersDeserializeProbes\n+    {\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_CommentCodec_Read_1_entry_sample_deep()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.CommentCodec.Read#1.entry.sample-deep\", () => global::Contoso.Orders.CommentCodec.Read(OfframpProbe.Input(\"Inputs/Contoso.Orders.Comment.deep.json\")));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_CommentCodec_Read_1_entry_roundtrip_typical()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-typical\", () => global::Contoso.Orders.CommentCodec.Read(OfframpProbe.Input(\"probe:Contoso.Orders.CommentCodec.Read#1.input.typical\")));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_CommentCodec_Read_1_entry_roundtrip_empty()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-empty\", () => global::Contoso.Orders.CommentCodec.Read(OfframpProbe.Input(\"probe:Contoso.Orders.CommentCodec.Read#1.input.empty\")));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_CommentCodec_Read_1_entry_roundtrip_edge()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.CommentCodec.Read#1.entry.roundtrip-edge\", () => global::Contoso.Orders.CommentCodec.Read(OfframpProbe.Input(\"probe:Contoso.Orders.CommentCodec.Read#1.input.edge\")));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_OrderCodec_Read_1_entry_sample()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.OrderCodec.Read#1.entry.sample\", () => global::Contoso.Orders.OrderCodec.Read(OfframpProbe.Input(\"Inputs/Contoso.Orders.Order.json\")));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_OrderCodec_Read_1_entry_roundtrip_typical()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-typical\", () => global::Contoso.Orders.OrderCodec.Read(OfframpProbe.Input(\"probe:Contoso.Orders.OrderCodec.Write#1.entry.typical\")));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_OrderCodec_Read_1_entry_roundtrip_empty()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-empty\", () => global::Contoso.Orders.OrderCodec.Read(OfframpProbe.Input(\"probe:Contoso.Orders.OrderCodec.Write#1.entry.empty\")));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_OrderCodec_Read_1_entry_roundtrip_edge()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.OrderCodec.Read#1.entry.roundtrip-edge\", () => global::Contoso.Orders.OrderCodec.Read(OfframpProbe.Input(\"probe:Contoso.Orders.OrderCodec.Write#1.entry.edge\")));\n+        }\n+    }\n+}\n--- /dev/null\n+++ b/tests/Orders.Tests/NewtonsoftCharacterization/OrdersSerializeProbes.cs\n@@ -0,0 +1,53 @@\n+// <auto-generated>\n+//   Written by `offramp newtonsoft tests` (docs/spec/commands/newtonsoft.md) and rewritten on every\n+//   run. Remove this header to keep your own changes; Offramp then leaves the file alone.\n+// </auto-generated>\n+#pragma warning disable CS0618, CS0612, CS1591, CS8600, CS8601, CS8602, CS8603, CS8604, CS8618, CS8625\n+namespace Contoso.Orders.Tests.NewtonsoftCharacterization\n+{\n+    [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestClass]\n+    public class OrdersSerializeProbes\n+    {\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_OrderCodec_Write_1_entry_typical()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.OrderCodec.Write#1.entry.typical\", () => global::Contoso.Orders.OrderCodec.Write(new global::Contoso.Orders.Order() { OrderId = (int)70, CustomerName = \"CustomerName 45\", Total = 729.25m, PlacedAt = new global::System.DateTime(2024, 3, 13, 9, 30, 0, global::System.DateTimeKind.Utc), Status = global::Contoso.Orders.OrderStatus.Shipped, Lines = new global::System.Collections.Generic.List<global::Contoso.Orders.OrderLine> { new global::Contoso.Orders.OrderLine() { Sku = \"Sku 53\", Quantity = (int)27, UnitPrice = 357.25m }, new global::Contoso.Orders.OrderLine() { Sku = \"Sku 53\", Quantity = (int)27, UnitPrice = 357.25m } } }));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_OrderCodec_Write_1_entry_empty()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.OrderCodec.Write#1.entry.empty\", () => global::Contoso.Orders.OrderCodec.Write(new global::Contoso.Orders.Order() { OrderId = (int)0, CustomerName = null, Total = 0m, PlacedAt = default(global::System.DateTime), Status = default(global::Contoso.Orders.OrderStatus), Lines = new global::System.Collections.Generic.List<global::Contoso.Orders.OrderLine>() }));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_OrderCodec_Write_1_entry_edge()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.OrderCodec.Write#1.entry.edge\", () => global::Contoso.Orders.OrderCodec.Write(new global::Contoso.Orders.Order() { OrderId = int.MaxValue, CustomerName = \"\\u00dcnic\\u00f8de \\\"quoted\\\" \\\\ tab\\t\\u2603\", Total = 1.10m, PlacedAt = new global::System.DateTime(2024, 2, 29, 23, 59, 59, 999, global::System.DateTimeKind.Unspecified), Status = (global::Contoso.Orders.OrderStatus)3, Lines = new global::System.Collections.Generic.List<global::Contoso.Orders.OrderLine> { new global::Contoso.Orders.OrderLine() { Sku = \"\\u00dcnic\\u00f8de \\\"quoted\\\" \\\\ tab\\t\\u2603\", Quantity = int.MaxValue, UnitPrice = 1.10m } } }));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_CommentCodec_Read_1_input_typical()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.CommentCodec.Read#1.input.typical\", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Orders.Comment() { Text = \"Text 7\", Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment> { new global::Contoso.Orders.Comment() { Text = \"Text 7\", Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment> { null, null } }, new global::Contoso.Orders.Comment() { Text = \"Text 7\", Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment> { null, null } } } }));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_CommentCodec_Read_1_input_empty()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.CommentCodec.Read#1.input.empty\", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Orders.Comment() { Text = null, Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment>() }));\n+        }\n+\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]\n+        [global::Microsoft.VisualStudio.TestTools.UnitTesting.TestCategory(\"NewtonsoftCharacterization\")]\n+        public void Probe_Contoso_Orders_CommentCodec_Read_1_input_edge()\n+        {\n+            OfframpProbe.Check(\"Contoso.Orders.CommentCodec.Read#1.input.edge\", () => global::Newtonsoft.Json.JsonConvert.SerializeObject(new global::Contoso.Orders.Comment() { Text = \"\\u00dcnic\\u00f8de \\\"quoted\\\" \\\\ tab\\t\\u2603\", Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment> { new global::Contoso.Orders.Comment() { Text = \"\\u00dcnic\\u00f8de \\\"quoted\\\" \\\\ tab\\t\\u2603\", Replies = new global::System.Collections.Generic.List<global::Contoso.Orders.Comment> { null } } } }));\n+        }\n+    }\n+}\n--- a/tests/Orders.Tests/Orders.Tests.csproj\n+++ b/tests/Orders.Tests/Orders.Tests.csproj\n@@ -50,6 +50,10 @@\n     <Reference Include=\"System.Xml\" />\n   </ItemGroup>\n   <ItemGroup>\n+    <Compile Include=\"NewtonsoftCharacterization\\OfframpObjectDump.cs\" />\n+    <Compile Include=\"NewtonsoftCharacterization\\OfframpProbe.cs\" />\n+    <Compile Include=\"NewtonsoftCharacterization\\OrdersDeserializeProbes.cs\" />\n+    <Compile Include=\"NewtonsoftCharacterization\\OrdersSerializeProbes.cs\" />\n     <Compile Include=\"OrderCodecTests.cs\" />\n     <Compile Include=\"Properties\\AssemblyInfo.cs\" />\n   </ItemGroup>\n",
+    "applied": false,
+    "journal": null,
+    "mode": "generate",
+    "runs": [],
+    "outcomes": [],
+    "baselineJournal": null
+  },
+  "diagnostics": [
+    {
+      "code": "OFR0016",
+      "severity": "info",
+      "message": "No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.",
+      "project": null,
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR0016"
+    },
+    {
+      "code": "OFR3725",
+      "severity": "warning",
+      "message": "Newtonsoft.Json 13.0.4 is in neither the global packages folder nor the configured feeds; API changes (OFR3701, OFR3702) were not computed.",
+      "project": null,
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR3725"
+    },
+    {
+      "code": "OFR3737",
+      "severity": "warning",
+      "message": "Contoso.Orders.Invoice.json is not named <payload type full name>[.<label>].json for a type any reading site uses; it is not copied.",
+      "project": null,
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {
+        "file": "Contoso.Orders.Invoice.json"
+      },
+      "help": "https://offramp.dev/diagnostics/OFR3737"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 2,
+    "info": 1
+  }
+}

@@ -190,6 +190,12 @@ public static class RedirectPlanner
             }
             else if (present.OldVersion != oldVersion || present.NewVersion != needed.Deployed)
             {
+                if (present.NewVersion == needed.Deployed && present.OldVersion is { } existingRange && Covers(existingRange, needed.Highest))
+                {
+                    entries.Add(Entry(assembly, needed, existingRange, RedirectAction.Unchanged, null));
+                    continue;
+                }
+
                 bindings.Change(present, oldVersion, needed.Deployed);
                 entries.Add(Entry(assembly, needed, oldVersion, RedirectAction.Changed, present.NewVersion));
                 Report(request, DiagnosticCatalog.OFR1502, config, $"Changes the redirect for {assembly} from {present.OldVersion} → {present.NewVersion} to {oldVersion} → {needed.Deployed}.");
@@ -239,6 +245,16 @@ public static class RedirectPlanner
 
         changeSet.Edit(config, bytes, bindings.Save());
         return new AppRedirects { Project = project.Id, ConfigFile = config, TargetFramework = tfm, Redirects = [.. entries.OrderBy(e => e.Assembly, StringComparer.OrdinalIgnoreCase)] };
+    }
+
+    private static bool Covers(string oldVersion, string highest)
+    {
+        var range = oldVersion.Split('-', 2);
+        return range.Length == 2
+            && Version.TryParse(range[0], out var minimum)
+            && Version.TryParse(range[1], out var maximum)
+            && Version.TryParse(highest, out var requested)
+            && minimum <= requested && maximum >= requested;
     }
 
     private static RedirectEntry Entry(string assembly, NeededRedirect needed, string oldVersion, RedirectAction action, string? was) => new()

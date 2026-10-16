@@ -1,0 +1,399 @@
+﻿{
+  "$schema": "https://offramp.dev/schemas/v1/envelope.json",
+  "offramp": {
+    "version": "{Version}",
+    "command": "newtonsoft upgrade",
+    "target": "net10.0",
+    "repositoryRoot": "{RepositoryRoot}",
+    "solution": "NewtonsoftSdk.slnx",
+    "workspaceHash": "sha256:{Hash}",
+    "startedAt": "{StartedAt}",
+    "durationMs": 0,
+    "effectiveConfig": {
+      "deadCode": {
+        "externalConsumers": []
+      },
+      "deps": {
+        "cpm": {
+          "file": "Directory.Packages.props",
+          "scope": "solution"
+        },
+        "families": [],
+        "feeds": null,
+        "ignore": [],
+        "includePrerelease": false,
+        "packageMap": [],
+        "pins": [],
+        "preferNewest": false,
+        "redirects": {
+          "manage": []
+        }
+      },
+      "ide": {
+        "implicitCounterparts": true,
+        "newCode": {
+          "base": "auto",
+          "scope": "lines"
+        }
+      },
+      "llm": {
+        "apiKeyEnv": "OFFRAMP_LLM_API_KEY",
+        "enabled": false,
+        "model": null,
+        "provider": "openai",
+        "url": "http://localhost:1234/v1",
+        "uses": [
+          "naming",
+          "ranking"
+        ]
+      },
+      "move": {
+        "coMove": "closure",
+        "namespaceMismatch": "allow",
+        "suppressAnalyzers": [
+          "IDE0130"
+        ],
+        "tests": {
+          "frameworks": [
+            "xunit",
+            "nunit",
+            "mstest",
+            "tunit"
+          ],
+          "helperMinConfidence": "high",
+          "stripTestsSegment": true,
+          "targetSuffix": ".Tests"
+        },
+        "verify": "end"
+      },
+      "newtonsoft": {
+        "hermetic": {
+          "nonHermetic": []
+        },
+        "onDiff": "keep",
+        "samples": null,
+        "scope": "deployed",
+        "target": "[13.0,14.0)",
+        "tests": {
+          "command": null,
+          "entryDepth": 4,
+          "folder": "NewtonsoftCharacterization",
+          "objectDepth": 3,
+          "projects": {},
+          "runs": 2,
+          "samplesPerType": 3,
+          "timeoutSeconds": 1800
+        },
+        "upgrade": {
+          "floor": "13.0.1"
+        }
+      },
+      "paths": {
+        "exclude": [],
+        "state": ".offramp"
+      },
+      "projectMap": [],
+      "projects": [],
+      "report": {
+        "ledger": ".offramp/ledger",
+        "title": null
+      },
+      "rules": {
+        "packs": {
+          "disable": []
+        }
+      },
+      "scan": {
+        "builder": "dotnet",
+        "msbuildPath": null
+      },
+      "seams": {
+        "hostFramework": "auto",
+        "unportableSources": [
+          "audit"
+        ],
+        "unportableSymbols": []
+      },
+      "service": {
+        "dockerfile": true,
+        "healthEndpoint": true,
+        "host": "linux",
+        "k8s": false,
+        "logging": "json-console"
+      },
+      "solution": null,
+      "target": 10,
+      "verify": {
+        "command": null,
+        "configuration": "Debug",
+        "mode": "build",
+        "noWarn": [],
+        "onFailure": "rollback",
+        "projects": {
+          "exclude": [],
+          "include": []
+        },
+        "properties": {},
+        "restore": true,
+        "timeoutSeconds": 1800,
+        "warnAsError": []
+      },
+      "version": 1
+    }
+  },
+  "result": {
+    "to": "13.0.4",
+    "from": {
+      "7.0.1": [
+        "src/Catalog/Catalog.csproj",
+        "src/Inventory/Inventory.csproj",
+        "tests/Catalog.Tests/Catalog.Tests.csproj",
+        "tests/Inventory.Tests/Inventory.Tests.csproj"
+      ]
+    },
+    "projects": [
+      {
+        "project": "src/Catalog/Catalog.csproj",
+        "from": "7.0.1",
+        "via": "packageReference",
+        "files": [
+          "src/Catalog/Catalog.csproj"
+        ]
+      },
+      {
+        "project": "src/Inventory/Inventory.csproj",
+        "from": "7.0.1",
+        "via": "packageReference",
+        "files": [
+          "src/Inventory/Inventory.csproj"
+        ]
+      },
+      {
+        "project": "tests/Catalog.Tests/Catalog.Tests.csproj",
+        "from": "7.0.1",
+        "via": "packageReference",
+        "files": [
+          "tests/Catalog.Tests/Catalog.Tests.csproj"
+        ]
+      },
+      {
+        "project": "tests/Inventory.Tests/Inventory.Tests.csproj",
+        "from": "7.0.1",
+        "via": "transitive",
+        "files": []
+      }
+    ],
+    "redirects": {
+      "apps": [
+        {
+          "project": "tests/Catalog.Tests/Catalog.Tests.csproj",
+          "configFile": null,
+          "targetFramework": "net48",
+          "redirects": [],
+          "skipped": "no app.config (the SDK generates redirects for the output)"
+        },
+        {
+          "project": "tests/Inventory.Tests/Inventory.Tests.csproj",
+          "configFile": null,
+          "targetFramework": "net48",
+          "redirects": [],
+          "skipped": "no app.config (the SDK generates redirects for the output)"
+        }
+      ],
+      "summary": {
+        "added": 0,
+        "changed": 0,
+        "pruned": 0,
+        "stale": 0,
+        "unchanged": 0
+      },
+      "applied": false,
+      "journal": null,
+      "preview": null
+    },
+    "findings": [
+      {
+        "rule": "OFR3703",
+        "case": "names-with-spaces",
+        "severity": "warning",
+        "overridden": false,
+        "project": "src/Catalog/Catalog.csproj",
+        "file": "src/Catalog/CatalogCodec.cs",
+        "line": 16,
+        "column": 56,
+        "symbol": "Contoso.Catalog.Product.LegacyCode",
+        "message": "Contoso.Catalog.Product.LegacyCode is written as 'legacY CODE' and becomes 'legacy CODE' on the target (camel case, site Contoso.Catalog.CatalogCodec.Write#1).",
+        "recommendation": "Pin the JSON name with [JsonProperty] (and NamingStrategy overrides off) if consumers depend on the old casing, or update them.",
+        "note": "8.0.3: Fixed converting some property names to camel case; 11.0.1: Changed camel casing logic for all caps words to not leave last character capitalized",
+        "current": "old",
+        "target": "lowercase-all-caps-word",
+        "details": {
+          "name": "LEGACY CODE",
+          "new": "legacy CODE",
+          "old": "legacY CODE",
+          "site": "Contoso.Catalog.CatalogCodec.Write#1"
+        }
+      },
+      {
+        "rule": "OFR3704",
+        "case": "iserializable-contract",
+        "severity": "warning",
+        "overridden": false,
+        "project": "src/Catalog/Catalog.csproj",
+        "file": "src/Catalog/Money.cs",
+        "line": 34,
+        "column": 52,
+        "symbol": "Contoso.Catalog.Money",
+        "message": "Contoso.Catalog.Money implements ISerializable without [Serializable], and site Contoso.Catalog.MoneyCodec.Write#1 carries it.",
+        "recommendation": "Add [Serializable] to keep GetObjectData and the serialization constructor in use, or accept the public-member shape and convert stored data.",
+        "note": "11.0.1: Types that implement ISerializable but don't have [SerializableAttribute] are not serialized using ISerializable",
+        "current": "get-object-data",
+        "target": "public-members",
+        "details": {
+          "site": "Contoso.Catalog.MoneyCodec.Write#1",
+          "type": "Contoso.Catalog.Money"
+        }
+      },
+      {
+        "rule": "OFR3705",
+        "case": "enum-member-keys",
+        "severity": "warning",
+        "overridden": false,
+        "project": "src/Catalog/Catalog.csproj",
+        "file": "src/Catalog/CatalogCodec.cs",
+        "line": 16,
+        "column": 56,
+        "symbol": "Contoso.Catalog.Product.Stock",
+        "message": "Contoso.Catalog.Product.Stock is a dictionary keyed by an enum with [EnumMember], and site Contoso.Catalog.CatalogCodec.Write#1 carries it.",
+        "recommendation": "Stored JSON and consumers that use the enum names as keys must accept the [EnumMember] values, or remove [EnumMember] from the enum.",
+        "note": "11.0.1: Changed enum serialization in dictionary keys to use EnumMemberAttribute",
+        "current": "names",
+        "target": "enum-member-values",
+        "details": {
+          "member": "Contoso.Catalog.Product.Stock",
+          "site": "Contoso.Catalog.CatalogCodec.Write#1"
+        }
+      },
+      {
+        "rule": "OFR3707",
+        "case": "to-object-mismatch",
+        "severity": "warning",
+        "overridden": false,
+        "project": "src/Catalog/Catalog.csproj",
+        "file": "src/Catalog/PriceReader.cs",
+        "line": 16,
+        "column": 20,
+        "symbol": "M:Newtonsoft.Json.Linq.JToken.ToObject",
+        "message": "This catches System.InvalidCastException from Newtonsoft.Json.Linq.JToken.ToObject<decimal>(), which throws Newtonsoft.Json.JsonSerializationException on the target.",
+        "recommendation": "Catch the exception the target throws (or both, while both versions are in use).",
+        "note": "13.0.1: Change InvalidCastException to JsonSerializationException on mismatched JToken",
+        "current": "invalid-cast",
+        "target": "json-serialization",
+        "details": {
+          "caught": "T:System.InvalidCastException",
+          "thrown": "T:Newtonsoft.Json.JsonSerializationException"
+        }
+      },
+      {
+        "rule": "OFR3708",
+        "case": "allow-integer-values",
+        "severity": "warning",
+        "overridden": false,
+        "project": "src/Catalog/Catalog.csproj",
+        "file": "src/Catalog/CatalogCodec.cs",
+        "line": 13,
+        "column": 54,
+        "symbol": "Newtonsoft.Json.Converters.StringEnumConverter.AllowIntegerValues",
+        "message": "A StringEnumConverter with AllowIntegerValues = false rejects integer strings and unnamed enum values on the target.",
+        "recommendation": "Payloads with integer strings (\"1\") for enums, or enum values without a name, now fail; accept them explicitly or clean the data.",
+        "note": "10.0.1: Changed StringEnumConverter.AllowIntegerValues to also reject reading integer strings / writing enum values with no name",
+        "current": "lenient",
+        "target": "strict",
+        "details": {}
+      },
+      {
+        "rule": "OFR3709",
+        "case": "max-depth",
+        "severity": "warning",
+        "overridden": false,
+        "project": "src/Catalog/Catalog.csproj",
+        "file": "src/Catalog/Category.cs",
+        "line": 15,
+        "column": 53,
+        "symbol": "Contoso.Catalog.Category",
+        "message": "Contoso.Catalog.Category contains itself, and site Contoso.Catalog.CategoryCodec.Read#1 reads it without MaxDepth: the target stops at 64 levels.",
+        "recommendation": "Set MaxDepth on the settings (or the reader) if payloads can nest deeper than 64 levels.",
+        "note": "13.0.1: JsonReader and JsonSerializer MaxDepth defaults to 64",
+        "current": "unlimited",
+        "target": "sixty-four",
+        "details": {
+          "site": "Contoso.Catalog.CategoryCodec.Read#1",
+          "type": "Contoso.Catalog.Category"
+        }
+      },
+      {
+        "rule": "OFR3719",
+        "case": "names-with-spaces",
+        "severity": "info",
+        "overridden": false,
+        "project": "src/Catalog/Catalog.csproj",
+        "file": "src/Catalog/CatalogCodec.cs",
+        "line": 16,
+        "column": 56,
+        "symbol": "Contoso.Catalog.Product.Attributes",
+        "message": "Site Contoso.Catalog.CatalogCodec.Write#1 camel-cases the keys of Contoso.Catalog.Product.Attributes; keys with spaces after capitals change on the target ('URL VALUE' was 'urL VALUE', becomes 'url VALUE').",
+        "recommendation": "No code pattern shows whether the data is affected; the characterization probes with real payloads (`newtonsoft tests --samples`) will.",
+        "note": "8.0.3: Fixed converting some property names to camel case; 11.0.1: Changed camel casing logic for all caps words to not leave last character capitalized",
+        "current": "old",
+        "target": "lowercase-all-caps-word",
+        "details": {
+          "site": "Contoso.Catalog.CatalogCodec.Write#1"
+        }
+      },
+      {
+        "rule": "OFR3719",
+        "case": "jarray-comments",
+        "severity": "info",
+        "overridden": false,
+        "project": "src/Catalog/Catalog.csproj",
+        "file": "src/Catalog/PriceReader.cs",
+        "line": 11,
+        "column": 25,
+        "symbol": "jarray-comments",
+        "message": "8.0.1: Changed parsing JArrays to not include comments by default: the release in use (comments-are-items) and the target (comments-skipped) differ for some input; the project has dom sites, the first is Contoso.Catalog.PriceReader.TryRead#1.",
+        "recommendation": "No code pattern shows whether the data is affected; the characterization probes with real payloads (`newtonsoft tests --samples`) will.",
+        "note": "8.0.1: Changed parsing JArrays to not include comments by default",
+        "current": "comments-are-items",
+        "target": "comments-skipped",
+        "details": {
+          "site": "Contoso.Catalog.PriceReader.TryRead#1"
+        }
+      }
+    ],
+    "verify": null,
+    "probes": [],
+    "onDiff": "keep",
+    "applied": false,
+    "journal": null,
+    "rolledBack": false,
+    "preview": "--- a/src/Catalog/Catalog.csproj\n+++ b/src/Catalog/Catalog.csproj\n@@ -7,7 +7,7 @@\n     <NoWarn>$(NoWarn);NU1701;NU1903</NoWarn>\n   </PropertyGroup>\n   <ItemGroup>\n-    <PackageReference Include=\"Newtonsoft.Json\" Version=\"7.0.1\" />\n+    <PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.4\" />\n   </ItemGroup>\n   <ItemGroup Condition=\"'$(TargetFrameworkIdentifier)' == '.NETFramework'\">\n     <Reference Include=\"System.Runtime.Serialization\" />\n--- a/src/Inventory/Inventory.csproj\n+++ b/src/Inventory/Inventory.csproj\n@@ -6,7 +6,7 @@\n     <NoWarn>$(NoWarn);NU1701;NU1903</NoWarn>\n   </PropertyGroup>\n   <ItemGroup>\n-    <PackageReference Include=\"Newtonsoft.Json\" Version=\"7.0.1\" />\n+    <PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.4\" />\n   </ItemGroup>\n   <ItemGroup>\n     <ProjectReference Include=\"..\\Catalog\\Catalog.csproj\" />\n--- a/tests/Catalog.Tests/Catalog.Tests.csproj\n+++ b/tests/Catalog.Tests/Catalog.Tests.csproj\n@@ -10,7 +10,7 @@\n     <PackageReference Include=\"Microsoft.NET.Test.Sdk\" Version=\"18.10.1\" />\n     <PackageReference Include=\"xunit\" Version=\"2.9.3\" />\n     <PackageReference Include=\"xunit.runner.visualstudio\" Version=\"3.1.4\" />\n-    <PackageReference Include=\"Newtonsoft.Json\" Version=\"7.0.1\" />\n+    <PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.4\" />\n   </ItemGroup>\n   <ItemGroup Condition=\"'$(TargetFrameworkIdentifier)' == '.NETCoreApp'\">\n     <!-- Newtonsoft.Json 7.0.1's net45 assembly needs it on .NET (ADR 0067). -->\n"
+  },
+  "diagnostics": [
+    {
+      "code": "OFR0016",
+      "severity": "info",
+      "message": "No offramp.yml at the repository root; built-in defaults are in effect. Run `offramp init` to create one.",
+      "project": null,
+      "file": null,
+      "line": null,
+      "column": null,
+      "data": {},
+      "help": "https://offramp.dev/diagnostics/OFR0016"
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 1
+  }
+}

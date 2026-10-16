@@ -150,10 +150,10 @@ public static partial class DiagnosticCatalog
 
     public static readonly DiagnosticDescriptor OFR3724 = new(
         "OFR3724", Severity.Info,
-        "already at the target Newtonsoft.Json",
-        "The project already uses the target release; nothing changes for it.",
-        "Projects upgraded earlier.",
-        "None.",
+        "already within the target range; left unchanged",
+        "The project's stable Newtonsoft.Json release is at or above the configured upgrade floor and has the target's major version; nothing changes for it.",
+        "Projects already on a supported target-range release.",
+        "None, unless an exact --version was requested.",
         NewtonsoftArea);
 
     public static readonly DiagnosticDescriptor OFR3725 = new(
@@ -170,6 +170,14 @@ public static partial class DiagnosticCatalog
         "No stable, listed release of Newtonsoft.Json in newtonsoft.target (or the --version given) supports every target framework of the projects that use it, or the release asked for does not exist.",
         "A range or version with a typo, or feeds that do not mirror nuget.org.",
         "Fix newtonsoft.target or --version, or configure a feed that has the release.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3726 = new(
+        "OFR3726", Severity.Info,
+        "projects out of scope",
+        "Projects reference Newtonsoft.Json but no deployed application uses a release below the target; their sites and findings were left out.",
+        "Libraries used only by applications already on the target release.",
+        "Use --all-projects or newtonsoft.scope: all to include every project.",
         NewtonsoftArea);
 
     public static readonly DiagnosticDescriptor OFR3731 = new(
@@ -290,6 +298,14 @@ public static partial class DiagnosticCatalog
         "The test project loaded a different Newtonsoft.Json than its production project references, so its baselines would describe another release; nothing is written for it.",
         "Microsoft.NET.Test.Sdk 17.x, whose test host brings Newtonsoft.Json 13 to .NET targets; a test project that references another version.",
         "Use Microsoft.NET.Test.Sdk 18.x or later, or reference the production project's Newtonsoft.Json from the test project.",
+        NewtonsoftArea);
+
+    public static readonly DiagnosticDescriptor OFR3749 = new(
+        "OFR3749", Severity.Info,
+        "probes are generated into a project that already ships tests",
+        "The production project hosts tests and characterization probes are generated into it; those tests already ship with the production project.",
+        "Production code and its tests live in one assembly.",
+        "None.",
         NewtonsoftArea);
 
     public static readonly DiagnosticDescriptor OFR3747 = new(

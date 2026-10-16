@@ -138,7 +138,11 @@ or qualifying test-assembly evidence; it is false for test-kind projects. It ide
 projects that also carry tests.
 
 Users can override a kind in `offramp.yml` (`projects: - path: ... kind: ...`); the override also
-sets `isTestProject` (true for `test`, false for any other kind).
+sets `isTestProject` (true for `test`, false for any other kind). `hostsTests` is computed after
+project-graph reclassification; it is true only when the final production kind is not `test` and
+the project references a test framework through PackageReference, packages.config, or a test
+framework assembly. It distinguishes a production assembly that also ships tests from a standalone
+test project.
 
 ## Hosted projects
 

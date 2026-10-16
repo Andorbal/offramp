@@ -379,12 +379,24 @@ public sealed record NewtonsoftConfig
     /// <summary><c>keep</c> or <c>rollback</c>: what <c>newtonsoft upgrade</c> does when probes observe a change.</summary>
     public string OnDiff { get; init; } = "keep";
 
+    public string Scope { get; init; } = "deployed";
+
+    /// <summary>How the upgrade handles already-compatible stable releases.</summary>
+    public NewtonsoftUpgradeConfig Upgrade { get; init; } = new();
+
     /// <summary>A folder of real payloads named <c>&lt;payload type full name&gt;[.&lt;label&gt;].json</c>, repository-relative; null for none.</summary>
     public string? Samples { get; init; }
 
     public NewtonsoftTestsConfig Tests { get; init; } = new();
 
     public NewtonsoftHermeticConfig Hermetic { get; init; } = new();
+}
+
+/// <summary>Configuration for release updates for Newtonsoft.Json.</summary>
+public sealed record NewtonsoftUpgradeConfig
+{
+    /// <summary>The lowest stable release left unchanged unless an exact --version is requested.</summary>
+    public string Floor { get; init; } = "13.0.1";
 }
 
 /// <summary><c>newtonsoft.tests:</c>, the characterization probes.</summary>

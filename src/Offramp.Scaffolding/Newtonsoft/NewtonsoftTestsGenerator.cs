@@ -12,7 +12,6 @@ using Offramp.Core.Model;
 using Offramp.Core.Paths;
 using Offramp.Core.Progress;
 using Offramp.Refactoring.ChangeSets;
-using Offramp.Refactoring.Moves;
 using Offramp.Refactoring.ProjectFiles;
 using ProjectInfo = Offramp.Core.Model.ProjectInfo;
 
@@ -45,6 +44,10 @@ public sealed record NewtonsoftTestsRequest
     public int EntryDepth { get; init; } = 4;
 
     public IReadOnlyList<string> NonHermetic { get; init; } = [];
+
+    public bool AllProjects { get; init; }
+
+    public bool ExactVersion { get; init; }
 
     public required DiagnosticBag Diagnostics { get; init; }
 
@@ -79,11 +82,12 @@ public static class NewtonsoftTestsGenerator
             Model = request.Model,
             Target = NewtonsoftRules.Measured,
             Projects = request.Projects,
-            Diagnostics = new DiagnosticBag(),
+            Diagnostics = request.Diagnostics,
             Progress = request.Progress,
             Compilations = compilations,
             EntryDepth = request.EntryDepth,
             NonHermetic = request.NonHermetic,
+            AllProjects = request.AllProjects,
             Findings = false,
         }, out var scanned, cancellationToken);
 
@@ -97,7 +101,12 @@ public static class NewtonsoftTestsGenerator
         foreach (var production in productions)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (Target(request, production.Project, productions.Count) is not { } target)
+            var productionRelease = production.Deployment.DeployedReleases
+                .Select(v => NuGetVersion.TryParse(v, out var parsed) ? parsed : null).OfType<NuGetVersion>()
+                .Where(v => v < NewtonsoftRules.Measured).OrderBy(v => v, VersionComparer.VersionRelease).FirstOrDefault()
+                ?? (request.AllProjects ? NewtonsoftReferences.Release(production.Reference) : null)
+                ?? NewtonsoftReferences.Release(production.Reference);
+            if (Target(request, production, productions.Count, productionRelease) is not { } target)
             {
                 continue;
             }
@@ -181,12 +190,13 @@ public static class NewtonsoftTestsGenerator
         return (result, changeSet.IsEmpty ? null : changeSet);
     }
 
-    /// <summary>The test project for a production project: configuration, then --to, then the one test project named after or referencing it.</summary>
-    private static ProbeTarget? Target(NewtonsoftTestsRequest request, ProjectInfo production, int productions)
+    /// <summary>Selects a Newtonsoft-specific test target without changing <c>move tests</c>.</summary>
+    private static ProbeTarget? Target(NewtonsoftTestsRequest request, ScannedProject production, int productions, NuGetVersion? deployedRelease)
     {
+        var productionProject = production.Project;
         string? chosen = null;
         var by = "name";
-        if (request.TestProjects.FirstOrDefault(p => Matches(p.Key, production)).Value is { } configured)
+        if (request.TestProjects.FirstOrDefault(p => Matches(p.Key, productionProject)).Value is { } configured)
         {
             (chosen, by) = (request.Model.Projects.FirstOrDefault(p => Matches(configured, p))?.Id, "config");
         }
@@ -196,46 +206,93 @@ public static class NewtonsoftTestsGenerator
         }
         else
         {
-            var selected = TestTargets.Select(request.Model, production, null, create: false, ".Tests");
-            if (selected.Ambiguous.Count > 0)
+            var candidates = request.Model.Projects.Where(p => p.Id != productionProject.Id && p.Language == "csharp"
+                    && (IsTest(p) || p.HostsTests) && p.ProjectReferences.Contains(productionProject.Id, StringComparer.Ordinal))
+                .OrderBy(p => p.Id, StringComparer.Ordinal).ToList();
+            var matching = candidates.Where(p => ResolvedRelease(p) == deployedRelease).ToList();
+            var preferredName = matching.Where(p => string.Equals(p.Name, productionProject.Name + ".Test", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(p.Name, productionProject.Name + ".Tests", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (preferredName.Count == 1)
             {
-                request.Diagnostics.Report(DiagnosticCatalog.OFR3734,
-                    $"{production.Id} is covered by {string.Join(", ", selected.Ambiguous)}; choose one with --to or newtonsoft.tests.projects.",
-                    new DiagnosticLocation(production.Id), [KeyValuePair.Create<string, JsonNode?>("candidates", new JsonArray([.. selected.Ambiguous.Select(a => (JsonNode?)a)]))]);
+                (chosen, by) = (preferredName[0].Id, "reference");
+            }
+            else if (preferredName.Count > 1)
+            {
+                ReportAmbiguous(preferredName);
                 return null;
             }
-
-            (chosen, by) = (selected.Project, selected.ByReference ? "reference" : "name");
+            else if (matching.Count == 1)
+            {
+                (chosen, by) = (matching[0].Id, "reference");
+            }
+            else if (matching.Count > 1)
+            {
+                var testCandidates = matching.Where(IsTest).ToList();
+                if (testCandidates.Count == 1)
+                {
+                    (chosen, by) = (testCandidates[0].Id, "reference");
+                }
+                else
+                {
+                    ReportAmbiguous(testCandidates.Count > 0 ? testCandidates : matching);
+                    return null;
+                }
+            }
+            else if (productionProject.HostsTests)
+            {
+                (chosen, by) = (productionProject.Id, "self");
+            }
+            else if (candidates.Count > 0)
+            {
+                request.Diagnostics.Report(DiagnosticCatalog.OFR3733,
+                    $"No test-capable project directly referencing {productionProject.Id} resolves deployed Newtonsoft.Json {deployedRelease?.ToNormalizedString() ?? "unknown"}; candidates: {string.Join(", ", candidates.Select(p => $"{p.Id} ({ResolvedRelease(p)?.ToNormalizedString() ?? "unknown"})"))}.",
+                    new DiagnosticLocation(productionProject.Id));
+                return null;
+            }
         }
 
-        // A project nobody asked for by name is only left uncovered; one named with --project is an error (issue #53).
-        var severity = request.Projects.Contains(production.Id, StringComparer.Ordinal) ? Severity.Error : Severity.Warning;
+        void ReportAmbiguous(IReadOnlyList<ProjectInfo> candidates) => request.Diagnostics.Report(DiagnosticCatalog.OFR3734,
+            $"{productionProject.Id} has several test-capable projects resolving deployed Newtonsoft.Json {deployedRelease?.ToNormalizedString() ?? "unknown"}: {string.Join(", ", candidates.Select(p => $"{p.Id} ({ResolvedRelease(p)?.ToNormalizedString() ?? "unknown"})"))}; choose one with --to or newtonsoft.tests.projects.",
+            new DiagnosticLocation(productionProject.Id), [KeyValuePair.Create<string, JsonNode?>("candidates", new JsonArray([.. candidates.Select(p => (JsonNode?)p.Id)]))]);
+
+        var severity = request.Projects.Contains(productionProject.Id, StringComparer.Ordinal) ? Severity.Error : Severity.Warning;
         if (chosen is null || request.Model.Projects.FirstOrDefault(p => p.Id == chosen) is not { } test)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR3733,
-                $"No test project covers {production.Id}; create one that references it, or name one with --to or newtonsoft.tests.projects.",
-                new DiagnosticLocation(production.Id), severity: severity);
+                $"No test project covers {productionProject.Id}; create one that directly references it, or name one with --to or newtonsoft.tests.projects.",
+                new DiagnosticLocation(productionProject.Id), severity: severity);
             return null;
         }
 
-        if (test.Id == production.Id)
+        if (test.Id == productionProject.Id && !productionProject.HostsTests)
         {
-            // Probes in the production project would ship with it.
             request.Diagnostics.Report(DiagnosticCatalog.OFR3733,
-                $"{production.Id} is named as its own test project ({(by == "config" ? "newtonsoft.tests.projects" : "--to")}); probes are not generated into production code. Name a test project that references it.",
-                new DiagnosticLocation(production.Id), severity: Severity.Error);
+                $"{productionProject.Id} is named as its own test project ({(by == "config" ? "newtonsoft.tests.projects" : "--to")}); probes are not generated into production code. Name a test project that references it.",
+                new DiagnosticLocation(productionProject.Id), severity: Severity.Error);
             return null;
+        }
+
+        if (test.Id == productionProject.Id)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR3749,
+                $"Probes are generated into {test.Id}, which already ships tests.", new DiagnosticLocation(test.Id));
         }
 
         if (TestFrameworks.Detect(test) is not { } framework)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR3736,
-                $"{test.Id} uses none of xunit, NUnit, or MSTest; no probes are generated for {production.Id}.", new DiagnosticLocation(test.Id));
+                $"{test.Id} uses none of xunit, NUnit, or MSTest; no probes are generated for {productionProject.Id}.", new DiagnosticLocation(test.Id));
             return null;
         }
 
-        var directory = test.Id.Contains('/', StringComparison.Ordinal) ? test.Id[..test.Id.LastIndexOf('/')] + "/" : "";
-        return new ProbeTarget { Production = production.Id, TestProject = test.Id, Framework = framework, By = by, Folder = directory + request.Folder };
+        var directory = test.Id.Contains('/', StringComparison.Ordinal) ? test.Id[..(test.Id.LastIndexOf('/') + 1)] : "";
+        return new ProbeTarget { Production = productionProject.Id, TestProject = test.Id, Framework = framework, By = by, Folder = directory + request.Folder };
+    }
+
+    private static NuGetVersion? ResolvedRelease(ProjectInfo project)
+    {
+        var framework = CompilationLoader.PreferredTarget(project);
+        return framework is null || NewtonsoftReferences.For(project, framework) is not { } reference ? null : NewtonsoftReferences.Release(reference);
     }
 
     private static bool Matches(string value, ProjectInfo project) =>
@@ -613,6 +670,8 @@ public static class NewtonsoftTestsGenerator
     private static string ClassName(ProjectInfo project) => CSharp6.Identifier(project.Name.Replace(".", "", StringComparison.Ordinal));
 
     private static bool IsTest(ProjectInfo project) => project.IsTestProject || project.Kind == ProjectKind.Test;
+
+    private static bool IsTestCapable(ProjectInfo project) => IsTest(project) || project.HostsTests;
 }
 
 /// <summary>Which test framework a test project uses, from its packages and references.</summary>

@@ -81,5 +81,10 @@ public static class ReferencedTestProjects
     private static bool HasTestProjectGuid(ProjectFacts facts) =>
         facts.ProjectTypeGuids?.Contains("3AC096D0-A1C2-E12C-1390-A8335801FDAB", StringComparison.OrdinalIgnoreCase) == true;
 
+    private static bool HasTestFramework(ProjectInfo project) =>
+        project.PackageReferences.Any(p => ProjectKindDetector.TestPackages.Contains(p.Id, StringComparer.OrdinalIgnoreCase))
+        || (project.PackagesConfigPackages ?? []).Any(p => ProjectKindDetector.TestPackages.Contains(p.Id, StringComparer.OrdinalIgnoreCase))
+        || project.AssemblyReferences.Any(a => ProjectKindDetector.TestAssemblies.Contains(a.Name, StringComparer.OrdinalIgnoreCase));
+
     private static bool IsTest(ProjectInfo project) => project.IsTestProject || project.Kind == ProjectKind.Test;
 }

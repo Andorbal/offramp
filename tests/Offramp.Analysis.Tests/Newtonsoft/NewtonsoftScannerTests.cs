@@ -82,12 +82,67 @@ public sealed class NewtonsoftScannerTests
     }
 
     [Fact]
+    [ProducesDiagnostic("OFR3726")]
+    public async Task A_shared_library_is_judged_against_the_old_deployed_application_release()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var model = WithVersion(scanned.Outcome.Model!, Catalog, "13.0.4");
+        model = model with { Projects = [.. model.Projects.Select(p => p.Id == Catalog ? p with { Kind = ProjectKind.Library, OutputType = "Library" } : p)] };
+        var application = new ProjectInfo
+        {
+            Id = "src/Runner/Runner.csproj",
+            Name = "Runner",
+            Kind = ProjectKind.Console,
+            OutputType = "Exe",
+            TargetFrameworks = ["net48"],
+            ProjectReferences = [Catalog],
+            PackageReferences = [new PackageReferenceInfo { Id = "Newtonsoft.Json", Version = "7.0.1" }],
+            AssemblyReferences = [new AssemblyReferenceInfo { Name = "Newtonsoft.Json", Kind = AssemblyReferenceKind.File, HintPath = "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll" }],
+            Resolved = new SortedDictionary<string, ResolvedFramework>(StringComparer.Ordinal)
+            {
+                ["net48"] = new() { Packages = [new ResolvedPackage { Id = "Newtonsoft.Json", Version = "7.0.1", Direct = true }] },
+            },
+        };
+        model = model with { Projects = [.. model.Projects, application] };
+        var (result, diagnostics) = Scan(scanned, request => request with { Model = model });
+
+        var report = result.Projects.Single(p => p.Project == Catalog);
+        Assert.Contains("7.0.1", report.DeployedReleases);
+        Assert.Contains("src/Runner/Runner.csproj", report.DeployedBy);
+        Assert.True(report.InScope);
+        Assert.Contains(result.Findings, f => f.Project == Catalog && f.Rule == "OFR3703" && f.Current == "old");
+        Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR3726");
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3726")]
+    public async Task Projects_with_only_target_deployments_are_omitted_by_default()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var model = scanned.Outcome.Model!;
+        foreach (var project in model.Projects)
+        {
+            model = WithVersion(model, project.Id, "13.0.4");
+        }
+
+        model = model with { Projects = [.. model.Projects.Select(p => p with { Kind = ProjectKind.Library, OutputType = "Library" })] };
+        var (result, diagnostics) = Scan(scanned, request => request with { Model = model });
+
+        Assert.All(result.Projects, project =>
+        {
+            Assert.False(project.InScope);
+            Assert.Empty(project.Sites);
+        });
+        Assert.Contains(diagnostics.ToSortedList(), diagnostic => diagnostic.Code == "OFR3726");
+    }
+
+    [Fact]
     public async Task Without_the_target_release_nothing_differs_and_nothing_is_reported()
     {
         // The detectors and the trial compilation can find nothing when the versions agree: the
         // project at the target release gets OFR3724 and no findings.
         var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
-        var (result, diagnostics) = Scan(scanned, r => r with { Model = WithVersion(r.Model, Catalog, "13.0.4") });
+        var (result, diagnostics) = Scan(scanned, r => r with { Model = WithVersion(r.Model, Catalog, "13.0.4"), AllProjects = true });
 
         Assert.DoesNotContain(result.Findings, f => f.Project == Catalog);
         Assert.Contains(diagnostics.ToSortedList(), d => d.Code == "OFR3724" && d.Project == Catalog);
@@ -105,6 +160,7 @@ public sealed class NewtonsoftScannerTests
         var (result, diagnostics) = Scan(scanned, r => r with
         {
             Model = WithVersion(WithVersion(r.Model, Catalog, "10.0.3"), Inventory, "13.0.4"),
+            AllProjects = true,
             Compilations = new AddedSource(r.RepositoryRoot, Catalog, """
                 using System;
                 using System.Collections.Immutable;

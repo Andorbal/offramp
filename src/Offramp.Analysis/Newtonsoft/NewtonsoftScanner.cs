@@ -27,6 +27,9 @@ public sealed record NewtonsoftScanRequest
     /// <summary>Project ids to scan; empty for every project that uses Newtonsoft.Json.</summary>
     public IReadOnlyList<string> Projects { get; init; } = [];
 
+    /// <summary>Include projects outside deployed application closures, as with <c>--all-projects</c> or <c>newtonsoft.scope: all</c>.</summary>
+    public bool AllProjects { get; init; }
+
     public IReadOnlyDictionary<string, SeverityOverride> Overrides { get; init; } = new Dictionary<string, SeverityOverride>();
 
     public required DiagnosticBag Diagnostics { get; init; }
@@ -50,7 +53,10 @@ public sealed record NewtonsoftScanRequest
 }
 
 /// <summary>A scanned project with what <c>newtonsoft tests</c> generates probes from.</summary>
-internal sealed record ScannedProject(ProjectInfo Project, NewtonsoftReference Reference, CSharpCompilation Compilation, IReadOnlyList<FoundSite> Sites);
+internal sealed record ScannedProject(ProjectInfo Project, NewtonsoftReference Reference, CSharpCompilation Compilation, IReadOnlyList<FoundSite> Sites)
+{
+    public DeploymentScope Deployment { get; init; } = new(Project.Id, [], true, []);
+}
 
 /// <summary><c>offramp newtonsoft scan</c> (<c>docs/spec/commands/newtonsoft.md</c>).</summary>
 public static class NewtonsoftScanner
@@ -67,7 +73,8 @@ public static class NewtonsoftScanner
 
         // The call graph loads every project's compilation; the scan of each project reuses it (issue #54).
         var compilations = SharedCompilations.Over(request.Compilations ?? owned!);
-        var candidates = request.Model.Projects
+        var scope = NewtonsoftDeploymentScope.Compute(request.Model, request.Target);
+        var allCandidates = request.Model.Projects
             .Where(p => p.Language == "csharp" && (request.Projects.Count == 0 || request.Projects.Contains(p.Id, StringComparer.Ordinal)))
             .Select(p => (Project: p, Tfm: CompilationLoader.PreferredTarget(p)))
             .Where(p => p.Tfm is not null)
@@ -75,6 +82,15 @@ public static class NewtonsoftScanner
             .Where(p => p.Reference is not null)
             .OrderBy(p => p.Project.Id, StringComparer.Ordinal)
             .ToList();
+        var candidates = allCandidates.Where(p => request.AllProjects || scope[p.Project.Id].InScope).ToList();
+        var outOfScope = allCandidates.Where(p => !request.AllProjects && !scope[p.Project.Id].InScope).ToList();
+        if (outOfScope.Count > 0)
+        {
+            request.Diagnostics.Report(DiagnosticCatalog.OFR3726,
+                $"{outOfScope.Count} project{(outOfScope.Count == 1 ? " is" : "s are")} out of scope: no deployed application runs a Newtonsoft.Json release below {request.Target}; use --all-projects to include them.",
+                new DiagnosticLocation(outOfScope[0].Project.Id),
+                [KeyValuePair.Create<string, JsonNode?>("projects", new JsonArray([.. outOfScope.Select(p => (JsonNode?)p.Project.Id)]))]);
+        }
 
         if (request.TargetPackage is null && candidates.Count > 0)
         {
@@ -85,6 +101,20 @@ public static class NewtonsoftScanner
         Versions(request, candidates.Select(c => (c.Project, c.Reference!)).ToList());
 
         var reports = new List<NewtonsoftProjectReport>();
+        foreach (var candidate in outOfScope)
+        {
+            var deployment = scope[candidate.Project.Id];
+            reports.Add(new NewtonsoftProjectReport
+            {
+                Project = candidate.Project.Id,
+                TargetFramework = candidate.Tfm,
+                Newtonsoft = candidate.Reference!,
+                Redirects = NewtonsoftReferences.Redirects(request.RepositoryRoot, candidate.Project),
+                DeployedReleases = deployment.DeployedReleases,
+                InScope = false,
+                DeployedBy = deployment.DeployedBy,
+            });
+        }
         var findings = new List<NewtonsoftFinding>();
         var skipped = new List<string>();
         EntryPointFinder entryPoints;
@@ -107,9 +137,9 @@ public static class NewtonsoftScanner
                     continue;
                 }
 
-                var (report, projectFindings, sites) = ScanProject(request, project, tfm, reference!, compilation, entryPoints);
+                var (report, projectFindings, sites) = ScanProject(request, project, tfm, reference!, compilation, entryPoints, scope[project.Id]);
                 reports.Add(report);
-                projectsScanned.Add(new ScannedProject(project, reference!, compilation, sites));
+                projectsScanned.Add(new ScannedProject(project, reference!, compilation, sites) { Deployment = scope[project.Id] });
                 findings.AddRange(projectFindings);
             }
 
@@ -128,7 +158,7 @@ public static class NewtonsoftScanner
         return new NewtonsoftScanResult
         {
             Target = request.Target.ToNormalizedString(),
-            Projects = reports,
+            Projects = [.. reports.OrderBy(r => r.Project, StringComparer.Ordinal)],
             Findings = findings,
             Summary = new NewtonsoftScanSummary
             {
@@ -158,7 +188,8 @@ public static class NewtonsoftScanner
     }
 
     private static (NewtonsoftProjectReport, List<NewtonsoftFinding>, IReadOnlyList<FoundSite>) ScanProject(
-        NewtonsoftScanRequest request, ProjectInfo project, string tfm, NewtonsoftReference reference, CSharpCompilation compilation, EntryPointFinder entryPoints)
+        NewtonsoftScanRequest request, ProjectInfo project, string tfm, NewtonsoftReference reference, CSharpCompilation compilation, EntryPointFinder entryPoints,
+        DeploymentScope deployment)
     {
         var finder = new NewtonsoftSiteFinder(request.RepositoryRoot, compilation);
         finder.Find();
@@ -182,6 +213,9 @@ public static class NewtonsoftScanner
             TargetFramework = tfm,
             Newtonsoft = reference,
             Redirects = NewtonsoftReferences.Redirects(request.RepositoryRoot, project),
+            DeployedReleases = deployment.DeployedReleases,
+            InScope = deployment.InScope,
+            DeployedBy = deployment.DeployedBy,
             Sites = [.. finder.Sites.Select(s => s.Site)],
             Configuration = finder.Configuration,
         };
@@ -201,24 +235,40 @@ public static class NewtonsoftScanner
             return (report, [], finder.Sites);
         }
 
-        if (current is null || current >= request.Target)
+        var behaviorVersions = request.AllProjects
+            ? current is { } ownProjectRelease && ownProjectRelease < request.Target ? [ownProjectRelease] : []
+            : deployment.DeployedReleases.Select(v => NuGetVersion.TryParse(v, out var parsed) ? parsed : null)
+                .OfType<NuGetVersion>().Where(v => v < request.Target).DistinctBy(v => v.ToNormalizedString()).OrderBy(v => v, VersionComparer.VersionRelease).ToList();
+        if (behaviorVersions.Count == 0 && current is { } own && own < request.Target)
+        {
+            behaviorVersions.Add(own);
+        }
+
+        if (current is null || (behaviorVersions.Count == 0 && current >= request.Target))
         {
             if (current == request.Target)
             {
-                request.Diagnostics.Report(DiagnosticCatalog.OFR3724, $"{project.Id} already uses Newtonsoft.Json {request.Target}.", new DiagnosticLocation(project.Id));
+                request.Diagnostics.Report(DiagnosticCatalog.OFR3724, $"{project.Id} already within the target range; left unchanged.", new DiagnosticLocation(project.Id));
             }
 
             return (report, [], finder.Sites);
         }
 
         var trees = AuditEngine.Sources(compilation);
-        var raw = NewtonsoftDetectors.Run(new DetectorContext(compilation, trees, finder.Sites, finder.DefaultSettings, current, request.Target)).ToList();
-        if (request.TargetPackage is not null && TargetTrialCompile.Assembly(request.TargetPackage, tfm) is { } target)
+        var raw = behaviorVersions.SelectMany(version => NewtonsoftDetectors.Run(new DetectorContext(compilation, trees, finder.Sites, finder.DefaultSettings, version, request.Target))
+                .Select(finding => (Finding: finding, Version: version)))
+            .ToList();
+        var distinct = raw.DistinctBy(item => (item.Finding.Rule.Id, item.Finding.Case?.Name, item.Finding.Symbol,
+            Label: item.Finding.Case?.LabelFor(item.Version))).ToList();
+        var findings = distinct.Select(item => ToFinding(request, project, item.Finding, item.Version)).OfType<NewtonsoftFinding>().ToList();
+        if (current is { } ownRelease && ownRelease < request.Target && request.TargetPackage is not null
+            && TargetTrialCompile.Assembly(request.TargetPackage, tfm) is { } target)
         {
-            raw.AddRange(TargetTrialCompile.Run(request.RepositoryRoot, compilation, target, trees));
+            findings.AddRange(TargetTrialCompile.Run(request.RepositoryRoot, compilation, target, trees)
+                .Select(r => ToFinding(request, project, r, ownRelease)).OfType<NewtonsoftFinding>());
         }
 
-        return (report, [.. raw.Select(r => ToFinding(request, project, r)).OfType<NewtonsoftFinding>()], finder.Sites);
+        return (report, findings, finder.Sites);
     }
 
     /// <summary>OFR3720 for sites whose payload is unknown; OFR3721 for settings a test cannot recreate and for DefaultSettings.</summary>
@@ -257,12 +307,12 @@ public static class NewtonsoftScanner
         if (versions.Count > 1)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR3722,
-                "Projects use Newtonsoft.Json " + string.Join(", ", versions.Select(g => $"{g.Key} ({g.Count()} project{(g.Count() == 1 ? "" : "s")})")) + "; each is judged against its own.",
+                "Projects use Newtonsoft.Json " + string.Join(", ", versions.Select(g => $"{g.Key} ({g.Count()} project{(g.Count() == 1 ? "" : "s")})")) + "; each is judged against deployed releases.",
                 new DiagnosticLocation(versions[0].First().Project.Id));
         }
     }
 
-    private static NewtonsoftFinding? ToFinding(NewtonsoftScanRequest request, ProjectInfo project, RawNewtonsoftFinding raw)
+    private static NewtonsoftFinding? ToFinding(NewtonsoftScanRequest request, ProjectInfo project, RawNewtonsoftFinding raw, NuGetVersion current)
     {
         var severity = raw.Rule.Severity;
         var overridden = false;
@@ -278,7 +328,6 @@ public static class NewtonsoftScanner
         }
 
         var (file, line, column) = AuditEngine.Position(request.RepositoryRoot, raw.Location);
-        var current = NewtonsoftReferences.Release(NewtonsoftReferences.For(project, CompilationLoader.PreferredTarget(project)!)!)!;
         return new NewtonsoftFinding
         {
             Rule = raw.Rule.Id,

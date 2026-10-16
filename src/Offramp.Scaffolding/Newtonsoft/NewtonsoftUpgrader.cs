@@ -69,11 +69,16 @@ public sealed record NewtonsoftUpgradeRequest
 
     public required NuGetVersion Target { get; init; }
 
+    /// <summary>Whether --version explicitly requests exact rewrites.</summary>
+    public bool ExactVersion { get; init; }
+
     /// <summary>The target's .nupkg: its <c>lib/</c> folders name the HintPaths, and redirects read its assemblies.</summary>
     public required byte[] TargetPackage { get; init; }
 
     /// <summary>Project ids to upgrade; empty for every project that uses Newtonsoft.Json.</summary>
     public IReadOnlyList<string> Projects { get; init; } = [];
+
+    public bool AllProjects { get; init; }
 
     /// <summary><c>keep</c> or <c>rollback</c>.</summary>
     public string OnDiff { get; init; } = "keep";
@@ -107,6 +112,7 @@ public static class NewtonsoftUpgrader
             Target = request.Target,
             TargetPackage = request.TargetPackage,
             Projects = request.Projects,
+            AllProjects = request.AllProjects,
             Diagnostics = new DiagnosticBag(),
             Progress = request.Progress,
             EntryDepth = request.Config.Newtonsoft.Tests.EntryDepth,
@@ -129,7 +135,16 @@ public static class NewtonsoftUpgrader
             }
 
             users.Add(project.Id);
-            if (NuGetVersion.TryParse(reference.Version, out var current) && current == request.Target)
+            if (!request.ExactVersion && NuGetVersion.TryParse(reference.Version, out var current)
+                && current.IsPrerelease == false && current.Major == request.Target.Major
+                && NuGetVersion.TryParse(request.Config.Newtonsoft.Upgrade.Floor, out var floor) && current >= floor)
+            {
+                request.Diagnostics.Report(DiagnosticCatalog.OFR3724,
+                    $"{project.Id} already within the target range at Newtonsoft.Json {current}; left unchanged.", new DiagnosticLocation(project.Id));
+                continue;
+            }
+
+            if (NuGetVersion.TryParse(reference.Version, out current) && current == request.Target)
             {
                 request.Diagnostics.Report(DiagnosticCatalog.OFR3724, $"{project.Id} already uses Newtonsoft.Json {request.Target}.", new DiagnosticLocation(project.Id));
                 continue;
@@ -216,6 +231,8 @@ public static class NewtonsoftUpgrader
             ObjectDepth = request.Config.Newtonsoft.Tests.ObjectDepth,
             EntryDepth = request.Config.Newtonsoft.Tests.EntryDepth,
             NonHermetic = request.Config.Newtonsoft.Hermetic.NonHermetic,
+            AllProjects = request.AllProjects,
+            ExactVersion = request.ExactVersion,
             Diagnostics = new DiagnosticBag(),
         }, cancellationToken);
         var recorded = tests.Targets.Where(t => Directory.Exists(RepoPaths.ToAbsolute(request.RepositoryRoot, t.Folder + "/Baseline"))).ToList();

@@ -241,8 +241,9 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3721](#ofr3721) | info | newtonsoft | settings cannot be reproduced |
 | [OFR3722](#ofr3722) | warning | newtonsoft | several Newtonsoft.Json versions in the solution |
 | [OFR3723](#ofr3723) | warning | newtonsoft | loose Newtonsoft.Json DLL |
-| [OFR3724](#ofr3724) | info | newtonsoft | already at the target Newtonsoft.Json |
+| [OFR3724](#ofr3724) | info | newtonsoft | already within the target range; left unchanged |
 | [OFR3725](#ofr3725) | warning | newtonsoft | target Newtonsoft.Json unavailable; API changes not computed |
+| [OFR3726](#ofr3726) | info | newtonsoft | projects out of scope |
 | [OFR3731](#ofr3731) | warning | newtonsoft | site has no probe |
 | [OFR3732](#ofr3732) | warning | newtonsoft | reading site without a payload to read |
 | [OFR3733](#ofr3733) | warning | newtonsoft | no test project covers the production project |
@@ -261,6 +262,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3746](#ofr3746) | error | newtonsoft | generated probes are out of date |
 | [OFR3747](#ofr3747) | warning | newtonsoft | test project has no VSTest adapter |
 | [OFR3748](#ofr3748) | error | newtonsoft | generated probes do not compile in the test project; nothing generated |
+| [OFR3749](#ofr3749) | info | newtonsoft | probes are generated into a project that already ships tests |
 | [OFR3760](#ofr3760) | error | newtonsoft | no target Newtonsoft.Json release |
 | [OFR3761](#ofr3761) | error | newtonsoft | build failed after the Newtonsoft.Json upgrade; rolled back |
 | [OFR3762](#ofr3762) | error | newtonsoft | probe observes a behavior change |
@@ -2258,12 +2260,12 @@ The project references a Newtonsoft.Json.dll that no package provides; its versi
 
 ### OFR3724
 
-**already at the target Newtonsoft.Json** · info · newtonsoft
+**already within the target range; left unchanged** · info · newtonsoft
 
-The project already uses the target release; nothing changes for it.
+A project already on a stable release of the target major at or above `newtonsoft.upgrade.floor` is not rewritten unless `--version` explicitly requests an exact release.
 
-- **Typical cause:** Projects upgraded earlier.
-- **Fix:** None.
+- **Typical cause:** Projects already on a supported target-range release.
+- **Fix:** None, unless an exact `--version` is requested.
 
 ### OFR3725
 
@@ -2273,6 +2275,15 @@ Neither the global packages folder nor the configured feeds have the target rele
 
 - **Typical cause:** No network, or feeds that do not mirror nuget.org.
 - **Fix:** Restore the target once (any project referencing it), or configure a feed that has it.
+
+### OFR3726
+
+**projects out of scope** · info · newtonsoft
+
+Projects reference Newtonsoft.Json but no deployed application runs a release below the target, so their sites and findings are omitted by default.
+
+- **Typical cause:** A shared library is only used by applications already on the target release.
+- **Fix:** Use `--all-projects` or `newtonsoft.scope: all` to include every project.
 
 ### OFR3731
 
@@ -2435,6 +2446,15 @@ Compiled into the test project's recorded compilation, the generated files have 
 
 - **Typical cause:** A compiler log that still holds generated files under paths the run cannot match, a type of the same name in the test project, or a test project below C# 6.
 - **Fix:** Run `offramp scan` on this machine so the recorded compilation matches the files on disk, or rename the type the message names; report anything else.
+
+### OFR3749
+
+**probes are generated into a project that already ships tests** · info · newtonsoft
+
+The production project hosts tests; probes generated in the same assembly are already shipped with it.
+
+- **Typical cause:** Production code and tests live in one assembly.
+- **Fix:** None.
 
 ### OFR3760
 

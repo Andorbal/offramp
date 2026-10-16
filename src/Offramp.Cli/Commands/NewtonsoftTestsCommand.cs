@@ -13,7 +13,7 @@ using Spectre.Console;
 
 namespace Offramp.Cli.Commands;
 
-public sealed record NewtonsoftTestsOptions(IReadOnlyList<string> Projects, string? To, string? Samples, bool Record = false, bool Verify = false);
+public sealed record NewtonsoftTestsOptions(IReadOnlyList<string> Projects, string? To, string? Samples, bool Record = false, bool Verify = false, bool AllProjects = false);
 
 /// <summary><c>offramp newtonsoft tests</c> (docs/spec/commands/newtonsoft.md#newtonsoft-tests).</summary>
 public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOptions, NewtonsoftTestsResult>
@@ -29,9 +29,10 @@ public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOpti
         var samples = new Option<string?>("--samples") { Description = "A folder of real payloads named <payload type full name>[.<label>].json.", HelpName = "DIR" };
         var record = new Option<bool>("--record") { Description = "Build and run the probes, twice, and write what they observe as baselines (with --apply)." };
         var verify = new Option<bool>("--verify") { Description = "Build and run the probes once and compare what they observe with the baselines." };
+        var allProjects = new Option<bool>("--all-projects") { Description = "Include projects outside deployed application scope." };
         var command = new Command("tests", "Generate characterization probes for every serialization site into the test projects that cover it; record and verify their baselines.")
         {
-            project, to, samples, record, verify,
+            project, to, samples, record, verify, allProjects,
         };
         command.Validators.Add(result =>
         {
@@ -41,7 +42,7 @@ public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOpti
             }
         });
         command.SetAction((parse, ct) => CommandRunner.RunAsync(new NewtonsoftTestsCommand(),
-            new NewtonsoftTestsOptions(parse.GetValue(project) ?? [], parse.GetValue(to), parse.GetValue(samples), parse.GetValue(record), parse.GetValue(verify)), globals.Bind(parse), host, ct));
+            new NewtonsoftTestsOptions(parse.GetValue(project) ?? [], parse.GetValue(to), parse.GetValue(samples), parse.GetValue(record), parse.GetValue(verify), parse.GetValue(allProjects)), globals.Bind(parse), host, ct));
         HelpExamples.Add(command,
             "offramp newtonsoft tests",
             "offramp newtonsoft tests --samples payloads/ --record --apply",
@@ -93,6 +94,7 @@ public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOpti
             ObjectDepth = config.Newtonsoft.Tests.ObjectDepth,
             EntryDepth = config.Newtonsoft.Tests.EntryDepth,
             NonHermetic = config.Newtonsoft.Hermetic.NonHermetic,
+            AllProjects = options.AllProjects || string.Equals(config.Newtonsoft.Scope, "all", StringComparison.OrdinalIgnoreCase),
             Diagnostics = context.Diagnostics,
             Progress = context.Progress,
         }, cancellationToken);

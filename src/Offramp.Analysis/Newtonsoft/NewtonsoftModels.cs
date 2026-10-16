@@ -182,6 +182,15 @@ public sealed record NewtonsoftProjectReport
 
     public IReadOnlyList<NewtonsoftRedirect> Redirects { get; init; } = [];
 
+    /// <summary>The deployed Newtonsoft.Json releases of applications that contain this project.</summary>
+    public IReadOnlyList<string> DeployedReleases { get; init; } = [];
+
+    /// <summary>Whether at least one deployed release differs from the target.</summary>
+    public bool InScope { get; init; }
+
+    /// <summary>Application project ids that deploy this project.</summary>
+    public IReadOnlyList<string> DeployedBy { get; init; } = [];
+
     public IReadOnlyList<NewtonsoftSite> Sites { get; init; } = [];
 
     public IReadOnlyList<NewtonsoftConfiguration> Configuration { get; init; } = [];

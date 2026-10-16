@@ -14,7 +14,7 @@ using Spectre.Console;
 
 namespace Offramp.Cli.Commands;
 
-public sealed record NewtonsoftScanOptions(IReadOnlyList<string> Projects, string? Version, string Format);
+public sealed record NewtonsoftScanOptions(IReadOnlyList<string> Projects, string? Version, string Format, bool AllProjects = false);
 
 /// <summary><c>offramp newtonsoft scan</c> (docs/spec/commands/newtonsoft.md#newtonsoft-scan).</summary>
 public sealed class NewtonsoftScanCommand(string format) : ICommandHandler<NewtonsoftScanOptions, NewtonsoftScanResult>, IRawOutput<NewtonsoftScanResult>
@@ -29,14 +29,15 @@ public sealed class NewtonsoftScanCommand(string format) : ICommandHandler<Newto
         var version = new Option<string?>("--version") { Description = "Judge against this release instead of the newest in newtonsoft.target.", HelpName = "VERSION" };
         var format = new Option<string>("--format") { Description = "table (the terminal view), json (the result alone), or markdown.", DefaultValueFactory = _ => "table" };
         format.AcceptOnlyFromAmong("table", "json", "markdown");
+        var allProjects = new Option<bool>("--all-projects") { Description = "Include projects outside deployed application scope." };
         var command = new Command("scan", "Where the code serializes, deserializes, and configures Newtonsoft.Json, and what changes between the release in use and the target.")
         {
-            project, version, format,
+            project, version, format, allProjects,
         };
         command.SetAction((parse, ct) =>
         {
             var chosen = parse.GetValue(format) ?? "table";
-            var options = new NewtonsoftScanOptions(parse.GetValue(project) ?? [], parse.GetValue(version), chosen);
+            var options = new NewtonsoftScanOptions(parse.GetValue(project) ?? [], parse.GetValue(version), chosen, parse.GetValue(allProjects));
             return CommandRunner.RunAsync(new NewtonsoftScanCommand(chosen), options, globals.Bind(parse), host, ct);
         });
         HelpExamples.Add(command,
@@ -82,6 +83,7 @@ public sealed class NewtonsoftScanCommand(string format) : ICommandHandler<Newto
             TargetPackage = release.Package,
             Projects = projects,
             Overrides = config.SeverityOverrides(),
+            AllProjects = options.AllProjects || string.Equals(config.Newtonsoft.Scope, "all", StringComparison.OrdinalIgnoreCase),
             EntryDepth = config.Newtonsoft.Tests.EntryDepth,
             NonHermetic = config.Newtonsoft.Hermetic.NonHermetic,
             Diagnostics = context.Diagnostics,

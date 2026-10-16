@@ -12,7 +12,7 @@ using Spectre.Console;
 
 namespace Offramp.Cli.Commands;
 
-public sealed record NewtonsoftUpgradeOptions(IReadOnlyList<string> Projects, string? Version, string? OnDiff);
+public sealed record NewtonsoftUpgradeOptions(IReadOnlyList<string> Projects, string? Version, string? OnDiff, bool AllProjects = false);
 
 /// <summary><c>offramp newtonsoft upgrade</c> (docs/spec/commands/newtonsoft.md#newtonsoft-upgrade).</summary>
 public sealed class NewtonsoftUpgradeCommand : ICommandHandler<NewtonsoftUpgradeOptions, NewtonsoftUpgradeResult>
@@ -27,12 +27,13 @@ public sealed class NewtonsoftUpgradeCommand : ICommandHandler<NewtonsoftUpgrade
         var version = new Option<string?>("--version") { Description = "Upgrade to this release instead of the newest in newtonsoft.target.", HelpName = "VERSION" };
         var onDiff = new Option<string?>("--on-diff") { Description = "keep (default, newtonsoft.onDiff) or rollback when probes observe a change." };
         onDiff.AcceptOnlyFromAmong("keep", "rollback");
+        var allProjects = new Option<bool>("--all-projects") { Description = "Include projects outside deployed application scope when reporting findings." };
         var command = new Command("upgrade", "Move every project to the target Newtonsoft.Json (PackageReference, packages.config, HintPath, redirects), then restore, build, and compare the probes.")
         {
-            project, version, onDiff,
+            project, version, onDiff, allProjects,
         };
         command.SetAction((parse, ct) => CommandRunner.RunAsync(new NewtonsoftUpgradeCommand(),
-            new NewtonsoftUpgradeOptions(parse.GetValue(project) ?? [], parse.GetValue(version), parse.GetValue(onDiff)), globals.Bind(parse), host, ct));
+            new NewtonsoftUpgradeOptions(parse.GetValue(project) ?? [], parse.GetValue(version), parse.GetValue(onDiff), parse.GetValue(allProjects)), globals.Bind(parse), host, ct));
         HelpExamples.Add(command,
             "offramp newtonsoft upgrade",
             "offramp newtonsoft upgrade --apply",
@@ -82,6 +83,8 @@ public sealed class NewtonsoftUpgradeCommand : ICommandHandler<NewtonsoftUpgrade
             Target = target,
             TargetPackage = release.Package,
             Projects = projects,
+            ExactVersion = options.Version is not null,
+            AllProjects = options.AllProjects || string.Equals(config.Newtonsoft.Scope, "all", StringComparison.OrdinalIgnoreCase),
             OnDiff = options.OnDiff ?? config.Newtonsoft.OnDiff,
             Processes = context.Host.Processes,
             Git = context.Host.GitService,

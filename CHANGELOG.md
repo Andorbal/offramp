@@ -18,6 +18,12 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `IsTestProject=true` from `Microsoft.NET.Test.Sdk` is demotable evidence: application kinds win, and an application-used project has `isTestProject=false`. The legacy test ProjectTypeGuid and `offramp.yml` `kind: test` remain explicit test declarations; `WinExe` now defaults to `console` absent stronger service or desktop evidence (ADR 0077).
   **Migration:** `kind`, `isTestProject`, and workspace JSON now reflect production assemblies carrying tests; rescan and update workspace consumers to accept the required `hostsTests` field.
 
+- `newtonsoft scan` reports deployed Newtonsoft.Json release scope (`deployedReleases`, `deployedBy`, `inScope`); scan/tests default to projects used by an application still on an older release, with `--all-projects` and `newtonsoft.scope: all` overrides (`OFR3726`, ADR 0078).
+- `OFR3749` explains when characterization probes are generated into a production assembly that already hosts tests; Newtonsoft-specific target selection prefers direct tests resolving the deployment release without changing `move tests` (ADR 0078).
+
+### Changed
+- `newtonsoft upgrade` leaves stable same-major package releases at or above `newtonsoft.upgradeFloor` (default `13.0.1`) unchanged unless `--version` explicitly requests an exact release. Binding redirects with a correct deployed version and a covering old-version range are preserved (`OFR3724`, ADR 0078).
+- `newtonsoft` behavior findings use application-deployed releases for shared projects, while API trial compilation still uses the project's own recorded compilation.
 
 ## [0.19.0] - 2026-10-15
 

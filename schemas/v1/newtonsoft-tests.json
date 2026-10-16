@@ -5,20 +5,59 @@
   "description": "The result of `offramp newtonsoft tests`. See docs/spec/commands/newtonsoft.md#newtonsoft-tests.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["targets", "probes", "uncovered", "files", "coverage", "preview", "applied", "journal", "mode", "runs", "outcomes", "baselineJournal"],
+  "required": [
+    "targets",
+    "probes",
+    "uncovered",
+    "files",
+    "coverage",
+    "preview",
+    "applied",
+    "journal",
+    "mode",
+    "runs",
+    "outcomes",
+    "baselineJournal"
+  ],
   "properties": {
     "targets": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["production", "testProject", "framework", "by", "folder"],
+        "required": [
+          "production",
+          "testProject",
+          "framework",
+          "by",
+          "folder"
+        ],
         "properties": {
-          "production": { "$ref": "workspace.json#/$defs/relativePath" },
-          "testProject": { "$ref": "workspace.json#/$defs/relativePath" },
-          "framework": { "enum": ["xunit", "nunit", "mstest"] },
-          "by": { "enum": ["config", "option", "name", "reference"] },
-          "folder": { "$ref": "workspace.json#/$defs/relativePath" }
+          "production": {
+            "$ref": "workspace.json#/$defs/relativePath"
+          },
+          "testProject": {
+            "$ref": "workspace.json#/$defs/relativePath"
+          },
+          "framework": {
+            "enum": [
+              "xunit",
+              "nunit",
+              "mstest"
+            ]
+          },
+          "by": {
+            "enum": [
+              "config",
+              "option",
+              "name",
+              "reference",
+              "self"
+            ]
+          },
+          "folder": {
+            "$ref": "workspace.json#/$defs/relativePath"
+          }
         }
       }
     },
@@ -28,17 +67,59 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "kind", "direction", "site", "testProject", "sample", "input", "file"],
+        "required": [
+          "id",
+          "kind",
+          "direction",
+          "site",
+          "testProject",
+          "sample",
+          "input",
+          "file"
+        ],
         "properties": {
-          "id": { "type": "string", "pattern": "^[A-Za-z0-9._#-]+$" },
-          "kind": { "enum": ["entry", "type"] },
-          "direction": { "enum": ["serialize", "deserialize", "dom"] },
-          "site": { "type": "string", "minLength": 1 },
-          "testProject": { "$ref": "workspace.json#/$defs/relativePath" },
-          "sample": { "type": "string", "minLength": 1 },
-          "input": { "enum": ["generated", "sample", "roundtrip"] },
-          "inputFrom": { "type": "string", "description": "Inputs/<file>, or probe:<id> for a roundtrip." },
-          "file": { "$ref": "workspace.json#/$defs/relativePath" }
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._#-]+$"
+          },
+          "kind": {
+            "enum": [
+              "entry",
+              "type"
+            ]
+          },
+          "direction": {
+            "enum": [
+              "serialize",
+              "deserialize",
+              "dom"
+            ]
+          },
+          "site": {
+            "type": "string",
+            "minLength": 1
+          },
+          "testProject": {
+            "$ref": "workspace.json#/$defs/relativePath"
+          },
+          "sample": {
+            "type": "string",
+            "minLength": 1
+          },
+          "input": {
+            "enum": [
+              "generated",
+              "sample",
+              "roundtrip"
+            ]
+          },
+          "inputFrom": {
+            "type": "string",
+            "description": "Inputs/<file>, or probe:<id> for a roundtrip."
+          },
+          "file": {
+            "$ref": "workspace.json#/$defs/relativePath"
+          }
         }
       }
     },
@@ -47,15 +128,39 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["site", "project", "reason", "detail"],
+        "required": [
+          "site",
+          "project",
+          "reason",
+          "detail"
+        ],
         "properties": {
-          "site": { "type": "string", "minLength": 1 },
-          "project": { "$ref": "workspace.json#/$defs/relativePath" },
-          "reason": {
-            "enum": ["notAccessible", "notConstructible", "typeNotGeneratable", "nonHermetic", "notObservable", "inputNotParameter", "depthExceeded",
-              "noInput", "payloadNotGeneratable", "settingsNotReproducible", "newtonsoftNotBound", "doesNotCompile"]
+          "site": {
+            "type": "string",
+            "minLength": 1
           },
-          "detail": { "type": "string" }
+          "project": {
+            "$ref": "workspace.json#/$defs/relativePath"
+          },
+          "reason": {
+            "enum": [
+              "notAccessible",
+              "notConstructible",
+              "typeNotGeneratable",
+              "nonHermetic",
+              "notObservable",
+              "inputNotParameter",
+              "depthExceeded",
+              "noInput",
+              "payloadNotGeneratable",
+              "settingsNotReproducible",
+              "newtonsoftNotBound",
+              "doesNotCompile"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
         }
       }
     },
@@ -64,42 +169,127 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "action"],
+        "required": [
+          "path",
+          "action"
+        ],
         "properties": {
-          "path": { "$ref": "workspace.json#/$defs/relativePath" },
-          "action": { "enum": ["create", "edit", "delete", "unchanged", "kept"] }
+          "path": {
+            "$ref": "workspace.json#/$defs/relativePath"
+          },
+          "action": {
+            "enum": [
+              "create",
+              "edit",
+              "delete",
+              "unchanged",
+              "kept"
+            ]
+          }
         }
       }
     },
     "coverage": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sites", "withEntryProbe", "withTypeProbe", "uncovered"],
+      "required": [
+        "sites",
+        "withEntryProbe",
+        "withTypeProbe",
+        "uncovered"
+      ],
       "properties": {
-        "sites": { "type": "integer", "minimum": 0 },
-        "withEntryProbe": { "type": "integer", "minimum": 0 },
-        "withTypeProbe": { "type": "integer", "minimum": 0 },
-        "uncovered": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } }
+        "sites": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "withEntryProbe": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "withTypeProbe": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uncovered": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
       }
     },
-    "preview": { "type": ["string", "null"], "description": "The dry run's unified diff; null once applied or when nothing changes." },
-    "applied": { "type": "boolean" },
-    "journal": { "type": ["string", "null"] },
-    "mode": { "enum": ["generate", "record", "verify"] },
+    "preview": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The dry run's unified diff; null once applied or when nothing changes."
+    },
+    "applied": {
+      "type": "boolean"
+    },
+    "journal": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mode": {
+      "enum": [
+        "generate",
+        "record",
+        "verify"
+      ]
+    },
     "runs": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["testProject", "runtime", "phase", "results", "commandLine"],
+        "required": [
+          "testProject",
+          "runtime",
+          "phase",
+          "results",
+          "commandLine"
+        ],
         "properties": {
-          "testProject": { "$ref": "workspace.json#/$defs/relativePath" },
-          "framework": { "type": ["string", "null"], "description": "Null when the project was not run (OFR3739)." },
-          "runtime": { "enum": ["netfx", "core"] },
-          "phase": { "enum": ["write", "read"] },
-          "results": { "$ref": "workspace.json#/$defs/relativePath" },
-          "commandLine": { "type": "string" },
-          "exitCode": { "type": ["integer", "null"] }
+          "testProject": {
+            "$ref": "workspace.json#/$defs/relativePath"
+          },
+          "framework": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null when the project was not run (OFR3739)."
+          },
+          "runtime": {
+            "enum": [
+              "netfx",
+              "core"
+            ]
+          },
+          "phase": {
+            "enum": [
+              "write",
+              "read"
+            ]
+          },
+          "results": {
+            "$ref": "workspace.json#/$defs/relativePath"
+          },
+          "commandLine": {
+            "type": "string"
+          },
+          "exitCode": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
         }
       }
     },
@@ -109,17 +299,53 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["probe", "testProject", "runtime", "status"],
+        "required": [
+          "probe",
+          "testProject",
+          "runtime",
+          "status"
+        ],
         "properties": {
-          "probe": { "type": "string" },
-          "testProject": { "$ref": "workspace.json#/$defs/relativePath" },
-          "runtime": { "enum": ["netfx", "core"] },
-          "status": { "enum": ["recorded", "unchanged", "quarantined", "same", "differs", "nowThrows", "noLongerThrows", "messageOnly", "missing", "noBaseline"] },
-          "newtonsoft": { "type": "string" },
-          "diff": { "type": "string" }
+          "probe": {
+            "type": "string"
+          },
+          "testProject": {
+            "$ref": "workspace.json#/$defs/relativePath"
+          },
+          "runtime": {
+            "enum": [
+              "netfx",
+              "core"
+            ]
+          },
+          "status": {
+            "enum": [
+              "recorded",
+              "unchanged",
+              "quarantined",
+              "same",
+              "differs",
+              "nowThrows",
+              "noLongerThrows",
+              "messageOnly",
+              "missing",
+              "noBaseline"
+            ]
+          },
+          "newtonsoft": {
+            "type": "string"
+          },
+          "diff": {
+            "type": "string"
+          }
         }
       }
     },
-    "baselineJournal": { "type": ["string", "null"] }
+    "baselineJournal": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
   }
 }

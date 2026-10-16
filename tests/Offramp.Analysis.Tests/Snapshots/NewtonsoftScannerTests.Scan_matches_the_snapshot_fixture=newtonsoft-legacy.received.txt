@@ -1,0 +1,204 @@
+﻿{
+  "target": "13.0.4",
+  "projects": [
+    {
+      "project": "src/Orders.App/Orders.App.csproj",
+      "targetFramework": "net48",
+      "newtonsoft": {
+        "version": "7.0.1",
+        "via": "packagesConfig",
+        "hintPath": "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll"
+      },
+      "redirects": [
+        {
+          "file": "src/Orders.App/App.config",
+          "oldVersion": "0.0.0.0-7.0.0.0",
+          "newVersion": "7.0.0.0"
+        }
+      ],
+      "deployedReleases": [
+        "7.0.1"
+      ],
+      "inScope": true,
+      "deployedBy": [
+        "src/Orders.App/Orders.App.csproj"
+      ],
+      "sites": [],
+      "configuration": []
+    },
+    {
+      "project": "src/Orders/Orders.csproj",
+      "targetFramework": "net48",
+      "newtonsoft": {
+        "version": "7.0.1",
+        "via": "packagesConfig",
+        "hintPath": "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll"
+      },
+      "redirects": [],
+      "deployedReleases": [
+        "7.0.1"
+      ],
+      "inScope": true,
+      "deployedBy": [
+        "src/Orders.App/Orders.App.csproj"
+      ],
+      "sites": [
+        {
+          "id": "Contoso.Orders.CommentCodec.Read#1",
+          "file": "src/Orders/Comment.cs",
+          "line": 17,
+          "member": "M:Contoso.Orders.CommentCodec.Read(System.String)",
+          "api": "M:Newtonsoft.Json.JsonConvert.DeserializeObject``1(System.String)",
+          "direction": "deserialize",
+          "payloadTypes": [
+            "Contoso.Orders.Comment"
+          ],
+          "settings": {
+            "kind": "none"
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Orders.CommentCodec.Read(System.String)",
+            "project": "src/Orders/Orders.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Orders.CommentCodec.Read(System.String)"
+            ],
+            "input": "json"
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Orders.OrderCodec.Write#1",
+          "file": "src/Orders/OrderCodec.cs",
+          "line": 18,
+          "member": "M:Contoso.Orders.OrderCodec.Write(Contoso.Orders.Order)",
+          "api": "M:Newtonsoft.Json.JsonConvert.SerializeObject(System.Object,Newtonsoft.Json.JsonSerializerSettings)",
+          "direction": "serialize",
+          "payloadTypes": [
+            "Contoso.Orders.Order"
+          ],
+          "settings": {
+            "kind": "member",
+            "symbol": "F:Contoso.Orders.OrderCodec.Settings",
+            "file": "src/Orders/OrderCodec.cs",
+            "line": 10
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Orders.OrderCodec.Write(Contoso.Orders.Order)",
+            "project": "src/Orders/Orders.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Orders.OrderCodec.Write(Contoso.Orders.Order)"
+            ]
+          },
+          "uncovered": null
+        },
+        {
+          "id": "Contoso.Orders.OrderCodec.Read#1",
+          "file": "src/Orders/OrderCodec.cs",
+          "line": 23,
+          "member": "M:Contoso.Orders.OrderCodec.Read(System.String)",
+          "api": "M:Newtonsoft.Json.JsonConvert.DeserializeObject``1(System.String,Newtonsoft.Json.JsonSerializerSettings)",
+          "direction": "deserialize",
+          "payloadTypes": [
+            "Contoso.Orders.Order"
+          ],
+          "settings": {
+            "kind": "member",
+            "symbol": "F:Contoso.Orders.OrderCodec.Settings",
+            "file": "src/Orders/OrderCodec.cs",
+            "line": 10
+          },
+          "entryPoint": {
+            "member": "M:Contoso.Orders.OrderCodec.Read(System.String)",
+            "project": "src/Orders/Orders.csproj",
+            "depth": 0,
+            "path": [
+              "M:Contoso.Orders.OrderCodec.Read(System.String)"
+            ],
+            "input": "json"
+          },
+          "uncovered": null
+        }
+      ],
+      "configuration": [
+        {
+          "kind": "settings",
+          "file": "src/Orders/OrderCodec.cs",
+          "line": 10,
+          "symbol": "F:Contoso.Orders.OrderCodec.Settings"
+        }
+      ]
+    },
+    {
+      "project": "tests/Orders.Tests/Orders.Tests.csproj",
+      "targetFramework": "net48",
+      "newtonsoft": {
+        "version": "7.0.1",
+        "via": "packagesConfig",
+        "hintPath": "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll"
+      },
+      "redirects": [],
+      "deployedReleases": [
+        "7.0.1"
+      ],
+      "inScope": true,
+      "deployedBy": [
+        "tests/Orders.Tests/Orders.Tests.csproj"
+      ],
+      "sites": [],
+      "configuration": []
+    }
+  ],
+  "findings": [
+    {
+      "rule": "OFR3702",
+      "severity": "warning",
+      "overridden": false,
+      "project": "src/Orders/Orders.csproj",
+      "file": "src/Orders/OrderCodec.cs",
+      "line": 13,
+      "column": 13,
+      "symbol": "P:Newtonsoft.Json.JsonSerializerSettings.TypeNameAssemblyFormat",
+      "message": "Newtonsoft.Json.JsonSerializerSettings.TypeNameAssemblyFormat is obsolete in the target (CS0618: 'JsonSerializerSettings.TypeNameAssemblyFormat' is obsolete: 'TypeNameAssemblyFormat is obsolete. Use TypeNameAssemblyFormatHandling instead.'); use TypeNameAssemblyFormatHandling.",
+      "recommendation": "Move to the replacement; with warnings as errors the upgrade does not build until then.",
+      "details": {
+        "compiler": "CS0618",
+        "places": "1"
+      }
+    },
+    {
+      "rule": "OFR3709",
+      "case": "max-depth",
+      "severity": "warning",
+      "overridden": false,
+      "project": "src/Orders/Orders.csproj",
+      "file": "src/Orders/Comment.cs",
+      "line": 17,
+      "column": 20,
+      "symbol": "Contoso.Orders.Comment",
+      "message": "Contoso.Orders.Comment contains itself, and site Contoso.Orders.CommentCodec.Read#1 reads it without MaxDepth: the target stops at 64 levels.",
+      "recommendation": "Set MaxDepth on the settings (or the reader) if payloads can nest deeper than 64 levels.",
+      "note": "13.0.1: JsonReader and JsonSerializer MaxDepth defaults to 64",
+      "current": "unlimited",
+      "target": "sixty-four",
+      "details": {
+        "site": "Contoso.Orders.CommentCodec.Read#1",
+        "type": "Contoso.Orders.Comment"
+      }
+    }
+  ],
+  "summary": {
+    "projects": 3,
+    "sites": 3,
+    "findings": {
+      "error": 0,
+      "info": 0,
+      "warning": 2
+    }
+  },
+  "skipped": []
+}
+
+OFR3702 warning src/Orders/Orders.csproj src/Orders/OrderCodec.cs:13 Newtonsoft.Json.JsonSerializerSettings.TypeNameAssemblyFormat is obsolete in the target (CS0618: 'JsonSerializerSettings.TypeNameAssemblyFormat' is obsolete: 'TypeNameAssemblyFormat is obsolete. Use TypeNameAssemblyFormatHandling instead.'); use TypeNameAssemblyFormatHandling.
+OFR3709 warning src/Orders/Orders.csproj src/Orders/Comment.cs:17 Contoso.Orders.Comment contains itself, and site Contoso.Orders.CommentCodec.Read#1 reads it without MaxDepth: the target stops at 64 levels.

@@ -94,6 +94,30 @@ public sealed class NewtonsoftTestsGeneratorTests
     }
 
     [Fact]
+    [ProducesDiagnostic("OFR3749")]
+    public async Task A_production_project_that_hosts_tests_can_receive_its_own_probes()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var model = scanned.Outcome.Model!;
+        var catalog = model.Projects.Single(p => p.Id == Catalog) with
+        {
+            HostsTests = true,
+            PackageReferences = [.. model.Projects.Single(p => p.Id == Catalog).PackageReferences, new PackageReferenceInfo { Id = "xunit", Version = "2.9.0" }],
+        };
+        model = model with
+        {
+            Projects = [.. model.Projects.Where(p => p.Id != Catalog && p.Id != CatalogTests).Select(p => p.Id == InventoryTests
+                ? p with { ProjectReferences = [.. p.ProjectReferences.Where(reference => reference != Catalog)] }
+                : p), catalog],
+        };
+
+        var (result, _, diagnostics) = Generate(scanned, request => request with { Model = model });
+
+        Assert.Contains(result.Targets, target => target.Production == Catalog && target.TestProject == Catalog && target.By == "self");
+        Assert.Contains(diagnostics.ToSortedList(), diagnostic => diagnostic.Code == "OFR3749" && diagnostic.Project == Catalog);
+    }
+
+    [Fact]
     [ProducesDiagnostic("OFR3733")]
     public async Task A_production_project_without_tests_has_nowhere_for_its_probes()
     {

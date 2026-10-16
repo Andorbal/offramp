@@ -27,8 +27,19 @@ Diagnostics are `OFR3700–3799` (an audit sub-range).
   in a `Reference`'s identity or `HintPath` folder (`packages/Newtonsoft.Json.<v>/`;
   the folder names the version, not the assembly version, which is `<major>.0.0.0`).
   A loose DLL with no package behind it is `OFR3723` (run `deps resolve-dlls`
-  first). Several versions in one solution is `OFR3722` (warning) and each project
-  is judged against its own.
+  first). Several versions in one solution is `OFR3722` (warning).
+- **Deployment scope.** Applications are non-test projects of kind `web`,
+  `service`, `console`, `winforms`, or `wpf`. Their deployed release is their own
+  resolved Newtonsoft.Json version. A project's `deployedReleases` is the
+  distinct sorted set of releases deployed by applications whose project-reference
+  closure contains it (including the application itself), and `deployedBy` lists
+  those application ids. Projects outside any application closure fall back to
+  their own resolved version. A project is `inScope` if some deployed release is
+  below the target. `scan`, `tests`, and upgrade findings/probes use in-scope
+  projects by default; `--all-projects` or `newtonsoft.scope: all` disables the
+  filter. `OFR3726` summarizes omitted projects. Behavior findings are judged
+  against each older deployed release, but trial compilation uses the project's
+  own recorded compilation.
 - **Target.** `newtonsoft.target` (default `[13.0,14.0)`) or `--version`: the
   newest stable version in the range whose `lib/` supports every target framework
   of every project that references Newtonsoft.Json ("supports target" as in
@@ -140,6 +151,8 @@ Result (`schemas/v1/newtonsoft-scan.json`):
       "project": "src/Orders/Orders.csproj", "targetFramework": "net48",
       "newtonsoft": { "version": "7.0.1", "via": "packagesConfig", "hintPath": "packages/Newtonsoft.Json.7.0.1/lib/net45/Newtonsoft.Json.dll" },
       "redirects": [],
+      "deployedReleases": [ "7.0.1" ], "inScope": true,
+      "deployedBy": [ "src/Orders/Orders.csproj" ],
       "sites": [
         {
           "id": "Orders.OrderCodec.Write#1", "file": "src/Orders/OrderCodec.cs", "line": 14,
@@ -221,14 +234,18 @@ sites and entry points only (no findings), each compilation is loaded once per r
 and with `--project` only those projects' sites are found; the call graph still
 spans every project (ADR 0075).
 
-**Test project.** For each production project, the project in
-`newtonsoft.tests.projects`, else `--to` (only with a single `--project`), else
-the test project that references it, chosen as `move tests` chooses (ADR 0045):
-several is `OFR3734` (error, candidates listed), none is `OFR3733` (a warning: the
-project's sites are only uncovered and the other projects are generated; an error
-for a project named with `--project`; ADR 0075). Naming the production project as
-its own test project is `OFR3733` (error): probes are not generated into production
-code (ADR 0074). Test projects are not created. The framework is detected from the test project's
+**Test project.** For each production project: choose `newtonsoft.tests.projects`,
+then `--to` (only with a single `--project`), then a test-capable project that
+references the production project directly and resolves the same Newtonsoft.Json
+release as the deployed release being characterized. Prefer a `<Prod>.Test(s)`
+name, then a sole matching project, then a sole project of kind `test`; unresolved
+ties are `OFR3734` and list each candidate and its resolved release. If no
+candidate matches, `OFR3733` names existing candidates and versions. If there is
+no matching direct candidate, a production project with `hostsTests: true` is a
+valid destination (also when selected explicitly), `By=self`, with `OFR3749`; a
+production project not hosting tests remains an `OFR3733` error when selected as
+its own destination. A test-capable project is kind `test` or has `hostsTests: true`.
+Test projects are not created. The framework is detected from the destination's
 references: xunit (2 and 3), NUnit (2, 3 and 4), MSTest (v1
 `Microsoft.VisualStudio.QualityTools.UnitTestFramework` and v2); anything else
 is `OFR3736` and the project is skipped.
@@ -499,8 +516,9 @@ The build covers what `verify.projects` selects (the solution by default).
 ```yaml
 newtonsoft:
   target: "[13.0,14.0)"        # --version overrides
+  scope: deployed              # deployed | all; --all-projects overrides
+  upgradeFloor: 13.0.1         # stable same-major releases at/above the floor stay unchanged
   samples: null                # folder of real payloads; --samples overrides
-  onDiff: keep                 # keep | rollback
   tests:
     folder: NewtonsoftCharacterization
     projects: {}               # production project -> test project
@@ -526,8 +544,9 @@ newtonsoft:
 | OFR3721 | info | settings cannot be reproduced, or `DefaultSettings` is assigned |
 | OFR3722 | warning | Newtonsoft.Json at several versions in the solution |
 | OFR3723 | warning | Newtonsoft.Json referenced as a loose DLL |
-| OFR3724 | info | project already at the target |
+| OFR3724 | info | project already within the target range; left unchanged unless exact `--version` is requested |
 | OFR3725 | warning | target package unavailable; API changes not computed |
+| OFR3726 | info | projects out of deployed scope; use `--all-projects` to include all |
 | OFR3731 | warning | site has no probe (reason) |
 | OFR3732 | warning | deserialize-only site without a sample payload |
 | OFR3733 | warning | no test project covers the production project (error for a project named with `--project`, or named as its own test project) |
@@ -546,6 +565,7 @@ newtonsoft:
 | OFR3746 | error | generated probes are out of date |
 | OFR3747 | warning | legacy test project has no VSTest adapter; not run |
 | OFR3748 | error | generated probes do not compile in the test project; nothing generated for it |
+| OFR3749 | info | probes are generated into a production project that already ships tests |
 | OFR3760 | error | no target version supports every framework |
 | OFR3761 | error | build failed after the upgrade; rolled back |
 | OFR3762 | error | probe observes a behavior change |
