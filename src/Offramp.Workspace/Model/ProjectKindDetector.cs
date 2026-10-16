@@ -83,7 +83,10 @@ public static class ProjectKindDetector
         if (facts.IsTestProject)
         {
             var withoutProperty = Detect(facts with { IsTestProject = false }, frameworks: false);
-            if (withoutProperty.Kind is ProjectKind.Web or ProjectKind.Service or ProjectKind.Winforms or ProjectKind.Wpf)
+            // A library on the Web SDK alone is what ASP.NET integration-test projects are; an application proves itself
+            // by being an executable, a legacy web project type, or a service/desktop project.
+            var bareWebSdkLibrary = withoutProperty.Kind == ProjectKind.Web && facts.Sdk == "Microsoft.NET.Sdk.Web" && !isExecutable;
+            if (!bareWebSdkLibrary && withoutProperty.Kind is ProjectKind.Web or ProjectKind.Service or ProjectKind.Winforms or ProjectKind.Wpf)
             {
                 return (withoutProperty.Kind, $"{withoutProperty.Evidence} (IsTestProject=true ignored)");
             }
