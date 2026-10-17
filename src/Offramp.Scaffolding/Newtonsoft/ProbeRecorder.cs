@@ -58,6 +58,9 @@ public sealed record ProbeRunRequest
 
     /// <summary>Whether .NET Framework targets can run here (Windows).</summary>
     public bool RunsNetFramework { get; init; } = OperatingSystem.IsWindows();
+
+    /// <summary>newtonsoft.upgradeFloor: releases of the target's major at or above it are not a deployment change.</summary>
+    public NuGetVersion? Floor { get; init; } = NuGetVersion.Parse("13.0.1");
 }
 
 /// <summary>What a recording or a verification observed.</summary>
@@ -116,12 +119,23 @@ public static class ProbeRecorder
                 }
             }
 
-            var expected = request.Model.Projects.Single(p => p.Id == target.Production) is var production
-                && NewtonsoftReferences.For(production, CompilationLoader.PreferredTarget(production)!) is { } reference
-                && NuGetVersion.TryParse(reference.Version, out var version)
-                    ? $"{version.Major}.{version.Minor}.0.0"
-                    : null;
-            var foreign = recorded.Where(r => expected is not null && r.Record.Newtonsoft != "none" && r.Record.Newtonsoft != expected).ToList();
+            // Probes must run under a release the production project is deployed with: its own, or an older one an application deploys.
+            var production = request.Model.Projects.Single(p => p.Id == target.Production);
+            var allowed = new List<string>();
+            if (NewtonsoftDeploymentScope.Compute(request.Model, NewtonsoftRules.Measured, request.Floor).TryGetValue(production.Id, out var deployment))
+            {
+                allowed.AddRange(deployment.DeployedReleases
+                    .Select(r => NuGetVersion.TryParse(r, out var v) && v < NewtonsoftRules.Measured && v.Major < NewtonsoftRules.Measured.Major ? $"{v.Major}.{v.Minor}.0.0" : null).OfType<string>());
+            }
+
+            if (allowed.Count == 0 && NewtonsoftReferences.For(production, CompilationLoader.PreferredTarget(production)!) is { } reference
+                && NuGetVersion.TryParse(reference.Version, out var version))
+            {
+                allowed.Add($"{version.Major}.{version.Minor}.0.0");
+            }
+
+            var expected = allowed.Count == 0 ? null : string.Join(" or ", allowed.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
+            var foreign = recorded.Where(r => allowed.Count > 0 && r.Record.Newtonsoft != "none" && !allowed.Contains(r.Record.Newtonsoft, StringComparer.Ordinal)).ToList();
             if (foreign.Count > 0)
             {
                 request.Diagnostics.Report(DiagnosticCatalog.OFR3745,
