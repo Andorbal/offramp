@@ -495,20 +495,26 @@ Dry run by default: plans every edit and prints it as one diff.
      `Newtonsoft.Json.<new>/lib/<nearest>`, where `<nearest>` is the folder of
      the target package that NuGet would pick for the project's framework (read
      from the package, not guessed). Separators and the relative prefix are kept.
-   - Binding redirects: `redirects sync` over a model in which Newtonsoft.Json is
-     at the planned target, with the target package in the global packages folder (put
-     there first, outside the repository). Without `--version`, the planned target is
-     the newest release capped at the lowest already-used direct release at or above
-     `newtonsoft.upgradeFloor` in the target major, when that release is lower than
-     newest; projects at that release and higher stay unchanged. This avoids lowering
-     upgraded projects beneath a version that remains in use. With no such project,
-     newest remains the target. `OFR3724` explains a capped target; an explicit
-     `--version` remains exact. A redirect that points at a version the
-     application no longer deploys (`0.0.0.0-7.0.0.0 → 7.0.0.0` after the upgrade)
-     is moved to the deployed one (`OFR1502`): left alone, anything built against
-     an older release would fail to load. Only the `Newtonsoft.Json` redirects are
-     synced: another assembly's out-of-date redirect was so before the upgrade and
-     is `redirects sync`'s to change (ADR 0073).
+   - Binding redirects: only applications whose deployed Newtonsoft.Json release
+     changes (below the target and not already at/above `newtonsoft.upgradeFloor`)
+     are considered, using deployment scope as for analysis. For those applications,
+     an existing Newtonsoft.Json redirect is rewritten only when its destination does
+     not already equal the target assembly version; an application with no redirect
+     gets one only when its release changes. Applications left alone get no redirect
+     edits, including range normalization. `redirects sync` runs over a model in which
+     Newtonsoft.Json is at the planned target, with the target package in the global
+     packages folder (put there first, outside the repository). Without `--version`,
+     the planned target is the newest release capped at the lowest already-used direct
+     release at or above `newtonsoft.upgradeFloor` in the target major, when that
+     release is lower than newest; projects at that release and higher stay unchanged.
+     This avoids lowering upgraded projects beneath a version that remains in use. With
+     no such project, newest remains the target. `OFR3724` explains a capped target;
+     an explicit `--version` remains exact. A redirect that points at a version the
+     application no longer deploys (`0.0.0.0-7.0.0.0 → 7.0.0.0` after the upgrade) is
+     moved to the deployed one (`OFR1502`): left alone, anything built against an older
+     release would fail to load. Only the `Newtonsoft.Json` redirects are synced: another
+     assembly's out-of-date redirect was so before the upgrade and is `redirects sync`'s
+     to change (ADR 0073).
    - Projects that get Newtonsoft.Json from another project are not edited
      (`transitive`); test projects are upgraded with production ones, so type probes
      keep compiling against the same assembly.

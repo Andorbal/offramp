@@ -183,22 +183,7 @@
       }
     ],
     "redirects": {
-      "apps": [
-        {
-          "project": "tests/Catalog.Tests/Catalog.Tests.csproj",
-          "configFile": null,
-          "targetFramework": "net48",
-          "redirects": [],
-          "skipped": "no app.config (the SDK generates redirects for the output)"
-        },
-        {
-          "project": "tests/Inventory.Tests/Inventory.Tests.csproj",
-          "configFile": null,
-          "targetFramework": "net48",
-          "redirects": [],
-          "skipped": "no app.config (the SDK generates redirects for the output)"
-        }
-      ],
+      "apps": [],
       "summary": {
         "added": 0,
         "changed": 0,

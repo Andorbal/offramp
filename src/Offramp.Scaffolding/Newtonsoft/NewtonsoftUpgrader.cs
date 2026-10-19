@@ -313,6 +313,14 @@ public static class NewtonsoftUpgrader
         return changed && request.OnDiff == "rollback" ? await RollBackAsync(request, applier, result, cancellationToken).ConfigureAwait(false) : result;
     }
 
+    private static bool IsApplication(ProjectInfo project) =>
+        !project.IsTestProject
+        && project.Kind != ProjectKind.Test
+        && (project.Kind is ProjectKind.Web or ProjectKind.Service or ProjectKind.Winforms or ProjectKind.Wpf
+            || project.Kind == ProjectKind.Console
+                && (string.Equals(project.OutputType, "Exe", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(project.OutputType, "WinExe", StringComparison.OrdinalIgnoreCase)));
+
     /// <summary>The C# projects that use Newtonsoft.Json (test projects too: their identity must stay the production one's).</summary>
     private static IEnumerable<ProjectInfo> Candidates(NewtonsoftUpgradeRequest request) =>
         request.Model.Projects
@@ -445,12 +453,28 @@ public static class NewtonsoftUpgrader
     private static async Task<RedirectsResult?> RedirectsAsync(NewtonsoftUpgradeRequest request, ChangeSet changeSet, CancellationToken cancellationToken)
     {
         await GlobalPackages.EnsureAsync(request.RepositoryRoot, Id, request.Target, request.TargetPackage, cancellationToken).ConfigureAwait(false);
+        var floor = !request.ExactVersion && NuGetVersion.TryParse(request.Config.Newtonsoft.UpgradeFloor, out var parsedFloor)
+            ? parsedFloor
+            : null;
+        var deployments = NewtonsoftDeploymentScope.Compute(request.Model, request.Target, floor);
+        var applications = request.Model.Projects
+            .Where(IsApplication)
+            .Where(p => deployments.TryGetValue(p.Id, out var deployment) && deployment.InScope)
+            .Select(p => p.Id)
+            .Order(StringComparer.Ordinal)
+            .ToList();
         var plan = RedirectPlanner.Plan(new RedirectsRequest
         {
             RepositoryRoot = request.RepositoryRoot,
             Model = Upgraded(request, request.Target),
-            // The upgrade changes Newtonsoft.Json only: another assembly's redirect that is out of date was so before (ADR 0073).
+            Apps = applications,
+            // The upgrade changes Newtonsoft.Json only: another assembly's out-of-date redirect was so before (ADR 0073).
             Assemblies = [Id],
+            // A missing redirect is added only for an application included in this changed-release plan.
+            EnsureRedirects = [Id],
+            // Existing ranges may already point at the target assembly while covering fewer referenced versions.
+            // The upgrade must not rewrite those ranges when the deployed version is already correct.
+            PreserveRangesWhenNewVersionMatches = true,
             Diagnostics = new DiagnosticBag(),
         });
         foreach (var edit in plan.ChangeSet?.Edits ?? [])

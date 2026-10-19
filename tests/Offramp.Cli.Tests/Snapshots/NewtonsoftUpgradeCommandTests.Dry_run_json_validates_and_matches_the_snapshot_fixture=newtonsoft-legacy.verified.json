@@ -197,13 +197,6 @@
             }
           ],
           "skipped": null
-        },
-        {
-          "project": "tests/Orders.Tests/Orders.Tests.csproj",
-          "configFile": null,
-          "targetFramework": "net48",
-          "redirects": [],
-          "skipped": "no app.config (the SDK generates redirects for the output)"
         }
       ],
       "summary": {

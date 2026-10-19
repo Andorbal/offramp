@@ -92,6 +92,12 @@ public sealed record RedirectsRequest
     /// <summary>Assembly names whose redirects are synced (case-insensitive); null for every assembly.</summary>
     public IReadOnlyCollection<string>? Assemblies { get; init; }
 
+    /// <summary>Assembly names to redirect when deployed even if the package graph has no mismatched references.</summary>
+    public IReadOnlyCollection<string>? EnsureRedirects { get; init; }
+
+    /// <summary>Preserves an existing redirect range when its destination already matches the deployed version.</summary>
+    public bool PreserveRangesWhenNewVersionMatches { get; init; }
+
     public required DiagnosticBag Diagnostics { get; init; }
 }
 
@@ -173,6 +179,15 @@ public static class RedirectPlanner
         var existing = bindings.Redirects.GroupBy(r => r.Assembly, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         bool Synced(string assembly) => request.Assemblies is null || request.Assemblies.Contains(assembly, StringComparer.OrdinalIgnoreCase);
+        foreach (var assembly in request.EnsureRedirects ?? [])
+        {
+            if (Synced(assembly) && !existing.ContainsKey(assembly) && graph.Deployed.TryGetValue(assembly, out var deployed))
+            {
+                var version = deployed.Version.ToString();
+                graph.Needed[assembly] = new NeededRedirect(version, version, deployed.PublicKeyToken ?? "", deployed.Culture, []);
+            }
+        }
+
         foreach (var (assembly, older) in graph.Older.Where(n => Synced(n.Key)).OrderBy(n => n.Key, StringComparer.OrdinalIgnoreCase))
         {
             Report(request, DiagnosticCatalog.OFR1505, config,
@@ -187,6 +202,10 @@ public static class RedirectPlanner
                 bindings.Add(assembly, needed.PublicKeyToken, needed.Culture, oldVersion, needed.Deployed);
                 entries.Add(Entry(assembly, needed, oldVersion, RedirectAction.Added, null));
                 Report(request, DiagnosticCatalog.OFR1501, config, $"Adds a redirect for {assembly}: {oldVersion} → {needed.Deployed} (referenced as {string.Join(", ", needed.Referenced)}).");
+            }
+            else if (request.PreserveRangesWhenNewVersionMatches && present.NewVersion == needed.Deployed)
+            {
+                entries.Add(Entry(assembly, needed, present.OldVersion ?? oldVersion, RedirectAction.Unchanged, null));
             }
             else if (present.OldVersion != oldVersion || present.NewVersion != needed.Deployed)
             {
