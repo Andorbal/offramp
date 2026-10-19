@@ -6,9 +6,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OFFRAMP_NAMESPACE
 {
@@ -44,10 +47,28 @@ namespace OFFRAMP_NAMESPACE
             }
 
             var type = value.GetType();
+            if (value is Type)
+            {
+                builder.Append(Name((Type)value));
+                return;
+            }
+
+            if (value is IntPtr || value is UIntPtr)
+            {
+                builder.Append(RuntimeObjectName(value, type));
+                return;
+            }
+
             var scalar = Scalar(value);
             if (scalar != null)
             {
                 builder.Append(scalar).Append(Runtime(type, declared));
+                return;
+            }
+
+            if (IsRuntimeObject(value, type))
+            {
+                builder.Append(RuntimeObjectName(value, type));
                 return;
             }
 
@@ -169,7 +190,7 @@ namespace OFFRAMP_NAMESPACE
             {
                 var date = (DateTime)value;
                 return date.Kind == DateTimeKind.Local
-                    ? date.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture) + " (Local)"
+                    ? date.Ticks.ToString(CultureInfo.InvariantCulture) + " ticks (Local)"
                     : date.ToString("o", CultureInfo.InvariantCulture) + " (" + date.Kind + ")";
             }
 
@@ -217,19 +238,44 @@ namespace OFFRAMP_NAMESPACE
                 return uri.OriginalString;
             }
 
-            var type = value as Type;
-            if (type != null)
-            {
-                return type.FullName;
-            }
-
             return value.GetType().IsPrimitive ? Convert.ToString(value, CultureInfo.InvariantCulture) : null;
         }
 
         private static string Key(object key)
         {
             var scalar = key == null ? "null" : Scalar(key);
-            return scalar ?? Convert.ToString(key, CultureInfo.InvariantCulture);
+            return scalar ?? Name(key.GetType());
+        }
+
+        private static bool IsRuntimeObject(object value, Type type)
+        {
+            if (value is Delegate || value is MemberInfo || value is IntPtr || value is UIntPtr
+                || value is Thread || value is Stream || value is WaitHandle || value is Task
+                || value is Assembly || value is Module || value is MarshalByRefObject)
+            {
+                return true;
+            }
+
+            var ns = type.Namespace;
+            var frameworkType = ns == "System" || ns == "Microsoft" || (ns != null
+                && (ns.StartsWith("System.", StringComparison.Ordinal) || ns.StartsWith("Microsoft.", StringComparison.Ordinal)));
+            return frameworkType && !(value is IDictionary) && !(value is IEnumerable);
+        }
+        private static string RuntimeObjectName(object value, Type type)
+        {
+            if (value is Delegate) return Name(typeof(Delegate));
+            if (value is MethodInfo) return Name(typeof(MethodInfo));
+            if (value is MemberInfo) return Name(typeof(MemberInfo));
+            if (value is IntPtr) return Name(typeof(IntPtr));
+            if (value is UIntPtr) return Name(typeof(UIntPtr));
+            if (value is Thread) return Name(typeof(Thread));
+            if (value is Stream) return Name(typeof(Stream));
+            if (value is WaitHandle) return Name(typeof(WaitHandle));
+            if (value is Task) return Name(typeof(Task));
+            if (value is Assembly) return Name(typeof(Assembly));
+            if (value is Module) return Name(typeof(Module));
+            if (value is MarshalByRefObject) return Name(typeof(MarshalByRefObject));
+            return Name(type);
         }
 
         private static string Quote(string text)

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 using NuGet.Versioning;
 using Offramp.Analysis.Compilations;
@@ -48,6 +49,84 @@ public sealed class NewtonsoftTestsGeneratorTests
         }
 
         await Verify(text.ToString(), extension: "txt").UseParameters(fixture);
+    }
+
+    [Fact]
+    public async Task Object_dump_uses_stable_names_for_runtime_objects()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var (_, changeSet, _) = Generate(scanned);
+        var dump = Encoding.UTF8.GetString(changeSet!.Creates.First(c => c.Path.EndsWith("/OfframpObjectDump.cs", StringComparison.Ordinal)).Content);
+        var probe = Encoding.UTF8.GetString(changeSet.Creates.First(c => c.Path.EndsWith("/OfframpProbe.cs", StringComparison.Ordinal)).Content);
+        var holder = """
+            using System;
+            using System.IO;
+            using System.Reflection;
+            using System.Text;
+            using System.Threading;
+
+            namespace Contoso.Catalog.Tests.NewtonsoftCharacterization
+            {
+                public sealed class RuntimeValues
+                {
+                    private readonly string secret;
+
+                    public RuntimeValues(string secret, int pointer)
+                    {
+                        this.secret = secret;
+                        Callback = () => GC.KeepAlive(this.secret);
+                        Method = typeof(RuntimeValues).GetMethod(nameof(Target))!;
+                        Type = typeof(DateTime);
+                        Pointer = IntPtr.Add(IntPtr.Zero, 789);
+                        Thread = new Thread(() => GC.KeepAlive(this.secret));
+                        Stream = new MemoryStream(Encoding.UTF8.GetBytes(secret));
+                        RuntimeObject = new Random(0);
+                    }
+
+                    public Action Callback { get; }
+                    public MethodInfo Method { get; }
+                    public Type Type { get; }
+                    public IntPtr Pointer { get; }
+                    public Thread Thread { get; }
+                    public Stream Stream { get; }
+                    public object RuntimeObject { get; }
+                    public void Target() { }
+                }
+            }
+            """;
+        var generatedNamespace = dump.Split('\n').Single(line => line.StartsWith("namespace ", StringComparison.Ordinal));
+        var sourceNamespace = "namespace Contoso.Probes";
+        var holderNamespace = "namespace Contoso.Probes";
+        dump = dump.Replace(generatedNamespace, sourceNamespace, StringComparison.Ordinal);
+        probe = probe.Replace(generatedNamespace, sourceNamespace, StringComparison.Ordinal);
+        holder = holder.Replace("namespace Contoso.Catalog.Tests.NewtonsoftCharacterization", holderNamespace, StringComparison.Ordinal);
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+            .Select(path => MetadataReference.CreateFromFile(path));
+        using var pe = new MemoryStream();
+        var compilation = CSharpCompilation.Create("RuntimeObjectDumpTest",
+            [CSharpSyntaxTree.ParseText(dump), CSharpSyntaxTree.ParseText(probe), CSharpSyntaxTree.ParseText(holder)], references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var emit = compilation.Emit(pe);
+        Assert.True(emit.Success, string.Join(Environment.NewLine, emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
+        pe.Position = 0;
+        var assembly = new System.Runtime.Loader.AssemblyLoadContext("RuntimeObjectDumpTest", isCollectible: true).LoadFromStream(pe);
+        var holderType = assembly.GetType("Contoso.Probes.RuntimeValues", throwOnError: true)!;
+        var dumperType = assembly.GetType("Contoso.Probes.OfframpObjectDump", throwOnError: true)!;
+        var constructor = holderType.GetConstructor([typeof(string), typeof(int)])!;
+        var write = dumperType.GetMethod("Write", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!;
+        var first = (string)write.Invoke(null, [constructor.Invoke(["first secret", 123])])!;
+        var second = (string)write.Invoke(null, [constructor.Invoke(["second secret", 456])])!;
+
+        Assert.Equal(first, second);
+        Assert.DoesNotContain("first secret", first, StringComparison.Ordinal);
+        Assert.DoesNotContain("second secret", first, StringComparison.Ordinal);
+        Assert.Contains("System.Delegate", first, StringComparison.Ordinal);
+        Assert.Contains("System.Reflection.MethodInfo", first, StringComparison.Ordinal);
+        Assert.Contains("System.DateTime", first, StringComparison.Ordinal);
+        Assert.Contains("System.IntPtr", first, StringComparison.Ordinal);
+        Assert.Contains("System.Threading.Thread", first, StringComparison.Ordinal);
+        Assert.Contains("System.IO.Stream", first, StringComparison.Ordinal);
+        Assert.Contains("System.Random", first, StringComparison.Ordinal);
     }
 
     [Fact]
