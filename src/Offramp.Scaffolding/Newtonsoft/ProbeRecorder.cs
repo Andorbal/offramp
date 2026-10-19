@@ -128,10 +128,9 @@ public static class ProbeRecorder
                     .Select(r => NuGetVersion.TryParse(r, out var v) && v < NewtonsoftRules.Measured && v.Major < NewtonsoftRules.Measured.Major ? $"{v.Major}.{v.Minor}.0.0" : null).OfType<string>());
             }
 
-            if (allowed.Count == 0 && NewtonsoftReferences.For(production, CompilationLoader.PreferredTarget(production)!) is { } reference
-                && NuGetVersion.TryParse(reference.Version, out var version))
+            if (allowed.Count == 0 && ExpectedIdentity(production, target.TestProject == production.Id) is { } expectedIdentity)
             {
-                allowed.Add($"{version.Major}.{version.Minor}.0.0");
+                allowed.Add(expectedIdentity);
             }
 
             var expected = allowed.Count == 0 ? null : string.Join(" or ", allowed.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
@@ -183,6 +182,23 @@ public static class ProbeRecorder
 
         Report(request, outcomes);
         return new ProbeRunResult(runs, Sorted(outcomes), null, BuildFailed: false);
+    }
+
+    internal static string? ExpectedIdentity(ProjectInfo production, bool isSelfTestHost)
+    {
+        var framework = CompilationLoader.PreferredTarget(production);
+        if (isSelfTestHost && framework is not null
+            && production.Resolved.TryGetValue(framework, out var resolved)
+            && resolved.Packages.FirstOrDefault(p => string.Equals(p.Id, NewtonsoftReferences.PackageId, StringComparison.OrdinalIgnoreCase)) is { } package
+            && NuGetVersion.TryParse(package.Version, out var resolvedVersion))
+        {
+            return $"{resolvedVersion.Major}.{resolvedVersion.Minor}.0.0";
+        }
+
+        return framework is not null && NewtonsoftReferences.For(production, framework) is { } reference
+            && NuGetVersion.TryParse(reference.Version, out var version)
+                ? $"{version.Major}.{version.Minor}.0.0"
+                : null;
     }
 
     public static string BaselinePath(ProbeTarget target, string runtime, string probe) =>

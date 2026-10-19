@@ -95,7 +95,12 @@ public static class NewtonsoftDeploymentScope
                 .Order(StringComparer.Ordinal)
                 .FirstOrDefault()
                 ?? project.TargetFrameworks.Order(StringComparer.Ordinal).FirstOrDefault();
-            return tfm is null || NewtonsoftReferences.For(project, tfm) is not { } reference ? null : NewtonsoftReferences.Release(reference);
+            return tfm is null ? null
+                : project.Resolved.TryGetValue(tfm, out var resolved)
+                    && resolved.Packages.FirstOrDefault(p => string.Equals(p.Id, NewtonsoftReferences.PackageId, StringComparison.OrdinalIgnoreCase)) is { } package
+                    && NuGetVersion.TryParse(package.Version, out var resolvedVersion)
+                        ? resolvedVersion
+                        : NewtonsoftReferences.For(project, tfm) is { } reference ? NewtonsoftReferences.Release(reference) : null;
         }
     }
 

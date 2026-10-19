@@ -1,3 +1,4 @@
+using Offramp.Analysis.Compilations;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
 using Offramp.Fixtures;
@@ -34,6 +35,29 @@ public sealed class ProbeRecordTests
         var diff = ProbeRecord.Diff("Money\n  Amount: 1\n  Currency: \"EUR\"", "Money\n  Amount: 1.0\n  Currency: \"EUR\"");
 
         Assert.Equal("-   Amount: 1\n+   Amount: 1.0", diff);
+    }
+
+    [Fact]
+    public async Task A_self_hosted_test_with_no_old_deployment_uses_its_own_resolved_release()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var model = scanned.Outcome.Model!;
+        var original = model.Projects.Single(p => p.Id == "src/Catalog/Catalog.csproj");
+        var framework = CompilationLoader.PreferredTarget(original)!;
+        var production = original with
+        {
+            Kind = Offramp.Core.Model.ProjectKind.Console,
+            OutputType = "Exe",
+            HostsTests = true,
+            PackagesConfigPackages = [new Offramp.Core.Model.PackagesConfigPackage { Id = "Newtonsoft.Json", Version = "7.0.1" }],
+            Resolved = new SortedDictionary<string, Offramp.Core.Model.ResolvedFramework>(StringComparer.Ordinal)
+            {
+                [framework] = new() { Packages = [new Offramp.Core.Model.ResolvedPackage { Id = "Newtonsoft.Json", Version = "13.0.4", Direct = true }] },
+            },
+        };
+
+        Assert.Equal("13.0.0.0", ProbeRecorder.ExpectedIdentity(production, isSelfTestHost: true));
+        Assert.Equal("7.0.0.0", ProbeRecorder.ExpectedIdentity(production, isSelfTestHost: false));
     }
 
     [Fact]
