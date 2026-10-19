@@ -279,9 +279,9 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR3741 = new(
         "OFR3741", Severity.Warning,
         "probe did not run",
-        "A generated probe wrote no result: the test run did not reach it (a filter, a crash, a configured command that runs fewer tests).",
-        "A newtonsoft.tests.command that runs a subset, or a test host that stopped early.",
-        "Run the probes the command left out, or regenerate them.",
+        "A generated probe wrote no result. The diagnostic names its generated class and method, checks its baseline/result path lengths for Windows limits, and lists other likely causes such as a command filter, test-adapter discovery, or an early test-host exit.",
+        "A path that exceeds Windows file-name/path limits, a newtonsoft.tests.command that runs a subset, a missing VSTest adapter, or a test host that stopped early.",
+        "Shorten paths where they approach the platform limit; otherwise include the named methods in the configured command, ensure the test adapter discovers them, and inspect the test host output.",
         NewtonsoftArea);
 
     public static readonly DiagnosticDescriptor OFR3744 = new(

@@ -1,3 +1,5 @@
+using System.Text;
+using NuGet.Versioning;
 using Offramp.Analysis.Compilations;
 using Offramp.Core.Configuration;
 using Offramp.Core.Diagnostics;
@@ -55,9 +57,51 @@ public sealed class ProbeRecordTests
                 [framework] = new() { Packages = [new Offramp.Core.Model.ResolvedPackage { Id = "Newtonsoft.Json", Version = "13.0.4", Direct = true }] },
             },
         };
+        var updated = model with { Projects = [.. model.Projects.Select(p => p.Id == production.Id ? production : p)] };
+        var target = new ProbeTarget { Production = production.Id, TestProject = production.Id, Framework = ProbeFramework.Xunit, By = "self", Folder = "src/Catalog/NewtonsoftCharacterization" };
 
-        Assert.Equal("13.0.0.0", ProbeRecorder.ExpectedIdentity(production, isSelfTestHost: true));
-        Assert.Equal("7.0.0.0", ProbeRecorder.ExpectedIdentity(production, isSelfTestHost: false));
+        Assert.Equal(["13.0.0.0"], ProbeRecorder.AllowedReleases(updated, target, NuGetVersion.Parse("13.0.1")));
+    }
+
+    [Fact]
+    public void Long_probe_ids_are_shortened_deterministically_and_short_ids_are_unchanged()
+    {
+        const string shortId = "Contoso.Orders.Write#1.entry.typical";
+        var longId = "Contoso." + new string('A', 180) + ".Write#1.entry.typical";
+
+        Assert.Equal(shortId, ProbePlanner.ProbeId(shortId));
+        var shortened = ProbePlanner.ProbeId(longId);
+        Assert.Equal(100, shortened.Length);
+        Assert.EndsWith("-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(longId))).ToLowerInvariant()[..12], shortened, StringComparison.Ordinal);
+        Assert.Equal(shortened, ProbePlanner.ProbeId(longId));
+        Assert.NotEqual(shortened, ProbePlanner.ProbeId(longId + "x"));
+    }
+
+    [Fact]
+    [ProducesDiagnostic("OFR3741")]
+    public async Task Missing_probe_diagnostic_names_methods_and_checks_path_lengths()
+    {
+        var scanned = await ScannedFixtures.GetAsync("newtonsoft-sdk");
+        var diagnostics = new DiagnosticBag();
+        var request = new ProbeRunRequest
+        {
+            RepositoryRoot = scanned.Root,
+            Model = scanned.Outcome.Model!,
+            Config = new OfframpConfig(),
+            Targets = [new ProbeTarget { Production = "src/Catalog/Catalog.csproj", TestProject = "tests/Catalog.Tests/Catalog.Tests.csproj", Framework = ProbeFramework.Xunit, By = "reference", Folder = "tests/Catalog.Tests/NewtonsoftCharacterization" }],
+            Probes = [new PlannedProbe { Id = "Contoso.Catalog.Codec.Write#1.entry.typical", Kind = ProbeKind.Entry, Direction = Offramp.Analysis.Newtonsoft.SiteDirection.Serialize, Site = "Contoso.Catalog.Codec.Write#1", TestProject = "tests/Catalog.Tests/Catalog.Tests.csproj", Sample = "typical", Input = ProbeInput.Generated, File = "tests/Catalog.Tests/NewtonsoftCharacterization/CatalogSerializeProbes.cs" }],
+            Processes = Offramp.Core.Processes.ProcessRunner.Instance,
+            Diagnostics = diagnostics,
+        };
+
+        ProbeRecorder.Report(request, [new ProbeOutcome { Probe = request.Probes[0].Id, TestProject = request.Probes[0].TestProject, Runtime = "core", Status = ProbeStatus.Missing }]);
+
+        var reported = Assert.Single(diagnostics.ToSortedList());
+        Assert.Equal("OFR3741", reported.Code);
+        Assert.Contains("Catalog.Tests.NewtonsoftCharacterization.CatalogSerializeProbes.Probe_Contoso_Catalog_Codec_Write_1_entry_typical", reported.Message, StringComparison.Ordinal);
+        Assert.Contains("baseline path is ", reported.Message, StringComparison.Ordinal);
+        Assert.Contains("Windows path-length limit is unlikely", reported.Message, StringComparison.Ordinal);
+        Assert.Contains("configured command's filter", reported.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -134,6 +134,9 @@ public sealed class NewtonsoftRecordCommandTests
         Assert.Contains(statuses, s => s.Probe == "Contoso.Catalog.CatalogCodec.Write#1.entry.typical" && s.Status == "recorded");
         Assert.Contains(statuses, s => s.Probe == "Contoso.Catalog.MoneyCodec.Write#1.entry.typical" && s.Status == "missing");
         Assert.Contains("OFR3741", record.Out, StringComparison.Ordinal);
+        Assert.Contains("CatalogSerializeProbes.Probe_Contoso_Catalog_MoneyCodec_Write_1_entry_typical", record.Out, StringComparison.Ordinal);
+        Assert.Contains("baseline path is ", record.Out, StringComparison.Ordinal);
+        Assert.Contains("configured command's filter", record.Out, StringComparison.Ordinal);
     }
 
     [Fact]

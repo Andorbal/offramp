@@ -29,7 +29,7 @@ namespace OFFRAMP_NAMESPACE
             {
                 var folder = Path.Combine(results, runtime);
                 Directory.CreateDirectory(folder);
-                File.WriteAllText(Path.Combine(folder, probe + ".txt"), record, new UTF8Encoding(false));
+                File.WriteAllText(Path.Combine(folder, FileName(probe) + ".txt"), record, new UTF8Encoding(false));
             }
 
             if (Environment.GetEnvironmentVariable("OFFRAMP_NEWTONSOFT_MODE") == "record")
@@ -37,7 +37,7 @@ namespace OFFRAMP_NAMESPACE
                 return;
             }
 
-            var baseline = Path.Combine(Folder(source), "Baseline", runtime, probe + ".txt");
+            var baseline = Path.Combine(Folder(source), "Baseline", runtime, FileName(probe) + ".txt");
             if (!File.Exists(baseline))
             {
                 throw new OfframpProbeMismatchException(probe + " has no baseline at " + baseline + "; record one with `offramp newtonsoft tests --record --apply`.");
@@ -65,8 +65,8 @@ namespace OFFRAMP_NAMESPACE
             var probe = name.Substring("probe:".Length);
             var results = Environment.GetEnvironmentVariable("OFFRAMP_NEWTONSOFT_RESULTS");
             var path = Environment.GetEnvironmentVariable("OFFRAMP_NEWTONSOFT_MODE") == "record" && !string.IsNullOrEmpty(results)
-                ? Path.Combine(results, Runtime(), probe + ".txt")
-                : Path.Combine(Folder(source), "Baseline", Runtime(), probe + ".txt");
+                ? Path.Combine(results, Runtime(), FileName(probe) + ".txt")
+                : Path.Combine(Folder(source), "Baseline", Runtime(), FileName(probe) + ".txt");
             var record = Normalize(File.ReadAllText(path));
             if (record.IndexOf("\noutcome: returned\n", StringComparison.Ordinal) < 0)
             {
@@ -74,6 +74,22 @@ namespace OFFRAMP_NAMESPACE
             }
 
             return record.Substring(record.IndexOf("\n---\n", StringComparison.Ordinal) + "\n---\n".Length).TrimEnd('\n');
+        }
+
+        private static string FileName(string probe)
+        {
+            const int maxLength = 100;
+            const int hashLength = 12;
+            if (probe.Length <= maxLength)
+            {
+                return probe;
+            }
+
+            using (var sha256 = System.Security.Cryptography.SHA256.Create())
+            {
+                var hash = BitConverter.ToString(sha256.ComputeHash(Encoding.UTF8.GetBytes(probe))).Replace("-", "").ToLowerInvariant().Substring(0, hashLength);
+                return probe.Substring(0, maxLength - hashLength - 1) + "-" + hash;
+            }
         }
 
         private static string Observe(string probe, Func<object> observe)

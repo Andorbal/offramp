@@ -120,18 +120,7 @@ public static class ProbeRecorder
             }
 
             // Probes must run under a release the production project is deployed with: its own, or an older one an application deploys.
-            var production = request.Model.Projects.Single(p => p.Id == target.Production);
-            var allowed = new List<string>();
-            if (NewtonsoftDeploymentScope.Compute(request.Model, NewtonsoftRules.Measured, request.Floor).TryGetValue(production.Id, out var deployment))
-            {
-                allowed.AddRange(deployment.DeployedReleases
-                    .Select(r => NuGetVersion.TryParse(r, out var v) && v < NewtonsoftRules.Measured && v.Major < NewtonsoftRules.Measured.Major ? $"{v.Major}.{v.Minor}.0.0" : null).OfType<string>());
-            }
-
-            if (allowed.Count == 0 && ExpectedIdentity(production, target.TestProject == production.Id) is { } expectedIdentity)
-            {
-                allowed.Add(expectedIdentity);
-            }
+            var allowed = AllowedReleases(request.Model, target, request.Floor);
 
             var expected = allowed.Count == 0 ? null : string.Join(" or ", allowed.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
             var foreign = recorded.Where(r => allowed.Count > 0 && r.Record.Newtonsoft != "none" && !allowed.Contains(r.Record.Newtonsoft, StringComparer.Ordinal)).ToList();
@@ -147,7 +136,7 @@ public static class ProbeRecorder
             Baselines(request.RepositoryRoot, target, ran.Runtime, recorded, probes, outcomes, changeSet);
         }
 
-        Report(request, outcomes);
+        Report(request, outcomes, names);
         return new ProbeRunResult(runs, Sorted(outcomes), changeSet.IsEmpty ? null : changeSet, BuildFailed: false);
     }
 
@@ -180,8 +169,37 @@ public static class ProbeRecorder
             }
         }
 
-        Report(request, outcomes);
+        Report(request, outcomes, ["verify"]);
         return new ProbeRunResult(runs, Sorted(outcomes), null, BuildFailed: false);
+    }
+
+    internal static List<string> AllowedReleases(WorkspaceModel model, ProbeTarget target, NuGetVersion? floor)
+    {
+        var production = model.Projects.Single(p => p.Id == target.Production);
+        var allowed = new List<string>();
+        if (NewtonsoftDeploymentScope.Compute(model, NewtonsoftRules.Measured, floor).TryGetValue(production.Id, out var deployment))
+        {
+            allowed.AddRange(deployment.DeployedReleases
+                .Select(r => NuGetVersion.TryParse(r, out var v) && v < NewtonsoftRules.Measured && v.Major < NewtonsoftRules.Measured.Major ? $"{v.Major}.{v.Minor}.0.0" : null).OfType<string>());
+        }
+
+        if (allowed.Count == 0 && target.TestProject == production.Id)
+        {
+            var framework = CompilationLoader.PreferredTarget(production);
+            if (framework is not null && production.Resolved.TryGetValue(framework, out var resolved)
+                && resolved.Packages.FirstOrDefault(p => string.Equals(p.Id, NewtonsoftReferences.PackageId, StringComparison.OrdinalIgnoreCase)) is { } package
+                && NuGetVersion.TryParse(package.Version, out var resolvedVersion))
+            {
+                allowed.Add($"{resolvedVersion.Major}.{resolvedVersion.Minor}.0.0");
+            }
+        }
+
+        if (allowed.Count == 0 && ExpectedIdentity(production, target.TestProject == production.Id) is { } expectedIdentity)
+        {
+            allowed.Add(expectedIdentity);
+        }
+
+        return allowed;
     }
 
     internal static string? ExpectedIdentity(ProjectInfo production, bool isSelfTestHost)
@@ -202,7 +220,7 @@ public static class ProbeRecorder
     }
 
     public static string BaselinePath(ProbeTarget target, string runtime, string probe) =>
-        $"{target.Folder}/Baseline/{runtime}/{probe}.txt";
+        $"{target.Folder}/Baseline/{runtime}/{ProbePlanner.ProbeId(probe)}.txt";
 
     /// <summary>Recorded results become baselines (new or changed ones written); baselines of probes that no longer exist are deleted.</summary>
     private static void Baselines(string root, ProbeTarget target, string runtime, List<(PlannedProbe Probe, ProbeRecord Record)> recorded,
@@ -211,7 +229,7 @@ public static class ProbeRecorder
         foreach (var (probe, record) in recorded)
         {
             var path = BaselinePath(target, runtime, probe.Id);
-            var text = File.ReadAllText(Path.Combine(RepoPaths.ToAbsolute(root, RunsFolder), "record-1", runtime, probe.Id + ".txt")).Replace("\r\n", "\n", StringComparison.Ordinal);
+            var text = File.ReadAllText(Path.Combine(RepoPaths.ToAbsolute(root, RunsFolder), "record-1", runtime, ProbePlanner.ProbeId(probe.Id) + ".txt")).Replace("\r\n", "\n", StringComparison.Ordinal);
             var absolute = RepoPaths.ToAbsolute(root, path);
             if (!File.Exists(absolute))
             {
@@ -232,7 +250,7 @@ public static class ProbeRecorder
         var folder = RepoPaths.ToAbsolute(root, $"{target.Folder}/Baseline/{runtime}");
         if (Directory.Exists(folder))
         {
-            var current = probes.Select(p => p.Id + ".txt").ToHashSet(StringComparer.Ordinal);
+            var current = probes.Select(p => ProbePlanner.ProbeId(p.Id) + ".txt").ToHashSet(StringComparer.Ordinal);
             foreach (var stale in Directory.EnumerateFiles(folder, "*.txt").Where(f => !current.Contains(Path.GetFileName(f))).Order(StringComparer.Ordinal))
             {
                 changeSet.Delete(root, RepoPaths.ToRepositoryRelative(root, stale));
@@ -407,7 +425,7 @@ public static class ProbeRecorder
 
     private static ProbeRecord? Read(string root, string run, string runtime, string probe)
     {
-        var path = Path.Combine(RepoPaths.ToAbsolute(root, RunsFolder), run, runtime, probe + ".txt");
+        var path = Path.Combine(RepoPaths.ToAbsolute(root, RunsFolder), run, runtime, ProbePlanner.ProbeId(probe) + ".txt");
         return File.Exists(path) ? ProbeRecord.Parse(File.ReadAllText(path)) : null;
     }
 
@@ -418,7 +436,7 @@ public static class ProbeRecorder
         [.. outcomes.OrderBy(o => o.TestProject, StringComparer.Ordinal).ThenBy(o => o.Runtime, StringComparer.Ordinal).ThenBy(o => o.Probe, StringComparer.Ordinal)];
 
     /// <summary>One diagnostic per test project and kind of outcome, at the first probe, with the probes listed.</summary>
-    internal static void Report(ProbeRunRequest request, List<ProbeOutcome> outcomes)
+    internal static void Report(ProbeRunRequest request, List<ProbeOutcome> outcomes, IReadOnlyList<string>? resultRuns = null)
     {
         foreach (var group in outcomes.GroupBy(o => (o.TestProject, o.Status)).OrderBy(g => g.Key.TestProject, StringComparer.Ordinal).ThenBy(g => g.Key.Status))
         {
@@ -438,11 +456,50 @@ public static class ProbeRecorder
 
             var first = group.First();
             var count = group.Count();
+            var more = count == 1 ? "." : $"; {count} probes in {group.Key.TestProject}, the first is shown.";
+            var detail = first.Status == ProbeStatus.Missing
+                ? MissingProbeDetail(request, group.Key.TestProject, first.Runtime, resultRuns ?? ["record-1"], group.Select(o => o.Probe).ToList())
+                : "";
             request.Diagnostics.Report(descriptor,
-                $"Probe {first.Probe} ({first.Status.ToString().ToLowerInvariant()}) {what}" + (count == 1 ? "." : $"; {count} probes in {group.Key.TestProject}, the first is shown.") + (first.Diff is null ? "" : "\n" + first.Diff),
+                $"Probe {first.Probe} ({first.Status.ToString().ToLowerInvariant()}) {what}{more}{detail}" + (first.Diff is null ? "" : "\n" + first.Diff),
                 new DiagnosticLocation(group.Key.TestProject),
                 [KeyValuePair.Create<string, JsonNode?>("probes", new JsonArray([.. group.Select(o => (JsonNode?)o.Probe)]))]);
         }
+    }
+
+    private static string MissingProbeDetail(ProbeRunRequest request, string testProject, string runtime, IReadOnlyList<string> resultRuns, IReadOnlyList<string> ids)
+    {
+        var probes = ids.Order(StringComparer.Ordinal)
+            .Select(id => request.Probes.FirstOrDefault(p => p.Id == id && p.TestProject == testProject))
+            .OfType<PlannedProbe>()
+            .ToList();
+        if (probes.Count == 0)
+        {
+            return " No generated class or method could be matched to the missing result.";
+        }
+
+        var test = request.Model.Projects.FirstOrDefault(p => p.Id == testProject);
+        var names = probes.Select(probe =>
+        {
+            var target = request.Targets.FirstOrDefault(t => t.TestProject == testProject && t.Folder + "/" == probe.File[..(probe.File.LastIndexOf('/') + 1)]);
+            var folder = target?.Folder[(target.Folder.LastIndexOf('/') + 1)..] ?? Path.GetFileName(Path.GetDirectoryName(probe.File)) ?? "NewtonsoftCharacterization";
+            var ns = (test?.RootNamespace ?? test?.Name ?? testProject) + "." + CSharp6.Identifier(folder);
+            var className = Path.GetFileNameWithoutExtension(probe.File);
+            return ns + "." + className + ".Probe_" + CSharp6.Identifier(probe.Id);
+        }).ToList();
+
+        var first = probes[0];
+        var targetForProbe = request.Targets.FirstOrDefault(t => t.TestProject == testProject && t.Folder + "/" == first.File[..(first.File.LastIndexOf('/') + 1)]);
+        var baseline = targetForProbe is null ? null : BaselinePath(targetForProbe, runtime, first.Id);
+        var resultRun = resultRuns.FirstOrDefault(run => !File.Exists(Path.Combine(RepoPaths.ToAbsolute(request.RepositoryRoot, RunsFolder), run, runtime, ProbePlanner.ProbeId(first.Id) + ".txt")))
+            ?? resultRuns.FirstOrDefault() ?? "record-1";
+        var result = Path.Combine(RunsFolder, resultRun, runtime, ProbePlanner.ProbeId(first.Id) + ".txt");
+        var baselineLength = baseline is null ? 0 : RepoPaths.ToAbsolute(request.RepositoryRoot, baseline).Length;
+        var resultLength = RepoPaths.ToAbsolute(request.RepositoryRoot, result).Length;
+        var pathCause = baselineLength >= 240 || resultLength >= 240
+            ? $"The first missing method is {names[0]}; its baseline path is {baselineLength} characters and its result path is {resultLength} (Windows MAX_PATH is commonly 260 including the path)."
+            : $"The first missing method is {names[0]}; its baseline path is {baselineLength} characters and its result path is {resultLength}, so a Windows path-length limit is unlikely to be the cause.";
+        return $" Missing generated class/method names: {string.Join(", ", names)}. {pathCause} If the paths are not near the platform limit, check whether the configured command's filter includes these methods, whether the test adapter discovered them, or whether the test host stopped early or crashed.";
     }
 
     /// <summary>A build error as one line: code, file, and message.</summary>

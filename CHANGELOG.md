@@ -29,6 +29,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - `newtonsoft upgrade` without `--version` caps its target at the lowest stable direct release already at/above `newtonsoft.upgradeFloor`, leaving that and higher releases unchanged to prevent package downgrades; `OFR3724` explains the selected target.
 - `newtonsoft tests` resolves matching test-project ties deterministically (self-hosted tests, conventional name, downstream coverage, then test kind); type probes also accept an assembly identity matching a deployed release below the target, with OFR3743 reporting both identities and deployed releases otherwise.
 - `newtonsoft` behavior findings use application-deployed releases for shared projects, while API trial compilation still uses the project's own recorded compilation.
+- `newtonsoft tests` resolves a self-hosted test's expected Newtonsoft.Json identity from its resolved production release when no older deployed release applies; long probe IDs get stable bounded result/baseline filenames, and OFR3741 names missing generated methods with path-length and test-discovery guidance (ADR 0080).
 
 ## [0.19.0] - 2026-10-15
 

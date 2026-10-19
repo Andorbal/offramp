@@ -482,8 +482,8 @@ internal sealed class ProbePlanner
             .WithGenericsOptions(SymbolDisplayGenericsOptions.None));
     }
 
-    /// <summary>Letters, digits, and <c>. # - _</c>: a file name on every OS.</summary>
-    internal static string ProbeId(string text)
+    /// <summary>Letters, digits, and <c>. # - _</c>: a file name on every OS; long ids get a stable hash suffix.</summary>
+    internal static string ProbeId(string text, int maxLength = 100)
     {
         var builder = new StringBuilder();
         foreach (var c in text)
@@ -491,7 +491,20 @@ internal sealed class ProbePlanner
             builder.Append(char.IsAsciiLetterOrDigit(c) || c is '.' or '#' or '-' or '_' ? c : '_');
         }
 
-        return builder.ToString();
+        var id = builder.ToString();
+        if (id.Length <= maxLength)
+        {
+            return id;
+        }
+
+        const int hashLength = 12;
+        if (maxLength < hashLength + 2)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxLength), $"Probe id limit must exceed {hashLength + 1} characters.");
+        }
+
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(id))).ToLowerInvariant()[..hashLength];
+        return id[..(maxLength - hashLength - 1)] + "-" + hash;
     }
 
     private static string Wire(UncoveredReason reason)

@@ -329,7 +329,10 @@ and production identities and the deployed releases, and only entry probes are
 generated; `upgrade` moves test projects with production ones, so the identities
 stay equal. Probe ids are `<site id>.<entry|type|input>[<k>].<sample>`
 (`k` numbers payload types when a site has several), made of letters, digits,
-and `. # - _` so they are file names on every OS.
+and `. # - _` so they are file names on every OS. IDs longer than 100 characters are
+truncated with a 12-character lowercase SHA-256 suffix; shorter IDs are unchanged.
+The shortened ID is used for result and baseline filenames while records retain the
+full probe ID.
 
 **Inputs of reading probes**, all that apply:
 
@@ -419,11 +422,18 @@ with `autocrlf`).
    input is a writing probe's output reads it from the same run.
 4. A probe whose runs differ is `OFR3738` (warning, quarantined: no baseline is
    written, and the differing lines are shown). A probe with no result is
-   `OFR3741`. A result recorded under a Newtonsoft.Json assembly version other
+   `OFR3741`; it lists the generated class/method names, gives the first one's
+   baseline and result path lengths (flagging paths near Windows' common 260-character
+   limit), and suggests checking the configured filter, adapter discovery, and early
+   test-host exit when the paths are short. Probe result/baseline filenames use the
+   stable shortened ID described above. A result recorded under a Newtonsoft.Json assembly version other
    than the production project's (`<major>.<minor>.0.0` of its release) is
    `OFR3745` (error) and nothing is written for that test project: the test
    project resolved another version, as SDK-style test projects on modern .NET do
-   through `Microsoft.NET.Test.Sdk` 17.x (ADR 0067).
+   through `Microsoft.NET.Test.Sdk` 17.x (ADR 0067). When the test host is the
+   production project and its deployed releases below the target are empty, its
+   expected identity is the production project's own resolved Newtonsoft.Json release,
+   not its declared old package release.
 5. The results become `Baseline/<runtime>/<probe>.txt` through a change set with
    its own journal (`baselineJournal`, undone with `move rollback`); baselines of
    probes that no longer exist are deleted. `<runtime>` is `netfx` or `core`: the
@@ -674,11 +684,11 @@ newtonsoft:
 | OFR3738 | warning | probe output differs between runs; quarantined |
 | OFR3739 | warning | .NET Framework tests cannot run on this OS |
 | OFR3740 | error | test build or run failed |
-| OFR3741 | warning | probe did not run |
+| OFR3741 | warning | probe did not run; generated class/method names, first probe path lengths, and likely causes are reported |
 | OFR3742 | info | generated file taken over by the user; left alone |
 | OFR3743 | warning | test project binds another Newtonsoft.Json; type probes skipped |
 | OFR3744 | warning | probe has no baseline |
-| OFR3745 | error | probe ran under another Newtonsoft.Json version than production |
+| OFR3745 | error | probe ran under another Newtonsoft.Json version than production; self-hosted probes with no older deployment expect the production project's resolved release |
 | OFR3746 | error | generated probes are out of date |
 | OFR3747 | warning | legacy test project has no VSTest adapter; not run |
 | OFR3748 | error | generated probes do not compile in the test project; nothing generated for it |
