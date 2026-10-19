@@ -2,9 +2,12 @@ using System.CommandLine;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
+using Offramp.Analysis.Newtonsoft;
 using Offramp.Cli.Infrastructure;
 using Offramp.Cli.Rendering;
 using Offramp.Core.Diagnostics;
+using Offramp.NuGet.Feeds;
+using Offramp.NuGet.Inspection;
 using Offramp.Scaffolding;
 using Offramp.Scaffolding.Newtonsoft;
 using Offramp.Workspace.Store;
@@ -64,23 +67,36 @@ public sealed class NewtonsoftUpgradeCommand : ICommandHandler<NewtonsoftUpgrade
             projects.Add(id);
         }
 
-        if (await NewtonsoftCommands.TargetAsync(context, model, options.Version, cancellationToken) is not { Version: { } target } release)
+        var release = await NewtonsoftCommands.TargetAsync(context, model, options.Version, cancellationToken);
+        if (release is not { Version: { } newest })
         {
             return CommandOutcome<NewtonsoftUpgradeResult>.Usage();
         }
 
+        if (options.Version is null)
+        {
+            var automaticTarget = NewtonsoftUpgrader.SelectAutomaticTarget(model, newest, config.Newtonsoft.UpgradeFloor, exactVersion: false, context.Diagnostics, projects);
+            if (automaticTarget != newest)
+            {
+                using var feeds = NuGetPackageFeeds.ForRepository(root, config.Deps.Feeds);
+                release = await ReleaseChooser.ExactAsync(feeds, NewtonsoftReferences.PackageId, automaticTarget, cancellationToken);
+            }
+        }
+
         if (release.Package is null)
         {
-            context.Diagnostics.Report(DiagnosticCatalog.OFR3760, $"Newtonsoft.Json {target} is in neither the global packages folder nor the configured feeds.");
+            context.Diagnostics.Report(DiagnosticCatalog.OFR3760, $"Newtonsoft.Json {release.Version} is in neither the global packages folder nor the configured feeds.");
             return CommandOutcome<NewtonsoftUpgradeResult>.Environment();
         }
+
+        var plannedTarget = release.Version!;
 
         var request = new NewtonsoftUpgradeRequest
         {
             RepositoryRoot = root,
             Model = model,
             Config = config,
-            Target = target,
+            Target = plannedTarget,
             TargetPackage = release.Package,
             Projects = projects,
             ExactVersion = options.Version is not null,

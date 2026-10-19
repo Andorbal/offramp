@@ -241,7 +241,7 @@ where a command reports a code at another severity, the entry says so.
 | [OFR3721](#ofr3721) | info | newtonsoft | settings cannot be reproduced |
 | [OFR3722](#ofr3722) | warning | newtonsoft | several Newtonsoft.Json versions in the solution |
 | [OFR3723](#ofr3723) | warning | newtonsoft | loose Newtonsoft.Json DLL |
-| [OFR3724](#ofr3724) | info | newtonsoft | already within the target range; left unchanged |
+| [OFR3724](#ofr3724) | info | newtonsoft | already compatible; left unchanged or automatic target limited |
 | [OFR3725](#ofr3725) | warning | newtonsoft | target Newtonsoft.Json unavailable; API changes not computed |
 | [OFR3726](#ofr3726) | info | newtonsoft | projects out of scope |
 | [OFR3731](#ofr3731) | warning | newtonsoft | site has no probe |
@@ -2260,12 +2260,12 @@ The project references a Newtonsoft.Json.dll that no package provides; its versi
 
 ### OFR3724
 
-**already within the target range; left unchanged** · info · newtonsoft
+**already compatible; left unchanged or automatic target limited** · info · newtonsoft
 
-The project's stable Newtonsoft.Json release is at or above the configured upgrade floor and has the target's major version; nothing changes for it.
+The project's stable Newtonsoft.Json release is at or above the configured upgrade floor and has the target's major version, or is newer than the planned target; nothing changes for it. During an automatic upgrade, this diagnostic also explains when the planned target is capped at the lowest directly-declared release already protected by the floor, so untouched projects do not cause package downgrades.
 
-- **Typical cause:** Projects already on a supported target-range release.
-- **Fix:** None, unless an exact --version was requested.
+- **Typical cause:** Projects already on a supported target-range release, a newer release, or a mixed-version solution where the lowest protected release limits the automatic upgrade target.
+- **Fix:** None, unless an exact --version was requested. For a capped target, projects at the target release and above are intentionally left unchanged.
 
 ### OFR3725
 

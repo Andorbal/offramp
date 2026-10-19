@@ -150,10 +150,10 @@ public static partial class DiagnosticCatalog
 
     public static readonly DiagnosticDescriptor OFR3724 = new(
         "OFR3724", Severity.Info,
-        "already within the target range; left unchanged",
-        "The project's stable Newtonsoft.Json release is at or above the configured upgrade floor and has the target's major version; nothing changes for it.",
-        "Projects already on a supported target-range release.",
-        "None, unless an exact --version was requested.",
+        "already compatible; left unchanged or automatic target limited",
+        "The project's stable Newtonsoft.Json release is at or above the configured upgrade floor and has the target's major version, or is newer than the planned target; nothing changes for it. During an automatic upgrade, this diagnostic also explains when the planned target is capped at the lowest directly-declared release already protected by the floor, so untouched projects do not cause package downgrades.",
+        "Projects already on a supported target-range release, a newer release, or a mixed-version solution where the lowest protected release limits the automatic upgrade target.",
+        "None, unless an exact --version was requested. For a capped target, projects at the target release and above are intentionally left unchanged.",
         NewtonsoftArea);
 
     public static readonly DiagnosticDescriptor OFR3725 = new(

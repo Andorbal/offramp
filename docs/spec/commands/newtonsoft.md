@@ -43,7 +43,14 @@ Diagnostics are `OFR3700–3799` (an audit sub-range).
 - **Target.** `newtonsoft.target` (default `[13.0,14.0)`) or `--version`: the
   newest stable version in the range whose `lib/` supports every target framework
   of every project that references Newtonsoft.Json ("supports target" as in
-  `deps.md`). None: `OFR3760`.
+  `deps.md`). For `newtonsoft upgrade` without `--version`, cap that target at
+  the lowest stable, directly-declared Newtonsoft.Json release (PackageReference,
+  central package, `packages.config`, or `HintPath`) among projects at or above
+  `newtonsoft.upgradeFloor` in the target major; that release and higher releases
+  remain unchanged, avoiding package downgrades. If no such release is lower than
+  the newest target, the newest remains the target. `OFR3724` explains when an
+  existing release limits the automatic upgrade target. An explicit `--version`
+  remains exact and bypasses this selection. None: `OFR3760`.
 - **Site.** An invocation, bound with the semantic model, of an API listed in
   `rules/newtonsoft-apis.yml` (by documentation ID), with its *direction*:
   `serialize` (`JsonConvert.SerializeObject`, `JsonSerializer.Serialize`,
@@ -489,8 +496,14 @@ Dry run by default: plans every edit and prints it as one diff.
      the target package that NuGet would pick for the project's framework (read
      from the package, not guessed). Separators and the relative prefix are kept.
    - Binding redirects: `redirects sync` over a model in which Newtonsoft.Json is
-     at the target, with the target package in the global packages folder (put
-     there first, outside the repository). A redirect that points at a version the
+     at the planned target, with the target package in the global packages folder (put
+     there first, outside the repository). Without `--version`, the planned target is
+     the newest release capped at the lowest already-used direct release at or above
+     `newtonsoft.upgradeFloor` in the target major, when that release is lower than
+     newest; projects at that release and higher stay unchanged. This avoids lowering
+     upgraded projects beneath a version that remains in use. With no such project,
+     newest remains the target. `OFR3724` explains a capped target; an explicit
+     `--version` remains exact. A redirect that points at a version the
      application no longer deploys (`0.0.0.0-7.0.0.0 → 7.0.0.0` after the upgrade)
      is moved to the deployed one (`OFR1502`): left alone, anything built against
      an older release would fail to load. Only the `Newtonsoft.Json` redirects are

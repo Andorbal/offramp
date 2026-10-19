@@ -103,6 +103,66 @@ public static class NewtonsoftUpgrader
 {
     private const string Id = NewtonsoftReferences.PackageId;
 
+    /// <summary>Caps an automatic target at the lowest stable, direct release already protected by the floor.</summary>
+    public static NuGetVersion SelectAutomaticTarget(WorkspaceModel model, NuGetVersion newest, string floorText, bool exactVersion, DiagnosticBag diagnostics, IReadOnlyList<string>? projects = null)
+    {
+        if (exactVersion || !NuGetVersion.TryParse(floorText, out var floor))
+        {
+            return newest;
+        }
+
+        var limiting = model.Projects
+            .Where(p => projects is null || projects.Count == 0 || projects.Contains(p.Id, StringComparer.Ordinal))
+            .Where(p => p.Language == "csharp")
+            .Select(p => (Project: p, Tfm: CompilationLoader.PreferredTarget(p)
+                ?? p.TargetFrameworks.OrderBy(t => t.StartsWith("net4", StringComparison.Ordinal) ? 0 : 1).ThenBy(t => t, StringComparer.Ordinal).FirstOrDefault()))
+            .Where(p => p.Tfm is not null)
+            .Select(p => (p.Project, Reference: NewtonsoftReferences.For(p.Project, p.Tfm!)))
+            .Where(p => p.Reference is { Via: NewtonsoftReferenceKind.PackageReference or NewtonsoftReferenceKind.CentralPackage or NewtonsoftReferenceKind.PackagesConfig or NewtonsoftReferenceKind.HintPath }
+                && NuGetVersion.TryParse(p.Reference.Version, out var current)
+                && !current.IsPrerelease && current.Major == newest.Major && current >= floor)
+            .Select(p => (p.Project.Id, Version: NuGetVersion.Parse(p.Reference!.Version)))
+            .OrderBy(p => p.Version)
+            .ThenBy(p => p.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+        if (limiting.Id is null || limiting.Version >= newest)
+        {
+            return newest;
+        }
+
+        diagnostics.Report(DiagnosticCatalog.OFR3724,
+            $"Using {limiting.Version} instead of the newest in-range release {newest} as the automatic target because {limiting.Id} already directly uses the lowest stable release at or above the upgrade floor; it remains unchanged.",
+            new DiagnosticLocation(limiting.Id));
+        return limiting.Version;
+    }
+
+    internal static bool ShouldLeaveUnchanged(NewtonsoftReference reference, NuGetVersion target, string floorText, bool exactVersion)
+    {
+        if (!NuGetVersion.TryParse(reference.Version, out var current))
+        {
+            return false;
+        }
+
+        if (current == target)
+        {
+            return true;
+        }
+
+        if (exactVersion)
+        {
+            return false;
+        }
+
+        if (current > target)
+        {
+            return true;
+        }
+
+        return !current.IsPrerelease && current.Major == target.Major
+            && NuGetVersion.TryParse(floorText, out var floor) && current >= floor;
+    }
+
     public static async Task<(NewtonsoftUpgradeResult Result, ChangeSet? ChangeSet)> PlanAsync(NewtonsoftUpgradeRequest request, CancellationToken cancellationToken)
     {
         var scan = NewtonsoftScanner.Scan(new NewtonsoftScanRequest
@@ -135,18 +195,10 @@ public static class NewtonsoftUpgrader
             }
 
             users.Add(project.Id);
-            if (!request.ExactVersion && NuGetVersion.TryParse(reference.Version, out var current)
-                && current.IsPrerelease == false && current.Major == request.Target.Major
-                && NuGetVersion.TryParse(request.Config.Newtonsoft.UpgradeFloor, out var floor) && current >= floor)
+            if (ShouldLeaveUnchanged(reference, request.Target, request.Config.Newtonsoft.UpgradeFloor, request.ExactVersion))
             {
                 request.Diagnostics.Report(DiagnosticCatalog.OFR3724,
-                    $"{project.Id} already within the target range at Newtonsoft.Json {current}; left unchanged.", new DiagnosticLocation(project.Id));
-                continue;
-            }
-
-            if (NuGetVersion.TryParse(reference.Version, out current) && current == request.Target)
-            {
-                request.Diagnostics.Report(DiagnosticCatalog.OFR3724, $"{project.Id} already uses Newtonsoft.Json {request.Target}.", new DiagnosticLocation(project.Id));
+                    $"{project.Id} already uses Newtonsoft.Json {reference.Version}, which is at or above the planned target or upgrade floor; left unchanged.", new DiagnosticLocation(project.Id));
                 continue;
             }
 
@@ -396,7 +448,7 @@ public static class NewtonsoftUpgrader
         var plan = RedirectPlanner.Plan(new RedirectsRequest
         {
             RepositoryRoot = request.RepositoryRoot,
-            Model = Upgraded(request.Model, request.Target),
+            Model = Upgraded(request, request.Target),
             // The upgrade changes Newtonsoft.Json only: another assembly's redirect that is out of date was so before (ADR 0073).
             Assemblies = [Id],
             Diagnostics = new DiagnosticBag(),
@@ -409,28 +461,37 @@ public static class NewtonsoftUpgrader
         return plan.Result with { Preview = null };
     }
 
-    /// <summary>The model with every Newtonsoft.Json reference at the target.</summary>
-    private static WorkspaceModel Upgraded(WorkspaceModel model, NuGetVersion target)
+    /// <summary>The model with the Newtonsoft.Json references this plan changes at the target.</summary>
+    private static WorkspaceModel Upgraded(NewtonsoftUpgradeRequest request, NuGetVersion target)
     {
+        var model = request.Model;
         var version = target.ToNormalizedString();
         var assembly = $"{target.Major}.{target.Minor}.0.0";
         bool Is(string id) => string.Equals(id, Id, StringComparison.OrdinalIgnoreCase);
         return model with
         {
-            Projects = [.. model.Projects.Select(p => p with
+            Projects = [.. model.Projects.Select(p =>
             {
-                PackagesConfigPackages = p.PackagesConfigPackages?.Select(c => Is(c.Id) ? c with { Version = version } : c).ToList(),
-                PackageReferences = [.. p.PackageReferences.Select(r => Is(r.Id) && r.Version is not null ? r with { Version = version } : r)],
-                Resolved = new SortedDictionary<string, ResolvedFramework>(
-                    p.Resolved.ToDictionary(r => r.Key, r => r.Value with { Packages = [.. r.Value.Packages.Select(k => Is(k.Id) ? k with { Version = version } : k)] }),
-                    StringComparer.Ordinal),
-                AssemblyReferences = [.. p.AssemblyReferences.Select(r => Is(r.Name) && r.HintPath is { } hint
-                    ? r with
-                    {
-                        HintPath = string.Join('/', hint.Split('/').Select(s => s.StartsWith(Id + ".", StringComparison.OrdinalIgnoreCase) && NuGetVersion.TryParse(s[(Id.Length + 1)..], out _) ? $"{Id}.{version}" : s)),
-                        Metadata = r.Metadata is null ? null : r.Metadata with { AssemblyVersion = assembly },
-                    }
-                    : r)],
+                var tfm = CompilationLoader.PreferredTarget(p)
+                    ?? p.TargetFrameworks.OrderBy(t => t.StartsWith("net4", StringComparison.Ordinal) ? 0 : 1).ThenBy(t => t, StringComparer.Ordinal).FirstOrDefault();
+                var reference = tfm is null ? null : NewtonsoftReferences.For(p, tfm);
+                var leaveDirectRelease = reference is { Via: NewtonsoftReferenceKind.PackageReference or NewtonsoftReferenceKind.CentralPackage or NewtonsoftReferenceKind.PackagesConfig or NewtonsoftReferenceKind.HintPath }
+                    && ShouldLeaveUnchanged(reference, target, request.Config.Newtonsoft.UpgradeFloor, request.ExactVersion);
+                return leaveDirectRelease ? p : p with
+                {
+                    PackagesConfigPackages = p.PackagesConfigPackages?.Select(c => Is(c.Id) ? c with { Version = version } : c).ToList(),
+                    PackageReferences = [.. p.PackageReferences.Select(r => Is(r.Id) && r.Version is not null ? r with { Version = version } : r)],
+                    Resolved = new SortedDictionary<string, ResolvedFramework>(
+                        p.Resolved.ToDictionary(r => r.Key, r => r.Value with { Packages = [.. r.Value.Packages.Select(k => Is(k.Id) ? k with { Version = version } : k)] }),
+                        StringComparer.Ordinal),
+                    AssemblyReferences = [.. p.AssemblyReferences.Select(r => Is(r.Name) && r.HintPath is { } hint
+                        ? r with
+                        {
+                            HintPath = string.Join('/', hint.Split('/').Select(s => s.StartsWith(Id + ".", StringComparison.OrdinalIgnoreCase) && NuGetVersion.TryParse(s[(Id.Length + 1)..], out _) ? $"{Id}.{version}" : s)),
+                            Metadata = r.Metadata is null ? null : r.Metadata with { AssemblyVersion = assembly },
+                        }
+                        : r)],
+                };
             })],
         };
     }
