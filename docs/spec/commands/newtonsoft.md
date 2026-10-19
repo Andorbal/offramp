@@ -450,11 +450,14 @@ framework (`NUnitTestAdapter` for NUnit 2, `NUnit3TestAdapter`,
 `xunit.runner.visualstudio`, `MSTest.TestAdapter`; ADR 0073). A project that
 cannot run is reported once per command, not once per recording pass.
 **Recording on another machine.** Generation works on any OS; recording and
-verifying a test project that targets only .NET Framework need Windows. Move
-between the two through the repository, not by copying or synchronizing the
-working folder: `.offramp/`'s logs, `bin/`, `obj/`, and `packages/` belong to the
-machine that built them (a synchronized `obj/` gives a Windows build the Mac's
-package folder, `OFR0132`; ADR 0076).
+verifying a test project that targets only .NET Framework need Windows. Prefer
+moving generated source and baselines through the repository rather than copying
+or synchronizing the working folder: `.offramp/`'s logs, `bin/`, `obj/`, and
+`packages/` belong to the machine that built them (a synchronized `obj/` gives a
+Windows build the other machine's package folder, `OFR0132`; ADR 0076). If
+recording in a Windows VM whose files are mirrored, use the precautions in
+[Windows VM workflow](#windows-vm-workflow-for-legacy-nunit-projects) so the
+host's `.offramp/` state cannot overwrite the VM's.
 
 1. Where you generate: `offramp newtonsoft tests --apply`, then commit the
    generated folders.
@@ -474,6 +477,81 @@ runs its first modern .NET target (results under `core`); one that targets only
 .NET Framework runs on Windows (`netfx`) and elsewhere is skipped with `OFR3739`
 (warning), which gives the command to run on Windows (ADR 0067). There is no Mono
 support.
+
+### Windows VM workflow for legacy NUnit projects
+
+Use this when a legacy .NET Framework test project cannot be loaded by `dotnet
+test`. Configure both builds to use the installed Visual Studio/Build Tools
+MSBuild, then set `newtonsoft.tests.command` to a wrapper that invokes NUnit
+Console:
+
+```yaml
+scan:
+  builder: msbuild
+verify:
+  builder: msbuild
+newtonsoft:
+  tests:
+    timeoutSeconds: 7200
+    command: >-
+      powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+      scripts\run-probes.ps1 -Assembly {assembly} -Filter {filter} -Results {results}
+```
+
+For example, `scripts/run-probes.ps1` can take those three named parameters and
+translate Offramp's `FullyQualifiedName~A|FullyQualifiedName~B` filter into
+NUnit's where expression. This example escapes each class name for a regular
+expression, locates `nunit3-console.exe` in the NuGet global-packages cache, and
+writes NUnit's own XML report separately from Offramp's probe result files:
+
+```powershell
+param([string]$Assembly, [string]$Filter, [string]$Results)
+
+$terms = foreach ($part in ($Filter -split '\|')) {
+    if ($part -notmatch '^FullyQualifiedName~(.+)$') { throw "Unsupported filter: $part" }
+    "test =~ /$([regex]::Escape($Matches[1]))/"
+}
+$where = $terms -join ' || '
+$cache = Join-Path $env:USERPROFILE '.nuget\packages\nunit.consolerunner'
+$package = Get-ChildItem $cache -Directory |
+    Sort-Object { [version]($_.Name -replace '-.*$', '') } |
+    Select-Object -Last 1
+$console = if ($package) {
+    Get-ChildItem $package.FullName -Filter nunit3-console.exe -File -Recurse |
+        Select-Object -First 1
+}
+if (-not $console) { throw "nunit3-console.exe not found under $cache" }
+New-Item -ItemType Directory -Force -Path $Results | Out-Null
+& $console.FullName $Assembly "--where=$where" "--result=$Results\nunit-results.xml" --skipnontestassemblies
+# Probe result files, not NUnit's exit code or XML report, determine Offramp's verdict.
+exit 0
+```
+
+Offramp supplies `OFFRAMP_NEWTONSOFT_MODE`, `OFFRAMP_NEWTONSOFT_RESULTS`, and
+`OFFRAMP_NEWTONSOFT_DIR` to the wrapper's process; the generated probes write
+under the results directory. Returning zero lets Offramp judge those probe files
+rather than treating NUnit's expected failing assertions as the verdict.
+
+A run that takes 30 minutes or more must outlive the interactive SSH session:
+launch the recording command through Windows Task Scheduler (or another detached
+process), have the launcher write a done-marker file with the process exit code,
+and poll that marker from the SSH session. For example, the scheduled PowerShell
+launcher can run `offramp newtonsoft tests --record --apply`, save `$LASTEXITCODE`
+to a marker path in a `finally`-style completion step, then exit with that code;
+the SSH client polls with `while (-not (Test-Path $marker)) { Start-Sleep 30 }` and
+reads the marker when it appears. Set `timeoutSeconds` high enough for the
+expected run. When the VM checkout is mirrored from another machine, pause
+the file sync before working so its `.offramp/` does not get overwritten, then
+delete the stale `.offramp/` on the VM and run `offramp scan` there before
+recording. Offramp does not require Git on the VM; it applies changes directly
+as ordinary filesystem operations.
+
+If a production assembly also hosts its tests, remove its generated
+characterization folder before shipping it:
+
+```powershell
+offramp newtonsoft tests --remove --apply
+```
 
 Result (`schemas/v1/newtonsoft-tests.json`): `targets[]` (production project,
 test project, framework, how it was chosen, folder), `probes[]` (id, kind

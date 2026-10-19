@@ -17,6 +17,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 - Workspace projects now expose `hostsTests`, identifying production-kind assemblies that also reference a test framework.
 
 ### Changed
+- The Newtonsoft migration guide documents a Windows VM workflow for recording legacy .NET Framework NUnit characterization probes with an NUnit Console wrapper, detached long-running jobs, and file-sync precautions.
 - `IsTestProject=true` from `Microsoft.NET.Test.Sdk` is demotable evidence: application kinds win, and an application-used project has `isTestProject=false`. The legacy test ProjectTypeGuid and `offramp.yml` `kind: test` remain explicit test declarations; `WinExe` now defaults to `console` absent stronger service or desktop evidence (ADR 0077).
   **Migration:** `kind`, `isTestProject`, and workspace JSON now reflect production assemblies carrying tests; rescan and update workspace consumers to accept the required `hostsTests` field.
 
