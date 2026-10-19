@@ -23,6 +23,40 @@ public sealed class NewtonsoftTestsCommandTests
     }
 
     [Fact]
+    public async Task Remove_dry_run_and_apply_are_journaled()
+    {
+        var scanned = await ScannedFixtures.ScanAsync("newtonsoft-legacy");
+        using var cli = new CliHarness(scanned.Repository.Directory).WithRealGitAndBuilds();
+        var generated = await cli.RunAsync("newtonsoft", "tests", "--apply", "--json");
+        Assert.Equal(0, generated.ExitCode);
+        var folder = Path.Combine(scanned.Root, "tests", "Orders.Tests", "NewtonsoftCharacterization");
+        Assert.True(File.Exists(Path.Combine(folder, "OfframpProbe.cs")));
+
+        var dryRun = await cli.RunAsync("scan", "--json");
+        Assert.Equal(0, dryRun.ExitCode);
+        dryRun = await cli.RunAsync("--no-cache", "newtonsoft", "tests", "--remove", "--json");
+
+        Assert.Equal(0, dryRun.ExitCode);
+        SchemaAssert.ValidEnvelope(dryRun.Out, "newtonsoft-tests");
+        var dryResult = JsonNode.Parse(dryRun.Out)!["result"]!;
+        Assert.Equal("remove", dryResult["mode"]!.GetValue<string>());
+        Assert.False(dryResult["applied"]!.GetValue<bool>());
+        Assert.Contains(dryResult["files"]!.AsArray(), file => file!["action"]!.GetValue<string>() == "delete");
+        Assert.True(File.Exists(Path.Combine(folder, "OfframpProbe.cs")));
+
+        var applied = await cli.RunAsync("--no-cache", "newtonsoft", "tests", "--remove", "--apply", "--json");
+
+        Assert.Equal(0, applied.ExitCode);
+        var appliedResult = JsonNode.Parse(applied.Out)!["result"]!;
+        Assert.True(appliedResult["applied"]!.GetValue<bool>());
+        var journal = appliedResult["journal"]!.GetValue<string>();
+        Assert.False(File.Exists(Path.Combine(folder, "OfframpProbe.cs")));
+        var rollback = await cli.RunAsync("move", "rollback", "--journal", journal, "--json");
+        Assert.Equal(0, rollback.ExitCode);
+        Assert.True(File.Exists(Path.Combine(folder, "OfframpProbe.cs")));
+    }
+
+    [Fact]
     public async Task Applying_writes_the_probes_and_rollback_removes_them()
     {
         var scanned = await ScannedFixtures.ScanAsync("newtonsoft-legacy");

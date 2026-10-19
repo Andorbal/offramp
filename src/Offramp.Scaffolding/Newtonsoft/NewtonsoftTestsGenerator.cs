@@ -49,6 +49,8 @@ public sealed record NewtonsoftTestsRequest
 
     public bool ExactVersion { get; init; }
 
+    public bool Remove { get; init; }
+
     public required DiagnosticBag Diagnostics { get; init; }
 
     public IProgressSink Progress { get; init; } = NullProgressSink.Instance;
@@ -95,6 +97,12 @@ public static class NewtonsoftTestsGenerator
             .Where(s => !IsTest(s.Project) && s.Sites.Count > 0 && (request.Projects.Count == 0 || request.Projects.Contains(s.Project.Id, StringComparer.Ordinal)))
             .OrderBy(s => s.Project.Id, StringComparer.Ordinal)
             .ToList();
+        if (request.Remove)
+        {
+            var selectedTargets = ResolveRemovalTargets(request, productions);
+            return Remove(request.RepositoryRoot, request.Model, selectedTargets, request.Diagnostics);
+        }
+
         var samples = Samples(request, scanned);
         var targets = new List<ProbeTarget>();
         var planned = new List<(ProbeTarget Target, ProbePlanner Planner, ScannedProject Production)>();
@@ -195,6 +203,118 @@ public static class NewtonsoftTestsGenerator
         return (result, changeSet.IsEmpty ? null : changeSet);
     }
 
+    private static List<ProbeTarget> ResolveRemovalTargets(NewtonsoftTestsRequest request, List<ScannedProject> productions)
+    {
+        var selected = new List<ProbeTarget>();
+        foreach (var production in productions)
+        {
+            var release = production.Deployment.DeployedReleases
+                .Select(version => NuGetVersion.TryParse(version, out var parsed) ? parsed : null).OfType<NuGetVersion>()
+                .Where(version => version < NewtonsoftRules.Measured).OrderBy(version => version, VersionComparer.VersionRelease).FirstOrDefault()
+                ?? NewtonsoftReferences.Release(production.Reference);
+            var target = Target(request, production, productions.Count, release);
+            if (target is not null)
+            {
+                selected.Add(target);
+            }
+        }
+
+        return selected;
+    }
+
+    public static (NewtonsoftTestsResult Result, ChangeSet? ChangeSet) Remove(string root, WorkspaceModel model, IReadOnlyList<ProbeTarget> targets, DiagnosticBag diagnostics)
+    {
+        var changeSet = new ChangeSet();
+        var files = new List<GeneratedFile>();
+        var ownedSourcesByProject = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var target in targets.GroupBy(t => t.TestProject, StringComparer.Ordinal).Select(g => g.First()).OrderBy(t => t.TestProject, StringComparer.Ordinal))
+        {
+            var absolute = RepoPaths.ToAbsolute(root, target.Folder);
+            if (!Directory.Exists(absolute))
+            {
+                continue;
+            }
+
+            var folderPrefix = target.Folder.TrimEnd('/') + "/";
+            var candidates = Directory.EnumerateFiles(absolute, "*", SearchOption.AllDirectories)
+                .Order(StringComparer.Ordinal);
+            var ownedSources = new List<string>();
+            foreach (var file in candidates)
+            {
+                var relative = RepoPaths.ToRepositoryRelative(root, file);
+                var relativeToFolder = relative[folderPrefix.Length..];
+                var sourceFile = relativeToFolder.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                    && !relativeToFolder.Contains('/', StringComparison.Ordinal);
+                var inputFile = relativeToFolder.StartsWith("Inputs/", StringComparison.Ordinal)
+                    && !relativeToFolder["Inputs/".Length..].Contains('/', StringComparison.Ordinal)
+                    && relativeToFolder.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
+                var baselineFile = relativeToFolder.StartsWith("Baseline/", StringComparison.Ordinal)
+                    && relativeToFolder.Count(c => c == '/') == 2
+                    && relativeToFolder.EndsWith(".txt", StringComparison.OrdinalIgnoreCase);
+                var text = sourceFile || baselineFile
+                    ? File.ReadAllText(file).Replace("\r\n", "\n", StringComparison.Ordinal)
+                    : "";
+                var generatedSource = sourceFile && text.StartsWith(Header, StringComparison.Ordinal);
+                var generatedInput = inputFile;
+                var recordedBaseline = baselineFile && ProbeRecord.Parse(text) is not null;
+                if (!generatedSource && !generatedInput && !recordedBaseline)
+                {
+                    files.Add(new GeneratedFile(relative, "kept"));
+                    diagnostics.Report(DiagnosticCatalog.OFR3742,
+                        $"{relative} has no Offramp-generated header; it is left as it is.", new DiagnosticLocation(target.TestProject, relative));
+                    continue;
+                }
+
+                changeSet.Delete(root, relative);
+                files.Add(new GeneratedFile(relative, "delete"));
+                if (generatedSource)
+                {
+                    ownedSources.Add(relative);
+                }
+            }
+
+            ownedSourcesByProject[target.TestProject] = ownedSources;
+        }
+
+        foreach (var target in targets.GroupBy(t => t.TestProject, StringComparer.Ordinal).Select(g => g.First()).OrderBy(t => t.TestProject, StringComparer.Ordinal))
+        {
+            if (!ownedSourcesByProject.TryGetValue(target.TestProject, out var ownedSources) || ownedSources.Count == 0)
+            {
+                continue;
+            }
+
+            var projectPath = RepoPaths.ToAbsolute(root, target.TestProject);
+            var before = File.ReadAllBytes(projectPath);
+            var editor = ProjectFileEditor.Load(before);
+            if (editor.IsSdkStyle)
+            {
+                continue;
+            }
+
+            var test = model.Projects.Single(project => project.Id == target.TestProject);
+            var directory = test.Id.Contains('/', StringComparison.Ordinal) ? test.Id[..(test.Id.LastIndexOf('/') + 1)] : "";
+            foreach (var source in ownedSources)
+            {
+                editor.RemoveItems("Compile", source[directory.Length..].Replace('/', '\\'));
+            }
+
+            changeSet.Edit(test.Id, before, editor.Save());
+        }
+
+        files.Sort((left, right) => string.CompareOrdinal(left.Path, right.Path));
+        var result = new NewtonsoftTestsResult
+        {
+            Targets = [.. targets.OrderBy(t => t.TestProject, StringComparer.Ordinal).ThenBy(t => t.Production, StringComparer.Ordinal)],
+            Probes = [],
+            Uncovered = [],
+            Files = files,
+            Coverage = new ProbeCoverage { Sites = 0, WithEntryProbe = 0, WithTypeProbe = 0, Uncovered = new SortedDictionary<string, int>(StringComparer.Ordinal) },
+            Preview = changeSet.IsEmpty ? null : changeSet.Preview(),
+            Mode = "remove",
+        };
+        return (result, changeSet.IsEmpty ? null : changeSet);
+    }
+
     /// <summary>Selects a Newtonsoft-specific test target without changing <c>move tests</c>.</summary>
     private static ProbeTarget? Target(NewtonsoftTestsRequest request, ScannedProject production, int productions, NuGetVersion? deployedRelease)
     {
@@ -288,10 +408,11 @@ public static class NewtonsoftTestsGenerator
             return null;
         }
 
+        var directory = test.Id.Contains('/', StringComparison.Ordinal) ? test.Id[..(test.Id.LastIndexOf('/') + 1)] : "";
         if (test.Id == productionProject.Id)
         {
             request.Diagnostics.Report(DiagnosticCatalog.OFR3749,
-                $"Probes are generated into {test.Id}, which already ships tests.", new DiagnosticLocation(test.Id));
+                $"Probes are generated into {test.Id}, which already ships tests. Remove {directory + request.Folder}/ before shipping this production assembly.", new DiagnosticLocation(test.Id));
         }
 
         if (TestFrameworks.Detect(test) is not { } framework)
@@ -301,7 +422,6 @@ public static class NewtonsoftTestsGenerator
             return null;
         }
 
-        var directory = test.Id.Contains('/', StringComparison.Ordinal) ? test.Id[..(test.Id.LastIndexOf('/') + 1)] : "";
         return new ProbeTarget { Production = productionProject.Id, TestProject = test.Id, Framework = framework, By = by, Folder = directory + request.Folder };
     }
 
@@ -670,7 +790,8 @@ public static class NewtonsoftTestsGenerator
             }
         }
 
-        if (!test.SdkStyle)
+        if (File.Exists(RepoPaths.ToAbsolute(root, test.Id))
+            && !ProjectFileEditor.Load(File.ReadAllBytes(RepoPaths.ToAbsolute(root, test.Id))).IsSdkStyle)
         {
             var project = RepoPaths.ToAbsolute(root, test.Id);
             var editor = ProjectFileEditor.Load(File.ReadAllBytes(project));

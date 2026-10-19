@@ -13,6 +13,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ### Added
 - Verification builds can use `verify.builder: msbuild` or inherit `scan.builder`, sharing the scan MSBuild locator and `scan.msbuildPath`; probe test execution remains on `dotnet test`.
+- `offramp newtonsoft tests --remove` dry-runs removal of owned generated characterization files and applies deletions with a rollback journal; ownership markers protect modified files (OFR3742).
 - Workspace projects now expose `hostsTests`, identifying production-kind assemblies that also reference a test framework.
 
 ### Changed
@@ -20,7 +21,7 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
   **Migration:** `kind`, `isTestProject`, and workspace JSON now reflect production assemblies carrying tests; rescan and update workspace consumers to accept the required `hostsTests` field.
 
 - `newtonsoft scan` reports deployed Newtonsoft.Json release scope (`deployedReleases`, `deployedBy`, `inScope`); scan/tests default to projects used by an application still on an older release, with `--all-projects` and `newtonsoft.scope: all` overrides (`OFR3726`, ADR 0078).
-- `OFR3749` explains when characterization probes are generated into a production assembly that already hosts tests; Newtonsoft-specific target selection prefers direct tests resolving the deployment release without changing `move tests` (ADR 0078).
+- `OFR3749` explains when characterization probes are generated into a production assembly that already hosts tests; remove the named folder before shipping that production assembly. Newtonsoft-specific target selection prefers direct tests resolving the deployment release without changing `move tests` (ADR 0078).
 
 ### Fixed
 - `newtonsoft upgrade` syncs binding redirects only for applications whose deployed release changes, leaves others' config untouched, and preserves ranges for redirects already pointing at the target assembly version.

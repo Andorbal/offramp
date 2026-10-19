@@ -240,7 +240,8 @@
       "enum": [
         "generate",
         "record",
-        "verify"
+        "verify",
+        "remove"
       ]
     },
     "runs": {

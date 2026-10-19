@@ -191,7 +191,8 @@ public sealed class NewtonsoftTestsGeneratorTests
         } });
 
         Assert.Contains(result.Targets, target => target.Production == Catalog && target.TestProject == Catalog && target.By == "self");
-        Assert.Contains(diagnostics.ToSortedList(), diagnostic => diagnostic.Code == "OFR3749" && diagnostic.Project == Catalog);
+        Assert.Contains(diagnostics.ToSortedList(), diagnostic => diagnostic.Code == "OFR3749"
+            && diagnostic.Message.Contains("Remove src/Catalog/NewtonsoftCharacterization/ before shipping", StringComparison.Ordinal));
     }
 
     [Fact]

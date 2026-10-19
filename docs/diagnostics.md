@@ -2451,10 +2451,10 @@ Compiled into the test project's recorded compilation, the generated files have 
 
 **probes are generated into a project that already ships tests** · info · newtonsoft
 
-The production project hosts tests and characterization probes are generated into it; those tests already ship with the production project.
+The production project hosts tests and characterization probes are generated into it. The message names the generated folder; remove that folder before shipping the production assembly.
 
 - **Typical cause:** Production code and its tests live in one assembly.
-- **Fix:** None.
+- **Fix:** Remove the folder named in this diagnostic before shipping the production assembly.
 
 ### OFR3760
 

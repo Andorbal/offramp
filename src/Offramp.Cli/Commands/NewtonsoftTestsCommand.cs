@@ -13,7 +13,7 @@ using Spectre.Console;
 
 namespace Offramp.Cli.Commands;
 
-public sealed record NewtonsoftTestsOptions(IReadOnlyList<string> Projects, string? To, string? Samples, bool Record = false, bool Verify = false, bool AllProjects = false);
+public sealed record NewtonsoftTestsOptions(IReadOnlyList<string> Projects, string? To, string? Samples, bool Record = false, bool Verify = false, bool AllProjects = false, bool Remove = false);
 
 /// <summary><c>offramp newtonsoft tests</c> (docs/spec/commands/newtonsoft.md#newtonsoft-tests).</summary>
 public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOptions, NewtonsoftTestsResult>
@@ -30,9 +30,10 @@ public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOpti
         var record = new Option<bool>("--record") { Description = "Build and run the probes, twice, and write what they observe as baselines (with --apply)." };
         var verify = new Option<bool>("--verify") { Description = "Build and run the probes once and compare what they observe with the baselines." };
         var allProjects = new Option<bool>("--all-projects") { Description = "Include projects outside deployed application scope." };
-        var command = new Command("tests", "Generate characterization probes for every serialization site into the test projects that cover it; record and verify their baselines.")
+        var remove = new Option<bool>("--remove") { Description = "Remove generated characterization files from the selected test projects (dry run unless --apply)." };
+        var command = new Command("tests", "Generate, record, verify, or remove characterization probes.")
         {
-            project, to, samples, record, verify, allProjects,
+            project, to, samples, record, verify, allProjects, remove,
         };
         command.Validators.Add(result =>
         {
@@ -40,13 +41,19 @@ public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOpti
             {
                 result.AddError("--record and --verify cannot be combined.");
             }
+
+            if (result.GetValue(remove) && (result.GetValue(record) || result.GetValue(verify)))
+            {
+                result.AddError("--remove cannot be combined with --record or --verify.");
+            }
         });
         command.SetAction((parse, ct) => CommandRunner.RunAsync(new NewtonsoftTestsCommand(),
-            new NewtonsoftTestsOptions(parse.GetValue(project) ?? [], parse.GetValue(to), parse.GetValue(samples), parse.GetValue(record), parse.GetValue(verify), parse.GetValue(allProjects)), globals.Bind(parse), host, ct));
+            new NewtonsoftTestsOptions(parse.GetValue(project) ?? [], parse.GetValue(to), parse.GetValue(samples), parse.GetValue(record), parse.GetValue(verify), parse.GetValue(allProjects), parse.GetValue(remove)), globals.Bind(parse), host, ct));
         HelpExamples.Add(command,
             "offramp newtonsoft tests",
             "offramp newtonsoft tests --samples payloads/ --record --apply",
             "offramp newtonsoft tests --verify",
+            "offramp newtonsoft tests --remove",
             "offramp newtonsoft tests --project src/Orders/Orders.csproj --to tests/Orders.Tests/Orders.Tests.csproj --apply");
         return command;
     }
@@ -95,14 +102,20 @@ public sealed class NewtonsoftTestsCommand : ICommandHandler<NewtonsoftTestsOpti
             EntryDepth = config.Newtonsoft.Tests.EntryDepth,
             NonHermetic = config.Newtonsoft.Hermetic.NonHermetic,
             AllProjects = options.AllProjects || string.Equals(config.Newtonsoft.Scope, "all", StringComparison.OrdinalIgnoreCase),
+            Remove = options.Remove,
             Diagnostics = context.Diagnostics,
             Progress = context.Progress,
         }, cancellationToken);
         var apply = context.Settings.Apply && !context.Settings.DryRun;
         if (changeSet is not null && apply)
         {
-            var journal = await new ChangeSetApplier(root, context.Host.GitService).ApplyAsync(changeSet, "newtonsoft tests", context.Host.Time.GetUtcNow(), cancellationToken);
+            var journal = await new ChangeSetApplier(root, context.Host.GitService).ApplyAsync(changeSet, options.Remove ? "newtonsoft tests remove" : "newtonsoft tests", context.Host.Time.GetUtcNow(), cancellationToken);
             result = result with { Applied = true, Journal = journal, Preview = null };
+        }
+
+        if (options.Remove)
+        {
+            return CommandOutcome<NewtonsoftTestsResult>.Completed(result);
         }
 
         if (!options.Record && !options.Verify)

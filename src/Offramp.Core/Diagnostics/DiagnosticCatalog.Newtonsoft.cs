@@ -303,9 +303,9 @@ public static partial class DiagnosticCatalog
     public static readonly DiagnosticDescriptor OFR3749 = new(
         "OFR3749", Severity.Info,
         "probes are generated into a project that already ships tests",
-        "The production project hosts tests and characterization probes are generated into it; those tests already ship with the production project.",
+        "The production project hosts tests and characterization probes are generated into it; remove the generated characterization folder before shipping this production assembly.",
         "Production code and its tests live in one assembly.",
-        "None.",
+        "Remove the folder named in this diagnostic before shipping the production assembly.",
         NewtonsoftArea);
 
     public static readonly DiagnosticDescriptor OFR3747 = new(

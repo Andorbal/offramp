@@ -116,7 +116,7 @@ public sealed record NewtonsoftTestsResult
 
     public string? Journal { get; init; }
 
-    /// <summary><c>generate</c>, <c>record</c>, or <c>verify</c>.</summary>
+    /// <summary><c>generate</c>, <c>record</c>, <c>verify</c>, or <c>remove</c>.</summary>
     public string Mode { get; init; } = "generate";
 
     /// <summary>The test runs of a recording or a verification.</summary>
