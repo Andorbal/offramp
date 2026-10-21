@@ -462,12 +462,17 @@ cannot run is reported once per command, not once per recording pass.
 **Recording on another machine.** Generation works on any OS; recording and
 verifying a test project that targets only .NET Framework need Windows. Prefer
 moving generated source and baselines through the repository rather than copying
-or synchronizing the working folder: `.offramp/`'s logs, `bin/`, `obj/`, and
+or synchronizing build state: `.offramp/`'s logs, `bin/`, `obj/`, and
 `packages/` belong to the machine that built them (a synchronized `obj/` gives a
-Windows build the other machine's package folder, `OFR0132`; ADR 0076). If
-recording in a Windows VM whose files are mirrored, use the precautions in
-[Windows VM workflow](#windows-vm-workflow-for-legacy-nunit-projects) so the
-host's `.offramp/` state cannot overwrite the VM's.
+Windows build the other machine's package folder, `OFR0132`; ADR 0076). When a
+Windows VM directly shares the host checkout, source files are already visible
+on both sides; do not run a second file-sync mechanism or share machine-specific
+build state. Use the Windows toolchain through the host's configured remote-
+execution wrapper. For long runs, start a detached PowerShell process, write its
+exit code to a done-marker file, and poll the marker in short intervals rather
+than holding an interactive command open. If the VM uses a separate checkout,
+transfer only source changes and baselines through version control. See
+[Windows VM workflow](#windows-vm-workflow-for-legacy-nunit-projects).
 
 1. Where you generate: `offramp newtonsoft tests --apply`, then commit the
    generated folders.
@@ -542,17 +547,19 @@ Offramp supplies `OFFRAMP_NEWTONSOFT_MODE`, `OFFRAMP_NEWTONSOFT_RESULTS`, and
 under the results directory. Returning zero lets Offramp judge those probe files
 rather than treating NUnit's expected failing assertions as the verdict.
 
-A run that takes 30 minutes or more must outlive the interactive SSH session:
-launch the recording command through Windows Task Scheduler (or another detached
-process), have the launcher write a done-marker file with the process exit code,
-and poll that marker from the SSH session. For example, the scheduled PowerShell
-launcher can run `offramp newtonsoft tests --record --apply`, save `$LASTEXITCODE`
-to a marker path in a `finally`-style completion step, then exit with that code;
-the SSH client polls with `while (-not (Test-Path $marker)) { Start-Sleep 30 }` and
-reads the marker when it appears. Set `timeoutSeconds` high enough for the
-expected run. When the VM checkout is mirrored from another machine, pause
-the file sync before working so its `.offramp/` does not get overwritten, then
-delete the stale `.offramp/` on the VM and run `offramp scan` there before
+A run that takes 30 minutes or more must outlive the interactive command:
+launch it with a detached PowerShell process (for example,
+`Start-Process powershell -WindowStyle Hidden -File record.ps1`), have the
+script write a done-marker file containing the process exit code, and poll that
+marker in short intervals. The launcher can run
+`offramp newtonsoft tests --record --apply` and save `$LASTEXITCODE` when it
+exits. Set `timeoutSeconds` high enough for the expected run. With a Parallels
+shared folder, the Windows VM and host see the same checkout; there is no SSH,
+file synchronization, or separate VM copy. Run Windows commands from the host
+through the configured `remote.py exec` wrapper, create its required temporary
+directory first, and do not let host-side commands touch `.offramp/` while a VM
+job is using it. Check for an existing recorder and its done marker before
+starting another run. Run `offramp scan --msbuild` in a fresh checkout before
 recording. Offramp does not require Git on the VM; it applies changes directly
 as ordinary filesystem operations.
 
@@ -702,7 +709,40 @@ newtonsoft:
 | OFR3766 | error | restore failed after the upgrade; rolled back |
 | OFR3767 | warning | no baselines; upgrade checked by the compiler only |
 
-## Not in v1
+## Known coverage limits and not in v1
+
+Characterization probes primarily exercise explicit Newtonsoft.Json calls and
+settings they can reproduce. They measure serialization and deserialization
+through those code paths; they do not execute framework-owned inbound model
+binding. Probing a type used by an HTTP action does not prove that the framework's
+formatter accepts the same request payloads. Framework formatter settings and
+converters are reported where found, but formatter binding behavior remains a
+manual integration-test responsibility.
+
+Two inbound compatibility risks to check when moving an application from older
+Json.NET releases to 13.x are structured JSON (`[]` or `{}`) bound to scalar
+value types, and the default reader depth limit. Newer Json.NET can fail the
+whole object binding after a structured token is presented for a scalar
+(#1580), and by default rejects nesting beyond 64 levels; older versions may
+have accepted these inputs. Application-specific formatters or settings can
+change these outcomes. Offramp does not infer or apply a converter, error
+handler, or `MaxDepth` value for a framework formatter.
+
+A future `newtonsoft upgrade --fix` design should be an explicit, reviewable
+opt-in separate from package upgrade and probe generation. It would need to
+identify the actual inbound framework settings, preserve the configured
+serializer (including date/time handling and existing error semantics), and
+validate converter precedence against the formatter's real settings. It must not
+silently swallow deserialization errors or assume a converter will run just
+because it is registered. No inbound binding fix is currently generated.
+
+Probe comparisons also report output differences, not their semantic cause. A
+difference limited to volatile data can therefore appear as `differs` even when
+the underlying serialization contract is unchanged; repeated-run quarantine
+(`OFR3738`) only detects volatility observed during recording. For an upgrade,
+inspect volatile-only differences rather than treating them as proof of a
+stable behavior change. Future diagnostics could identify and distinguish these
+cases without suppressing unexplained differences.
 
 TUnit and Visual Basic; Mono; reproducing `JsonConvert.DefaultSettings`; mocks
 for interface-typed parameters; payloads serialized implicitly by Web API, MVC,
