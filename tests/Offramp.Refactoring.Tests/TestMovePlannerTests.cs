@@ -14,6 +14,41 @@ namespace Offramp.Refactoring.Tests;
 public sealed class TestMovePlannerTests
 {
     [Fact]
+    public void A_net_framework_trial_adds_facades_when_a_project_reference_depends_on_netstandard()
+    {
+        var packages = global::NuGet.Configuration.SettingsUtility.GetGlobalPackagesFolder(global::NuGet.Configuration.Settings.LoadDefaultSettings(null));
+        var standard = Directory.EnumerateDirectories(Path.Combine(packages, "netstandard.library"))
+            .OrderByDescending(p => p, StringComparer.Ordinal)
+            .Select(p => Path.Combine(p, "build", "netstandard2.0", "ref", "netstandard.dll"))
+            .First(File.Exists);
+        var framework = Directory.EnumerateDirectories(Path.Combine(packages, "microsoft.netframework.referenceassemblies.net48"))
+            .OrderByDescending(p => p, StringComparer.Ordinal)
+            .Select(p => Path.Combine(p, "build", ".NETFramework", "v4.8", "mscorlib.dll"))
+            .First(File.Exists);
+        var frameworkReferences = Directory.EnumerateFiles(Path.GetDirectoryName(framework)!, "*.dll")
+            .Where(path => !Path.GetFileName(path).Contains("Thunk", StringComparison.OrdinalIgnoreCase)
+                && !Path.GetFileName(path).Contains("Wrapper", StringComparison.OrdinalIgnoreCase))
+            .Select(path => MetadataReference.CreateFromFile(path))
+            .ToArray();
+        var standardReferences = Directory.EnumerateFiles(Path.GetDirectoryName(standard)!, "*.dll")
+            .Select(path => MetadataReference.CreateFromFile(path))
+            .ToArray();
+        var dependencyTree = CSharpSyntaxTree.ParseText("public static class StandardApi { public static object Identity(object value) => value; }");
+        var dependency = CSharpCompilation.Create("StandardDependency", [dependencyTree], standardReferences);
+        var added = dependency.ToMetadataReference();
+        var caller = CSharpSyntaxTree.ParseText("public class Probe { public object Value => StandardApi.Identity(new object()); }");
+        var trial = CSharpCompilation.Create("Tests", [caller], [.. frameworkReferences, added],
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var errorsWithoutFacades = trial.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        var withFacades = NetStandardFacades.Add(trial, "net48", [added]);
+        var errorsWithFacades = withFacades.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+
+        Assert.Contains(errorsWithoutFacades, d => d.Id == "CS0012");
+        Assert.Empty(errorsWithFacades);
+    }
+
+    [Fact]
     public async Task Foo_plan_moves_tests_and_helpers_and_explains_the_rest()
     {
         var fixture = await ScannedFixtures.GetAsync("tests-in-prod");

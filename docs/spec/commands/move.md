@@ -305,7 +305,11 @@ Then the `move plan` machinery:
   moved files need that the destination lacks. A file with errors stays
   (`OFR2103`, warning, first three errors); repeat until the rest compiles.
   .NET Framework references are never added to an existing destination, so a
-  file needing one stays.
+  file needing one stays. However, if the trial gains a .NET Standard assembly
+  reference and targets .NET Framework 4.6.1 or later, it also gets the
+  framework facades MSBuild adds (`netstandard.dll` and the `System.*` facades),
+  from the SDK's `Microsoft.NET.Build.Extensions` and the reference assemblies'
+  `Facades` folder (ADR 0052).
 - **Source check**: `SRC` minus the moved files must compile with no new
   errors; otherwise nothing moves, since `SRC` cannot reference its test
   project: every file is in `skipped` with `OFR2104`, and one `OFR2104`
