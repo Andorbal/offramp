@@ -11,6 +11,10 @@ block under a version heading with the date. `docs/RELEASING.md` has the steps.
 
 ## [Unreleased]
 
+### Fixed
+- `move tests` trial compilations of .NET Framework destinations now add the .NET Standard facades MSBuild supplies when the moved tests need a .NET Standard project reference. This avoids false `OFR2103` CS0012 errors such as missing `mscorlib, Version=2.0.5.0`.
+- Pin the transitive `MessagePack` dependency from Basic.CompilerLog.Util to patched version 3.1.12 to resolve the moderate-severity GHSA-qhrr-8q5h-9q3h warning.
+
 ## [0.19.0] - 2026-10-15
 
 ### Added

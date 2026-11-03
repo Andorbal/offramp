@@ -120,7 +120,7 @@ public static class TestMovePlanner
         var files = source.Compile.ToDictionary(f => f, f => RepoPaths.ToAbsolute(request.RepositoryRoot, f), StringComparer.Ordinal);
         var shipped = ShippedProjects.Read(request.RepositoryRoot, model, request.Config.DeadCode.ExternalConsumers).Of(source)?.Reason;
         var classified = TestCodeClassifier.Classify(sourceCompilation, files, consumers, target.Project, shipped);
-        var context = new Context(request, source, target.Project, target.Create, sourceCompilation, destination, destinationCompilation, classified);
+        var context = new Context(request, source, tfm!, target.Project, target.Create, sourceCompilation, destination, destinationCompilation, classified);
         return await BuildAsync(context, cancellationToken);
     }
 
@@ -147,7 +147,7 @@ public static class TestMovePlanner
         KeyValuePair.Create<string, JsonNode?>("candidates", new JsonArray([.. projects.Select(p => (JsonNode?)p)]));
 
     private sealed record Context(
-        MoveTestsRequest Request, ProjectInfo Source, string Destination, bool Create, CSharpCompilation SourceCompilation,
+        MoveTestsRequest Request, ProjectInfo Source, string TargetFramework, string Destination, bool Create, CSharpCompilation SourceCompilation,
         ProjectInfo? DestinationProject, CSharpCompilation? DestinationCompilation, IReadOnlyList<ClassifiedFile> Classified)
     {
         public string DestinationName => DestinationProject?.AssemblyName ?? DestinationProject?.Name ?? Path.GetFileNameWithoutExtension(Destination);
@@ -336,16 +336,28 @@ public static class TestMovePlanner
         if (context.DestinationCompilation is { } existing)
         {
             var kept = existing.References.Where(r => Name(existing, r) != sourceName);
-            return existing.WithReferences([.. kept, remaining.ToMetadataReference(), .. needs.Where(n => n.Origin != ReferenceOrigin.Framework).Select(n => n.Reference)]);
+            MetadataReference[] added =
+            [
+                remaining.ToMetadataReference(),
+                .. needs.Where(n => n.Origin != ReferenceOrigin.Framework).Select(n => n.Reference),
+            ];
+            var trial = existing.WithReferences([.. kept, .. added]);
+            return NetStandardFacades.Add(trial, context.TargetFramework, added);
         }
 
         // A new project: the source's .NET Framework references (the template copies them) plus what the files need.
         var framework = context.SourceCompilation.References.Where(r => Origin(context, context.SourceCompilation, r).Origin == ReferenceOrigin.Framework);
-        return CSharpCompilation.Create(
+        MetadataReference[] createdReferences =
+        [
+            remaining.ToMetadataReference(),
+            .. needs.Where(n => n.Origin != ReferenceOrigin.Framework).Select(n => n.Reference),
+        ];
+        var created = CSharpCompilation.Create(
             context.DestinationName,
             context.SourceCompilation.SyntaxTrees.Where(t => t.FilePath.EndsWith(".GlobalUsings.g.cs", StringComparison.OrdinalIgnoreCase)),
-            [.. framework, remaining.ToMetadataReference(), .. needs.Where(n => n.Origin != ReferenceOrigin.Framework).Select(n => n.Reference)],
+            [.. framework, .. createdReferences],
             context.SourceCompilation.Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        return NetStandardFacades.Add(created, context.TargetFramework, createdReferences);
     }
 
     /// <summary>

@@ -18,6 +18,8 @@
     <PackageReference Include="NuGet.ProjectModel" />
     <PackageReference Include="MSBuild.StructuredLogger" />
     <PackageReference Include="Basic.CompilerLog.Util" />
+    <!-- Basic.CompilerLog.Util 0.9.63 depends on vulnerable MessagePack 3.1.8; keep its runtime dependency patched. -->
+    <PackageReference Include="MessagePack" />
     <!-- The meta-package lifts every Roslyn assembly Basic.CompilerLog pulls in to one version. -->
     <PackageReference Include="Microsoft.CodeAnalysis" />
     <PackageReference Include="Microsoft.VisualStudio.SolutionPersistence" />

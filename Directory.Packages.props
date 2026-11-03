@@ -28,6 +28,8 @@
     <PackageVersion Include="MSBuild.StructuredLogger" Version="2.3.246" />
     <PackageVersion Include="Microsoft.Build" Version="17.11.48" />
     <PackageVersion Include="Basic.CompilerLog.Util" Version="0.9.63" />
+    <!-- Basic.CompilerLog.Util 0.9.63 brings MessagePack 3.1.8 (GHSA-qhrr-8q5h-9q3h); pin to the patched release. -->
+    <PackageVersion Include="MessagePack" Version="3.1.12" />
     <!--
       Roslyn is pinned above Basic.CompilerLog's floor (4.8): older compilers report
       bogus errors against .NET 10 reference assemblies, and C# and VB must match.
